@@ -1,0 +1,26 @@
+/*
+ * format.h — CLI 용 한국어 문구
+ *
+ * C 코어는 언어를 모르고 숫자 코드만 냅니다. 사람이 읽을 문장은 프런트엔드가 만듭니다.
+ * (Godot 쪽에는 Strings.cs 가 같은 일을 합니다)
+ */
+#ifndef CASTLE_CLI_FORMAT_H
+#define CASTLE_CLI_FORMAT_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "castle_core.h"
+
+const char *fmt_season_name(int32_t season);
+const char *fmt_difficulty_name(int32_t difficulty);
+const char *fmt_resource_name(int32_t resource);
+const char *fmt_terrain_name(int32_t terrain);
+/* 오류 코드를 사용자에게 보여 줄 문장으로 */
+const char *fmt_result_message(int32_t code);
+/* 이벤트 하나를 문장으로 */
+void fmt_event(const CoreEventView *event, char *out, size_t size);
+/* "1년 봄 3일 (3일째) 06:00" */
+void fmt_date(const CoreSummaryView *summary, char *out, size_t size);
+
+#endif
