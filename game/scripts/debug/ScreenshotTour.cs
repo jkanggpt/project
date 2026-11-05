@@ -54,10 +54,15 @@ public partial class ScreenshotTour : Node
             await Capture("03_build_ghost_zoom3");
             _main.Tools.Cancel();
 
-            // 사흘 뒤 한낮: 다 지은 건물과 일하는 주민, 건물 검사창
+            // 사흘 뒤: 위협이 오는 쪽에 감시탑, 그리고 남은 계획
             await AdvanceDays(3);
+            BuildToward(BuildingType.Tower, 5);
             BuildSome(SmokeTest.Plan.Length);
-            await AdvanceDays(2);
+
+            // 5일째 13시: 첫 도적 습격. 싸움 한가운데(화살이 나는 중)와 끝난 뒤
+            await PlayRaid("15_raid_zoom3", "16_raid_over");
+
+            // 6일째 한낮: 다 지은 건물과 일하는 주민, 건물 검사창
             await AdvanceTo(11 * 60);
             _main.Camera.SetZoomLevel(2);
             _main.Camera.CenterOn(keep);
@@ -166,6 +171,97 @@ public partial class ScreenshotTour : Node
             ? $"SCREENSHOTS SAVED to {_directory}"
             : $"SCREENSHOTS FAILED ({errors} engine errors/warnings)\n{ErrorCounter.Summary()}");
         Sfx.QuitQuietly(GetTree(), errors == 0 && ok ? 0 : 1);
+    }
+
+    /// <summary>예고된 위협이 오는 쪽으로 distance 칸 떨어진 곳 근처에 짓습니다</summary>
+    private void BuildToward(BuildingType type, int distance)
+    {
+        CoreSummaryView summary = _main.Sync.Summary;
+        var center = new Vector2I(summary.KeepX + summary.KeepSize / 2, summary.KeepY + summary.KeepSize / 2);
+        Vector2I toward = (Direction)summary.ThreatDirection switch
+        {
+            Direction.North => new Vector2I(0, -distance),
+            Direction.East => new Vector2I(distance, 0),
+            Direction.South => new Vector2I(0, distance),
+            _ => new Vector2I(-distance, 0),
+        };
+        if (SmokeTest.TryFindSpot(type, center + toward, out Vector2I spot))
+        {
+            CoreBridge.Instance.PlaceBuilding(type, spot, out _, out _);
+        }
+        _main.Sync.Reconcile();
+    }
+
+    /// <summary>
+    /// 다음 습격이 올 때까지 한 틱씩 진행하고, 습격 중에는 싸움을 1분씩 직접 진행합니다 (실제 플레이와 같은 순서:
+    /// 틱 사이에 싸움). 화살을 맞은 적이 있고 다음 화살이 날고 있을 때 한 장, 끝나고 알림이 뜬 뒤에 한 장 찍습니다.
+    /// </summary>
+    private async Task PlayRaid(string fightShot, string overShot)
+    {
+        CoreConfigView config = CoreBridge.Instance.Config;
+        int limit = _main.Sync.Summary.Tick + 3 * config.TicksPerDay;
+        while (_main.Sync.Summary.RaidId == 0 && _main.Sync.Summary.Tick < limit)
+        {
+            GameClock.Instance.Advance(1);
+            await WaitFrames(1);
+        }
+        if (_main.Sync.Summary.RaidId == 0)
+        {
+            GD.Print("screenshot tour: no raid came");
+            return;
+        }
+        CombatDirector combat = _main.Combat;
+        combat.ManualStep = true;
+        _main.Camera.SetZoomLevel(3);
+        bool shot = false;
+        int minutes = 0;
+        while (_main.Sync.Summary.RaidId != 0 && minutes < config.TicksPerDay * config.MinutesPerTick)
+        {
+            combat.Step(1);
+            minutes++;
+            if (minutes % config.MinutesPerTick == 0)
+            {
+                GameClock.Instance.Advance(1);
+            }
+            FollowFight(combat);
+            await WaitFrames(1);
+            if (!shot && combat.ArrowMidFlight && AnyEnemyHurt(combat))
+            {
+                shot = true;
+                await Capture(fightShot);
+            }
+        }
+        combat.ManualStep = false;
+        await WaitFrames(2);
+        await Capture(overShot);
+    }
+
+    /// <summary>화살을 맞은 적이 있는가 (체력 막대가 보이는 때)</summary>
+    private static bool AnyEnemyHurt(CombatDirector combat)
+    {
+        foreach (EnemyAgent enemy in combat.Enemies)
+        {
+            if (enemy.Hp < enemy.MaxHp)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>카메라를 성채와 적들 사이에 둡니다</summary>
+    private void FollowFight(CombatDirector combat)
+    {
+        CoreSummaryView summary = _main.Sync.Summary;
+        Vector2 keep = _main.Map.TileCenter(summary.KeepX + summary.KeepSize / 2, summary.KeepY + summary.KeepSize / 2);
+        Vector2 sum = Vector2.Zero;
+        int count = 0;
+        foreach (EnemyAgent enemy in combat.Enemies)
+        {
+            sum += enemy.Position;
+            count++;
+        }
+        _main.Camera.CenterOn(count > 0 ? (keep + sum / count) / 2 : keep);
     }
 
     /// <summary>자동 조종 계획의 앞쪽 count 개를 지을 수 있는 만큼 짓고 도로도 놓습니다.</summary>

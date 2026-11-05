@@ -289,6 +289,39 @@ void test_ruined_wall_is_passable(void)
     core_destroy(world);
 }
 
+/* 성채에 피신한 주민은 배가 고프면 성채 창고에서 먹음 (습격이 하루 내내 이어져도 굶지 않게) */
+void test_sheltered_villagers_eat(void)
+{
+    CoreWorld *world = test_make_world(407, CORE_DIFF_NORMAL);
+    int32_t food;
+    int32_t sheltered = 0;
+    int32_t i;
+    CHECK(world != NULL);
+    test_give(world, 200);
+    CHECK(run_until_raid(world));
+    CHECK(test_run(world, 1));
+    test_arrive_all(world);
+    for (i = 0; i < world->villager_count; i++) {
+        Villager *v = world->villagers[i];
+        if (v->state == CORE_VS_FLEE && v->at_target) {
+            v->needs.hunger = 5;
+            sheltered++;
+        }
+    }
+    CHECK(sheltered > 0);
+    food = world->bank.amount[CORE_RES_FOOD];
+    CHECK(test_run(world, 1));
+    CHECK(world->bank.amount[CORE_RES_FOOD] < food);
+    for (i = 0; i < world->villager_count; i++) {
+        Villager *v = world->villagers[i];
+        if (v->state == CORE_VS_FLEE && v->at_target) {
+            CHECK(v->needs.hunger > 5);
+        }
+    }
+    CHECK_EQ(test_validate_verbose(world), 0);
+    core_destroy(world);
+}
+
 /* 습격 중에는 고칠 수 없음 (맞는 동안 고치면 성벽이 무너지지 않으므로). 끝나면 다시 고칠 수 있음 */
 void test_no_repair_during_raid(void)
 {

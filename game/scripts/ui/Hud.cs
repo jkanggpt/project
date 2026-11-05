@@ -399,7 +399,7 @@ public partial class Hud : CanvasLayer
         {
             // 습격 띠는 천천히 깜빡여 눈에 띄게 함 (일시정지 중에도)
             _bannerTime += delta;
-            _raidBanner.Modulate = new Color(1, 1, 1, 0.8f + 0.2f * (float)Math.Sin(_bannerTime * 4));
+            _raidBanner.Modulate = new Color(1, 1, 1, 0.9f + 0.1f * (float)Math.Sin(_bannerTime * 4));
         }
         Vector2 inspectorSize = Inspector.GetCombinedMinimumSize();
         Inspector.OffsetLeft = 4 * scale;

@@ -85,6 +85,23 @@ public partial class CombatDirector : Node2D
     public int EnemyCount => _enemies.Count;
     public int ActiveProjectiles => _projectiles.Count;
 
+    /// <summary>날아가는 중간쯤인 화살이 있는가 (스크린숏을 찍기 좋은 때)</summary>
+    public bool ArrowMidFlight
+    {
+        get
+        {
+            foreach (Projectile projectile in _projectiles)
+            {
+                float t = projectile.Elapsed / projectile.Duration;
+                if (t > 0.3f && t < 0.7f)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     /// <summary>이번 습격에서 감시탑·성채·경비병이 쓰러뜨린 적 (스모크 테스트 기록용)</summary>
     public int KillsThisRaid { get; private set; }
 

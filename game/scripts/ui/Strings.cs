@@ -626,18 +626,18 @@ public static class Strings
     }
 
     public static string ThreatLabel(int type, int direction, int ticksLeft) =>
-        $"⚔ {ThreatName(type)} {Countdown(ticksLeft)}";
+        $"위협: {ThreatName(type)} {Countdown(ticksLeft)}";
 
     public static string ThreatTooltip(int type, int direction, int ticksLeft, int strength) =>
         $"다음 위협: {ThreatName(type)} {strength}명, {DirectionName(direction)}쪽에서 {Countdown(ticksLeft)} 뒤 도착\n{Pick(ThreatAdvice, type)}\n" +
         "습격 중에는 주민이 성채로 피하고, 병영의 일꾼이 경비병으로 싸웁니다. 습격 중에는 저장할 수 없습니다.";
 
-    public const string NoThreat = "⚔ 위협 없음";
+    public const string NoThreat = "위협 없음";
 
     public static string RaidBanner(int type, int alive, int total, int guards) =>
         guards > 0
-            ? $"⚔ 습격! {ThreatName(type)} — 남은 적 {alive}/{total} · 경비병 {guards}명"
-            : $"⚔ 습격! {ThreatName(type)} — 남은 적 {alive}/{total}";
+            ? $"습격! {ThreatName(type)} — 남은 적 {alive}/{total} · 경비병 {guards}명"
+            : $"습격! {ThreatName(type)} — 남은 적 {alive}/{total}";
 
     public const string RaidBannerTooltip =
         "주민들이 성채로 피했습니다. 감시탑과 성채 망루가 화살을 쏘고, 병영의 일꾼이 경비병으로 싸웁니다.\n" +

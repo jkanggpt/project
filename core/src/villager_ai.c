@@ -333,10 +333,13 @@ static void on_seek_healing(World *world, Villager *villager)
     }
 }
 
+/* 성채 안에 숨어 있음 (안전 욕구는 update_needs 에서). 성채는 저장소이므로 배가 고프면 그 안에서 먹습니다.
+ * (습격이 하루 내내 이어져도 피신한 주민이 굶지 않게) */
 static void on_flee(World *world, Villager *villager)
 {
-    (void)world;
-    (void)villager; /* 성채 안에 숨어 있음 (안전 욕구는 update_needs 에서) */
+    if (villager->needs.hunger < VIL_HUNGRY_BELOW) {
+        on_eat(world, villager);
+    }
 }
 
 static void on_guard_post(World *world, Villager *villager)
