@@ -1,0 +1,83 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "linux-debug",
+      "displayName": "Linux GCC 디버그 + 새니타이저 (테스트용)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CASTLE_SANITIZE": "ON"
+      }
+    },
+    {
+      "name": "linux-clang-debug",
+      "displayName": "Linux Clang 디버그 + 새니타이저 (테스트용)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-clang-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CASTLE_SANITIZE": "ON"
+      }
+    },
+    {
+      "name": "linux-release",
+      "displayName": "Linux 릴리스 (Godot용 libcastle_core.so)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CASTLE_COPY_TO_GODOT": "ON"
+      }
+    },
+    {
+      "name": "mingw-release",
+      "displayName": "MinGW-w64 교차 컴파일 (Linux → Windows, 빌드만)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/mingw-release",
+      "toolchainFile": "${sourceDir}/cmake/mingw-w64.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows Visual Studio x64 (Godot용 castle_core.dll)",
+      "binaryDir": "${sourceDir}/build/windows-msvc",
+      "architecture": { "value": "x64", "strategy": "set" },
+      "cacheVariables": {
+        "CASTLE_COPY_TO_GODOT": "ON"
+      }
+    },
+    {
+      "name": "windows-mingw",
+      "displayName": "Windows MinGW-w64 (Godot용 castle_core.dll)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/windows-mingw",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "gcc",
+        "CASTLE_COPY_TO_GODOT": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "linux-debug", "configurePreset": "linux-debug" },
+    { "name": "linux-clang-debug", "configurePreset": "linux-clang-debug" },
+    { "name": "linux-release", "configurePreset": "linux-release" },
+    { "name": "mingw-release", "configurePreset": "mingw-release" },
+    { "name": "windows-msvc", "configurePreset": "windows-msvc", "configuration": "Release" },
+    { "name": "windows-mingw", "configurePreset": "windows-mingw" }
+  ],
+  "testPresets": [
+    { "name": "linux-debug", "configurePreset": "linux-debug", "output": { "outputOnFailure": true } },
+    { "name": "linux-clang-debug", "configurePreset": "linux-clang-debug", "output": { "outputOnFailure": true } },
+    { "name": "linux-release", "configurePreset": "linux-release", "output": { "outputOnFailure": true } },
+    { "name": "windows-msvc", "configurePreset": "windows-msvc", "configuration": "Release", "output": { "outputOnFailure": true } },
+    { "name": "windows-mingw", "configurePreset": "windows-mingw", "output": { "outputOnFailure": true } }
+  ]
+}
