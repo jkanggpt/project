@@ -7,7 +7,11 @@ Kenney Tiny Town(CC0)에 없는 타일(물, 바위 지대, 마정석 광맥)은 
 
 결과 파일 (커밋합니다):
   game/assets/tiles/terrain.png    16×16 타일, 4열(변형) × 5행(지형: 풀밭, 숲, 바위, 물, 마정석)
-  game/assets/buildings/keep.png   48×48 성채 (3×3 타일)
+  game/assets/tiles/roads.png      도로 타일 2가지
+  game/assets/buildings/<키>.png    건물 그림 (키는 data/buildings.def 의 [building 키])
+  game/assets/buildings/construction_WxH.png  짓는 중 그림 (발자국 크기별)
+  game/assets/units/villagers.png  주민 그림 8가지 (16×16 가로 띠)
+  game/assets/ui/res_*.png, job_*.png, bubble_*.png  자원·직업 아이콘, 상태 말풍선
 
 진짜 그림으로 바꾸고 싶으면 같은 배치의 PNG로 위 파일만 바꾸면 됩니다 (코드는 그대로).
 다시 만들기: python3 tools/make_art.py   (Pillow 필요: pip install pillow)
@@ -21,6 +25,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KENNEY_TOWN = os.path.join(ROOT, "game/assets/third_party/kenney/tiny-town/Tilemap/tilemap_packed.png")
 OUT_TERRAIN = os.path.join(ROOT, "game/assets/tiles/terrain.png")
 OUT_KEEP = os.path.join(ROOT, "game/assets/buildings/keep.png")
+KENNEY_DUNGEON = os.path.join(ROOT, "game/assets/third_party/kenney/tiny-dungeon/Tilemap/tilemap_packed.png")
+OUT_BUILDINGS = os.path.join(ROOT, "game/assets/buildings")
+OUT_UNITS = os.path.join(ROOT, "game/assets/units")
+OUT_UI = os.path.join(ROOT, "game/assets/ui")
+OUT_ROADS = os.path.join(ROOT, "game/assets/tiles/roads.png")
 
 T = 16  # 타일 크기
 VARIANTS = 4
@@ -199,6 +208,210 @@ def make_keep(sheet):
     return img
 
 
+# ---- 건물 (마일스톤 2) -------------------------------------------------------
+
+def tint(img, rgb, strength=0.65):
+    """색이 있는 픽셀을 rgb 쪽으로 물들입니다 (테두리 색은 그대로)"""
+    out = img.copy()
+    px = out.load()
+    for y in range(out.height):
+        for x in range(out.width):
+            r, g, b, a = px[x, y]
+            if a == 0 or (r, g, b) == OUTLINE[:3]:
+                continue
+            light = (r + g + b) / (3 * 255)
+            px[x, y] = (
+                int(r * (1 - strength) + rgb[0] * light * 1.3 * strength) if True else r,
+                int(g * (1 - strength) + rgb[1] * light * 1.3 * strength),
+                int(b * (1 - strength) + rgb[2] * light * 1.3 * strength),
+                a,
+            )
+    return out
+
+
+def compose(sheet, grid, base=None):
+    """타일 번호 격자를 한 장으로 합칩니다. None 은 비움. base 가 있으면 그 타일을 바닥에 깝니다"""
+    h, w = len(grid), len(grid[0])
+    img = Image.new("RGBA", (w * T, h * T), (0, 0, 0, 0))
+    for r, row in enumerate(grid):
+        for c, index in enumerate(row):
+            if base is not None:
+                img.alpha_composite(kenney_tile(sheet, base), (c * T, r * T))
+            if index is not None:
+                img.alpha_composite(kenney_tile(sheet, index), (c * T, r * T))
+    return img
+
+
+def paste_icon(img, icon, x, y):
+    img.alpha_composite(icon, (x, y))
+    return img
+
+
+def draw_crops(img, x0, y0, w, h, rng):
+    """밭 이랑과 싹"""
+    px = img.load()
+    for y in range(y0 + 3, y0 + h - 2, 4):
+        for x in range(x0 + 2, x0 + w - 2):
+            if (x + y) % 3 != 0:
+                px[x, y] = GRASS_DARK
+            if (x * 5 + y) % 7 == 0:
+                px[x, y - 1] = (0x47, 0x9F, 0x4A, 255)
+                px[x, y - 2] = (0xD8, 0xC0, 0x4A, 255) if rng.random() < 0.5 else (0x47, 0x9F, 0x4A, 255)
+
+
+def crystal_icon(color=MANA, light=MANA_LIGHT):
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    draw_crystal(img, 5, 13, 9)
+    if color != MANA:
+        img = tint(img, color[:3], 0.8)
+    return img
+
+
+def make_buildings(town, dungeon, rng):
+    b = {}
+    red_roof_2 = compose(town, [[52, 54], [84, 87]])
+    b["house"] = red_roof_2
+    farm = compose(town, [[12, 13, 14], [24, 25, 26], [36, 37, 38]])
+    draw_crops(farm, 0, 0, 48, 48, rng)
+    farm.alpha_composite(kenney_tile(town, 81), (16, 32))  # 울타리
+    b["farm"] = farm
+    gatherer = tint(compose(town, [[52, 54], [72, 86]]), (0x58, 0xA0, 0x48))
+    gatherer.alpha_composite(kenney_tile(town, 29), (16, 16))  # 버섯
+    b["gatherer"] = gatherer
+    lumber = tint(compose(town, [[52, 54], [72, 75]]), (0x8A, 0x5A, 0x34))
+    lumber.alpha_composite(kenney_tile(town, 106), (0, 16))  # 통나무
+    b["lumber"] = lumber
+    quarry = compose(town, [[96, 98], [120, 122]])
+    draw_boulder(quarry, 9, 10, 5, 4)
+    quarry.alpha_composite(kenney_tile(town, 115), (16, 16))  # 곡괭이
+    b["quarry"] = quarry
+    mine = compose(town, [[99, 101], [112, 113]])
+    mine.alpha_composite(crystal_icon(), (8, 6))
+    b["mana_mine"] = mine
+    b["warehouse"] = compose(town, [[48, 49, 50], [72, 74, 75]])
+    market = tint(compose(town, [[52, 53, 54], [84, 107, 84]]), (0xE8, 0xB0, 0x40), 0.5)
+    market.alpha_composite(kenney_tile(town, 93), (32, 16))
+    b["market"] = market
+    b["barracks"] = compose(town, [[48, 49, 50], [126, 125, 126]])
+    b["tower"] = compose(town, [[103]])
+    b["wall"] = compose(town, [[100]])
+    b["gate"] = compose(town, [[112]])
+    healer = compose(town, [[48, 50], [88, 91]])
+    hp = healer.load()
+    for i in range(-2, 3):  # 빨간 십자
+        hp[16 + i, 7] = (0xD9, 0x3A, 0x3A, 255)
+        hp[16, 7 + i] = (0xD9, 0x3A, 0x3A, 255)
+    b["healer"] = healer
+    mage = tint(compose(town, [[48, 50], [123, 124]]), (0x7A, 0x52, 0xC8), 0.6)
+    mage.alpha_composite(crystal_icon(), (8, 10))
+    b["mage_tower"] = mage
+    return b
+
+
+def make_construction(town, w, h):
+    """짓는 중: 흙바닥 + 나무 비계(울타리) 테두리"""
+    img = Image.new("RGBA", (w * T, h * T), (0, 0, 0, 0))
+    for r in range(h):
+        for c in range(w):
+            img.alpha_composite(kenney_tile(town, 25), (c * T, r * T))
+    for c in range(w):
+        img.alpha_composite(kenney_tile(town, 81), (c * T, 0))
+        img.alpha_composite(kenney_tile(town, 81), (c * T, (h - 1) * T))
+    for r in range(h):
+        img.alpha_composite(kenney_tile(town, 47 if r == 0 else 59), (0, r * T))
+        img.alpha_composite(kenney_tile(town, 47 if r == 0 else 59), ((w - 1) * T, r * T))
+    return img
+
+
+def make_villagers(dungeon):
+    """주민 그림 8가지 (Tiny Dungeon 사람들)"""
+    indices = [85, 86, 88, 98, 99, 100, 111, 112]
+    strip = Image.new("RGBA", (T * len(indices), T), (0, 0, 0, 0))
+    for i, index in enumerate(indices):
+        strip.alpha_composite(kenney_tile(dungeon, index), (i * T, 0))
+    return strip
+
+
+def small_icon(draw):
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    draw(img.load())
+    return img
+
+
+def icon_food(px):
+    # 빵 한 덩이
+    for y in range(6, 12):
+        for x in range(3, 13):
+            if (x - 8) ** 2 / 25 + (y - 9) ** 2 / 9 <= 1:
+                px[x, y] = (0xE3, 0x9B, 0x4A, 255) if y > 7 else (0xF2, 0xC2, 0x7A, 255)
+    for x in (6, 8, 10):
+        px[x, 8] = (0xB8, 0x6A, 0x2C, 255)
+
+
+def icon_stone(px):
+    for y in range(5, 13):
+        for x in range(3, 13):
+            if (x - 8) ** 2 / 25 + (y - 9) ** 2 / 16 <= 1:
+                px[x, y] = STONE_LIGHT if x + y < 14 else (STONE_MID if x + y < 19 else STONE_DARK)
+
+
+def icon_herbs(px):
+    for y in range(3, 14):
+        px[8, y] = (0x47, 0x9F, 0x4A, 255)
+    for (x, y) in [(6, 5), (5, 6), (10, 7), (11, 8), (6, 9), (5, 10), (10, 11)]:
+        px[x, y] = (0x65, 0xC0, 0x56, 255)
+        px[x + (1 if x < 8 else -1), y] = (0x65, 0xC0, 0x56, 255)
+
+
+def bubble(symbol_pixels, color):
+    img = Image.new("RGBA", (10, 10), (0, 0, 0, 0))
+    px = img.load()
+    for y in range(10):
+        for x in range(10):
+            if (x - 4.5) ** 2 + (y - 4.5) ** 2 <= 20:
+                px[x, y] = (255, 255, 255, 235)
+    for (x, y) in symbol_pixels:
+        px[x, y] = color
+    return img
+
+
+def make_ui(town, dungeon):
+    ui = {}
+    ui["res_gold"] = kenney_tile(town, 93)
+    ui["res_mana"] = crystal_icon()
+    ui["res_food"] = small_icon(icon_food)
+    ui["res_wood"] = kenney_tile(town, 106)
+    ui["res_stone"] = small_icon(icon_stone)
+    ui["res_herbs"] = small_icon(icon_herbs)
+    jobs = {
+        "farm": kenney_tile(town, 116), "gatherer": kenney_tile(town, 29), "lumber": kenney_tile(town, 127),
+        "quarry": kenney_tile(town, 115), "mana_mine": crystal_icon(), "market": kenney_tile(town, 93),
+        "barracks": kenney_tile(dungeon, 104), "healer": kenney_tile(dungeon, 115),
+        "mage_tower": kenney_tile(dungeon, 129),
+    }
+    for key, icon in jobs.items():
+        ui["job_" + key] = icon
+    z = [(3, 3), (4, 3), (5, 3), (6, 3), (5, 4), (4, 5), (3, 6), (4, 6), (5, 6), (6, 6)]
+    ui["bubble_sleep"] = bubble(z, (0x3B, 0x5B, 0xD9, 255))
+    food = [(4, 3), (5, 3), (3, 4), (4, 4), (5, 4), (6, 4), (3, 5), (4, 5), (5, 5), (6, 5), (4, 6), (5, 6)]
+    ui["bubble_hungry"] = bubble(food, (0xE3, 0x9B, 0x4A, 255))
+    angry = [(3, 3), (6, 3), (4, 4), (5, 4), (4, 5), (5, 5), (3, 6), (6, 6)]
+    ui["bubble_angry"] = bubble(angry, (0xD9, 0x3A, 0x3A, 255))
+    sick = [(4, 2), (5, 2), (4, 3), (5, 3), (2, 4), (3, 4), (4, 4), (5, 4), (6, 4), (7, 4), (4, 5), (5, 5),
+            (4, 6), (5, 6)]
+    ui["bubble_sick"] = bubble(sick, (0x4C, 0xAF, 0x50, 255))
+    blocked = [(4, 2), (5, 2), (4, 3), (5, 3), (4, 4), (5, 4), (4, 5), (5, 5), (4, 7), (5, 7)]
+    ui["bubble_blocked"] = bubble(blocked, (0xE0, 0x8A, 0x1E, 255))
+    return ui
+
+
+def make_roads(town):
+    atlas = Image.new("RGBA", (T * 2, T), (0, 0, 0, 0))
+    atlas.alpha_composite(kenney_tile(town, 41), (0, 0))
+    atlas.alpha_composite(kenney_tile(town, 40), (T, 0))
+    return atlas
+
+
 def main():
     rng = random.Random(20261105)  # 다시 만들어도 같은 그림이 나오게 고정 시드
     sheet = Image.open(KENNEY_TOWN).convert("RGBA")
@@ -218,7 +431,19 @@ def main():
     os.makedirs(os.path.dirname(OUT_KEEP), exist_ok=True)
     atlas.save(OUT_TERRAIN)
     make_keep(sheet).save(OUT_KEEP)
-    print("wrote", os.path.relpath(OUT_TERRAIN, ROOT), "and", os.path.relpath(OUT_KEEP, ROOT))
+
+    dungeon = Image.open(KENNEY_DUNGEON).convert("RGBA")
+    os.makedirs(OUT_UNITS, exist_ok=True)
+    os.makedirs(OUT_UI, exist_ok=True)
+    for key, img in make_buildings(sheet, dungeon, rng).items():
+        img.save(os.path.join(OUT_BUILDINGS, key + ".png"))
+    for (w, h) in [(1, 1), (2, 2), (3, 2), (3, 3)]:
+        make_construction(sheet, w, h).save(os.path.join(OUT_BUILDINGS, "construction_%dx%d.png" % (w, h)))
+    make_villagers(dungeon).save(os.path.join(OUT_UNITS, "villagers.png"))
+    for key, img in make_ui(sheet, dungeon).items():
+        img.save(os.path.join(OUT_UI, key + ".png"))
+    make_roads(sheet).save(OUT_ROADS)
+    print("wrote terrain, keep, buildings, construction, villagers, ui icons, roads")
 
 
 if __name__ == "__main__":
