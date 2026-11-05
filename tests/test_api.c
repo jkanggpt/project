@@ -65,18 +65,22 @@ void test_api_struct_sizes_and_config(void)
     CHECK_EQ(sizes.new_game_params, (int32_t)sizeof(CoreNewGameParams));
     CHECK_EQ(sizes.summary_view, (int32_t)sizeof(CoreSummaryView));
     CHECK_EQ(sizes.event_view, 20 + 48);
-    /* C# 에서 같은 크기가 나와야 하는 값: int 37개 + 자원·한도·변화 6개씩 + 이름 48바이트 */
-    CHECK_EQ(sizes.summary_view, 37 * 4 + 18 * 4 + 48);
+    /* C# 에서 같은 크기가 나와야 하는 값: int 45개 + 자원·한도·변화 6개씩 + 이름 48바이트 */
+    CHECK_EQ(sizes.summary_view, 45 * 4 + 18 * 4 + 48);
     CHECK_EQ(sizes.config_view, 17 * 4);
     CHECK_EQ(sizes.villager_view, 29 * 4 + 48);
     CHECK_EQ(sizes.building_view, 21 * 4);
-    CHECK_EQ(sizes.building_def_view, 27 * 4 + 24);
+    CHECK_EQ(sizes.building_def_view, 30 * 4 + 24);
     CHECK_EQ(sizes.trait_def_view, 6 * 4 + 24);
     CHECK_EQ(sizes.placement_view, 11 * 4);
     CHECK_EQ(sizes.mood_term_view, 8);
     CHECK_EQ(sizes.ledger_view, 2 * CORE_RES_COUNT * CORE_LEDGER_COUNT * 4);
     CHECK_EQ(sizes.market_view, (2 + 4 * CORE_RES_COUNT) * 4);
     CHECK_EQ(sizes.merchant_view, (2 + 5 * CORE_MERCHANT_MAX_DEALS) * 4);
+    CHECK_EQ(sizes.enemy_def_view, 10 * 4 + 24);
+    CHECK_EQ(sizes.threat_view, 5 * 4);
+    CHECK_EQ(sizes.raid_view, 9 * 4);
+    CHECK_EQ(sizes.enemy_view, 3 * 4);
 
     CHECK_EQ(core_get_config(&config), CORE_OK);
     CHECK_EQ(config.abi_version, CORE_ABI_VERSION);

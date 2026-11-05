@@ -15,6 +15,7 @@
 #include "placement.h"
 #include "platform.h"
 #include "save.h"
+#include "threat.h"
 #include "validate.h"
 #include "villager_ai.h"
 #include "world.h"
@@ -26,6 +27,7 @@ _Static_assert(sizeof(CoreNewGameParams) == CORE_NAME_BYTES + 8, "unexpected pad
 _Static_assert(CORE_MOOD_TERM_COUNT == 10, "mood terms changed: update C# strings");
 _Static_assert(CORE_LEDGER_COUNT == 12, "ledger categories changed: update save format and C# strings");
 _Static_assert(CORE_NATURE_COUNT == 6, "nature events changed: update C# strings");
+_Static_assert(CORE_THREAT_COUNT == 4, "threat types changed: update C# strings");
 
 #define DEFS_MAX_FILE_BYTES (1024 * 1024) /* 정의 파일 하나의 최대 크기 */
 
@@ -55,6 +57,10 @@ CORE_API int32_t core_get_struct_sizes(CoreStructSizes *out, int32_t out_size)
     out->ledger_view = (int32_t)sizeof(CoreLedgerView);
     out->market_view = (int32_t)sizeof(CoreMarketView);
     out->merchant_view = (int32_t)sizeof(CoreMerchantView);
+    out->enemy_def_view = (int32_t)sizeof(CoreEnemyDefView);
+    out->threat_view = (int32_t)sizeof(CoreThreatView);
+    out->raid_view = (int32_t)sizeof(CoreRaidView);
+    out->enemy_view = (int32_t)sizeof(CoreEnemyView);
     return CORE_OK;
 }
 
@@ -308,6 +314,21 @@ CORE_API int32_t core_get_summary(const CoreWorld *world, CoreSummaryView *out)
     out->heating_per_house = nature_heating_per_house(world);
     out->farm_percent = nature_farm_percent(world);
     nature_winter_needs(world, &out->winter_food_need, &out->winter_wood_need);
+    if (world->threat.threat_count > 0) {
+        const Threat *next = &world->threat.threats[0];
+        out->threat_type = next->type;
+        out->threat_direction = next->direction;
+        out->threat_ticks_left = next->eta_tick - world->clock.tick;
+        out->threat_strength = next->strength;
+    }
+    out->raid_id = world->threat.raid.id;
+    out->raid_type = world->threat.raid.id != 0 ? world->threat.raid.type : CORE_THREAT_NONE;
+    for (i = 0; i < world->threat.raid.enemy_count && world->threat.raid.id != 0; i++) {
+        out->raid_enemies_left += world->threat.raid.enemies[i].state == CORE_ENEMY_ALIVE;
+    }
+    for (i = 0; i < world->villager_count; i++) {
+        out->guards += threat_is_guard(world, world->villagers[i]);
+    }
     for (i = 0; i < CORE_RES_COUNT; i++) {
         out->resources[i] = world->bank.amount[i];
         out->resource_capacity[i] = eco_is_stored_good(i) ? world->bank.capacity : 0;
@@ -509,6 +530,9 @@ CORE_API int32_t core_get_building_def(const CoreWorld *world, int32_t type, Cor
     out->category = def->category;
     out->line = def->line;
     out->available = type != CORE_BLD_KEEP && def->required_rank <= world->rank;
+    out->attack = def->attack;
+    out->attack_range = def->attack_range;
+    out->attack_cooldown = def->attack_cooldown;
     memcpy(out->key, def->key, CORE_KEY_BYTES);
     out->key[CORE_KEY_BYTES - 1] = '\0';
     return CORE_OK;
@@ -557,6 +581,101 @@ CORE_API int32_t core_get_mood_terms(const CoreWorld *world, int32_t villager_id
     for (i = 0; i < CORE_MOOD_TERM_COUNT; i++) {
         out[i].term = i;
         out[i].value = terms[i];
+    }
+    return CORE_OK;
+}
+
+CORE_API int32_t core_get_enemy_def(const CoreWorld *world, int32_t type, CoreEnemyDefView *out)
+{
+    const EnemyDef *def;
+    if (world == NULL || out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    def = defs_enemy(&world->defs, type);
+    if (def == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    memset(out, 0, sizeof(*out));
+    out->type = type;
+    out->hp = def->hp;
+    out->damage = def->damage;
+    out->cooldown = def->cooldown;
+    out->speed = def->speed;
+    out->range = def->range;
+    out->behavior = def->behavior;
+    out->loot_resource = def->loot_resource;
+    out->loot_amount = def->loot_amount;
+    out->mana_reward = def->mana_reward;
+    memcpy(out->key, def->key, CORE_KEY_BYTES);
+    out->key[CORE_KEY_BYTES - 1] = '\0';
+    return CORE_OK;
+}
+
+CORE_API int32_t core_copy_threats(const CoreWorld *world, CoreThreatView *out, int32_t capacity, int32_t *out_count)
+{
+    int32_t i;
+    if (world == NULL || out_count == NULL || (out == NULL && capacity > 0)) {
+        return CORE_ERR_NULL_ARG;
+    }
+    *out_count = world->threat.threat_count;
+    if (capacity < world->threat.threat_count) {
+        return CORE_ERR_BUFFER_TOO_SMALL;
+    }
+    for (i = 0; i < world->threat.threat_count; i++) {
+        const Threat *threat = &world->threat.threats[i];
+        out[i].type = threat->type;
+        out[i].direction = threat->direction;
+        out[i].eta_tick = threat->eta_tick;
+        out[i].ticks_left = threat->eta_tick - world->clock.tick;
+        out[i].strength = threat->strength;
+    }
+    return CORE_OK;
+}
+
+CORE_API int32_t core_get_raid(const CoreWorld *world, CoreRaidView *out)
+{
+    const Raid *raid;
+    int32_t i;
+    if (world == NULL || out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    memset(out, 0, sizeof(*out));
+    raid = &world->threat.raid;
+    if (raid->id == 0) {
+        return CORE_OK;
+    }
+    out->id = raid->id;
+    out->type = raid->type;
+    out->direction = raid->direction;
+    out->spawn_x = raid->spawn_x;
+    out->spawn_y = raid->spawn_y;
+    out->enemy_count = raid->enemy_count;
+    out->started_tick = raid->started_tick;
+    out->stolen = raid->stolen;
+    for (i = 0; i < raid->enemy_count; i++) {
+        out->alive += raid->enemies[i].state == CORE_ENEMY_ALIVE;
+    }
+    return CORE_OK;
+}
+
+CORE_API int32_t core_copy_enemies(const CoreWorld *world, CoreEnemyView *out, int32_t capacity, int32_t *out_count)
+{
+    const Raid *raid;
+    int32_t count;
+    int32_t i;
+    if (world == NULL || out_count == NULL || (out == NULL && capacity > 0)) {
+        return CORE_ERR_NULL_ARG;
+    }
+    raid = &world->threat.raid;
+    count = raid->id != 0 ? raid->enemy_count : 0;
+    *out_count = count;
+    if (capacity < count) {
+        return CORE_ERR_BUFFER_TOO_SMALL;
+    }
+    for (i = 0; i < count; i++) {
+        out[i].id = raid->enemies[i].id;
+        out[i].type = raid->enemies[i].type;
+        out[i].state = raid->enemies[i].state;
     }
     return CORE_OK;
 }
@@ -865,6 +984,65 @@ CORE_API int32_t core_villager_unreachable(CoreWorld *world, int32_t villager_id
     return vil_unreachable(world, villager, intent_rev);
 }
 
+/* ---- 습격 보고 -------------------------------------------------------- */
+
+#define REPORT_MAX_DAMAGE 100000
+
+CORE_API int32_t core_report_building_damage(CoreWorld *world, int32_t raid_id, int32_t building_id, int32_t damage)
+{
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    if (damage < 0 || damage > REPORT_MAX_DAMAGE) {
+        return CORE_ERR_INVALID_ARG;
+    }
+    return threat_report_building_damage(world, raid_id, building_id, damage);
+}
+
+CORE_API int32_t core_report_villager_damage(CoreWorld *world, int32_t raid_id, int32_t villager_id, int32_t damage)
+{
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    if (damage < 0 || damage > REPORT_MAX_DAMAGE) {
+        return CORE_ERR_INVALID_ARG;
+    }
+    return threat_report_villager_damage(world, raid_id, villager_id, damage);
+}
+
+CORE_API int32_t core_report_enemy_killed(CoreWorld *world, int32_t raid_id, int32_t enemy_id)
+{
+    return world == NULL ? CORE_ERR_NULL_ARG : threat_report_enemy_killed(world, raid_id, enemy_id);
+}
+
+CORE_API int32_t core_report_loot(CoreWorld *world, int32_t raid_id, int32_t enemy_id, int32_t building_id,
+                                  int32_t *out_amount)
+{
+    int32_t amount = 0;
+    int rc;
+    if (out_amount != NULL) {
+        *out_amount = 0;
+    }
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    rc = threat_report_loot(world, raid_id, enemy_id, building_id, &amount);
+    if (out_amount != NULL) {
+        *out_amount = amount;
+    }
+    return rc;
+}
+
+CORE_API int32_t core_report_enemy_escaped(CoreWorld *world, int32_t raid_id, int32_t enemy_id)
+{
+    return world == NULL ? CORE_ERR_NULL_ARG : threat_report_enemy_escaped(world, raid_id, enemy_id);
+}
+
+CORE_API int32_t core_report_raid_ended(CoreWorld *world, int32_t raid_id)
+{
+    return world == NULL ? CORE_ERR_NULL_ARG : threat_report_raid_ended(world, raid_id);
+}
+
 /* ---- 피드백, 저장, 디버그 ------------------------------------------------ */
 
 CORE_API int32_t core_poll_event(CoreWorld *world, CoreEventView *out)
@@ -888,6 +1066,9 @@ CORE_API int32_t core_save(const CoreWorld *world, const char *path_utf8)
     }
     if (path_utf8[0] == '\0') {
         return CORE_ERR_INVALID_ARG;
+    }
+    if (threat_raid_active(world)) {
+        return CORE_ERR_REJECTED; /* 습격 중에는 저장할 수 없음 (끝난 뒤에) */
     }
     return save_write(world, path_utf8);
 }

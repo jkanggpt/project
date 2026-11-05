@@ -28,6 +28,9 @@ ideal_terrain = 1
 wage = 0
 required_rank = 0
 category = special
+attack = 6
+attack_range = 4
+attack_cooldown = 10
 
 [building house]
 width = 2
@@ -54,6 +57,9 @@ ideal_terrain = 1
 wage = 0
 required_rank = 0
 category = housing
+attack = 0
+attack_range = 0
+attack_cooldown = 0
 
 [building farm]
 width = 3
@@ -80,6 +86,9 @@ ideal_terrain = 1
 wage = 1
 required_rank = 0
 category = resource
+attack = 0
+attack_range = 0
+attack_cooldown = 0
 
 [building gatherer]
 width = 2
@@ -106,6 +115,9 @@ ideal_terrain = 16
 wage = 1
 required_rank = 0
 category = resource
+attack = 0
+attack_range = 0
+attack_cooldown = 0
 
 [building lumber]
 width = 2
@@ -132,6 +144,9 @@ ideal_terrain = 24
 wage = 1
 required_rank = 0
 category = resource
+attack = 0
+attack_range = 0
+attack_cooldown = 0
 
 [building quarry]
 width = 2
@@ -158,6 +173,9 @@ ideal_terrain = 12
 wage = 1
 required_rank = 0
 category = resource
+attack = 0
+attack_range = 0
+attack_cooldown = 0
 
 [building mana_mine]
 width = 2
@@ -184,6 +202,9 @@ ideal_terrain = 6
 wage = 2
 required_rank = 1
 category = resource
+attack = 0
+attack_range = 0
+attack_cooldown = 0
 
 [building warehouse]
 width = 3
@@ -210,6 +231,9 @@ ideal_terrain = 1
 wage = 0
 required_rank = 0
 category = storage
+attack = 0
+attack_range = 0
+attack_cooldown = 0
 
 [building market]
 width = 3
@@ -236,6 +260,9 @@ ideal_terrain = 1
 wage = 2
 required_rank = 0
 category = storage
+attack = 0
+attack_range = 0
+attack_cooldown = 0
 
 [building barracks]
 width = 3
@@ -260,8 +287,11 @@ placement = any
 min_terrain = 0
 ideal_terrain = 1
 wage = 2
-required_rank = 1
+required_rank = 0
 category = defense
+attack = 7
+attack_range = 1
+attack_cooldown = 10
 
 [building tower]
 width = 1
@@ -286,8 +316,11 @@ placement = any
 min_terrain = 0
 ideal_terrain = 1
 wage = 0
-required_rank = 1
+required_rank = 0
 category = defense
+attack = 9
+attack_range = 5
+attack_cooldown = 10
 
 [building wall]
 width = 1
@@ -314,6 +347,9 @@ ideal_terrain = 1
 wage = 0
 required_rank = 0
 category = defense
+attack = 0
+attack_range = 0
+attack_cooldown = 0
 
 [building gate]
 width = 1
@@ -340,6 +376,9 @@ ideal_terrain = 1
 wage = 0
 required_rank = 0
 category = defense
+attack = 0
+attack_range = 0
+attack_cooldown = 0
 
 [building healer]
 width = 2
@@ -366,6 +405,9 @@ ideal_terrain = 1
 wage = 2
 required_rank = 0
 category = service
+attack = 0
+attack_range = 0
+attack_cooldown = 0
 
 [building mage_tower]
 width = 2
@@ -392,6 +434,9 @@ ideal_terrain = 1
 wage = 3
 required_rank = 2
 category = service
+attack = 0
+attack_range = 0
+attack_cooldown = 0
 
 [building road]
 width = 1
@@ -418,3 +463,6 @@ ideal_terrain = 1
 wage = 0
 required_rank = 0
 category = road
+attack = 0
+attack_range = 0
+attack_cooldown = 0

@@ -1,8 +1,8 @@
 /*
  * save.c — 저장과 불러오기 (설명은 save.h)
  *
- * 저장 파일 예 (버전 3):
- *   MAGICCASTLE_SAVE 3
+ * 저장 파일 예 (버전 4):
+ *   MAGICCASTLE_SAVE 4
  *   [meta]
  *   name=바람언덕
  *   difficulty=1
@@ -22,6 +22,8 @@
  *   [nature] weather=1, event=0, event_days=0, forecast=0, forecast_days=0, calm_days=3, cold_houses=0
  *   [market] prices=0,0,800,600,900,1200        (한 묶음 값 × 100)
  *   [merchant] days_left=0, next_visit=7, deal=내는자원,양,받는자원,양,했음 (제안마다 한 줄)
+ *   [threat] next_raid=3, raids_done=2, threat=종류,방향,도착틱,세기,경보함 (예고된 위협마다 한 줄)
+ *   (진행 중인 습격은 저장하지 않습니다: 습격 중에는 저장을 거부합니다)
  *   [end]
  *
  * 포인터는 저장하지 않고 id 를 저장합니다. 불러온 뒤 id 로 찾아 포인터를 다시 잇습니다.
@@ -240,6 +242,19 @@ static void write_pressure(FILE *file, const World *world)
         values[3] = deal->get_amount;
         values[4] = deal->taken;
         fputs("deal=", file);
+        write_int_list(file, values, 5);
+    }
+    fputs("[threat]\n", file);
+    fprintf(file, "next_raid=%d\nraids_done=%d\n", (int)world->threat.next_raid_id, (int)world->threat.raids_done);
+    for (i = 0; i < world->threat.threat_count; i++) {
+        const Threat *threat = &world->threat.threats[i];
+        int32_t values[5];
+        values[0] = threat->type;
+        values[1] = threat->direction;
+        values[2] = threat->eta_tick;
+        values[3] = threat->strength;
+        values[4] = threat->near_warned;
+        fputs("threat=", file);
         write_int_list(file, values, 5);
     }
 }
@@ -868,6 +883,34 @@ static int parse_merchant(LoadState *state, const char *key, char *value)
     return CORE_ERR_FORMAT;
 }
 
+static int parse_threat(LoadState *state, const char *key, char *value)
+{
+    ThreatState *threat = &state->world->threat;
+    if (strcmp(key, "next_raid") == 0 && mark_key(state, 0)) {
+        return parse_i32(value, 1, INT32_MAX - 1, &threat->next_raid_id) ? CORE_OK : CORE_ERR_FORMAT;
+    }
+    if (strcmp(key, "raids_done") == 0 && mark_key(state, 1)) {
+        return parse_i32(value, 0, INT32_MAX - 1, &threat->raids_done) ? CORE_OK : CORE_ERR_FORMAT;
+    }
+    if (strcmp(key, "threat") == 0 && threat->threat_count < CORE_MAX_THREATS) {
+        int32_t v[5];
+        Threat *entry;
+        if (parse_int_list(value, v, 5, 1) == NULL || v[0] <= CORE_THREAT_NONE || v[0] >= CORE_THREAT_COUNT ||
+            v[1] < 0 || v[1] >= CORE_DIR_COUNT || v[2] < 0 || v[2] > CLOCK_MAX_TICK || v[3] < 1 ||
+            v[3] > THREAT_MAX_ENEMIES || v[4] < 0 || v[4] > 1) {
+            return CORE_ERR_FORMAT;
+        }
+        entry = &threat->threats[threat->threat_count++];
+        entry->type = v[0];
+        entry->direction = v[1];
+        entry->eta_tick = v[2];
+        entry->strength = v[3];
+        entry->near_warned = v[4];
+        return CORE_OK;
+    }
+    return CORE_ERR_FORMAT;
+}
+
 #define SEC_META 0
 #define SEC_MAP 5
 
@@ -884,6 +927,7 @@ static const SectionDef SECTIONS[] = {
     {"nature", parse_nature, 0x7Fu, 0},                                /* 키 7개 */
     {"market", parse_market, 0x1u, 0},                                 /* prices */
     {"merchant", parse_merchant, 0x3u, 0},                             /* days_left, next_visit (+ deal 줄) */
+    {"threat", parse_threat, 0x3u, 0},                                 /* next_raid, raids_done (+ threat 줄) */
 };
 #define SECTION_COUNT ((int32_t)(sizeof(SECTIONS) / sizeof(SECTIONS[0])))
 

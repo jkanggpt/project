@@ -35,6 +35,7 @@ World *world_alloc(const Defs *defs)
     nature_init(&world->nature);
     market_init(&world->market);
     merchant_init(&world->merchant);
+    threat_init(&world->threat);
     return world;
 }
 
@@ -44,6 +45,7 @@ void world_destroy(World *world)
         return;
     }
     entity_free_all(world);
+    threat_free(&world->threat);
     grid_free(&world->grid);
     events_free(&world->events);
     defs_free(&world->defs);
@@ -135,6 +137,9 @@ int world_create(const CoreNewGameParams *params, const Defs *defs, World **out)
     if (rc == CORE_OK) {
         rc = population_spawn_initial(world);
     }
+    if (rc == CORE_OK) {
+        threat_start_game(world);
+    }
     if (rc != CORE_OK) {
         world_destroy(world);
         return rc;
@@ -191,6 +196,7 @@ static void world_step(World *world)
     }
 
     placement_tick(world);
+    threat_tick(world);
     /* 뒤에서부터 돕니다: 주민이 죽어 목록에서 빠져도(swap-remove) 아직 안 본 주민을 건너뛰지 않음 */
     for (i = world->villager_count - 1; i >= 0; i--) {
         if (i < world->villager_count) {
@@ -342,6 +348,18 @@ uint64_t world_state_hash(const World *world)
     hash = hash_i32(hash, world->nature.forecast_days);
     hash = hash_i32(hash, world->nature.calm_days);
     hash = hash_i32(hash, world->nature.cold_houses);
+    hash = hash_i32(hash, world->threat.threat_count);
+    for (i = 0; i < world->threat.threat_count; i++) {
+        const Threat *threat = &world->threat.threats[i];
+        hash = hash_i32(hash, threat->type);
+        hash = hash_i32(hash, threat->direction);
+        hash = hash_i32(hash, threat->eta_tick);
+        hash = hash_i32(hash, threat->strength);
+        hash = hash_i32(hash, threat->near_warned);
+    }
+    hash = hash_i32(hash, world->threat.next_raid_id);
+    hash = hash_i32(hash, world->threat.raids_done);
+    hash = hash_i32(hash, world->threat.raid.id); /* 습격 중에는 저장하지 않으므로 늘 0 이어야 같음 */
     hash = hash_i32(hash, world->merchant.days_left);
     hash = hash_i32(hash, world->merchant.next_visit_day);
     hash = hash_i32(hash, world->merchant.deal_count);

@@ -3,7 +3,8 @@
  *
  * 게임의 모든 상태는 CoreWorld 하나 안에 있습니다. (전역 변수 없음)
  * 월드는 다른 구조체들을 "포함"합니다: 시계(Clock), 난수(Rng), 자원 은행(ResourceBank), 장부(Ledger),
- * 지도(Grid), 이벤트 큐(EventQueue), 정의(Defs), 날씨·자연 사건(Nature), 시장(Market), 떠돌이 상인(Merchant).
+ * 지도(Grid), 이벤트 큐(EventQueue), 정의(Defs), 날씨·자연 사건(Nature), 시장(Market), 떠돌이 상인(Merchant),
+ * 위협과 습격(ThreatState: 습격의 적 목록은 동적 배열).
  * 주민과 건물은 하나씩 따로 할당하고, 월드는 그 포인터들의 배열을 realloc 으로 키워 가며 가집니다.
  */
 #ifndef CASTLE_WORLD_H
@@ -21,6 +22,7 @@
 #include "market.h"
 #include "nature.h"
 #include "rng.h"
+#include "threat.h"
 
 /* 하루 일정 (분) */
 #define WORLD_WORK_START_MIN (7 * 60)  /* 07:00 일 시작 */
@@ -48,6 +50,7 @@ struct CoreWorld {
     Nature nature;                     /* 날씨, 자연 사건, 예보 */
     Market market;                     /* 시장 가격 */
     Merchant merchant;                 /* 떠돌이 상인 */
+    ThreatState threat;                /* 예고된 위협과 진행 중인 습격 */
 
     Villager **villagers;              /* 주민 포인터 배열 */
     int32_t villager_count;

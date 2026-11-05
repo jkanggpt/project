@@ -53,7 +53,21 @@ typedef struct Event {
         struct {
             int32_t first;
             int32_t second;
-        } pair; /* NATURE_STARTED(사건, 날 수), MERCHANT_ARRIVED(날 수, 제안 수), WINTER_WARNING(식량, 목재) */
+        } pair; /* NATURE_STARTED(사건, 날 수), MERCHANT_ARRIVED(날 수, 제안 수), WINTER_WARNING(식량, 목재),
+                   THREAT_NEAR(종류, 방향) */
+        struct {
+            int32_t type;
+            int32_t direction;
+            int32_t ticks_left;
+            int32_t strength;
+        } threat; /* THREAT_SCHEDULED */
+        struct {
+            int32_t a;
+            int32_t b;
+            int32_t c;
+            int32_t d;
+        } raid; /* RAID_STARTED(id, 종류, 적 수, 방향), RAID_ENDED(쓰러뜨림, 전체, 빼앗김, 쓰러진 주민),
+                   ENEMY_KILLED(적 id, 종류, 마정석), LOOT_STOLEN(자원, 양, 건물 id) */
     } as;
     char text[CORE_NAME_BYTES]; /* 관련 주민 이름 (없으면 빈 문자열) */
 } Event;
@@ -84,6 +98,8 @@ void events_push_villager(EventQueue *queue, CoreEventType type, int32_t id, int
 void events_push_count(EventQueue *queue, CoreEventType type, int32_t value);
 void events_push_warning(EventQueue *queue, CoreEventType type, int32_t code, int32_t detail);
 void events_push_pair(EventQueue *queue, CoreEventType type, int32_t first, int32_t second);
+void events_push_threat(EventQueue *queue, int32_t threat_type, int32_t direction, int32_t ticks_left, int32_t strength);
+void events_push_raid(EventQueue *queue, CoreEventType type, int32_t a, int32_t b, int32_t c, int32_t d);
 
 /* 내부 이벤트(공용체)를 C#에 건넬 평평한 뷰로 바꿉니다. */
 void events_to_view(const Event *event, CoreEventView *out);

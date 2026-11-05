@@ -28,6 +28,7 @@ static const char *const RESOURCE_KEYS[CORE_RES_COUNT] = {"gold", "mana", "food"
 static const char *const PLACEMENT_KEYS[] = {"any", "near_forest", "adjacent_rock", "on_mana"};
 static const char *const CATEGORY_KEYS[CORE_CAT_COUNT] = {"special", "housing", "resource", "storage",
                                                           "defense", "service", "road"};
+static const char *const BEHAVIOR_KEYS[CORE_BEHAVIOR_COUNT] = {"thief", "raider", "monster"};
 
 /* ---- 기본 함수 -------------------------------------------------------- */
 
@@ -48,6 +49,14 @@ int32_t defs_resource_from_key(const char *key)
 const char *defs_resource_key(int32_t resource)
 {
     return (resource >= 0 && resource < CORE_RES_COUNT) ? RESOURCE_KEYS[resource] : "none";
+}
+
+const EnemyDef *defs_enemy(const Defs *defs, int32_t type)
+{
+    if (type < 0 || type >= DEFS_ENEMY_COUNT) {
+        return NULL;
+    }
+    return &defs->enemies[type];
 }
 
 const BuildingDef *defs_building(const Defs *defs, int32_t type)
@@ -129,6 +138,7 @@ int defs_init_builtin(Defs *defs)
     int32_t i;
     memset(defs, 0, sizeof(*defs));
     memcpy(defs->buildings, BUILTIN_BUILDINGS, sizeof(defs->buildings));
+    memcpy(defs->enemies, BUILTIN_ENEMIES, sizeof(defs->enemies));
     for (i = 0; i < BUILTIN_TRAIT_COUNT; i++) {
         if (add_trait(defs, &BUILTIN_TRAITS[i]) != CORE_OK) {
             defs_free(defs);
@@ -148,6 +158,7 @@ int defs_copy(Defs *dst, const Defs *src)
 {
     memset(dst, 0, sizeof(*dst));
     memcpy(dst->buildings, src->buildings, sizeof(dst->buildings));
+    memcpy(dst->enemies, src->enemies, sizeof(dst->enemies));
     memcpy(dst->warnings, src->warnings, sizeof(dst->warnings));
     dst->warning_count = src->warning_count;
     if (src->trait_count > 0) {
@@ -179,7 +190,8 @@ typedef enum FieldKind {
     FIELD_INT,       /* 정수 */
     FIELD_RESOURCE,  /* 자원 키 (food, wood, …, none) */
     FIELD_PLACEMENT, /* 배치 규칙 키 */
-    FIELD_CATEGORY   /* 분류 키 */
+    FIELD_CATEGORY,  /* 분류 키 */
+    FIELD_BEHAVIOR   /* 적 행동 키 (thief, raider, monster) */
 } FieldKind;
 
 /* 필드 이름 → 구조체 안에서의 위치(바이트)와 허용 범위 */
@@ -218,6 +230,21 @@ static const FieldDef BUILDING_FIELDS[] = {
     {"wage", offsetof(BuildingDef, wage), FIELD_INT, 0, 100},
     {"required_rank", offsetof(BuildingDef, required_rank), FIELD_INT, 0, 4},
     {"category", offsetof(BuildingDef, category), FIELD_CATEGORY, 0, CORE_CAT_COUNT - 1},
+    {"attack", offsetof(BuildingDef, attack), FIELD_INT, 0, 1000},
+    {"attack_range", offsetof(BuildingDef, attack_range), FIELD_INT, 0, 12},
+    {"attack_cooldown", offsetof(BuildingDef, attack_cooldown), FIELD_INT, 0, 1440},
+};
+
+static const FieldDef ENEMY_FIELDS[] = {
+    {"hp", offsetof(EnemyDef, hp), FIELD_INT, 1, 100000},
+    {"damage", offsetof(EnemyDef, damage), FIELD_INT, 0, 10000},
+    {"cooldown", offsetof(EnemyDef, cooldown), FIELD_INT, 1, 1440},
+    {"speed", offsetof(EnemyDef, speed), FIELD_INT, 100, 20000},
+    {"range", offsetof(EnemyDef, range), FIELD_INT, 1, 12},
+    {"behavior", offsetof(EnemyDef, behavior), FIELD_BEHAVIOR, 0, CORE_BEHAVIOR_COUNT - 1},
+    {"loot", offsetof(EnemyDef, loot_resource), FIELD_RESOURCE, -1, CORE_RES_COUNT - 1},
+    {"loot_amount", offsetof(EnemyDef, loot_amount), FIELD_INT, 0, 100000},
+    {"mana_reward", offsetof(EnemyDef, mana_reward), FIELD_INT, 0, 1000},
 };
 
 static const FieldDef TRAIT_FIELDS[] = {
@@ -278,6 +305,9 @@ static int apply_field(void *entry, const FieldDef *fields, int32_t field_count,
         case FIELD_CATEGORY:
             parsed = key_index(CATEGORY_KEYS, CORE_CAT_COUNT, value);
             break;
+        case FIELD_BEHAVIOR:
+            parsed = key_index(BEHAVIOR_KEYS, CORE_BEHAVIOR_COUNT, value);
+            break;
         case FIELD_INT:
         default:
             if (!parse_int(value, &parsed)) {
@@ -299,7 +329,7 @@ static int apply_field(void *entry, const FieldDef *fields, int32_t field_count,
 
 typedef struct ParseState {
     Defs *defs;      /* 고치고 있는 임시 사본 */
-    void *entry;     /* 지금 섹션의 구조체 (BuildingDef* 또는 TraitDef*) */
+    void *entry;     /* 지금 섹션의 구조체 (BuildingDef*, TraitDef*, EnemyDef*) */
     int32_t section; /* SECTION_PARSERS 번호, -1 = 없음 */
 } ParseState;
 
@@ -356,10 +386,28 @@ static int field_trait(ParseState *state, const char *key, const char *value)
     return apply_field(state->entry, TRAIT_FIELDS, COUNT_OF(TRAIT_FIELDS), key, value);
 }
 
+static int begin_enemy(ParseState *state, const char *id)
+{
+    int32_t type;
+    for (type = 0; type < DEFS_ENEMY_COUNT; type++) {
+        if (strcmp(state->defs->enemies[type].key, id) == 0) {
+            state->entry = &state->defs->enemies[type];
+            return CORE_OK;
+        }
+    }
+    return CORE_ERR_FORMAT; /* 적 종류도 정해져 있음 (그림과 습격 구성이 종류마다 있음) */
+}
+
+static int field_enemy(ParseState *state, const char *key, const char *value)
+{
+    return apply_field(state->entry, ENEMY_FIELDS, COUNT_OF(ENEMY_FIELDS), key, value);
+}
+
 /* 섹션 종류 이름 → 처리 함수 */
 static const SectionParser SECTION_PARSERS[] = {
     {"building", CORE_DATA_BUILDINGS, begin_building, field_building},
     {"trait", CORE_DATA_TRAITS, begin_trait, field_trait},
+    {"enemy", CORE_DATA_ENEMIES, begin_enemy, field_enemy},
 };
 
 /* "[keyword id]" 줄 */
@@ -572,6 +620,9 @@ static void write_fields(FILE *file, const void *entry, const FieldDef *fields, 
         case FIELD_CATEGORY:
             fprintf(file, "%s = %s\n", field->name, CATEGORY_KEYS[value]);
             break;
+        case FIELD_BEHAVIOR:
+            fprintf(file, "%s = %s\n", field->name, BEHAVIOR_KEYS[value]);
+            break;
         case FIELD_INT:
         default:
             fprintf(file, "%s = %d\n", field->name, (int)value);
@@ -604,6 +655,15 @@ int defs_write_file(const Defs *defs, int32_t file_id, const char *path)
         for (i = 0; i < defs->trait_count; i++) {
             fprintf(file, "\n[trait %s]\n", defs->traits[i].key);
             write_fields(file, &defs->traits[i], TRAIT_FIELDS, COUNT_OF(TRAIT_FIELDS));
+        }
+    } else if (file_id == CORE_DATA_ENEMIES) {
+        fputs("# 적 정의. hp, damage(한 번 공격), cooldown(공격 사이, 게임 속 분), speed(한 틱에 걷는 칸 × 1000),\n"
+              "# range(공격 거리, 칸), behavior: thief(훔쳐 달아남) raider(건물을 부숨) monster(주민을 노림),\n"
+              "# loot/loot_amount: 저장소에 닿으면 훔치는 자원과 양, mana_reward: 쓰러뜨리면 얻는 마정석\n",
+              file);
+        for (i = 0; i < DEFS_ENEMY_COUNT; i++) {
+            fprintf(file, "\n[enemy %s]\n", defs->enemies[i].key);
+            write_fields(file, &defs->enemies[i], ENEMY_FIELDS, COUNT_OF(ENEMY_FIELDS));
         }
     } else if (file_id == CORE_DATA_NAMES) {
         fputs("# 주민 이름. 한 줄에 하나 (UTF-8). 10개 이상이어야 합니다.\n", file);

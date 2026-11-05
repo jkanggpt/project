@@ -220,6 +220,40 @@ static void check_villager(Checker *checker, const World *world, const Villager 
     expect(checker, v->heal_ticks >= 0 && v->heal_ticks <= NATURE_HEAL_TICKS, "healing progress out of range");
 }
 
+/* 예고된 위협과 진행 중인 습격 */
+static void check_threats(Checker *checker, const World *world)
+{
+    const ThreatState *state = &world->threat;
+    const Raid *raid = &state->raid;
+    int32_t i;
+    expect(checker, state->threat_count >= 0 && state->threat_count <= CORE_MAX_THREATS, "threat count invalid");
+    for (i = 0; i < state->threat_count && i < CORE_MAX_THREATS; i++) {
+        const Threat *threat = &state->threats[i];
+        expect(checker,
+               threat->type > CORE_THREAT_NONE && threat->type < CORE_THREAT_COUNT && threat->direction >= 0 &&
+                   threat->direction < CORE_DIR_COUNT && threat->strength >= 1 &&
+                   threat->strength <= THREAT_MAX_ENEMIES && (threat->near_warned == 0 || threat->near_warned == 1),
+               "threat invalid");
+        expect(checker, i == 0 || state->threats[i - 1].eta_tick <= threat->eta_tick, "threats not in arrival order");
+    }
+    expect(checker, state->next_raid_id >= 1 && state->raids_done >= 0, "threat counters invalid");
+    if (raid->id != 0) {
+        expect(checker, raid->id < state->next_raid_id, "raid id not below next id");
+        expect(checker, raid->enemy_count >= 1 && raid->enemy_count <= raid->enemy_capacity &&
+                            raid->enemy_count <= THREAT_MAX_ENEMIES,
+               "raid enemy count invalid");
+        for (i = 0; i < raid->enemy_count && i < raid->enemy_capacity; i++) {
+            const Enemy *enemy = &raid->enemies[i];
+            expect(checker,
+                   enemy->id == i + 1 && enemy->type >= 0 && enemy->type < DEFS_ENEMY_COUNT &&
+                       enemy->state >= CORE_ENEMY_ALIVE && enemy->state <= CORE_ENEMY_ESCAPED,
+                   "raid enemy invalid");
+        }
+        expect(checker, raid->killed >= 0 && raid->escaped >= 0 && raid->killed + raid->escaped <= raid->enemy_count,
+               "raid tallies invalid");
+    }
+}
+
 /* 날씨·자연 사건·시장·상인 */
 static void check_pressure(Checker *checker, const World *world)
 {
@@ -296,6 +330,7 @@ int32_t validate_world(const World *world, ValidateReportFn report, void *contex
     check_grid(&checker, world);
     check_events(&checker, &world->events);
     check_pressure(&checker, world);
+    check_threats(&checker, world);
     if (world->grid.occupant != NULL) {
         check_entities(&checker, world);
     }

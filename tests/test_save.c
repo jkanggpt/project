@@ -232,13 +232,13 @@ void test_load_wrong_version(void)
     CHECK(text != NULL);
     CHECK_EQ(load_text(text, size, &line), CORE_OK);
 
-    changed = replace_once(text, "MAGICCASTLE_SAVE 3", "MAGICCASTLE_SAVE 999");
+    changed = replace_once(text, "MAGICCASTLE_SAVE 4", "MAGICCASTLE_SAVE 999");
     CHECK(changed != NULL);
     CHECK_EQ(load_text(changed, strlen(changed), &line), CORE_ERR_VERSION);
     CHECK_EQ(line, 1);
     free(changed);
 
-    changed = replace_once(text, "MAGICCASTLE_SAVE 3", "SOMETHING_ELSE 2");
+    changed = replace_once(text, "MAGICCASTLE_SAVE 4", "SOMETHING_ELSE 2");
     CHECK(changed != NULL);
     CHECK_EQ(load_text(changed, strlen(changed), &line), CORE_ERR_FORMAT);
     free(changed);
@@ -377,7 +377,7 @@ void test_load_garbled_files(void)
         char *line = (char *)malloc(big);
         CHECK(line != NULL);
         memset(line, 'A', big);
-        memcpy(line, "MAGICCASTLE_SAVE 3\nrow=", 23);
+        memcpy(line, "MAGICCASTLE_SAVE 4\nrow=", 23);
         CHECK_EQ(load_text(line, big, NULL), CORE_ERR_FORMAT);
         free(line);
     }

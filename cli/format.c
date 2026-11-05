@@ -27,6 +27,8 @@ static const char *const DENY_REASONS[CORE_DENY_COUNT] = {
     "수량이 범위 밖입니다",
     "수리 비용이 모자랍니다",
 };
+static const char *const THREAT_NAMES[CORE_THREAT_COUNT] = {"없음", "도적", "마물", "적대 영주 군대"};
+static const char *const DIRECTION_NAMES[CORE_DIR_COUNT] = {"북", "동", "남", "서"};
 static const char *const LEDGER_NAMES[CORE_LEDGER_COUNT] = {"생산", "식사", "임금", "세금", "건설", "철거 환불",
                                                             "거래", "난방", "약탈",  "기타", "치료", "수리"};
 
@@ -121,6 +123,16 @@ const char *fmt_deny_reason(int32_t reason)
 const char *fmt_ledger_name(int32_t category)
 {
     return (category >= 0 && category < CORE_LEDGER_COUNT) ? LEDGER_NAMES[category] : "?";
+}
+
+const char *fmt_threat_name(int32_t type)
+{
+    return (type >= 0 && type < CORE_THREAT_COUNT) ? THREAT_NAMES[type] : "?";
+}
+
+const char *fmt_direction_name(int32_t direction)
+{
+    return (direction >= 0 && direction < CORE_DIR_COUNT) ? DIRECTION_NAMES[direction] : "?";
 }
 
 const char *fmt_season_name(int32_t season)
@@ -243,7 +255,10 @@ static void format_villager_event(const CoreEventView *event, char *out, size_t 
         break;
     case CORE_EVT_VILLAGER_DIED:
         snprintf(out, size, "%s%s %s세상을 떠났습니다.", event->text, ga,
-                 event->b == CORE_DEATH_STARVATION ? "굶주림으로 " : event->b == CORE_DEATH_ILLNESS ? "병으로 " : "");
+                 event->b == CORE_DEATH_STARVATION ? "굶주림으로 "
+                 : event->b == CORE_DEATH_ILLNESS  ? "병으로 "
+                 : event->b == CORE_DEATH_RAID     ? "습격에 쓰러져 "
+                                                   : "");
         break;
     case CORE_EVT_PATH_BLOCKED:
         snprintf(out, size, "%s: 길이 막혔습니다.", event->text);
@@ -339,9 +354,44 @@ static void format_pair(const CoreEventView *event, char *out, size_t size)
     }
 }
 
+static void format_threat(const CoreEventView *event, char *out, size_t size)
+{
+    switch (event->type) {
+    case CORE_EVT_THREAT_SCHEDULED:
+        snprintf(out, size, "위협 예고: %s %d명이 %s쪽에서 %d일 %d시간 뒤에 옵니다.", fmt_threat_name(event->a),
+                 (int)event->d, fmt_direction_name(event->b), (int)(event->c / 144), (int)(event->c % 144 / 6));
+        break;
+    case CORE_EVT_THREAT_NEAR:
+        snprintf(out, size, "경보! %s%s %s쪽에서 다가옵니다. 반나절 안에 도착합니다.", fmt_threat_name(event->a),
+                 fmt_josa(fmt_threat_name(event->a), "이", "가"), fmt_direction_name(event->b));
+        break;
+    case CORE_EVT_RAID_STARTED:
+        snprintf(out, size, "습격! %s %d명이 %s쪽에 나타났습니다. 주민들이 성채로 피합니다.", fmt_threat_name(event->b),
+                 (int)event->c, fmt_direction_name(event->d));
+        break;
+    case CORE_EVT_RAID_ENDED:
+        snprintf(out, size, "습격이 끝났습니다: 적 %d/%d명을 쓰러뜨림, 빼앗긴 자원 %d, 쓰러진 주민 %d명.", (int)event->a,
+                 (int)event->b, (int)event->c, (int)event->d);
+        break;
+    case CORE_EVT_ENEMY_KILLED:
+        if (event->c > 0) {
+            snprintf(out, size, "적을 쓰러뜨렸습니다. 마정석 +%d", (int)event->c);
+        } else {
+            snprintf(out, size, "적을 쓰러뜨렸습니다.");
+        }
+        break;
+    case CORE_EVT_LOOT_STOLEN:
+        snprintf(out, size, "적이 %s %d개를 훔쳐 갔습니다!", fmt_resource_name(event->a), (int)event->b);
+        break;
+    default:
+        snprintf(out, size, "(%d)", (int)event->a);
+        break;
+    }
+}
+
 static void format_def_warning(const CoreEventView *event, char *out, size_t size)
 {
-    static const char *const FILES[CORE_DATA_COUNT] = {"buildings.def", "traits.def", "names.txt"};
+    static const char *const FILES[CORE_DATA_COUNT] = {"buildings.def", "traits.def", "names.txt", "enemies.def"};
     const char *file = (event->a >= 0 && event->a < CORE_DATA_COUNT) ? FILES[event->a] : "?";
     snprintf(out, size, "정의 파일 %s 의 %d번째 줄이 잘못되어 기본값을 씁니다.", file, (int)event->b);
 }
@@ -381,9 +431,15 @@ static const EventFormatter EVENT_FORMATTERS[] = {
     format_count,          /* CORE_EVT_MERCHANT_LEFT */
     format_pair,           /* CORE_EVT_WINTER_WARNING */
     format_count,          /* CORE_EVT_HOUSES_COLD */
+    format_threat,         /* CORE_EVT_THREAT_SCHEDULED */
+    format_threat,         /* CORE_EVT_RAID_STARTED */
+    format_threat,         /* CORE_EVT_RAID_ENDED */
+    format_threat,         /* CORE_EVT_ENEMY_KILLED */
+    format_threat,         /* CORE_EVT_LOOT_STOLEN */
+    format_threat,         /* CORE_EVT_THREAT_NEAR */
 };
 #define EVENT_FORMATTER_COUNT ((int32_t)(sizeof(EVENT_FORMATTERS) / sizeof(EVENT_FORMATTERS[0])))
-_Static_assert(sizeof(EVENT_FORMATTERS) / sizeof(EVENT_FORMATTERS[0]) == CORE_EVT_HOUSES_COLD + 1,
+_Static_assert(sizeof(EVENT_FORMATTERS) / sizeof(EVENT_FORMATTERS[0]) == CORE_EVT_THREAT_NEAR + 1,
                "every event type needs a formatter");
 
 void fmt_event(const CoreEventView *event, char *out, size_t size)

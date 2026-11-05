@@ -13,7 +13,7 @@
 #include "world.h"
 
 #define SAVE_MAGIC "MAGICCASTLE_SAVE"
-#define SAVE_VERSION 3
+#define SAVE_VERSION 4
 
 /* 임시 파일(<path>.tmp)에 쓰고, 기존 파일은 <path>.bak 으로 복사한 뒤, 임시 파일로 바꿔치기합니다 */
 int save_write(const World *world, const char *path);

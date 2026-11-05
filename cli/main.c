@@ -123,7 +123,7 @@ static int parse_options(int argc, char **argv, Options *options)
 }
 
 /* 정의 파일 이름 (순서는 CoreDataFile) */
-static const char *const DATA_FILES[CORE_DATA_COUNT] = {"buildings.def", "traits.def", "names.txt"};
+static const char *const DATA_FILES[CORE_DATA_COUNT] = {"buildings.def", "traits.def", "names.txt", "enemies.def"};
 
 static void join_path(char *out, size_t size, const char *dir, const char *file)
 {
@@ -208,6 +208,7 @@ int main(int argc, char **argv)
     memset(&context, 0, sizeof(context));
     context.defs = defs;
     walker_init(&context.walker);
+    battle_init(&context.battle);
     strcpy(context.save_path, "castle.sav");
     printf("마법성채 키우기 — 콘솔판 (코어 ABI %d)\n", (int)core_abi_version());
     if (options.load_path != NULL && !cli_load_game(&context, options.load_path)) {

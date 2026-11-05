@@ -62,6 +62,7 @@ static void replace_world(CliContext *context, CoreWorld *world)
     context->world = world;
     walker_free(&context->walker);
     walker_init(&context->walker);
+    battle_init(&context->battle);
 }
 
 /* ticks 만큼 한 틱씩 진행하며 걷기를 흉내 냅니다 */
@@ -70,6 +71,9 @@ static int32_t advance(CliContext *context, int32_t ticks)
     int32_t i;
     for (i = 0; i < ticks; i++) {
         int32_t rc = walker_tick(&context->walker, context->world);
+        if (rc == CORE_OK) {
+            rc = battle_tick(&context->battle, context->world);
+        }
         if (rc != CORE_OK) {
             return rc;
         }
@@ -122,6 +126,14 @@ static int cmd_status(CliContext *context)
     }
     if (summary.sick_count > 0 || summary.cold_houses > 0) {
         printf("걱정   : 아픈 주민 %d명, 추운 집 %d채\n", (int)summary.sick_count, (int)summary.cold_houses);
+    }
+    if (summary.raid_id != 0) {
+        printf("습격   : %s 습격 중! 남은 적 %d명 (경비병 %d명)\n", fmt_threat_name(summary.raid_type),
+               (int)summary.raid_enemies_left, (int)summary.guards);
+    } else if (summary.threat_type != CORE_THREAT_NONE) {
+        printf("위협   : %s %d명, %s쪽에서 %d일 %d시간 뒤 (경비병 %d명)\n", fmt_threat_name(summary.threat_type),
+               (int)summary.threat_strength, fmt_direction_name(summary.threat_direction),
+               (int)(summary.threat_ticks_left / 144), (int)(summary.threat_ticks_left % 144 / 6), (int)summary.guards);
     }
     if (summary.merchant_days_left > 0) {
         printf("상인   : 떠돌이 상인이 %d일 더 머뭅니다 (메뉴 17)\n", (int)summary.merchant_days_left);
@@ -570,6 +582,10 @@ static int cmd_save(CliContext *context)
         return 0;
     }
     rc = core_save(context->world, path);
+    if (rc == CORE_ERR_REJECTED) {
+        printf("습격 중에는 저장할 수 없습니다. 습격이 끝난 뒤에 저장하세요.\n");
+        return 1;
+    }
     print_result("저장", rc);
     if (rc == CORE_OK) {
         strcpy(context->save_path, path);

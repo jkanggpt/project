@@ -18,6 +18,17 @@
 
 #define DEFS_MAX_WARNINGS 8
 #define DEFS_MIN_NAMES 10
+#define DEFS_ENEMY_COUNT 6 /* 적 종류 수 (그림과 습격 구성이 종류마다 있어서 정의 파일로 새로 만들 수는 없음) */
+
+/* 적 종류 번호 (data/enemies.def 의 순서) */
+enum {
+    ENEMY_BANDIT = 0,  /* 도적 */
+    ENEMY_BRUTE = 1,   /* 도적 두목 */
+    ENEMY_GOBLIN = 2,  /* 마물: 고블린 */
+    ENEMY_OGRE = 3,    /* 마물: 오우거 */
+    ENEMY_SOLDIER = 4, /* 영주군 병사 */
+    ENEMY_ARCHER = 5   /* 영주군 궁수 */
+};
 
 typedef struct BuildingDef {
     char key[CORE_KEY_BYTES]; /* 정의 파일에서 쓰는 영어 이름 (예: "farm") */
@@ -41,7 +52,23 @@ typedef struct BuildingDef {
     int32_t required_rank;
     int32_t category;       /* CoreBuildCategory */
     int32_t line;
+    int32_t attack;         /* 감시탑 화살 / 경비병 한 명의 피해 (0 = 싸우지 않음) */
+    int32_t attack_range;   /* 칸 */
+    int32_t attack_cooldown;/* 게임 속 분 */
 } BuildingDef;
+
+typedef struct EnemyDef {
+    char key[CORE_KEY_BYTES];
+    int32_t hp;
+    int32_t damage;
+    int32_t cooldown;      /* 공격 사이 (게임 속 분) */
+    int32_t speed;         /* 한 틱에 걷는 거리 × 1000 */
+    int32_t range;         /* 칸 */
+    int32_t behavior;      /* CoreEnemyBehavior */
+    int32_t loot_resource; /* -1 = 없음 */
+    int32_t loot_amount;
+    int32_t mana_reward;
+} EnemyDef;
 
 typedef struct TraitDef {
     char key[CORE_KEY_BYTES];
@@ -64,6 +91,7 @@ typedef struct DefWarning {
 
 typedef struct Defs {
     BuildingDef buildings[CORE_BLD_COUNT];
+    EnemyDef enemies[DEFS_ENEMY_COUNT];
     TraitDef *traits;   /* 동적 배열 */
     int32_t trait_count;
     int32_t trait_capacity;
@@ -81,6 +109,7 @@ struct CoreDefs {
 
 /* 내장 기본값 (defs_builtin.c) */
 extern const BuildingDef BUILTIN_BUILDINGS[CORE_BLD_COUNT];
+extern const EnemyDef BUILTIN_ENEMIES[DEFS_ENEMY_COUNT];
 extern const TraitDef BUILTIN_TRAITS[];
 extern const int32_t BUILTIN_TRAIT_COUNT;
 extern const char *const BUILTIN_NAMES[];
@@ -98,6 +127,7 @@ int defs_load_text(Defs *defs, int32_t file_id, const char *text, size_t length,
 int defs_write_file(const Defs *defs, int32_t file_id, const char *path);
 
 const BuildingDef *defs_building(const Defs *defs, int32_t type);
+const EnemyDef *defs_enemy(const Defs *defs, int32_t type);
 /* 특성 키 → 번호, 없으면 -1 */
 int32_t defs_find_trait(const Defs *defs, const char *key);
 /* 자원 키("food") → 번호, "none" → -1, 모르면 -2 */

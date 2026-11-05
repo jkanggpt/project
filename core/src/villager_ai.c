@@ -8,6 +8,7 @@
 #include "jobs.h"
 #include "nature.h"
 #include "population.h"
+#include "threat.h"
 
 /* 할 일 계획: 어떤 상태로 어디에 갈지 */
 typedef struct Plan {
@@ -191,7 +192,27 @@ static int decide_sick(const World *world, const Villager *villager, Plan *plan)
     return 1;
 }
 
-/* 지금 무엇을 해야 하는지 고릅니다 (우선순위: 떠남 > 기다림 > 식사 > 병 > 잠 > 일 > 쉼) */
+/* 습격 중: 경비병(병영 일꾼)은 병영 문 앞으로 나서고, 나머지는 모두 성채로 피신합니다 */
+static int decide_raid(const World *world, const Villager *villager, Plan *plan)
+{
+    Building *keep;
+    if (!threat_raid_active(world)) {
+        return 0;
+    }
+    if (threat_is_guard(world, villager) && villager->workplace->door_x >= 0) {
+        plan_at(plan, CORE_VS_GUARD_POST, villager->workplace, villager->workplace->door_x,
+                villager->workplace->door_y, 0);
+        return 1;
+    }
+    keep = world_keep(world);
+    if (keep == NULL) {
+        return 0;
+    }
+    plan_at(plan, CORE_VS_FLEE, keep, keep->door_x, keep->door_y, 0);
+    return 1;
+}
+
+/* 지금 무엇을 해야 하는지 고릅니다 (우선순위: 떠남 > 기다림 > 습격 > 식사 > 병 > 잠 > 일 > 쉼) */
 static void decide(const World *world, const Villager *villager, Plan *plan)
 {
     Building *workplace = villager->workplace;
@@ -204,6 +225,9 @@ static void decide(const World *world, const Villager *villager, Plan *plan)
     }
     if (villager->hold_ticks > 0) {
         plan_at(plan, CORE_VS_IDLE, NULL, villager->loc_x, villager->loc_y, CORE_INTENT_HOLD);
+        return;
+    }
+    if (decide_raid(world, villager, plan)) {
         return;
     }
     if (villager->needs.hunger < VIL_HUNGRY_BELOW && world->bank.amount[CORE_RES_FOOD] > 0) {
@@ -272,10 +296,14 @@ static void on_working(World *world, Villager *villager)
     }
 }
 
+/* 저장소 문 앞에 있으면 식량 하나로 한 끼. (도착 보고 때가 아니라 여기서 먹습니다:
+ * 성채로 피신했다가 바로 그 자리에서 배가 고파지면 "새로 도착"하는 일이 없기 때문) */
 static void on_eat(World *world, Villager *villager)
 {
-    (void)world;
-    (void)villager; /* 먹는 일은 도착했을 때 (vil_arrived) */
+    if (villager->at_target &&
+        eco_change(&world->bank, &world->ledger, CORE_RES_FOOD, -1, CORE_LEDGER_CONSUMPTION) < 0) {
+        villager->needs.hunger = clamp100(villager->needs.hunger + VIL_MEAL_HUNGER);
+    }
 }
 
 /* 치료소에 지금 일하는 일꾼(치료사)이 있는가 */
@@ -307,16 +335,13 @@ static void on_seek_healing(World *world, Villager *villager)
 
 static void on_flee(World *world, Villager *villager)
 {
-    /* 습격은 마일스톤 4: 피신처에 도착해 있으면 안전함을 되찾습니다 */
     (void)world;
-    if (villager->at_target) {
-        villager->needs.safety = clamp100(villager->needs.safety + 1);
-    }
+    (void)villager; /* 성채 안에 숨어 있음 (안전 욕구는 update_needs 에서) */
 }
 
 static void on_guard_post(World *world, Villager *villager)
 {
-    on_idle(world, villager); /* 경비병의 전투는 Godot 이 하고, 결과는 보고로 들어옴 (마일스톤 4) */
+    on_idle(world, villager); /* 싸움은 Godot(CLI 는 숫자 전투)이 하고, 피해는 보고로 들어옴 */
 }
 
 static void on_leaving(World *world, Villager *villager)
@@ -373,8 +398,13 @@ static void update_needs(World *world, Villager *villager)
             }
         }
     }
-    /* 안전: 습격이 없으면 서서히 회복 (마일스톤 4 에서 습격이 낮춤) */
-    if (villager->needs.safety < 100) {
+    /* 안전: 습격 중 성채에 숨지 못한 주민은 빨리 떨어지고, 습격이 없으면 서서히 회복 */
+    if (threat_raid_active(world)) {
+        int sheltered = villager->state == CORE_VS_FLEE && villager->at_target;
+        if (!sheltered) {
+            villager->needs.safety = clamp100(villager->needs.safety - THREAT_UNSHELTERED_SAFETY);
+        }
+    } else if (villager->needs.safety < 100) {
         villager->needs.safety++;
     }
     villager->needs.housing = villager->home != NULL ? 100 : 25;
@@ -523,11 +553,6 @@ int vil_arrived(World *world, Villager *villager, int32_t intent_rev)
     villager->loc_y = villager->target_y;
     villager->intent_flags &= ~CORE_INTENT_SPAWN_EDGE;
     switch (villager->state) {
-    case CORE_VS_EAT:
-        if (eco_change(&world->bank, &world->ledger, CORE_RES_FOOD, -1, CORE_LEDGER_CONSUMPTION) < 0) {
-            villager->needs.hunger = clamp100(villager->needs.hunger + VIL_MEAL_HUNGER);
-        }
-        break;
     case CORE_VS_LEAVING:
         population_remove_departed(world, villager);
         break;

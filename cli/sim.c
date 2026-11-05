@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "castle_core.h"
+#include "battle.h"
 #include "format.h"
 #include "walker.h"
 
@@ -135,6 +136,56 @@ static void bot_idle(BotContext *bot)
 }
 
 /* "적당히 하는 플레이어": 먹을 것, 집, 목재, 석재, 약초, 창고 순으로 부족한 것을 채웁니다 */
+/* 성채에서 위협이 오는 쪽으로 몇 칸 떨어진 곳에 가장 가까운, 지을 수 있는 자리 */
+static int build_toward(BotContext *bot, int32_t type, int32_t direction, int32_t reach)
+{
+    static const int32_t DX[CORE_DIR_COUNT] = {0, 1, 0, -1};
+    static const int32_t DY[CORE_DIR_COUNT] = {-1, 0, 1, 0};
+    CorePlacementView preview;
+    int32_t goal_x = bot->summary.keep_x + DX[direction] * reach;
+    int32_t goal_y = bot->summary.keep_y + DY[direction] * reach;
+    int32_t best = -1;
+    int32_t best_x = 0;
+    int32_t best_y = 0;
+    int32_t dx;
+    int32_t dy;
+    int32_t id;
+    int32_t reason;
+    for (dy = -6; dy <= 6; dy++) {
+        for (dx = -6; dx <= 6; dx++) {
+            int32_t distance = abs(dx) + abs(dy);
+            (void)core_can_place(bot->world, type, goal_x + dx, goal_y + dy, &preview);
+            if (preview.result == CORE_PLACE_OK && (best < 0 || distance < best)) {
+                best = distance;
+                best_x = goal_x + dx;
+                best_y = goal_y + dy;
+            }
+        }
+    }
+    if (best < 0 || core_place_building(bot->world, type, best_x, best_y, &id, &reason) != CORE_OK) {
+        return 0;
+    }
+    (void)refresh_buildings(bot);
+    return 1;
+}
+
+/* 방어: 위협이 예고되면 그쪽으로 감시탑을 (주민 열 명에 하나 더), 주민이 늘면 병영을 */
+static int bot_defend(BotContext *bot)
+{
+    const CoreSummaryView *s = &bot->summary;
+    int32_t towers = count_type(bot, CORE_BLD_TOWER);
+    if (s->threat_type == CORE_THREAT_NONE && s->raid_id == 0) {
+        return 0;
+    }
+    if (s->population >= 6 && towers < 1 + s->population / 10) {
+        return build_toward(bot, CORE_BLD_TOWER, s->threat_direction, 5);
+    }
+    if (s->population >= 14 && count_type(bot, CORE_BLD_BARRACKS) == 0) {
+        return build_best(bot, CORE_BLD_BARRACKS, 12);
+    }
+    return 0;
+}
+
 /* 부서진 건물은 바로 고칩니다 (돈이 되는 만큼) */
 static void bot_repair(BotContext *bot)
 {
@@ -169,6 +220,35 @@ static void bot_buy_up_to(BotContext *bot, int32_t resource, int32_t target)
     }
 }
 
+/* 시장에 일꾼이 없으면 농부 한 명을 보냅니다 (겨울에는 농장이 놀므로) */
+static void bot_staff_market(BotContext *bot)
+{
+    CoreVillagerView *views;
+    int32_t count = 0;
+    int32_t market = 0;
+    int32_t i;
+    for (i = 0; i < bot->building_count; i++) {
+        if (bot->buildings[i].type == CORE_BLD_MARKET && bot->buildings[i].state == CORE_BSTATE_ACTIVE &&
+            bot->buildings[i].workers == 0) {
+            market = bot->buildings[i].id;
+        }
+    }
+    if (market == 0) {
+        return;
+    }
+    views = (CoreVillagerView *)malloc((size_t)(bot->summary.villager_count_hint + 1) * sizeof(CoreVillagerView));
+    if (views != NULL &&
+        core_copy_villagers(bot->world, views, bot->summary.villager_count_hint + 1, &count) == CORE_OK) {
+        for (i = 0; i < count; i++) {
+            if (views[i].job == CORE_BLD_FARM || (i == count - 1 && views[i].job >= 0)) {
+                (void)core_assign_worker(bot->world, views[i].id, market);
+                break;
+            }
+        }
+    }
+    free(views);
+}
+
 /* 시장: 겨울 준비가 모자라거나 식량이 바닥나면 사고, 창고가 넘칠 것 같은 물건은 팝니다 */
 static void bot_trade(BotContext *bot)
 {
@@ -177,7 +257,11 @@ static void bot_trade(BotContext *bot)
     int32_t reason;
     int32_t r;
     if (!s->market_open) {
-        return;
+        bot_staff_market(bot);
+        (void)core_get_summary(bot->world, &bot->summary);
+        if (!s->market_open) {
+            return;
+        }
     }
     bot_buy_up_to(bot, CORE_RES_FOOD, s->winter_food_need > 0 ? s->winter_food_need : s->population * 3);
     (void)core_get_summary(bot->world, &bot->summary);
@@ -268,6 +352,9 @@ static void bot_reasonable(BotContext *bot)
     if (built < 2 && s->population >= 14 && count_type(bot, CORE_BLD_MARKET) == 0) {
         built += build_best(bot, CORE_BLD_MARKET, 20);
     }
+    if (built < 2) {
+        built += bot_defend(bot);
+    }
     bot_repair(bot);
     bot_trade(bot);
     bot_merchant(bot);
@@ -320,12 +407,12 @@ static void write_csv_row(FILE *out, const CoreSummaryView *summary)
     for (i = 0; i < CORE_RES_COUNT; i++) {
         fprintf(out, ",%d", (int)summary->resources[i]);
     }
-    /* 위협은 마일스톤 4 에서 채워집니다 */
-    fprintf(out, ",%d,%d,%d,%d,%d,%d,%d,0", (int)summary->resource_capacity[CORE_RES_FOOD],
+    fprintf(out, ",%d,%d,%d,%d,%d,%d,%d,%d", (int)summary->resource_capacity[CORE_RES_FOOD],
             (int)summary->population, (int)summary->average_mood, (int)summary->homeless, (int)summary->employed,
-            (int)summary->building_count, (int)summary->rank);
-    fprintf(out, ",%d,%d,%d,%d,%d\n", (int)summary->weather, (int)summary->nature_event, (int)summary->sick_count,
-            (int)summary->cold_houses, (int)summary->merchant_days_left);
+            (int)summary->building_count, (int)summary->rank, (int)summary->threat_strength);
+    fprintf(out, ",%d,%d,%d,%d,%d,%d,%d\n", (int)summary->weather, (int)summary->nature_event, (int)summary->sick_count,
+            (int)summary->cold_houses, (int)summary->merchant_days_left, (int)summary->threat_type,
+            (int)summary->guards);
 }
 
 int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_name, const char *csv_path,
@@ -334,6 +421,7 @@ int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_n
     const Bot *bot = find_bot(bot_name);
     BotContext context;
     Walker walker;
+    Battle battle;
     CoreConfigView config;
     CoreSummaryView summary;
     FILE *out = stdout;
@@ -360,15 +448,17 @@ int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_n
         }
     }
     walker_init(&walker);
+    battle_init(&battle);
     fprintf(out, "day,year,season,gold,mana,food,wood,stone,herbs,capacity,population,mood,homeless,employed,"
-                 "buildings,rank,threats,weather,nature_event,sick,cold_houses,merchant\n");
+                 "buildings,rank,threat_strength,weather,nature_event,sick,cold_houses,merchant,threat_type,guards\n");
     (void)core_get_summary(context.world, &summary);
     write_csv_row(out, &summary);
     for (day = 0; day < days && status == 0; day++) {
         CoreEventView event;
         bot->on_new_day(&context);
         for (tick = 0; tick < config.ticks_per_day; tick++) {
-            if (walker_tick(&walker, context.world) != CORE_OK || core_validate(context.world) != 0) {
+            if (walker_tick(&walker, context.world) != CORE_OK || battle_tick(&battle, context.world) != CORE_OK ||
+                core_validate(context.world) != 0) {
                 fprintf(stderr, "시뮬레이션 %d일째에 문제가 생겼습니다\n", day + 1);
                 status = 1;
                 break;
@@ -437,6 +527,10 @@ static int poke_invalid_calls(CoreWorld *world)
     ok &= core_assign_worker(world, 999999, 1) == CORE_ERR_NOT_FOUND;
     ok &= core_villager_arrived(world, 999999, 1) == CORE_ERR_NOT_FOUND;
     ok &= core_set_auto_assign(world, 1, 7) == CORE_ERR_INVALID_ARG;
+    ok &= core_report_building_damage(world, 1, 1, -5) == CORE_ERR_INVALID_ARG;
+    ok &= core_report_enemy_killed(world, 99999, 1) == CORE_IGNORED;
+    ok &= core_report_raid_ended(world, -1) == CORE_IGNORED;
+    ok &= core_report_loot(world, 99999, 1, 1, NULL) == CORE_IGNORED;
     (void)core_state_hash(world, &after);
     return ok && before == after;
 }
@@ -447,7 +541,11 @@ static int save_load_roundtrip(CoreWorld **world, const char *path, const CoreDe
     CoreWorld *loaded = NULL;
     uint64_t before = 0;
     uint64_t after = 1;
-    if (core_save(*world, path) != CORE_OK || core_load(path, defs, &loaded, NULL) != CORE_OK) {
+    int32_t rc = core_save(*world, path);
+    if (rc == CORE_ERR_REJECTED) {
+        return 1; /* 습격 중에는 저장할 수 없음: 규칙대로이므로 실패가 아님 */
+    }
+    if (rc != CORE_OK || core_load(path, defs, &loaded, NULL) != CORE_OK) {
         return 0;
     }
     (void)core_state_hash(*world, &before);
@@ -518,10 +616,48 @@ static void random_commands(BotContext *bot, uint32_t *random_state)
     free(views);
 }
 
+/* 아무렇게나 고른 습격 보고 (틀린 id, 늦은 보고 포함). 무엇을 보내도 불변 조건이 지켜져야 합니다 */
+static void random_reports(CoreWorld *world, uint32_t *random_state)
+{
+    CoreRaidView raid;
+    int32_t raid_id;
+    int32_t amount;
+    if (core_get_raid(world, &raid) != CORE_OK || raid.id == 0 || soak_pick(random_state, 0, 3) != 0) {
+        return;
+    }
+    raid_id = soak_pick(random_state, 0, 9) == 0 ? raid.id + 1 : raid.id; /* 가끔 틀린 습격 id */
+    switch (soak_pick(random_state, 0, 6)) {
+    case 0:
+        (void)core_report_building_damage(world, raid_id, soak_pick(random_state, 1, 40), soak_pick(random_state, 0, 120));
+        break;
+    case 1:
+        (void)core_report_villager_damage(world, raid_id, soak_pick(random_state, 1, 60), soak_pick(random_state, 0, 40));
+        break;
+    case 2:
+        (void)core_report_enemy_killed(world, raid_id, soak_pick(random_state, 0, raid.enemy_count + 1));
+        break;
+    case 3:
+        (void)core_report_loot(world, raid_id, soak_pick(random_state, 0, raid.enemy_count + 1),
+                               soak_pick(random_state, 1, 10), &amount);
+        break;
+    case 4:
+        (void)core_report_enemy_escaped(world, raid_id, soak_pick(random_state, 1, raid.enemy_count));
+        break;
+    case 5:
+        if (soak_pick(random_state, 0, 20) == 0) {
+            (void)core_report_raid_ended(world, raid_id);
+        }
+        break;
+    default:
+        break;
+    }
+}
+
 static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *ticks_run)
 {
     BotContext bot;
     Walker walker;
+    Battle battle;
     CoreSummaryView summary;
     char path[64];
     char backup[72];
@@ -536,6 +672,7 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
         return 1;
     }
     walker_init(&walker);
+    battle_init(&battle);
     walker.instant = (seed % 2) == 0; /* 시드의 반은 바로 도착, 반은 실제 걷는 시간 */
     snprintf(path, sizeof(path), "soak_%d.sav", (int)seed);
     snprintf(backup, sizeof(backup), "%s.bak", path);
@@ -553,6 +690,16 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
             fprintf(stderr, "  시드 %d: core_tick 실패\n", (int)seed);
             failures++;
             break;
+        }
+        /* 습격: 시드 셋 중 둘은 숫자 전투, 하나는 아무렇게나 보낸 보고 (끝은 C 의 시간 초과에 맡김) */
+        if (seed % 3 != 0) {
+            if (battle_tick(&battle, bot.world) != CORE_OK) {
+                fprintf(stderr, "  시드 %d: 전투 실패\n", (int)seed);
+                failures++;
+                break;
+            }
+        } else {
+            random_reports(bot.world, &random_state);
         }
         (*ticks_run)++;
         violations = core_validate(bot.world);

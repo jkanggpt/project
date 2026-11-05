@@ -18,6 +18,7 @@ set(CASTLE_CORE_SOURCES
   src/rng.c
   src/save.c
   src/text.c
+  src/threat.c
   src/validate.c
   src/villager_ai.c
   src/world.c

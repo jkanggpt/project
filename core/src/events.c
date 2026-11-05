@@ -165,6 +165,30 @@ void events_push_pair(EventQueue *queue, CoreEventType type, int32_t first, int3
     events_push(queue, &event);
 }
 
+void events_push_threat(EventQueue *queue, int32_t threat_type, int32_t direction, int32_t ticks_left, int32_t strength)
+{
+    Event event;
+    memset(&event, 0, sizeof(event));
+    event.type = CORE_EVT_THREAT_SCHEDULED;
+    event.as.threat.type = threat_type;
+    event.as.threat.direction = direction;
+    event.as.threat.ticks_left = ticks_left;
+    event.as.threat.strength = strength;
+    events_push(queue, &event);
+}
+
+void events_push_raid(EventQueue *queue, CoreEventType type, int32_t a, int32_t b, int32_t c, int32_t d)
+{
+    Event event;
+    memset(&event, 0, sizeof(event));
+    event.type = type;
+    event.as.raid.a = a;
+    event.as.raid.b = b;
+    event.as.raid.c = c;
+    event.as.raid.d = d;
+    events_push(queue, &event);
+}
+
 void events_push_count(EventQueue *queue, CoreEventType type, int32_t value)
 {
     Event event;
@@ -245,8 +269,24 @@ void events_to_view(const Event *event, CoreEventView *out)
     case CORE_EVT_NATURE_STARTED:
     case CORE_EVT_MERCHANT_ARRIVED:
     case CORE_EVT_WINTER_WARNING:
+    case CORE_EVT_THREAT_NEAR:
         out->a = event->as.pair.first;
         out->b = event->as.pair.second;
+        break;
+    case CORE_EVT_THREAT_SCHEDULED:
+        out->a = event->as.threat.type;
+        out->b = event->as.threat.direction;
+        out->c = event->as.threat.ticks_left;
+        out->d = event->as.threat.strength;
+        break;
+    case CORE_EVT_RAID_STARTED:
+    case CORE_EVT_RAID_ENDED:
+    case CORE_EVT_ENEMY_KILLED:
+    case CORE_EVT_LOOT_STOLEN:
+        out->a = event->as.raid.a;
+        out->b = event->as.raid.b;
+        out->c = event->as.raid.c;
+        out->d = event->as.raid.d;
         break;
     case CORE_EVT_NONE:
     default:

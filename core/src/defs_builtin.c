@@ -6,7 +6,8 @@
  *
  * 열 순서: 키, 너비, 높이, 비용{금화,마정석,식량,목재,석재,약초}, 건설 틱, 최대 체력,
  *          일자리, 거주 자리, 저장 한도, 생산 자원, 생산률, 두 번째 자원, 두 번째 생산률,
- *          작업 반경, 배치 규칙, 최소 지형, 이상적 지형, 임금, 필요 등급, 분류, 줄 배치
+ *          작업 반경, 배치 규칙, 최소 지형, 이상적 지형, 임금, 필요 등급, 분류, 줄 배치,
+ *          공격(감시탑 화살·경비병·성채 망루), 공격 거리, 공격 사이(게임 속 분)
  */
 #include "defs.h"
 
@@ -14,37 +15,48 @@
 
 const BuildingDef BUILTIN_BUILDINGS[CORE_BLD_COUNT] = {
     {"keep", 3, 3, {0, 0, 0, 0, 0, 0}, 0, 2000, 0, 0, 300, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 0, 0,
-     CORE_CAT_SPECIAL, 0},
+     CORE_CAT_SPECIAL, 0, 6, 4, 10},
     {"house", 2, 2, {20, 0, 0, 25, 0, 0}, 36, 200, 0, 4, 0, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 0, 0,
-     CORE_CAT_HOUSING, 0},
+     CORE_CAT_HOUSING, 0, 0, 0, 0},
     {"farm", 3, 3, {15, 0, 0, 20, 0, 0}, 48, 150, 2, 0, 0, CORE_RES_FOOD, 80, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 1,
-     0, CORE_CAT_RESOURCE, 0},
+     0, CORE_CAT_RESOURCE, 0, 0, 0, 0},
     {"gatherer", 2, 2, {15, 0, 0, 15, 0, 0}, 36, 120, 2, 0, 0, CORE_RES_HERBS, 30, CORE_RES_FOOD, 35, 3,
-     CORE_PLACE_NEAR_FOREST, 6, 16, 1, 0, CORE_CAT_RESOURCE, 0},
+     CORE_PLACE_NEAR_FOREST, 6, 16, 1, 0, CORE_CAT_RESOURCE, 0, 0, 0, 0},
     {"lumber", 2, 2, {20, 0, 0, 10, 0, 0}, 36, 150, 2, 0, 0, CORE_RES_WOOD, 90, NONE, 0, 4, CORE_PLACE_NEAR_FOREST,
-     8, 24, 1, 0, CORE_CAT_RESOURCE, 0},
+     8, 24, 1, 0, CORE_CAT_RESOURCE, 0, 0, 0, 0},
     {"quarry", 2, 2, {25, 0, 0, 20, 0, 0}, 48, 200, 2, 0, 0, CORE_RES_STONE, 70, NONE, 0, 3, CORE_PLACE_ADJ_ROCK, 1,
-     12, 1, 0, CORE_CAT_RESOURCE, 0},
+     12, 1, 0, CORE_CAT_RESOURCE, 0, 0, 0, 0},
     {"mana_mine", 2, 2, {60, 0, 0, 30, 30, 0}, 72, 250, 2, 0, 0, CORE_RES_MANA, 12, NONE, 0, 2,
-     CORE_PLACE_ON_MANA, 1, 6, 2, 1, CORE_CAT_RESOURCE, 0},
+     CORE_PLACE_ON_MANA, 1, 6, 2, 1, CORE_CAT_RESOURCE, 0, 0, 0, 0},
     {"warehouse", 3, 2, {30, 0, 0, 40, 10, 0}, 48, 250, 0, 0, 200, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 0, 0,
-     CORE_CAT_STORAGE, 0},
+     CORE_CAT_STORAGE, 0, 0, 0, 0},
     {"market", 3, 2, {50, 0, 0, 40, 20, 0}, 60, 250, 1, 0, 0, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 2, 0,
-     CORE_CAT_STORAGE, 0},
-    {"barracks", 3, 2, {60, 0, 0, 30, 40, 0}, 72, 400, 4, 0, 0, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 2, 1,
-     CORE_CAT_DEFENSE, 0},
-    {"tower", 1, 1, {40, 0, 0, 10, 30, 0}, 48, 300, 0, 0, 0, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 0, 1,
-     CORE_CAT_DEFENSE, 0},
+     CORE_CAT_STORAGE, 0, 0, 0, 0},
+    {"barracks", 3, 2, {60, 0, 0, 30, 40, 0}, 72, 400, 4, 0, 0, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 2, 0,
+     CORE_CAT_DEFENSE, 0, 7, 1, 10},
+    {"tower", 1, 1, {40, 0, 0, 10, 30, 0}, 48, 300, 0, 0, 0, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 0, 0,
+     CORE_CAT_DEFENSE, 0, 9, 5, 10},
     {"wall", 1, 1, {0, 0, 0, 0, 4, 0}, 6, 250, 0, 0, 0, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 0, 0,
-     CORE_CAT_DEFENSE, 1},
+     CORE_CAT_DEFENSE, 1, 0, 0, 0},
     {"gate", 1, 1, {10, 0, 0, 10, 8, 0}, 12, 300, 0, 0, 0, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 0, 0,
-     CORE_CAT_DEFENSE, 0},
+     CORE_CAT_DEFENSE, 0, 0, 0, 0},
     {"healer", 2, 2, {40, 0, 0, 30, 0, 5}, 60, 200, 1, 0, 0, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 2, 0,
-     CORE_CAT_SERVICE, 0},
+     CORE_CAT_SERVICE, 0, 0, 0, 0},
     {"mage_tower", 2, 2, {80, 10, 0, 0, 50, 0}, 96, 300, 2, 0, 0, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 3, 2,
-     CORE_CAT_SERVICE, 0},
+     CORE_CAT_SERVICE, 0, 0, 0, 0},
     {"road", 1, 1, {2, 0, 0, 0, 0, 0}, 0, 1, 0, 0, 0, NONE, 0, NONE, 0, 0, CORE_PLACE_ANY, 0, 1, 0, 0, CORE_CAT_ROAD,
-     1},
+     1, 0, 0, 0},
+};
+
+/* 키, 체력, 피해, 공격 사이(분), 속도(칸/틱 × 1000), 거리, 행동, 훔치는 자원, 훔치는 양, 마정석 보상.
+ * 순서는 defs.h 의 ENEMY_* 와 같아야 합니다 */
+const EnemyDef BUILTIN_ENEMIES[DEFS_ENEMY_COUNT] = {
+    {"bandit", 30, 4, 10, 2300, 1, CORE_BEHAVIOR_THIEF, CORE_RES_GOLD, 12, 0},
+    {"brute", 70, 8, 15, 2000, 1, CORE_BEHAVIOR_THIEF, CORE_RES_GOLD, 30, 0},
+    {"goblin", 30, 5, 10, 2600, 1, CORE_BEHAVIOR_MONSTER, CORE_RES_FOOD, 8, 1},
+    {"ogre", 140, 16, 20, 1600, 1, CORE_BEHAVIOR_MONSTER, CORE_RES_FOOD, 20, 5},
+    {"soldier", 60, 8, 10, 1900, 1, CORE_BEHAVIOR_RAIDER, NONE, 0, 0},
+    {"archer", 35, 6, 15, 2000, 4, CORE_BEHAVIOR_RAIDER, NONE, 0, 0},
 };
 
 /* 키, 일 속도 %, 배고픔 %, 기분, 용기, 연구 % */

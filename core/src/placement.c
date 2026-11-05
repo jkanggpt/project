@@ -766,6 +766,9 @@ static void ruin_building(World *world, Building *building)
     }
     events_push_building(&world->events, CORE_EVT_BUILDING_RUINED, building->id, building->type, building->x,
                          building->y);
+    if (building->type == CORE_BLD_WALL || building->type == CORE_BLD_GATE) {
+        placement_rebuild_layers(world); /* 무너진 성벽·성문은 지나갈 수 있음 → 비용 격자가 바뀜 */
+    }
     refresh_capacity(world);
     jobs_on_buildings_changed(world);
 }
@@ -839,6 +842,9 @@ int placement_repair(World *world, Building *building, int32_t *out_reason)
     events_push_building(&world->events, CORE_EVT_BUILDING_REPAIRED, building->id, building->type, building->x,
                          building->y);
     if (was_ruined) {
+        if (building->type == CORE_BLD_WALL || building->type == CORE_BLD_GATE) {
+            placement_rebuild_layers(world); /* 다시 막힘 */
+        }
         refresh_capacity(world);
         jobs_on_buildings_changed(world);
     }

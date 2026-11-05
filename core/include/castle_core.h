@@ -35,7 +35,7 @@ extern "C" {
 #endif
 
 /* C#의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
-#define CORE_ABI_VERSION 3
+#define CORE_ABI_VERSION 4
 
 /* 성채·주민 이름 버퍼 크기 (UTF-8 바이트, 끝의 '\0' 포함) */
 #define CORE_NAME_BYTES 48
@@ -174,8 +174,8 @@ typedef enum CoreVillagerState {
     CORE_VS_WORKING = 3,      /* 일하는 중 (이때만 생산) */
     CORE_VS_EAT = 4,          /* 저장소로 가서 먹음 */
     CORE_VS_SEEK_HEALING = 5, /* 아픈 주민이 치료소로 감 */
-    CORE_VS_FLEE = 6,         /* 습격 중 성채로 피신 (마일스톤 4) */
-    CORE_VS_GUARD_POST = 7,   /* 경비병 위치 (마일스톤 4) */
+    CORE_VS_FLEE = 6,         /* 습격 중 성채로 피신 (도착하면 성채 안에 숨음) */
+    CORE_VS_GUARD_POST = 7,   /* 습격 중 병영 일꾼이 경비병으로 나섬 (싸움은 Godot 이 함) */
     CORE_VS_LEAVING = 8,      /* 마을을 떠나 지도 가장자리로 감 */
     CORE_VS_COUNT = 9
 } CoreVillagerState;
@@ -211,7 +211,7 @@ typedef enum CoreMoodTerm {
 typedef enum CoreDeathCause {
     CORE_DEATH_STARVATION = 1,
     CORE_DEATH_ILLNESS = 2,
-    CORE_DEATH_RAID = 3     /* 마일스톤 4 */
+    CORE_DEATH_RAID = 3     /* 습격에 쓰러짐 */
 } CoreDeathCause;
 
 /* 주민 이야기 (알림 문장) */
@@ -226,7 +226,8 @@ typedef enum CoreDataFile {
     CORE_DATA_BUILDINGS = 0, /* data/buildings.def : [building 키] */
     CORE_DATA_TRAITS = 1,    /* data/traits.def    : [trait 키] */
     CORE_DATA_NAMES = 2,     /* data/names.txt     : 한 줄에 이름 하나 */
-    CORE_DATA_COUNT = 3
+    CORE_DATA_ENEMIES = 3,   /* data/enemies.def   : [enemy 키] */
+    CORE_DATA_COUNT = 4
 } CoreDataFile;
 
 /* 피드백 이벤트 종류. 문장은 Godot/CLI가 이 코드로 만듭니다. (코어는 언어를 모릅니다) */
@@ -263,7 +264,13 @@ typedef enum CoreEventType {
     CORE_EVT_MERCHANT_ARRIVED = 29,  /* a = 머무는 날 수, b = 거래 제안 수 */
     CORE_EVT_MERCHANT_LEFT = 30,
     CORE_EVT_WINTER_WARNING = 31,    /* a = 겨울에 필요한 식량, b = 필요한 목재 (가을에, 모자랄 때) */
-    CORE_EVT_HOUSES_COLD = 32        /* a = 지난밤 난방을 못 한 집 수 */
+    CORE_EVT_HOUSES_COLD = 32,       /* a = 지난밤 난방을 못 한 집 수 */
+    CORE_EVT_THREAT_SCHEDULED = 33,  /* a = 위협 종류(CoreThreatType), b = 방향(CoreDirection), c = 도착까지 틱, d = 세기(적 수) */
+    CORE_EVT_RAID_STARTED = 34,      /* a = 습격 id, b = 위협 종류, c = 적 수, d = 방향 */
+    CORE_EVT_RAID_ENDED = 35,        /* a = 쓰러뜨린 적, b = 전체 적, c = 빼앗긴 금화, d = 쓰러진 주민 */
+    CORE_EVT_ENEMY_KILLED = 36,      /* a = 적 id, b = 적 종류, c = 떨어뜨린 마정석 */
+    CORE_EVT_LOOT_STOLEN = 37,       /* a = 자원, b = 양, c = 건물 id */
+    CORE_EVT_THREAT_NEAR = 38        /* a = 위협 종류, b = 방향 (도착 반나절 전, 경보) */
 } CoreEventType;
 
 typedef enum CoreWarning {
@@ -325,6 +332,40 @@ typedef enum CoreDenyReason {
     CORE_DENY_NO_RESOURCES = 12,      /* 수리 비용이 모자람 */
     CORE_DENY_COUNT = 13
 } CoreDenyReason;
+
+/* 위협 종류 (습격 구성 함수는 threat.c 의 THREAT_KINDS 표) */
+typedef enum CoreThreatType {
+    CORE_THREAT_NONE = 0,
+    CORE_THREAT_BANDITS = 1,   /* 도적: 작고, 저장소에서 금화를 훔쳐 달아남 */
+    CORE_THREAT_MONSTERS = 2,  /* 마물: 밤에 옴, 쓰러뜨리면 마정석 */
+    CORE_THREAT_ARMY = 3,      /* 적대 영주 군대: 크고, 오래 전에 예고, 건물을 부숨 */
+    CORE_THREAT_COUNT = 4
+} CoreThreatType;
+
+typedef enum CoreDirection {
+    CORE_DIR_NORTH = 0,
+    CORE_DIR_EAST = 1,
+    CORE_DIR_SOUTH = 2,
+    CORE_DIR_WEST = 3,
+    CORE_DIR_COUNT = 4
+} CoreDirection;
+
+/* 적의 행동 (Godot 의 CombatDirector 가 이 값으로 목표를 고름) */
+typedef enum CoreEnemyBehavior {
+    CORE_BEHAVIOR_THIEF = 0,   /* 가장 가까운 저장소(성채·창고)로 가서 훔치고 달아남 */
+    CORE_BEHAVIOR_RAIDER = 1,  /* 가까운 건물을 부숨 (성채 쪽으로) */
+    CORE_BEHAVIOR_MONSTER = 2, /* 밖에 있는 주민과 경비병, 그다음 집을 노림 */
+    CORE_BEHAVIOR_COUNT = 3
+} CoreEnemyBehavior;
+
+/* 적 상태 (CoreEnemyView.state) */
+typedef enum CoreEnemyState {
+    CORE_ENEMY_ALIVE = 0,
+    CORE_ENEMY_KILLED = 1,
+    CORE_ENEMY_ESCAPED = 2     /* 훔치고 지도 밖으로 달아났거나 습격이 끝나 물러남 */
+} CoreEnemyState;
+
+#define CORE_MAX_THREATS 4        /* 예고된 위협은 최대 4개 */
 
 #define CORE_MARKET_LOT 10        /* 시장에서 한 번에 사고파는 양 */
 #define CORE_MARKET_MAX_LOTS 10   /* core_trade 한 번에 최대 묶음 수 */
@@ -405,6 +446,14 @@ typedef struct CoreSummaryView {
     int32_t farm_percent;     /* 지금 농장 생산 % (계절 × 날씨 × 사건) */
     int32_t winter_food_need; /* 가을·겨울: 봄까지 버티는 데 필요한 식량 (다른 계절은 0) */
     int32_t winter_wood_need; /* 가을·겨울: 봄까지 필요한 난방 목재 */
+    int32_t threat_type;      /* 다음 위협 (CoreThreatType, 0 = 없음) */
+    int32_t threat_direction; /* CoreDirection */
+    int32_t threat_ticks_left;/* 도착까지 남은 틱 */
+    int32_t threat_strength;  /* 예상 적 수 */
+    int32_t raid_id;          /* 진행 중인 습격 (0 = 없음). 습격 중에는 저장할 수 없음 */
+    int32_t raid_type;
+    int32_t raid_enemies_left;/* 아직 남은 적 */
+    int32_t guards;           /* 지금 경비병(병영 일꾼) 수 */
     int32_t resources[CORE_RES_COUNT];
     int32_t resource_capacity[CORE_RES_COUNT]; /* 자원별 저장 한도. 0 이면 한도 없음 (금화, 마정석) */
     int32_t resource_delta[CORE_RES_COUNT];    /* 어제 하루 동안의 순변화 */
@@ -504,8 +553,55 @@ typedef struct CoreBuildingDefView {
     int32_t category;         /* CoreBuildCategory */
     int32_t line;             /* 1 = 끌어서 줄로 놓음 (도로, 성벽) */
     int32_t available;        /* 1 = 이 월드에서 지금 지을 수 있음 (등급) */
+    int32_t attack;           /* 감시탑: 화살 한 발의 피해, 병영: 경비병 한 명의 피해 (0 = 싸우지 않음) */
+    int32_t attack_range;     /* 공격 거리 (칸) */
+    int32_t attack_cooldown;  /* 공격 사이 시간 (게임 속 분) */
     char key[CORE_KEY_BYTES];
 } CoreBuildingDefView;
+
+/* 적 정의 (data/enemies.def) */
+typedef struct CoreEnemyDefView {
+    int32_t type;            /* 적 종류 번호 (0 부터) */
+    int32_t hp;
+    int32_t damage;          /* 한 번 공격의 피해 */
+    int32_t cooldown;        /* 공격 사이 시간 (게임 속 분) */
+    int32_t speed;           /* 보통 풀밭에서 한 틱에 걷는 거리 × 1000 */
+    int32_t range;           /* 공격 거리 (칸, 1 = 붙어서) */
+    int32_t behavior;        /* CoreEnemyBehavior */
+    int32_t loot_resource;   /* 훔치는 자원 (-1 = 없음) */
+    int32_t loot_amount;     /* 한 명이 훔치는 양 */
+    int32_t mana_reward;     /* 쓰러뜨리면 떨어뜨리는 마정석 */
+    char key[CORE_KEY_BYTES];
+} CoreEnemyDefView;
+
+/* 예고된 위협 하나 */
+typedef struct CoreThreatView {
+    int32_t type;            /* CoreThreatType */
+    int32_t direction;       /* CoreDirection */
+    int32_t eta_tick;        /* 도착하는 틱 */
+    int32_t ticks_left;
+    int32_t strength;        /* 예상 적 수 */
+} CoreThreatView;
+
+/* 진행 중인 습격 */
+typedef struct CoreRaidView {
+    int32_t id;              /* 0 = 습격 없음 */
+    int32_t type;            /* CoreThreatType */
+    int32_t direction;
+    int32_t spawn_x;         /* 적이 나타나는 칸 (지도 가장자리) */
+    int32_t spawn_y;
+    int32_t enemy_count;
+    int32_t alive;
+    int32_t started_tick;
+    int32_t stolen;          /* 지금까지 빼앗긴 양 (금화 등 합계) */
+} CoreRaidView;
+
+/* 습격의 적 한 명 (위치와 체력은 Godot 이 가짐) */
+typedef struct CoreEnemyView {
+    int32_t id;
+    int32_t type;            /* 적 종류 (core_get_enemy_def) */
+    int32_t state;           /* CoreEnemyState */
+} CoreEnemyView;
 
 /* 특성 정의 */
 typedef struct CoreTraitDefView {
@@ -580,6 +676,10 @@ typedef struct CoreStructSizes {
     int32_t ledger_view;
     int32_t market_view;
     int32_t merchant_view;
+    int32_t enemy_def_view;
+    int32_t threat_view;
+    int32_t raid_view;
+    int32_t enemy_view;
 } CoreStructSizes;
 
 /* 불투명 핸들 */
@@ -639,6 +739,14 @@ CORE_API int32_t core_get_trait_def(const CoreWorld *world, int32_t index, CoreT
 CORE_API int32_t core_get_mood_terms(const CoreWorld *world, int32_t villager_id, CoreMoodTermView *out,
                                      int32_t capacity, int32_t *out_count);
 CORE_API int32_t core_get_ledger(const CoreWorld *world, CoreLedgerView *out);
+/* 적 정의. type 이 범위 밖이면 CORE_ERR_NOT_FOUND (0 부터 차례로 읽으면 개수를 알 수 있음) */
+CORE_API int32_t core_get_enemy_def(const CoreWorld *world, int32_t type, CoreEnemyDefView *out);
+/* 예고된 위협들 (도착이 빠른 순) */
+CORE_API int32_t core_copy_threats(const CoreWorld *world, CoreThreatView *out, int32_t capacity, int32_t *out_count);
+/* 진행 중인 습격 (없으면 out->id = 0) */
+CORE_API int32_t core_get_raid(const CoreWorld *world, CoreRaidView *out);
+/* 진행 중인 습격의 적 전체. 버퍼가 작으면 CORE_ERR_BUFFER_TOO_SMALL 과 필요한 개수 */
+CORE_API int32_t core_copy_enemies(const CoreWorld *world, CoreEnemyView *out, int32_t capacity, int32_t *out_count);
 CORE_API int32_t core_get_market(const CoreWorld *world, CoreMarketView *out);
 CORE_API int32_t core_get_merchant(const CoreWorld *world, CoreMerchantView *out);
 /* 건물 수리 비용 (자원 6개). 고칠 곳이 없으면 모두 0 */
@@ -683,12 +791,28 @@ CORE_API int32_t core_villager_arrived(CoreWorld *world, int32_t villager_id, in
 /* 목표까지 길이 없음. C 가 다른 할 일을 고르고 알림을 냅니다 */
 CORE_API int32_t core_villager_unreachable(CoreWorld *world, int32_t villager_id, int32_t intent_rev);
 
+/* 습격 보고 (Godot 의 전투 결과 → C 가 규칙대로 적용). 습격이 이미 끝났으면 CORE_IGNORED */
+/* 적이 건물에 준 피해 (성채는 체력 1 아래로 내려가지 않음 — 패배는 마일스톤 5) */
+CORE_API int32_t core_report_building_damage(CoreWorld *world, int32_t raid_id, int32_t building_id, int32_t damage);
+/* 적이 주민(경비병)에게 준 피해. 건강이 0 이 되면 쓰러짐 */
+CORE_API int32_t core_report_villager_damage(CoreWorld *world, int32_t raid_id, int32_t villager_id, int32_t damage);
+/* 적을 쓰러뜨림 (마물이면 마정석을 얻음) */
+CORE_API int32_t core_report_enemy_killed(CoreWorld *world, int32_t raid_id, int32_t enemy_id);
+/* 적이 저장소(성채·창고)에 닿아 훔침. *out_amount = 실제로 빼앗긴 양 */
+CORE_API int32_t core_report_loot(CoreWorld *world, int32_t raid_id, int32_t enemy_id, int32_t building_id,
+                                  int32_t *out_amount);
+/* 적이 지도 밖으로 달아남 */
+CORE_API int32_t core_report_enemy_escaped(CoreWorld *world, int32_t raid_id, int32_t enemy_id);
+/* 습격이 끝남 (남은 적은 물러난 것으로 봄). Godot 이 알리지 않으면 하루 뒤 C 가 스스로 끝냄 */
+CORE_API int32_t core_report_raid_ended(CoreWorld *world, int32_t raid_id);
+
 /* ---- 피드백 이벤트 ---------------------------------------------------- */
 /* 이벤트가 있으면 out 에 채우고 1, 없으면 0, 오류면 음수 */
 CORE_API int32_t core_poll_event(CoreWorld *world, CoreEventView *out);
 
 /* ---- 저장, 불러오기 ---------------------------------------------------- */
-/* 임시 파일에 쓰고 바꿔치기합니다. 기존 파일은 <path>.bak 으로 남깁니다. 경로는 UTF-8 */
+/* 임시 파일에 쓰고 바꿔치기합니다. 기존 파일은 <path>.bak 으로 남깁니다. 경로는 UTF-8.
+ * 습격 중에는 CORE_ERR_REJECTED (습격이 끝난 뒤 저장) */
 CORE_API int32_t core_save(const CoreWorld *world, const char *path_utf8);
 /* 성공하면 *out_world 에 새 월드. 실패하면 *out_world 는 NULL, out_error_line 에 문제 줄 번호(없으면 0).
  * defs 가 NULL 이면 내장 기본값 */
