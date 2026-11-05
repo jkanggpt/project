@@ -21,7 +21,6 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <direct.h>
 #include <windows.h>
 
 /* UTF-8 문자열을 새로 할당한 UTF-16 문자열로 바꿉니다. 호출한 쪽이 mem_free 합니다. 실패하면 NULL */

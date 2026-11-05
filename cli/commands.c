@@ -111,7 +111,7 @@ static int cmd_map(CliContext *context)
 static int cmd_advance_ticks(CliContext *context)
 {
     CoreConfigView config;
-    int ticks;
+    int ticks = 0;
     int32_t rc;
     (void)core_get_config(&config);
     printf("한 틱은 게임 속 %d분입니다.\n", (int)config.minutes_per_tick);
@@ -204,8 +204,8 @@ static int cmd_new_game(CliContext *context)
 {
     CoreNewGameParams params;
     CoreWorld *world = NULL;
-    int seed;
-    int difficulty;
+    int seed = 0;
+    int difficulty = 0;
     int32_t rc;
 
     memset(&params, 0, sizeof(params));
@@ -273,7 +273,7 @@ void cli_run_menu(CliContext *context)
 {
     context->running = 1;
     while (context->running) {
-        int choice;
+        int choice = 0;
         const CliCommand *command;
         print_menu(context);
         if (!read_int("번호를 고르세요", 0, COMMAND_COUNT - 1, &choice)) {
