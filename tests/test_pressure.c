@@ -179,6 +179,15 @@ void test_nature_events_follow_seasons(void)
                     forecast = event.a;
                 }
             }
+            /* 진행 중인 사건도 그 계절에만 (계절이 바뀌면 끝남) */
+            {
+                int32_t season = clock_season(&world->clock);
+                int32_t active = world->nature.event;
+                CHECK(active != CORE_NATURE_DROUGHT || season == CORE_SEASON_SUMMER);
+                CHECK(active != CORE_NATURE_COLD_SNAP || season == CORE_SEASON_WINTER);
+                CHECK(active != CORE_NATURE_BUMPER || season == CORE_SEASON_SUMMER || season == CORE_SEASON_AUTUMN);
+                CHECK(active != CORE_NATURE_PLAGUE || season != CORE_SEASON_WINTER);
+            }
             CHECK_EQ(test_validate_verbose(world), 0);
         }
         core_destroy(world);
