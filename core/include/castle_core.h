@@ -146,8 +146,8 @@ typedef struct CoreSummaryView {
     int32_t keep_y;
     int32_t keep_size;        /* 성채가 차지하는 정사각형 한 변(타일, 홀수). 중심이 keep_x, keep_y */
     int32_t cost_grid_rev;    /* 이동 비용 격자가 바뀔 때마다 1씩 증가 */
-    int32_t storage_capacity; /* 식량·목재·석재·약초 각각의 저장 한도 */
     int32_t resources[CORE_RES_COUNT];
+    int32_t resource_capacity[CORE_RES_COUNT]; /* 자원별 저장 한도. 0 이면 한도 없음 (금화, 마정석) */
     char castle_name[CORE_NAME_BYTES];
 } CoreSummaryView;
 

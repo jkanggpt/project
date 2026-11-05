@@ -74,7 +74,7 @@ static void write_csv_row(FILE *out, const CoreSummaryView *summary)
         fprintf(out, ",%d", (int)summary->resources[i]);
     }
     /* 인구, 평균 기분, 위협은 마일스톤 2~4 에서 채워집니다 */
-    fprintf(out, ",%d,0,0,0\n", (int)summary->storage_capacity);
+    fprintf(out, ",%d,0,0,0\n", (int)summary->resource_capacity[CORE_RES_FOOD]);
 }
 
 int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_name, const char *csv_path)

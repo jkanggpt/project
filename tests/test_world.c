@@ -24,6 +24,8 @@ void test_world_create_and_destroy(void)
     CHECK_EQ(summary.keep_size, 3);
     CHECK(strcmp(summary.castle_name, "시험성") == 0);
     CHECK(summary.cost_grid_rev >= 1);
+    CHECK_EQ(summary.resource_capacity[CORE_RES_GOLD], 0);
+    CHECK(summary.resource_capacity[CORE_RES_FOOD] > 0);
     core_destroy(world);
     core_destroy(NULL); /* NULL 해제는 아무 일도 하지 않아야 함 */
 }

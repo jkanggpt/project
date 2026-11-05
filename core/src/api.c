@@ -136,9 +136,9 @@ CORE_API int32_t core_get_summary(const CoreWorld *world, CoreSummaryView *out)
     out->keep_y = world->keep_y;
     out->keep_size = GRID_KEEP_SIZE;
     out->cost_grid_rev = world->grid.cost_rev;
-    out->storage_capacity = world->bank.capacity;
     for (i = 0; i < CORE_RES_COUNT; i++) {
         out->resources[i] = world->bank.amount[i];
+        out->resource_capacity[i] = eco_is_stored_good(i) ? world->bank.capacity : 0;
     }
     /* 이름 버퍼는 크기가 같고 항상 '\0' 으로 끝나므로 통째로 복사합니다 */
     memcpy(out->castle_name, world->castle_name, CORE_NAME_BYTES);

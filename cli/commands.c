@@ -60,8 +60,8 @@ static int cmd_status(CliContext *context)
     printf("자원   :");
     for (i = 0; i < CORE_RES_COUNT; i++) {
         printf(" %s %d", fmt_resource_name(i), (int)summary.resources[i]);
-        if (i >= CORE_RES_FOOD) {
-            printf("/%d", (int)summary.storage_capacity);
+        if (summary.resource_capacity[i] > 0) {
+            printf("/%d", (int)summary.resource_capacity[i]);
         }
         printf(i + 1 < CORE_RES_COUNT ? "," : "\n");
     }

@@ -23,104 +23,131 @@
 #endif
 #include <windows.h>
 
-/* UTF-8 문자열을 새로 할당한 UTF-16 문자열로 바꿉니다. 호출한 쪽이 mem_free 합니다. 실패하면 NULL */
-static wchar_t *utf8_to_wide(const char *text)
+/* UTF-8 경로를 UTF-16 으로 바꾼 결과.
+ * 보통 길이의 경로는 구조체 안의 배열(스택)에 담고, 아주 긴 경로만 힙에 할당합니다.
+ * 그래서 메모리가 부족해도 흔한 경로는 열 수 있고, 오류도 "파일을 못 엶"으로 잘못 보고되지 않습니다. */
+typedef struct WideText {
+    wchar_t local[MAX_PATH + 1];
+    wchar_t *heap;
+    wchar_t *text; /* local 또는 heap 을 가리킴. 실패하면 NULL */
+} WideText;
+
+/* 성공하면 1. 실패(잘못된 UTF-8, 메모리 부족)하면 0 이고 wide->text 는 NULL */
+static int wide_begin(WideText *wide, const char *utf8)
 {
     int length;
-    wchar_t *wide;
 
-    length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0);
+    wide->heap = NULL;
+    wide->text = NULL;
+    length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, NULL, 0);
     if (length <= 0) {
-        return NULL;
+        return 0;
     }
-    wide = (wchar_t *)mem_malloc((size_t)length * sizeof(wchar_t));
-    if (wide == NULL) {
-        return NULL;
+    if (length <= (int)(sizeof(wide->local) / sizeof(wide->local[0]))) {
+        wide->text = wide->local;
+    } else {
+        wide->heap = (wchar_t *)mem_malloc((size_t)length * sizeof(wchar_t));
+        if (wide->heap == NULL) {
+            return 0;
+        }
+        wide->text = wide->heap;
     }
-    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, wide, length) != length) {
-        mem_free(wide);
-        return NULL;
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, wide->text, length) != length) {
+        mem_free(wide->heap);
+        wide->heap = NULL;
+        wide->text = NULL;
+        return 0;
     }
-    return wide;
+    return 1;
+}
+
+static void wide_end(WideText *wide)
+{
+    mem_free(wide->heap);
+    wide->heap = NULL;
+    wide->text = NULL;
 }
 
 FILE *platform_fopen_utf8(const char *path, const char *mode)
 {
-    wchar_t *wide_path = utf8_to_wide(path);
-    wchar_t *wide_mode = utf8_to_wide(mode);
+    WideText wide_path;
+    WideText wide_mode;
     FILE *file = NULL;
 
-    if (wide_path != NULL && wide_mode != NULL) {
-        file = _wfopen(wide_path, wide_mode);
+    if (wide_begin(&wide_path, path) && wide_begin(&wide_mode, mode)) {
+        file = _wfopen(wide_path.text, wide_mode.text);
+        wide_end(&wide_mode);
     }
-    mem_free(wide_path);
-    mem_free(wide_mode);
+    wide_end(&wide_path);
     return file;
 }
 
 int platform_replace_file(const char *src, const char *dst)
 {
-    wchar_t *wide_src = utf8_to_wide(src);
-    wchar_t *wide_dst = utf8_to_wide(dst);
+    WideText wide_src;
+    WideText wide_dst;
     int result = -1;
 
     /* rename() 은 Windows 에서 대상 파일이 있으면 실패하므로 MoveFileExW 를 씁니다 */
-    if (wide_src != NULL && wide_dst != NULL &&
-        MoveFileExW(wide_src, wide_dst, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-        result = 0;
+    if (wide_begin(&wide_src, src) && wide_begin(&wide_dst, dst)) {
+        if (MoveFileExW(wide_src.text, wide_dst.text, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+            result = 0;
+        }
+        wide_end(&wide_dst);
     }
-    mem_free(wide_src);
-    mem_free(wide_dst);
+    wide_end(&wide_src);
     return result;
 }
 
 int platform_copy_file(const char *src, const char *dst)
 {
-    wchar_t *wide_src = utf8_to_wide(src);
-    wchar_t *wide_dst = utf8_to_wide(dst);
+    WideText wide_src;
+    WideText wide_dst;
     int result = -1;
 
-    if (wide_src != NULL && wide_dst != NULL && CopyFileW(wide_src, wide_dst, FALSE)) {
-        result = 0;
+    if (wide_begin(&wide_src, src) && wide_begin(&wide_dst, dst)) {
+        if (CopyFileW(wide_src.text, wide_dst.text, FALSE)) {
+            result = 0;
+        }
+        wide_end(&wide_dst);
     }
-    mem_free(wide_src);
-    mem_free(wide_dst);
+    wide_end(&wide_src);
     return result;
 }
 
 int platform_remove_file(const char *path)
 {
-    wchar_t *wide = utf8_to_wide(path);
+    WideText wide;
     int result = -1;
-    if (wide != NULL && DeleteFileW(wide)) {
+    if (wide_begin(&wide, path) && DeleteFileW(wide.text)) {
         result = 0;
     }
-    mem_free(wide);
+    wide_end(&wide);
     return result;
 }
 
 int platform_file_exists(const char *path)
 {
-    wchar_t *wide = utf8_to_wide(path);
+    WideText wide;
     int exists = 0;
-    if (wide != NULL) {
-        DWORD attributes = GetFileAttributesW(wide);
+    if (wide_begin(&wide, path)) {
+        DWORD attributes = GetFileAttributesW(wide.text);
         exists = attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
     }
-    mem_free(wide);
+    wide_end(&wide);
     return exists;
 }
 
 int platform_make_dir(const char *path)
 {
-    wchar_t *wide = utf8_to_wide(path);
+    WideText wide;
     int result = -1;
-    if (wide != NULL) {
-        if (CreateDirectoryW(wide, NULL) || GetLastError() == ERROR_ALREADY_EXISTS) {
+    if (wide_begin(&wide, path)) {
+        if (CreateDirectoryW(wide.text, NULL) || GetLastError() == ERROR_ALREADY_EXISTS) {
             result = 0;
         }
     }
-    mem_free(wide);
+    wide_end(&wide);
     return result;
 }
 

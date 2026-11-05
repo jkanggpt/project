@@ -69,7 +69,8 @@ static void format_day_started(const CoreEventView *event, char *out, size_t siz
 
 static void format_season_changed(const CoreEventView *event, char *out, size_t size)
 {
-    snprintf(out, size, "%d년 %s이(가) 왔습니다.", (int)event->b, fmt_season_name(event->a));
+    /* 봄, 여름, 가을, 겨울 모두 받침으로 끝나므로 조사는 늘 '이' */
+    snprintf(out, size, "%d년 %s이 왔습니다.", (int)event->b, fmt_season_name(event->a));
 }
 
 static void format_night_fell(const CoreEventView *event, char *out, size_t size)
