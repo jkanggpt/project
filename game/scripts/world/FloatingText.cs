@@ -35,8 +35,8 @@ public partial class FloatingText : Node2D
         _next = (_next + 1) % _pool.Count;
         label.Text = text;
         label.Modulate = color;
-        label.Position = worldPosition - new Vector2(40, 12);
         label.Scale = new Vector2(0.5f, 0.5f); // 12px 글꼴을 월드 픽셀의 절반 크기로 (확대해도 또렷)
+        label.Position = worldPosition - label.Size * label.Scale * new Vector2(0.5f, 1f); // 가운데 위
         label.Visible = true;
         Tween tween = label.CreateTween();
         tween.SetParallel();

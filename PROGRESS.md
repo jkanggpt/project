@@ -2,38 +2,47 @@
 
 ## 현재 상태 (2026-11-05)
 
-**마일스톤 1 (Foundations) 완료.** 브랜치 `claude/wizardly-allen-7ou35f` (세션이 지정한 이름. SPEC 의 `m1-foundations` 대신 사용, `docs/DECISIONS.md` 참고). PR 을 열고 학생들의 Windows 플레이 테스트를 기다리는 중.
+**마일스톤 2 (Colony loop) 완료.** 브랜치 `claude/wizardly-allen-7ou35f` (세션이 지정한 이름. M1 PR 이 아직 병합되지 않아 그 위에 이어서 쌓음 → PR 하나에 M1 + M2). 학생들의 Windows 플레이 테스트를 기다리는 중.
 
-### 된 것
-- **빌드**: CMake + 프리셋(`linux-debug`, `linux-clang-debug`, `linux-release`, `mingw-release`, `windows-msvc`, `windows-mingw`), MinGW 툴체인 파일. 경고 0 (GCC/Clang `-Wall -Wextra -Wpedantic` 외, MSVC `/W4`, CI 에서 `-Werror`/`/WX`).
-- **C 코어** (`core/`): 월드 생성·해제, 시드 지형 생성(96×96, 공정한 시작, 연결성 보장), 틱(시계·계절·밤낮 이벤트), 자원 은행, 피드백 이벤트 큐(태그 공용체, realloc 성장), 텍스트 세이브(원자적 쓰기 + `.bak`, 엄격한 검증), 불변 조건 검사기, 상태 해시, UTF-8/Windows 플랫폼 층, 공개 API 16개.
-- **테스트**: CTest 33개 (단위 29 + CLI 4). 할당 실패 주입, 세이브 퍼징(잘림·뒤섞임·잘못된 값·버전), 한글 경로, 결정성. GCC·Clang 새니타이저(ASan/UBSan/LSan) 통과.
-- **CLI** (`cli/`): 함수 포인터 명령 표 메뉴, `read_int` 재입력, 상태·지도·시간·저장·불러오기, `--simulate`(CSV), `--soak`(매 틱 검사). 400일 × 20시드 소크 통과(위반 0, 누수 0).
-- **Godot** (`game/`): 자동 로드 `Core`(DLL 해석, ABI·구조체 크기 검사, 모든 호출 감싸기)와 `GameClock`(고정 틱, 일시정지/1×/2×/3×), `WorldSync`, 지형 TileMapLayer, 성채 임시 그림, 낮밤, 카메라(WASD, 가장자리, 가운데 끌기, 정수 확대, 경계), 위쪽 HUD(날짜·시각·배속·자원, 툴팁), 알림, 시작 실패 화면, Galmuri 글꼴, 정수 UI 배율.
-- **자동 검사**: `tools/smoke_test.sh` (헤드리스 20일, 매 프레임 검사, 저장→불러오기 해시, 엔진 오류·경고 0), `tools/screenshots.sh` (Xvfb + llvmpipe OpenGL 로 잘 동작).
-- **CI** (`.github/workflows/ci.yml`): Linux GCC·Clang 새니타이저 + 짧은 소크, 400일 × 20시드 소크, MinGW 교차, Windows MSVC(테스트 + 한글 경로 + DLL 아티팩트), C# Debug/ExportRelease, Godot 스모크 테스트. **모두 초록** (run 2).
-- **문서**: README, ARCHITECTURE, C_REQUIREMENTS, C_WALKTHROUGH(질문 15개), DECISIONS, QA, AI_USAGE, devlog 템플릿, CREDITS, CLAUDE.md Commands.
+### 마일스톤 2 에서 된 것
+- **정의 파일** (`game/data/buildings.def`, `traits.def`, `names.txt`): 건물 15종(성채 포함) + 도로, 성격 10개, 한국어 이름 152개. 틀린 줄이 있으면 그 파일만 기본값 + 파일·줄 경고. `castle_cli --dump-defs game/data` 로 다시 만듦.
+- **주민·건물** (`entity`): `Villager`(Stats·Needs 포함, home/workplace 참조) ↔ `Building`(workers/residents 동적 배열) 양방향 연결, 포인터 배열 풀, 다시 쓰지 않는 id.
+- **배치·건설·철거** (`placement`): 미리보기와 같은 검사 함수(이유 코드 17가지 + 생산성), 문 앞 칸, 길이 끊기는 배치 거부, 숲 베기, 건설 틱, 도로·성벽 줄 놓기, 50% 환불 철거, 비용 격자와 `cost_grid_rev`.
+- **주민** (`villager_ai`): 상태 표 `STATE_TABLE`, 의도 + `intentRev`, 도착·길 없음 보고(오래된 rev 무시), 하루 시간 초과 안전장치, 욕구(배부름·기운·안전·집·건강), 항목별 기분.
+- **경제** (`jobs`, `economy`, `population`): 직업 표 `JOB_TABLE`(농장 계절, 벌목장·채석장·광산 지형), 일할 때만 생산, 식사, 임금·세금, 저장 한도(성채 300, 창고 200), 장부(오늘/어제), 자동·직접 배치, 집 배정, 이주(집·기분·식량, 겨울 제외), 떠남(기분, 굶주림), 죽음과 슬픔.
+- **세이브 v2**: 장부, 도로, 건물, 주민(id 로 저장 → `relink`).
+- **CLI**: 건설·줄 놓기·철거·주민/건물 목록·직접 배치 메뉴, 걷기 흉내(`walker.c`, 다익스트라), `reasonable` 봇, 무작위 명령이 섞인 소크, `--data`, `--events`, `--dump-defs`.
+- **테스트**: CTest 48개 (마을 테스트 15개 추가). GCC·Clang 새니타이저, MinGW 통과. 400일 × 20시드 소크 위반 0 (ASan 약 9분, 배치 길 검사를 빠르게 바꾼 뒤).
+- **Godot**: ABI 2 바인딩, 건물·주민 노드를 id 로 맞추기, `AStarGrid2D`(rev 바뀔 때만), 주민 걷기·말풍선·일 도구 표시, 건설 도구(미리보기, 끌어서 도로·성벽, 철거 X, Esc/오른쪽 클릭 취소), 아래쪽 건설 막대(분류 탭, 비용·못 짓는 이유 툴팁), 건물·주민 검사창(일꾼 넣기/빼기, 자동 배치, 기분 항목 툴팁), 주민 목록(V, 열 눌러 정렬, 줄 눌러 이동), 자원 아이콘·하루 변화·인구, 위치 있는 알림 눌러 카메라 이동, 떠오르는 "+3 식량", 건설 먼지·완성 통통 튀기.
+- **자동 검사**: 스모크 테스트에 자동 조종(건물 14채·도로를 짓고 일꾼 명령을 눌러 봄, 노드↔뷰 일치 검사, 마을이 자랐는지 확인). 40일 실행에서 주민 24명으로 첫 겨울을 넘김. 스크린숏에 초반 마을·건설 미리보기·검사창·주민 목록 장면.
+- **문서**: C_REQUIREMENTS, C_WALKTHROUGH(질문 20개), ARCHITECTURE, DECISIONS(경제 수치), QA(M2 열), AI_USAGE, CREDITS 갱신.
 
 ### 확인하는 방법
-`CLAUDE.md` 의 Commands 절 참고. 요약: `ctest --preset linux-debug`, `tools/smoke_test.sh 20`, `tools/screenshots.sh`.
+`CLAUDE.md` 의 Commands 절 참고. 요약: `ctest --preset linux-debug`, `tools/smoke_test.sh 20`, `tools/screenshots.sh`, `build/linux-release/bin/castle_cli --simulate 64 --seed 7 --bot reasonable --events`.
 
 ### 알려진 문제 / 빈 곳
-- 물 가장자리(물가) 그림이 없어 호수 경계가 반듯함 → M7 그림 작업.
-- 겨울 눈 덮개, 날씨 파티클 없음 → M3.
-- 제목 화면 없음: 실행하면 바로 무작위 시드의 새 게임(성채 이름 "바람언덕", 보통)이 시작됨 → M6.
-- 창 폭이 1280 보다 좁으면 UI 배율이 1배가 되어 글씨가 작음. 설정에서 고를 수 있게 할 예정 → M6.
-- 음악 없음 (CC0 곡을 찾으면 추가).
-- 클라우드 VM 메모: Clang 새니타이저에는 `libclang-rt-18-dev` 가 필요해서 이번 세션에서 `apt-get install` 로 설치함. 환경 설정 스크립트에 넣으면 좋음. Xvfb 스크린숏 실행이 한 번 멈춘 적이 있어(재현 안 됨) 스크립트에 `timeout` 을 넣음.
-- 빠진 에셋: 없음 (Kenney 팩과 Galmuri 로 충분). 물·바위 지대·광맥은 Kenney 팔레트로 만든 절차적 타일.
+- 겨울 농장은 50% (SPEC 은 0%). 0% 는 M3 에서 겨울 경고·비축 안내와 함께 (`docs/DECISIONS.md`).
+- 자원 툴팁은 "어제 하루 변화" 합계만 보여 줌. 항목별 장부 내역(생산·소비·임금 …)은 M3 "ledger tooltips".
+- 금화가 쌓이기만 함 (쓸 곳은 건설뿐) → M3 시장·상인.
+- 건물은 1단계뿐(업그레이드 없음), 체력·수리는 M4.
+- 병영·감시탑·성벽·성문·치료소·마탑·시장은 지을 수 있지만 아직 하는 일이 없음 (등급 잠금이 걸린 것도 있음, 승급은 M5).
+- 주민이 건물 안으로 들어가지 않고 문 앞에 섬 (잘 때만 집 안으로 숨김).
+- 1280×720 2배율에서 위쪽 막대가 두 줄로 접힘.
+- 날씨·눈 덮개, 물가 그림, 음악 없음 → M3/M7.
+- 제목 화면·세이브 메뉴 없음: 실행하면 바로 새 게임 → M6.
+- 클라우드 VM 메모: Clang 새니타이저에는 `libclang-rt-18-dev` 가 필요함 (`apt-get install`).
 
-## 다음 할 일 — 마일스톤 2 (Colony loop)
+### 마일스톤 1 에서 된 것 (요약)
+빌드·프리셋·CI, 지형 생성, 시계, 자원 은행, 이벤트 큐, 원자적 텍스트 세이브, 불변 조건 검사, CLI 메뉴·시뮬레이터·소크, Godot 브리지(ABI 검사)·지도·카메라·낮밤·HUD, 헤드리스 스모크 테스트와 스크린숏.
 
-학생들이 M1 PR 을 병합한 뒤 `main` 에서 시작합니다. 순서 제안:
+## 다음 할 일 — 마일스톤 3 (World pressure)
 
-1. **정의 파일**: `defs` 모듈과 `game/data/buildings.def`, `traits.def`, `names.txt`(한국어 이름 약 150개). 섹션 해석 함수 표. 파일 위치 결정(`docs/DECISIONS.md` "다음 마일스톤에서 정할 것").
-2. **엔티티**: `entity` 모듈 — `Villager`(Stats, Needs 포함, `Building *home/workplace` 참조), `Building`(`Villager **workers/residents` 동적 배열), 포인터 배열 풀(`realloc`), id 카운터(저장), 양방향 연결 끊고 해제, 뒤에서부터 지우기.
-3. **배치**: 점유 격자, `core_can_place`(오류 코드 + 생산성 미리보기), 건설 명령(비용 선불, 건설 틱), 철거(50% 환불), 성채를 건물로 미리 배치.
-4. **주민 핸드셰이크**: 상태 표 `STATE_TABLE[state]`, 의도 + `intentRev`, `core_villager_arrived/unreachable`, 뷰 복사(주민·건물).
-5. **경제**: 직업 표 `JOB_TABLE[job]`, 생산(WORKING 일 때만), 소비, 임금, 기분, 이주와 떠남, 도로(비용 격자 수정 → `cost_grid_rev`).
-6. **Godot**: `WorldSync` 에서 id 로 주민·건물 노드 맞추기, `AStarGrid2D`(비용 격자 rev 바뀔 때만 다시), `VillagerAgent`, `BuildMode`(유령 그림, 끌어서 도로), 건물·주민 검사창, 아래쪽 건설 막대.
-7. **세이브 확장**(주민·건물·id), 테스트(양방향 연결, 배치 규칙, 생산·소비·임금, 오래된 intentRev), 시뮬레이터 "reasonable" 봇, 스모크 테스트 오토파일럿(건물 짓기).
+순서 제안:
+
+1. **`nature` 모듈**: 계절 효과 표(겨울 농장 0%, 겨울 난방 나무 2배), 날씨 상태(저장), 자연 사건 처리 함수 표(가뭄 −50%, 역병, 폭풍 피해, 혹한, 풍년). 사건 예고·알림 이벤트.
+2. **겨울 대비 안내**: 가을에 "겨울까지 필요한 식량·나무" 계산을 요약 뷰에 넣고 HUD 경고. 그다음 겨울 농장 0% 로 바꾸고 봇 시뮬레이션으로 확인.
+3. **장부 툴팁**: `core_get_ledger` (자원 × 항목 × 어제) → 자원 툴팁에 항목별 내역.
+4. **시장**: 가격 표(수요·공급에 따라 움직임, 사고팔 때 차이), 거래 명령, 시장 건물 UI. **떠돌이 상인** 사건(마정석 거래 포함).
+5. **역병**: `SICK` 깃발, 치료소(약초 소비), `SEEK_HEALING` 상태 함수.
+6. **Godot**: 계절 팔레트·눈 덮개, 비·눈 파티클, 사건 알림, 시장 창.
+7. **세이브 v3**(날씨, 시장 가격, 사건 일정), 테스트, 시뮬레이터로 겨울 균형 확인.

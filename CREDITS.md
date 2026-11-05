@@ -31,7 +31,11 @@ npm 패키지 `galmuri` 에서 받았습니다 (`npm pack galmuri`). 글꼴 파�
 | 파일 | 만든 방법 | 라이선스 |
 | --- | --- | --- |
 | `game/assets/tiles/terrain.png` | `tools/make_art.py`: Kenney Tiny Town(CC0) 의 풀밭·나무 타일을 합성하고, 물·바위 지대·마정석 광맥 타일은 같은 팔레트로 절차적으로 그림 | CC0 (원본 Kenney CC0) |
-| `game/assets/buildings/keep.png` | `tools/make_art.py`: Kenney Tiny Town(CC0) 성벽·문 타일 9개를 합성한 성채 임시 그림 | CC0 (원본 Kenney CC0) |
+| `game/assets/buildings/keep.png` | `tools/make_art.py`: Kenney Tiny Town(CC0) 성벽·문 타일 9개를 합성한 성채 그림 | CC0 (원본 Kenney CC0) |
+| `game/assets/buildings/*.png` (주택, 농장, 채집 오두막, 벌목장, 채석장, 광산, 창고, 시장, 병영, 감시탑, 성벽, 성문, 치료소, 마탑), `construction_*.png` | `tools/make_art.py`: Kenney Tiny Town(CC0) 지붕·벽·문·울타리·밭 타일을 합성하고, 마탑·광산의 마정석은 같은 팔레트로 덧그림 | CC0 (원본 Kenney CC0) |
+| `game/assets/units/villagers.png` | `tools/make_art.py`: Kenney Tiny Dungeon(CC0) 인물 8명을 한 줄로 모음 | CC0 (원본 Kenney CC0) |
+| `game/assets/ui/res_*.png`, `job_*.png`, `bubble_*.png` | `tools/make_art.py`: Kenney Tiny Town·Tiny Dungeon(CC0) 아이템 타일과 직접 그린 8×8 말풍선 기호 | CC0 (원본 Kenney CC0) |
+| `game/assets/tiles/roads.png` | `tools/make_art.py`: Kenney Tiny Town(CC0) 흙길 타일 2개 | CC0 (원본 Kenney CC0) |
 
 ## 음악
 

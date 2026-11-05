@@ -26,3 +26,22 @@
 | Kenney 에셋 폴더의 `.import` 파일, `.gdignore` | Godot 가져오기 메타데이터 | 생성 (Godot 이 만듦) |
 
 학생이 직접 한 것: Kenney 에셋 팩 추가(`game/assets/third_party/kenney/`), 명세 작성.
+
+## 마일스톤 2 — 마을 살림 (2026-11-05)
+
+| 파일 / 폴더 | 내용 | 종류 |
+| --- | --- | --- |
+| `core/include/castle_core.h` | ABI 2: 주민·건물·정의 뷰, 배치·명령·보고 함수 | 수정 |
+| `core/src/` defs, defs_builtin, entity, placement, villager_ai, jobs, population, text (`.c`/`.h`) | 정의 파일, 주민·건물, 배치·건설·철거, 주민 상태 기계, 직업·임금, 이주 | 생성 |
+| `core/src/` api, world, grid, economy, events, save, validate | 장부, 도로·점유 격자, 세이브 v2, 새 불변 조건 | 수정 |
+| `cli/walker.c`, `cli/walker.h` | CLI 의 주민 걷기 흉내 | 생성 |
+| `cli/` commands, format, sim, main | 건설·철거·목록 명령, reasonable 봇, `--dump-defs`, `--data`, `--events` | 수정 |
+| `tests/test_colony.c`, `tests/` 나머지 | 마을 테스트 15개, 기존 테스트 갱신 | 생성 / 수정 |
+| `game/data/buildings.def`, `traits.def`, `names.txt` | 정의 파일 (`castle_cli --dump-defs` 로 만듦) | 생성 |
+| `game/scripts/world/` Art, BuildMode, BuildingNode, FloatingText, Pathfinder, VillagerAgent | 건물·주민 노드, 길찾기, 건설 도구 | 생성 |
+| `game/scripts/ui/` BuildBar, Inspector, VillagerList | 건설 막대, 검사창, 주민 목록 | 생성 |
+| `game/scripts/` Main, core/*, ui/Hud, ui/Toasts, ui/Strings, world/MapView, world/WorldSync, debug/* | 연결, ABI 2 바인딩, 자동 조종 스모크 테스트, 스크린숏 | 수정 |
+| `game/scenes/Main.tscn` | 도로 층, 건물·주민 층, 건설 도구 | 수정 |
+| `tools/make_art.py`, `game/assets/buildings/*.png`, `game/assets/units/villagers.png`, `game/assets/ui/*.png`, `game/assets/tiles/roads.png` (+ `.import`) | Kenney CC0 타일을 잘라 만든 건물·주민·아이콘 그림 | 생성 |
+| `docs/*.md`, `PROGRESS.md`, `CREDITS.md`, `CLAUDE.md`, `.github/workflows/ci.yml` | 문서, CI 시간 제한 | 수정 |
+

@@ -39,6 +39,7 @@ jobs:
   soak:
     name: 소크 테스트 400일 × 20시드 (ASan/LSan)
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: 도구 설치
