@@ -40,12 +40,17 @@ public enum CoreStatus
 public partial class CoreBridge : Node
 {
     /// <summary>C 의 CORE_ABI_VERSION 과 같아야 합니다.</summary>
-    public const int ExpectedAbiVersion = 1;
+    public const int ExpectedAbiVersion = 2;
+
+    /// <summary>정의 파일 (순서는 DataFile)</summary>
+    private static readonly string[] DataFiles = { "res://data/buildings.def", "res://data/traits.def", "res://data/names.txt" };
 
     private static bool _resolverInstalled;
     private static string _loadError = "";
 
     private IntPtr _world = IntPtr.Zero;
+    private IntPtr _defs = IntPtr.Zero;
+    private readonly CoreMoodTermView[] _moodBuffer = new CoreMoodTermView[(int)MoodTerm.Count];
 
     public static CoreBridge Instance { get; private set; } = null!;
 
@@ -61,9 +66,16 @@ public partial class CoreBridge : Node
 
     public bool HasWorld => _world != IntPtr.Zero;
 
+    /// <summary>정의 파일을 읽다가 생긴 문제 (시작 알림으로 보여 줌)</summary>
+    public List<string> DataWarnings { get; } = new();
+
     /// <summary>예상하지 못한 오류가 났을 때 (알림으로 보여 주기 위해)</summary>
     [Signal]
     public delegate void CoreErrorEventHandler(string message);
+
+    /// <summary>플레이어 명령이 상태를 바꿈 (일시정지 중에도 화면을 바로 맞추기 위해)</summary>
+    [Signal]
+    public delegate void CommandAppliedEventHandler();
 
     public override void _EnterTree()
     {
@@ -93,6 +105,11 @@ public partial class CoreBridge : Node
     public override void _ExitTree()
     {
         DestroyWorld();
+        if (_defs != IntPtr.Zero)
+        {
+            Native.core_defs_destroy(_defs);
+            _defs = IntPtr.Zero;
+        }
     }
 
     // ---- 라이브러리 로드와 ABI 검사 ----------------------------------------
@@ -116,6 +133,7 @@ public partial class CoreBridge : Node
             }
             Native.core_get_config(out CoreConfigView config);
             Config = config;
+            LoadDefinitions();
             Status = CoreStatus.Ready;
             GD.Print($"castle_core loaded (ABI {abi}, {Config.TicksPerDay} ticks/day)");
         }
@@ -130,6 +148,34 @@ public partial class CoreBridge : Node
         catch (BadImageFormatException exception)
         {
             Fail(CoreStatus.LibraryMissing, Strings.LibraryWrongArchitecture, exception.Message);
+        }
+    }
+
+    /// <summary>
+    /// res://data/ 의 정의 파일을 읽어 C 의 정의 묶음에 넣습니다. 파일을 Godot 이 읽어서 넘기므로
+    /// 내보낸 게임(.pck 안의 파일)에서도 같은 방법으로 동작합니다. 없거나 망가진 파일은 기본값을 씁니다.
+    /// </summary>
+    private void LoadDefinitions()
+    {
+        if (Native.core_defs_create(out _defs) != 0)
+        {
+            _defs = IntPtr.Zero;
+            return;
+        }
+        for (int file = 0; file < DataFiles.Length; file++)
+        {
+            byte[] bytes = Godot.FileAccess.GetFileAsBytes(DataFiles[file]);
+            if (bytes.Length == 0)
+            {
+                DataWarnings.Add(Strings.DataFileMissing(DataFiles[file]));
+                continue;
+            }
+            int result = Native.core_defs_load_text(_defs, file, bytes, bytes.Length, out int line);
+            if (result != 0)
+            {
+                // 경고 이벤트는 새 월드를 만들 때 C 가 다시 알려 주므로 여기서는 로그만 남깁니다
+                GD.Print($"definition file {DataFiles[file]} rejected at line {line}: {ResultName(result)}");
+            }
         }
     }
 
@@ -154,6 +200,12 @@ public partial class CoreBridge : Node
         Compare("CoreConfigView", sizes.ConfigView, Marshal.SizeOf<CoreConfigView>(), problems);
         Compare("CoreSummaryView", sizes.SummaryView, Marshal.SizeOf<CoreSummaryView>(), problems);
         Compare("CoreEventView", sizes.EventView, Marshal.SizeOf<CoreEventView>(), problems);
+        Compare("CoreVillagerView", sizes.VillagerView, Marshal.SizeOf<CoreVillagerView>(), problems);
+        Compare("CoreBuildingView", sizes.BuildingView, Marshal.SizeOf<CoreBuildingView>(), problems);
+        Compare("CoreBuildingDefView", sizes.BuildingDefView, Marshal.SizeOf<CoreBuildingDefView>(), problems);
+        Compare("CoreTraitDefView", sizes.TraitDefView, Marshal.SizeOf<CoreTraitDefView>(), problems);
+        Compare("CorePlacementView", sizes.PlacementView, Marshal.SizeOf<CorePlacementView>(), problems);
+        Compare("CoreMoodTermView", sizes.MoodTermView, Marshal.SizeOf<CoreMoodTermView>(), problems);
         detail = string.Join("; ", problems);
         return problems.Count == 0;
     }
@@ -265,7 +317,7 @@ public partial class CoreBridge : Node
         }
         var parameters = new CoreNewGameParams { Seed = seed, Difficulty = (int)difficulty };
         parameters.SetCastleName(castleName);
-        CoreResult result = CoreResult.FromCode(Native.core_create(in parameters, out IntPtr world));
+        CoreResult result = CoreResult.FromCode(Native.core_create(in parameters, _defs, out IntPtr world));
         if (!result.Ok)
         {
             Report("core_create", result);
@@ -369,6 +421,158 @@ public partial class CoreBridge : Node
         return count;
     }
 
+    /// <summary>도로 격자를 buffer 에 복사합니다 (1 = 도로).</summary>
+    public bool CopyRoads(byte[] buffer)
+    {
+        return HasWorld && Native.core_copy_roads(_world, buffer, buffer.Length) == 0;
+    }
+
+    /// <summary>모든 주민 뷰를 buffer 에 복사합니다. 모자라면 buffer 를 키웁니다. 개수를 돌려줌</summary>
+    public int CopyVillagers(ref CoreVillagerView[] buffer)
+    {
+        if (!HasWorld)
+        {
+            return 0;
+        }
+        int rc = Native.core_copy_villagers(_world, buffer, buffer.Length, out int count);
+        if (rc == (int)CoreResultCode.BufferTooSmall)
+        {
+            buffer = new CoreVillagerView[count + 32];
+            rc = Native.core_copy_villagers(_world, buffer, buffer.Length, out count);
+        }
+        if (rc != 0)
+        {
+            Report("core_copy_villagers", CoreResult.FromCode(rc));
+            return 0;
+        }
+        return count;
+    }
+
+    public int CopyBuildings(ref CoreBuildingView[] buffer)
+    {
+        if (!HasWorld)
+        {
+            return 0;
+        }
+        int rc = Native.core_copy_buildings(_world, buffer, buffer.Length, out int count);
+        if (rc == (int)CoreResultCode.BufferTooSmall)
+        {
+            buffer = new CoreBuildingView[count + 64];
+            rc = Native.core_copy_buildings(_world, buffer, buffer.Length, out count);
+        }
+        if (rc != 0)
+        {
+            Report("core_copy_buildings", CoreResult.FromCode(rc));
+            return 0;
+        }
+        return count;
+    }
+
+    public bool TryGetBuildingDef(BuildingType type, out CoreBuildingDefView def)
+    {
+        def = default;
+        return HasWorld && Native.core_get_building_def(_world, (int)type, out def) == 0;
+    }
+
+    public bool TryGetTraitDef(int index, out CoreTraitDefView def)
+    {
+        def = default;
+        return HasWorld && index >= 0 && Native.core_get_trait_def(_world, index, out def) == 0;
+    }
+
+    /// <summary>주민 기분 항목. 주민이 없으면 빈 범위</summary>
+    public ReadOnlySpan<CoreMoodTermView> GetMoodTerms(int villagerId)
+    {
+        if (!HasWorld || Native.core_get_mood_terms(_world, villagerId, _moodBuffer, _moodBuffer.Length, out int count) != 0)
+        {
+            return ReadOnlySpan<CoreMoodTermView>.Empty;
+        }
+        return new ReadOnlySpan<CoreMoodTermView>(_moodBuffer, 0, count);
+    }
+
+    // ---- 명령 (모든 상태 변경은 여기를 거쳐 C 로) ----------------------------
+
+    public CorePlacementView CanPlace(BuildingType type, Vector2I tile)
+    {
+        CorePlacementView view = default;
+        view.Result = (int)PlaceResult.BadType;
+        if (HasWorld)
+        {
+            Native.core_can_place(_world, (int)type, tile.X, tile.Y, out view);
+        }
+        return view;
+    }
+
+    public CoreResult PlaceBuilding(BuildingType type, Vector2I tile, out int id, out PlaceResult reason)
+    {
+        id = 0;
+        reason = PlaceResult.BadType;
+        if (!HasWorld)
+        {
+            return new CoreResult(CoreResultCode.NullArg);
+        }
+        int rc = Native.core_place_building(_world, (int)type, tile.X, tile.Y, out id, out int why);
+        reason = (PlaceResult)why;
+        return Checked("core_place_building", rc);
+    }
+
+    public CoreResult PlaceLine(BuildingType type, Vector2I from, Vector2I to, out int placed, out PlaceResult reason)
+    {
+        placed = 0;
+        reason = PlaceResult.BadType;
+        if (!HasWorld)
+        {
+            return new CoreResult(CoreResultCode.NullArg);
+        }
+        int rc = Native.core_place_line(_world, (int)type, from.X, from.Y, to.X, to.Y, out placed, out int why);
+        reason = (PlaceResult)why;
+        return Checked("core_place_line", rc);
+    }
+
+    public CoreResult Demolish(int buildingId) =>
+        HasWorld ? Checked("core_demolish", Native.core_demolish(_world, buildingId)) : new CoreResult(CoreResultCode.NullArg);
+
+    public CoreResult RemoveRoad(Vector2I tile) =>
+        HasWorld ? Checked("core_remove_road", Native.core_remove_road(_world, tile.X, tile.Y)) : new CoreResult(CoreResultCode.NullArg);
+
+    public CoreResult AssignWorker(int villagerId, int buildingId) =>
+        HasWorld ? Checked("core_assign_worker", Native.core_assign_worker(_world, villagerId, buildingId)) : new CoreResult(CoreResultCode.NullArg);
+
+    public CoreResult UnassignWorker(int villagerId) =>
+        HasWorld ? Checked("core_unassign_worker", Native.core_unassign_worker(_world, villagerId)) : new CoreResult(CoreResultCode.NullArg);
+
+    public CoreResult ReleaseWorker(int villagerId) =>
+        HasWorld ? Checked("core_release_worker", Native.core_release_worker(_world, villagerId)) : new CoreResult(CoreResultCode.NullArg);
+
+    public CoreResult SetAutoAssign(int buildingId, bool enabled) =>
+        HasWorld ? Checked("core_set_auto_assign", Native.core_set_auto_assign(_world, buildingId, enabled ? 1 : 0)) : new CoreResult(CoreResultCode.NullArg);
+
+    // ---- 보고 (Godot 이 본 물리적 사실 → C) -----------------------------------
+
+    public CoreResult VillagerArrived(int villagerId, int intentRev) =>
+        HasWorld ? Checked("core_villager_arrived", Native.core_villager_arrived(_world, villagerId, intentRev)) : new CoreResult(CoreResultCode.NullArg);
+
+    public CoreResult VillagerUnreachable(int villagerId, int intentRev) =>
+        HasWorld ? Checked("core_villager_unreachable", Native.core_villager_unreachable(_world, villagerId, intentRev)) : new CoreResult(CoreResultCode.NullArg);
+
+    /// <summary>
+    /// 결과 코드를 CoreResult 로 바꿉니다. 규칙상 거절(REJECTED), 오래된 보고(IGNORED), 이미 사라진 대상(NOT_FOUND)은
+    /// 게임 중에 늘 있는 일이라 조용히 돌려주고, 나머지 오류만 버그로 기록합니다.
+    /// </summary>
+    private CoreResult Checked(string call, int code)
+    {
+        CoreResult result = CoreResult.FromCode(code);
+        if (!result.Ok && result.Code is not (CoreResultCode.Rejected or CoreResultCode.Ignored or CoreResultCode.NotFound))
+        {
+            Report(call, result);
+        }
+        if (result.Ok && !call.StartsWith("core_villager_", System.StringComparison.Ordinal))
+        {
+            EmitSignal(SignalName.CommandApplied);
+        }
+        return result;
+    }
+
     // ---- 저장, 불러오기 (메뉴는 마일스톤 6) ------------------------------
 
     public CoreResult Save(string path)
@@ -391,7 +595,7 @@ public partial class CoreBridge : Node
         }
         string absolute = ProjectSettings.GlobalizePath(path);
         CoreResult result = CoreResult.FromCode(
-            Native.core_load(Utf8Text.ToNullTerminated(absolute), out IntPtr loaded, out errorLine));
+            Native.core_load(Utf8Text.ToNullTerminated(absolute), _defs, out IntPtr loaded, out errorLine));
         if (result.Ok)
         {
             DestroyWorld();

@@ -1,14 +1,20 @@
-// Hud.cs — 위쪽 막대: 성채 이름, 날짜, 시각, 배속 버튼, 자원 / 알림 / 시작 실패 화면
+// Hud.cs — 화면 위의 UI 를 한데 모읍니다.
+//   위쪽 막대: 성채 이름, 날짜, 시각, 배속 단추, 자원(아이콘 + 하루 변화), 주민 수
+//   아래쪽: 건설 막대 / 왼쪽 아래: 검사창 / 가운데: 주민 목록 / 오른쪽 위: 알림
+//   마우스 옆: 건설·철거 안내 문구
 //
-// 숫자는 모두 C 코어가 준 요약(CoreSummaryView)에서 읽기만 합니다. HUD 는 게임 상태를 바꾸지 않습니다.
+// 숫자는 모두 C 코어가 준 요약(CoreSummaryView)에서 읽기만 합니다. HUD 는 게임 상태를 바꾸지 않습니다
+// (단추는 CoreBridge 명령이나 BuildMode 를 부를 뿐입니다).
 using System;
 using Godot;
 using MagicCastle.Core;
+using MagicCastle.World;
 
 namespace MagicCastle.UI;
 
 public partial class Hud : CanvasLayer
 {
+    private Control _root = null!;
     private Control _topBar = null!;
     private Label _castleName = null!;
     private Label _date = null!;
@@ -17,21 +23,30 @@ public partial class Hud : CanvasLayer
     private HBoxContainer _resources = null!;
     private Button[] _speedButtons = Array.Empty<Button>();
     private Label[] _resourceLabels = Array.Empty<Label>();
-    private Toasts _toasts = null!;
+    private TextureRect[] _resourceIcons = Array.Empty<TextureRect>();
+    private Label _population = null!;
+    private PanelContainer _hint = null!;
+    private Label _hintLabel = null!;
     private Control _fatal = null!;
     private Label _fatalMessage = null!;
     private Label _fatalDetail = null!;
 
+    public Toasts Toasts { get; private set; } = null!;
+    public BuildBar Bar { get; private set; } = null!;
+    public Inspector Inspector { get; private set; } = null!;
+    public VillagerList Villagers { get; private set; } = null!;
+
     public override void _Ready()
     {
         ProcessMode = ProcessModeEnum.Always;
+        _root = GetNode<Control>("Root");
         _topBar = GetNode<Control>("Root/TopBar");
         _castleName = GetNode<Label>("Root/TopBar/Row/Left/CastleName");
         _date = GetNode<Label>("Root/TopBar/Row/Left/Date");
         _clock = GetNode<Label>("Root/TopBar/Row/Left/Clock");
         _paused = GetNode<Control>("Root/Paused");
         _resources = GetNode<HBoxContainer>("Root/TopBar/Row/Resources");
-        _toasts = GetNode<Toasts>("Root/Toasts");
+        Toasts = GetNode<Toasts>("Root/Toasts");
         _fatal = GetNode<Control>("Root/Fatal");
         _fatalMessage = GetNode<Label>("Root/Fatal/Box/Message");
         _fatalDetail = GetNode<Label>("Root/Fatal/Box/Detail");
@@ -39,6 +54,7 @@ public partial class Hud : CanvasLayer
 
         BuildSpeedButtons(GetNode<HBoxContainer>("Root/TopBar/Row/Left/Speed"));
         BuildResourceLabels();
+        BuildPanels();
         GetNode<Label>("Root/Paused/Label").Text = Strings.PausedBanner;
         _paused.Visible = false;
         _topBar.Visible = false;
@@ -75,6 +91,10 @@ public partial class Hud : CanvasLayer
         {
             GameClock.Instance.SetSpeed(3);
         }
+        else if (inputEvent.IsActionPressed("toggle_villagers"))
+        {
+            Villagers.Toggle();
+        }
         else
         {
             return;
@@ -108,12 +128,60 @@ public partial class Hud : CanvasLayer
     private void BuildResourceLabels()
     {
         _resourceLabels = new Label[CoreSummaryView.ResourceCount];
+        _resourceIcons = new TextureRect[CoreSummaryView.ResourceCount];
         for (int i = 0; i < _resourceLabels.Length; i++)
         {
-            var label = new Label { MouseFilter = Control.MouseFilterEnum.Pass };
-            _resources.AddChild(label);
+            // 아이콘과 숫자를 한 묶음으로: 툴팁은 묶음 전체에 겁니다
+            var group = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Stop };
+            var icon = new TextureRect
+            {
+                Texture = Art.ResourceIcon((ResourceKind)i),
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            var label = new Label { MouseFilter = Control.MouseFilterEnum.Ignore };
+            group.AddChild(icon);
+            group.AddChild(label);
+            _resources.AddChild(group);
             _resourceLabels[i] = label;
+            _resourceIcons[i] = icon;
         }
+        _resources.AddChild(new VSeparator());
+        _population = new Label { MouseFilter = Control.MouseFilterEnum.Stop };
+        _resources.AddChild(_population);
+    }
+
+    private void BuildPanels()
+    {
+        Bar = new BuildBar { Name = "BuildBar", Visible = false };
+        _root.AddChild(Bar);
+        Bar.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomWide, Control.LayoutPresetMode.KeepHeight);
+        Bar.GrowVertical = Control.GrowDirection.Begin;
+        Bar.VillagerListRequested += () => Villagers.Toggle();
+
+        Inspector = new Inspector { Name = "Inspector" };
+        _root.AddChild(Inspector);
+        Inspector.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);
+        Inspector.GrowVertical = Control.GrowDirection.Begin;
+
+        Villagers = new VillagerList { Name = "VillagerList" };
+        _root.AddChild(Villagers);
+        // 가운데 한 점(크기 0)에 두고 최소 크기만큼 양쪽으로 자라게 → 언제나 화면 가운데
+        Villagers.SetAnchorsPreset(Control.LayoutPreset.Center);
+        Villagers.OffsetLeft = Villagers.OffsetRight = Villagers.OffsetTop = Villagers.OffsetBottom = 0;
+        Villagers.GrowHorizontal = Control.GrowDirection.Both;
+        Villagers.GrowVertical = Control.GrowDirection.Both;
+
+        _hint = new PanelContainer { Name = "Hint", Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _hintLabel = new Label { MouseFilter = Control.MouseFilterEnum.Ignore };
+        _hint.AddChild(_hintLabel);
+        _root.AddChild(_hint);
+        _hint.Modulate = new Color(1, 1, 1, 0.92f);
+
+        // 패널이 위쪽 막대(툴팁 포함)보다 아래에 그려지도록 순서를 맞춥니다
+        _root.MoveChild(_fatal, _root.GetChildCount() - 1);
     }
 
     private void OnSpeedChanged(int speed)
@@ -130,6 +198,7 @@ public partial class Hud : CanvasLayer
     {
         CoreConfigView config = CoreBridge.Instance.Config;
         _topBar.Visible = true;
+        Bar.Visible = true;
         _castleName.Text = summary.GetCastleName();
         _date.Text = Strings.Date(summary);
         _date.TooltipText = Strings.DateTooltip(summary, config);
@@ -140,34 +209,85 @@ public partial class Hud : CanvasLayer
             var kind = (ResourceKind)i;
             int amount = summary.GetResource(kind);
             int capacity = summary.GetCapacity(kind);
-            _resourceLabels[i].Text = $"{Strings.ResourceName(kind)} {amount}";
-            _resourceLabels[i].TooltipText = Strings.ResourceTooltip(kind, amount, capacity);
+            int delta = summary.GetDelta(kind);
+            Label label = _resourceLabels[i];
+            label.Text = (_resourceIcons[i].Texture == null ? Strings.ResourceName(kind) + " " : "") + Strings.ResourceLabel(amount, delta);
+            // 창고가 가득 차면 노랗게, 하루 변화가 마이너스면 붉게
+            Color color = capacity > 0 && amount >= capacity ? new Color(1f, 0.85f, 0.4f)
+                : delta < 0 ? new Color(1f, 0.6f, 0.55f)
+                : Colors.White;
+            label.AddThemeColorOverride("font_color", color);
+            ((Control)label.GetParent()).TooltipText = Strings.ResourceTooltip(kind, amount, capacity, delta);
         }
+        _population.Text = Strings.Population(summary);
+        _population.TooltipText = Strings.PopulationTooltip(summary);
+        Bar.Refresh(summary);
     }
 
-    public void ShowToast(string text) => _toasts.Show(text);
+    public void ShowToast(string text) => Toasts.Show(text);
+
+    /// <summary>월드 위치가 있는 알림 (누르면 카메라가 그곳으로)</summary>
+    public void ShowNotice(string text, Vector2 worldPosition, bool hasPosition) =>
+        Toasts.Show(text, hasPosition ? worldPosition : null);
+
+    /// <summary>마우스 옆 안내 문구 (빈 문자열이면 숨김)</summary>
+    public void SetHint(string text)
+    {
+        _hint.Visible = text.Length > 0;
+        _hintLabel.Text = text;
+    }
 
     public override void _Process(double delta)
     {
-        // 위쪽 막대가 두 줄로 접히면 알림을 그만큼 아래에 둡니다
+        int scale = UiScale.Current;
+        // 위쪽 막대가 두 줄로 접히면 알림을 그만큼 아래에 두고, 검사창은 건설 막대 바로 위에 둡니다
         float top = _topBar.Visible ? _topBar.Size.Y : 0;
-        _toasts.OffsetTop = top + 4 * UiScale.Current;
-        _paused.OffsetTop = top + 4 * UiScale.Current;
+        float bottom = Bar.Visible ? Bar.Size.Y : 0;
+        Toasts.OffsetTop = top + 4 * scale;
+        _paused.OffsetTop = top + 4 * scale;
+        Vector2 inspectorSize = Inspector.GetCombinedMinimumSize();
+        Inspector.OffsetLeft = 4 * scale;
+        Inspector.OffsetRight = Inspector.OffsetLeft + inspectorSize.X;
+        Inspector.OffsetBottom = -bottom - 4 * scale;
+        Inspector.OffsetTop = Inspector.OffsetBottom - inspectorSize.Y;
+
+        if (_hint.Visible)
+        {
+            // 마우스 오른쪽 아래에 두되 화면 밖으로 나가지 않게
+            Vector2 mouse = _root.GetLocalMousePosition();
+            Vector2 size = _hint.GetCombinedMinimumSize();
+            _hint.Size = size;
+            Vector2 position = mouse + new Vector2(12, 12) * scale;
+            Vector2 screen = _root.Size;
+            position.X = Math.Min(position.X, screen.X - size.X - 2);
+            position.Y = Math.Min(position.Y, screen.Y - bottom - size.Y - 2);
+            _hint.Position = position;
+        }
     }
 
     /// <summary>UI 배율이 바뀌면 픽셀 단위로 정한 크기도 함께 바꿉니다.</summary>
     public void ApplyScale(int scale)
     {
-        _resources.AddThemeConstantOverride("separation", 8 * scale);
-        _toasts.CustomMinimumSize = new Vector2(200 * scale, 0);
+        _resources.AddThemeConstantOverride("separation", 6 * scale);
+        foreach (TextureRect icon in _resourceIcons)
+        {
+            icon.CustomMinimumSize = new Vector2(16 * scale, 16 * scale); // 16px 그림을 정수배로 (흐려지지 않게)
+        }
+        Toasts.CustomMinimumSize = new Vector2(200 * scale, 0);
         _paused.OffsetTop = 24 * scale;
-        _toasts.OffsetRight = -4 * scale;
+        Toasts.OffsetRight = -4 * scale;
+        Toasts.OffsetLeft = -204 * scale;
         _fatalMessage.CustomMinimumSize = new Vector2(320 * scale, 0);
+        _hintLabel.CustomMinimumSize = new Vector2(0, 0);
+        Bar.ApplyScale(scale);
+        Inspector.ApplyScale(scale);
+        Villagers.ApplyScale(scale);
     }
 
     public void ShowFatal(string message, string detail)
     {
         _topBar.Visible = false;
+        Bar.Visible = false;
         _fatal.Visible = true;
         _fatalMessage.Text = message;
         _fatalDetail.Text = detail;

@@ -31,14 +31,15 @@ public partial class MapView : Node2D
     };
 
     private TileMapLayer _ground = null!;
-    private Sprite2D _keep = null!;
+    private TileMapLayer _roads = null!;
     private int _sourceId = -1;
+    private int _roadSourceId = -1;
 
     [Export]
     public Texture2D? TerrainAtlas { get; set; }
 
     [Export]
-    public Texture2D? KeepTexture { get; set; }
+    public Texture2D? RoadAtlas { get; set; }
 
     /// <summary>지도 전체의 픽셀 영역 (카메라 경계에 씀)</summary>
     public Rect2 PixelBounds { get; private set; }
@@ -46,7 +47,7 @@ public partial class MapView : Node2D
     public override void _Ready()
     {
         _ground = GetNode<TileMapLayer>("Ground");
-        _keep = GetNode<Sprite2D>("Keep");
+        _roads = GetNode<TileMapLayer>("Roads");
     }
 
     /// <summary>지형을 처음부터 다시 그립니다 (새 게임, 불러오기 후).</summary>
@@ -67,11 +68,35 @@ public partial class MapView : Node2D
             }
         }
         PixelBounds = new Rect2(0, 0, width * TileSize, height * TileSize);
+        _ = summary; // 성채는 이제 건물(BuildingNode)로 그립니다
+    }
 
-        // 성채(임시 그림): keep_size × keep_size 칸, 중심이 keep_x, keep_y
-        _keep.Texture = KeepTexture ?? MakePlaceholderKeep(summary.KeepSize);
-        _keep.Centered = true;
-        _keep.Position = new Vector2((summary.KeepX + 0.5f) * TileSize, (summary.KeepY + 0.5f) * TileSize);
+    /// <summary>도로 층을 다시 그립니다 (C 의 비용 격자가 바뀔 때마다)</summary>
+    public void SetRoads(byte[] roads, int width, int height)
+    {
+        if (_roadSourceId < 0)
+        {
+            Texture2D atlas = RoadAtlas ?? MakePlaceholderRoads();
+            var tileSet = new TileSet { TileSize = new Vector2I(TileSize, TileSize) };
+            var source = new TileSetAtlasSource { Texture = atlas, TextureRegionSize = new Vector2I(TileSize, TileSize) };
+            for (int column = 0; column < atlas.GetWidth() / TileSize; column++)
+            {
+                source.CreateTile(new Vector2I(column, 0));
+            }
+            _roadSourceId = tileSet.AddSource(source);
+            _roads.TileSet = tileSet;
+        }
+        _roads.Clear();
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                if (roads[y * width + x] != 0)
+                {
+                    _roads.SetCell(new Vector2I(x, y), _roadSourceId, new Vector2I((x * 7 + y * 3) % 2, 0));
+                }
+            }
+        }
     }
 
     public Vector2 TileCenter(int x, int y) => new((x + 0.5f) * TileSize, (y + 0.5f) * TileSize);
@@ -142,13 +167,11 @@ public partial class MapView : Node2D
         return ImageTexture.CreateFromImage(image);
     }
 
-    private static ImageTexture MakePlaceholderKeep(int keepSize)
+    private static ImageTexture MakePlaceholderRoads()
     {
-        GD.PushWarning("keep.png 가 없어 임시 성채 그림을 씁니다 (game/assets/buildings/keep.png).");
-        int size = Math.Max(1, keepSize) * TileSize;
-        var image = Image.CreateEmpty(size, size, false, Image.Format.Rgba8);
-        image.Fill(new Color(0.55f, 0.61f, 0.71f));
-        image.FillRect(new Rect2I(2, 2, size - 4, size - 4), new Color(0.75f, 0.8f, 0.86f));
+        GD.PushWarning("roads.png 가 없어 임시 도로 타일을 씁니다 (game/assets/tiles/roads.png).");
+        var image = Image.CreateEmpty(TileSize * 2, TileSize, false, Image.Format.Rgba8);
+        image.Fill(new Color(0.85f, 0.65f, 0.42f));
         return ImageTexture.CreateFromImage(image);
     }
 }
