@@ -587,7 +587,8 @@ public partial class SmokeTest : Node
         if (ok && errors == 0)
         {
             GD.Print($"SMOKE TEST PASSED: day {_main.Sync.Summary.Day}, {_frames} frames, {reason}");
-            Sfx.QuitQuietly(GetTree(), 0);
+            // 플레이어가 창을 닫을 때와 같은 길로 끝냄 (Main 이 소리를 멈추고, CoreBridge 가 월드를 해제)
+            GetTree().Root.PropagateNotification((int)NotificationWMCloseRequest);
             return;
         }
         string why = errors > 0 ? $"{errors} engine errors/warnings:\n{ErrorCounter.Summary()}" : reason;

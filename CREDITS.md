@@ -18,6 +18,8 @@
 | [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | `game/assets/third_party/kenney/audio-rpg/` |
 | [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | `game/assets/third_party/kenney/audio-impact/` |
 
+마일스톤 4 부터 게임에서 씁니다 (`game/scripts/audio/Sfx.cs`): 습격 경보 종(`impactBell_heavy`), 화살(`drawKnife`), 근접 공격(`knifeSlice`), 성벽 타격(`impactWood_medium`), 무너짐(`impactPlank_medium`, `impactWood_heavy`), 적이 쓰러짐(`impactPunch_heavy`), 약탈(`handleCoins`), 습격이 끝남(`confirmation_002`).
+
 ## 글꼴
 
 | 에셋 | 제작 | 라이선스 | 위치 |
@@ -37,6 +39,8 @@ npm 패키지 `galmuri` 에서 받았습니다 (`npm pack galmuri`). 글꼴 파�
 | `game/assets/ui/res_*.png`, `job_*.png`, `bubble_*.png` | `tools/make_art.py`: Kenney Tiny Town·Tiny Dungeon(CC0) 아이템 타일과 직접 그린 8×8 말풍선 기호 | CC0 (원본 Kenney CC0) |
 | `game/assets/tiles/roads.png` | `tools/make_art.py`: Kenney Tiny Town(CC0) 흙길 타일 2개 | CC0 (원본 Kenney CC0) |
 | `game/assets/tiles/snow.png` | `tools/make_art.py`: 절차적으로 그린 눈 덮개 (외부 그림 없음) | CC0 |
+| `game/assets/units/enemies.png` | `tools/make_art.py`: Kenney Tiny Dungeon(CC0) 의 적 6가지(도적, 두목, 고블린, 오우거, 병사, 궁수)를 한 줄로 모음 | CC0 (원본 Kenney CC0) |
+| `game/assets/units/arrow.png`, `game/assets/ui/bubble_alarm.png` | `tools/make_art.py`: 직접 그린 8×8 화살과 경보 말풍선 (외부 그림 없음) | CC0 |
 
 ## 음악
 

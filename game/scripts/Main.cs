@@ -52,6 +52,8 @@ public partial class Main : Node2D
 
         ApplyUiScale();
         GetViewport().SizeChanged += ApplyUiScale;
+        // 창을 닫을 때 소리를 먼저 멈추고 잠깐 뒤에 끝냅니다 (소리가 나는 중에 끝나면 종료 경고가 남음)
+        GetTree().AutoAcceptQuit = false;
 
         LaunchOptions options = LaunchOptions.Current;
         Camera.EdgeScrollEnabled = !options.Automated;
@@ -104,6 +106,14 @@ public partial class Main : Node2D
         else if (options.ScreenshotDir != null)
         {
             AddChild(new ScreenshotTour());
+        }
+    }
+
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest)
+        {
+            Sfx.QuitQuietly(GetTree(), 0);
         }
     }
 

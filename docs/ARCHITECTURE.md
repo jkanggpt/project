@@ -10,10 +10,12 @@ flowchart LR
         Clock["GameClock<br/>고정 틱 누적기"]
         Bridge["CoreBridge (자동 로드 Core)<br/>DLL 로드 · ABI 검사 · 모든 네이티브 호출"]
         Sync["WorldSync<br/>스냅숏으로 화면 맞추기"]
-        Units["VillagerAgent · BuildingNode<br/>Pathfinder(AStarGrid2D)"]
+        Units["VillagerAgent · BuildingNode<br/>Pathfinder(AStarGrid2D, 주민용 · 적용)"]
+        Combat["CombatDirector · EnemyAgent<br/>적 행동 · 감시탑 · 경비병 · 화살"]
         Tools["BuildMode<br/>미리보기 · 줄 놓기 · 철거 · 고르기"]
         View["MapView(계절 색·눈) · WeatherFx · CameraRig · DayNight<br/>Hud · BuildBar · Inspector · VillagerList · MarketPanel · MerchantPanel · Toasts"]
         Debug["SmokeTest · ScreenshotTour"]
+        Audio["Sfx<br/>효과음 (버스 SFX)"]
     end
     subgraph C["castle_core (C11 DLL)"]
         API["api.c<br/>인자 검사 · 뷰 복사"]
@@ -23,22 +25,26 @@ flowchart LR
         Nat["nature.c<br/>날씨 · 자연 사건 표 · 난방 · 병"]
         Ent["entity.c · placement.c<br/>주민·건물 연결 · 배치 규칙"]
         AI["villager_ai.c · jobs.c · population.c<br/>상태 표 · 직업 표 · 이주"]
-        Defs["defs.c<br/>건물·특성·이름 정의"]
+        Thr["threat.c<br/>위협 예고 · 습격 구성 표 · 보고 적용"]
+        Defs["defs.c<br/>건물·특성·이름·적 정의"]
         Ev["events.c<br/>피드백 큐"]
         Save["save.c<br/>저장 · 불러오기"]
         Val["validate.c<br/>불변 조건"]
         Plat["platform.c<br/>UTF-8 파일 · 원자적 교체"]
     end
-    CLI["castle_cli<br/>메뉴 · 시뮬레이터 · 소크"]
+    CLI["castle_cli<br/>메뉴 · 시뮬레이터 · 소크 · 숫자 전투"]
 
     Clock -- "core_tick(n)" --> Bridge
     Bridge -- "P/Invoke" --> API
     API --> World & Grid & Eco & Ev & Save & Val & Ent & Defs
-    World --> AI & Nat
+    World --> AI & Nat & Thr
     Save --> Plat
     Bridge -- "뷰 구조체 복사" --> Sync --> View
     Sync --> Units
     Units -- "도착 / 길 없음" --> Bridge
+    Sync --> Combat
+    Combat -- "피해 · 처치 · 약탈 · 달아남 · 끝" --> Bridge
+    Combat --> Audio
     Tools -- "배치 · 철거 명령" --> Bridge
     Debug --> Bridge
     CLI -- "같은 공개 API" --> API
@@ -52,13 +58,15 @@ flowchart LR
 | **모든 규칙과 수치**: 생산, 소비, 임금, 저장 한도, 기분, 병, 이주, 배치 검사, 비용, 연구 효과, 사건 일정, 습격 구성, 등급 조건, 승패, 적·탑의 능력치 | **물리적 사실을 C 에 보고**: 주민 도착 / 길 없음, 건물·주민 피해, 적 처치, 약탈, 습격 끝 |
 | 위 모든 것의 저장·불러오기 | 설정 파일만 (음량, 해상도, UI 배율) |
 
-마일스톤 3 까지 실제로 있는 것: 지도(지형, 도로, 점유, 비용 격자), 시계, 난수, 자원 은행과 장부, 건물·특성·이름 정의 파일, 주민과 건물(양방향 연결), 배치·건설·철거·피해·수리, 생산·소비·임금·세금·난방, 기분, 병과 치료, 이주와 떠남, 날씨와 자연 사건(예보), 시장과 떠돌이 상인, 피드백 이벤트, 저장·불러오기, 불변 조건 검사.
+마일스톤 4 까지 실제로 있는 것: 지도(지형, 도로, 점유, 비용 격자), 시계, 난수, 자원 은행과 장부, 건물·특성·이름·적 정의 파일, 주민과 건물(양방향 연결), 배치·건설·철거·피해·수리, 생산·소비·임금·세금·난방, 기분, 병과 치료, 이주와 떠남, 날씨와 자연 사건(예보), 시장과 떠돌이 상인, 위협 예고와 습격(피신·경비, 보고 적용), 피드백 이벤트, 저장·불러오기, 불변 조건 검사.
+
+전투에서 Godot 쪽에 있는 상수(적이 성벽을 돌아가는 기준인 성벽 칸 비용 12배, 마물의 시야 8칸, 경비병이 병영에서 쫓아가는 거리 8칸, 목표를 다시 고르는 30분, 화살 속도)는 **규칙이 아니라 "싸움을 어떻게 풀고 보여 줄지"** 입니다. 피해·체력·거리·공격 사이·속도 같은 수치는 모두 C 의 정의에서 읽습니다.
 
 ## 경계 규칙 (안정성의 핵심)
 
 1. Godot 은 게임 상태를 직접 바꾸지 않습니다. 모든 변경은 C 명령이나 보고를 거치고, C 가 매번 검사합니다.
 2. **불투명 핸들, 평평한 뷰**: Godot 은 월드를 `IntPtr` 하나로만 들고 있습니다. 데이터는 `int32_t` 필드와 고정 크기 UTF-8 배열로 된 뷰 구조체에 복사되어 건너옵니다. C 메모리를 가리키는 포인터는 보관하지 않습니다.
-3. **이벤트가 아니라 스냅숏으로 맞추기**: 매 틱 뒤, 그리고 명령이 성공한 직후(일시정지 중에도) `WorldSync` 가 요약과 주민·건물 뷰 전체를 복사해 id 로 노드를 만들고·고치고·지웁니다. 이벤트 큐는 소리·알림·떠오르는 숫자에만 씁니다. 이벤트를 놓쳐도 어긋나지 않습니다.
+3. **이벤트가 아니라 스냅숏으로 맞추기**: 매 틱 뒤, 그리고 명령이 성공한 직후(일시정지 중에도) `WorldSync` 가 요약과 주민·건물 뷰 전체를 복사해 id 로 노드를 만들고·고치고·지웁니다(적은 `CombatDirector` 가 습격·적 뷰로 같은 방식). 이벤트 큐는 소리·알림·떠오르는 숫자에만 씁니다. 이벤트를 놓쳐도 어긋나지 않습니다.
 4. **id 는 다시 쓰지 않습니다** (주민·건물 각각 단조 증가 32비트 카운터, 저장됨). 철거된 건물의 늦은 보고는 `CORE_ERR_NOT_FOUND` 로 안전하게 버려집니다.
 5. **코어는 언어를 모릅니다**: C 는 이벤트 코드와 숫자만 냅니다. 한국어 문장은 Godot 의 `Strings.cs` 와 CLI 의 `format.c` 가 만듭니다.
 6. **고정 틱, 결정적 코어**: 1틱 = 게임 속 10분 (하루 144틱). Godot 은 실제 시간 × 배속을 모아 `core_tick(world, n)` 을 정수로 부릅니다. 난수(PCG32)는 월드 안에 있고 저장됩니다. 같은 시드 + 같은 명령 순서 → 같은 상태 (테스트 `world_same_seed_same_state`).
@@ -85,15 +93,35 @@ flowchart LR
 - 길 검사는 먼저 빠른 검사를 합니다: 발자국을 둘러싼 테두리에서 걸을 수 있는 칸이 한 덩어리면 끊길 곳이 없으므로 새 문까지만 찾습니다. 아니면 지도 전체를 두 번 채워 봅니다.
 - 건물이 다 지어지면 비용 격자가 바뀌고 `cost_grid_rev` 가 오릅니다. Godot 은 rev 가 바뀔 때만 길찾기 격자와 도로 층을 다시 만듭니다.
 
-## 습격 핸드셰이크 (마일스톤 4 에서 구현)
+## 습격 핸드셰이크 (마일스톤 4)
 
-1. C 가 위협을 미리 정하고 `THREAT_SCHEDULED`(종류, 방향, 도착 시각, 세기)를 냅니다. UI 는 남은 시간을 보여 줍니다.
-2. 도착하면 C 가 습격(id, 적 종류 × 수)을 만듭니다. 적 능력치는 C 의 정의 파일에서 옵니다.
-3. Godot 이 지도 가장자리에 유닛을 만들고 전투를 돌립니다.
-4. Godot 이 피해, 처치, 약탈, 습격 끝을 보고합니다.
-5. C 가 체력, 죽음, 무너진 건물, 보상(마물 → 마정석), 안전 기분을 처리합니다.
-6. 전투는 물리 엔진 없이 단순하게: `AStarGrid2D` 경로, 성벽은 비싼 칸, 탑·경비병은 사거리 안 가장 가까운 적을 쿨다운마다 공격.
-7. 습격 중에는 저장할 수 없습니다.
+```mermaid
+sequenceDiagram
+    participant C as C 코어 (threat.c)
+    participant G as Godot (CombatDirector)
+    C->>G: THREAT_SCHEDULED (종류, 방향, 남은 틱, 세기) — 위쪽 막대 카운트다운
+    C->>G: THREAT_NEAR (반나절 전 경보, 종소리)
+    Note over C: 도착: THREAT_KINDS[종류].compose → 적 배열 (realloc)
+    C->>G: RAID_STARTED, core_get_raid / core_copy_enemies
+    Note over C: 주민: 경비병 GUARD_POST, 나머지 FLEE (성채)
+    G->>G: 가장자리에 EnemyAgent, 길찾기(성벽은 비싼 칸), 감시탑·성채 화살, 경비병
+    G->>C: core_report_building_damage / villager_damage
+    G->>C: core_report_enemy_killed / loot / enemy_escaped
+    Note over C: 체력·무너짐(성벽이면 비용 격자 rev↑), 죽음·슬픔, 마정석, 빼앗긴 금화
+    C->>G: 마지막 적이 사라지면 RAID_ENDED (보고가 끊겨도 하루 뒤 C 가 끝냄)
+```
+
+1. C 가 위협을 미리 정하고 `THREAT_SCHEDULED`(종류, 방향, 도착까지 틱, 세기)를 냅니다. 위쪽 막대에 "위협: 도적 2일 5시간"이 보이고, 반나절 전에 `THREAT_NEAR` 경보(종소리)가 한 번 더 옵니다.
+2. 도착하면 C 가 습격(id, 가장자리 출발 칸, 적 목록)을 만듭니다. 적 능력치(체력, 피해, 공격 사이, 속도, 거리, 행동, 훔치는 양, 마정석)는 `data/enemies.def` 에서, 감시탑·성채 망루·경비병의 공격 수치는 `data/buildings.def` 에서 옵니다.
+3. Godot 의 `CombatDirector` 가 틱마다 `core_get_raid`·`core_copy_enemies` 를 읽어 살아 있는 적마다 `EnemyAgent` 를 만들고(id 로 맞춤), 싸움을 **게임 속 분 단위**로 진행합니다(`Step(분)`; 보통은 실제 시간 × 배속, 스모크 테스트는 직접 부름).
+4. 싸움은 물리 엔진 없이 단순하게 (SPEC §3.3 규칙 6):
+   - 적은 **적용 `AStarGrid2D`** 를 따라 걷습니다. 같은 비용 격자를 읽되 성벽·성문은 "보통 칸의 12배" 비싼 칸이라, 가까운 빈틈이 있으면 돌아가고 없으면 부수고 지나갑니다. **다음 칸이 서 있는 성벽·성문이면 멈춰서 공격**합니다(계단 모양 성벽 사이로 대각선으로 빠지는 것도 막음). 무너지면 C 가 비용 격자를 바꾸고(rev↑) 적은 길을 다시 찾습니다.
+   - 행동: 도적은 가장 가까운 저장소(성채·창고)에서 훔쳐 온 쪽으로 달아나고, 병사는 성채에 가까운 건물부터 부수고, 마물은 밖에 나온 주민·경비병을 먼저, 없으면 집을 부수거나 저장소에서 훔칩니다. 곁에 경비병이 있으면 누구든 먼저 맞섭니다.
+   - 감시탑과 성채 망루는 공격 사이마다 거리 안의 가장 가까운 적을 쏩니다. 화살은 그림만 날아가고(풀에서 꺼내 씀), **닿을 때** 피해를 정합니다. 이미 죽을 만큼 화살이 날아가는 적은 다른 탑이 노리지 않습니다.
+   - 경비병(병영 일꾼, `GUARD_POST` 로 자리에 선 뒤)은 병영에서 8칸 안의 적을 쫓아가 싸우고, 습격이 끝나면 싸운 자리에서 걸어서 돌아갑니다. 피신한 주민은 성채 안에 숨어 보이지 않습니다.
+5. Godot 은 **물리적 사실만** 보고합니다: 건물 피해, 주민 피해, 처치, 약탈(저장소에 닿음), 달아남(가장자리에 닿음), 습격 끝. C 가 규칙대로 적용합니다. 마지막 적이 사라지면 C 가 그 자리에서 습격을 끝내고 `RAID_ENDED`(처치/전체, 빼앗긴 양, 쓰러진 주민)를 냅니다. 보고가 끊겨도 하루 뒤 C 가 스스로 끝냅니다.
+6. **습격 중에는 저장할 수 없고**(`core_save` → `CORE_ERR_REJECTED`), **고칠 수도 없습니다**(`CORE_DENY_RAID`: 맞는 동안 고치면 성벽이 무너지지 않음).
+7. CLI 는 `cli/battle.c` 의 숫자 전투로 같은 보고 API 를 부릅니다.
 
 ## 시간의 흐름 (마일스톤 1)
 
@@ -117,11 +145,11 @@ flowchart LR
 4. `market_daily`: 시장 가격 움직임, 상인이 오거나 떠남
 5. 이주 (`population_daily`), 일자리·집 다시 배치, 굶주림 알림
 
-## 공개 API (`core/include/castle_core.h`, ABI 3)
+## 공개 API (`core/include/castle_core.h`, ABI 4)
 
 | 분류 | 함수 | 하는 일 |
 | --- | --- | --- |
-| 버전 | `core_abi_version()` | ABI 번호 (지금 2) |
+| 버전 | `core_abi_version()` | ABI 번호 (지금 4) |
 | | `core_get_struct_sizes(out, size)` | 뷰 구조체 크기 (C# 이 비교) |
 | | `core_get_config(out)` | 하루 틱 수, 실제 시간, 밤·근무 시각 등 고정값 |
 | | `core_result_name(code)` | 오류 코드의 영어 이름 (로그용) |
@@ -138,18 +166,22 @@ flowchart LR
 | | `core_get_building_def`, `core_get_trait_def`, `core_get_mood_terms` | 건물·특성 정의, 주민 기분의 항목별 이유 |
 | | `core_get_ledger` | 장부 (자원 × 항목, 오늘·어제) — 자원 툴팁 |
 | | `core_get_market`, `core_get_merchant`, `core_get_repair_cost` | 시장 가격, 상인 제안, 수리 비용 |
+| | `core_get_enemy_def` | 적 정의 (체력, 피해, 공격 사이, 속도, 거리, 행동, 훔치는 자원·양, 마정석) |
+| | `core_copy_threats`, `core_get_raid`, `core_copy_enemies` | 예고된 위협들, 진행 중인 습격(없으면 id 0), 그 적들 (id, 종류, 살아 있음/처치/달아남) |
 | 배치 | `core_can_place(world, type, x, y, out)` | 미리보기: 결과 이유, 문 앞 칸, 생산성 |
 | 명령 | `core_place_building`, `core_place_line`, `core_demolish`, `core_remove_road` | 짓기, 줄 놓기(도로·성벽), 철거(절반 환불) |
 | | `core_assign_worker`, `core_unassign_worker`, `core_release_worker`, `core_set_auto_assign` | 일꾼 직접 배치·빼기·자동에 맡기기, 건물별 자동 배치 |
 | | `core_trade`, `core_merchant_accept`, `core_repair` | 시장 거래, 상인 제안 받기, 수리 (안 되면 `CORE_ERR_REJECTED` + 이유 `CORE_DENY_*`) |
 | 보고 | `core_villager_arrived`, `core_villager_unreachable` | 주민 핸드셰이크 |
+| | `core_report_building_damage`, `core_report_villager_damage` | 습격: 적이 준 피해 (습격 id 가 다르면 `CORE_IGNORED`) |
+| | `core_report_enemy_killed`, `core_report_loot`, `core_report_enemy_escaped`, `core_report_raid_ended` | 습격: 처치(마정석), 약탈(실제로 빼앗긴 양), 달아남, 끝 |
 | 피드백 | `core_poll_event(world, out)` | 이벤트 하나 꺼내기 (있으면 1) |
-| 저장 | `core_save(world, path)` | 원자적 저장 + `.bak` |
+| 저장 | `core_save(world, path)` | 원자적 저장 + `.bak` (습격 중에는 `CORE_ERR_REJECTED`) |
 | | `core_load(path, defs, &world, &line)` | 불러오기, 실패하면 문제 줄 번호 |
 | 디버그 | `core_validate(world)` | 불변 조건 위반 개수 |
 | | `core_state_hash(world, &hash)` | 저장되는 상태 전체의 해시 |
 
-다음 마일스톤에서 더해질 것: 연구, 승급 명령, 습격 보고(피해, 처치, 약탈, 습격 끝), 위협 뷰.
+다음 마일스톤에서 더해질 것: 연구(정의, 해금 명령, 효과), 승급 명령과 조건, 패배(성채 무너짐)·승리.
 
 ## 결과 코드
 
@@ -167,4 +199,4 @@ flowchart LR
 | `CORE_ERR_STRUCT_SIZE` | -9 | ABI 검사: 구조체 크기가 다름 |
 | `CORE_ERR_REJECTED` | -10 | 게임 규칙상 할 수 없음 (이유는 `out_reason`, 예: 자원 부족, 길을 막음) |
 | `CORE_ERR_NOT_FOUND` | -11 | 그런 id 의 주민·건물이 없음 |
-| `CORE_IGNORED` | 1 | 오류는 아니지만 무시함 (오래된 `intentRev` 보고) |
+| `CORE_IGNORED` | 1 | 오류는 아니지만 무시함 (오래된 `intentRev` 보고, 끝난 습격에 늦게 온 보고) |

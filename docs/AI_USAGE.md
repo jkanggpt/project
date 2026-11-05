@@ -60,3 +60,18 @@
 | `tools/make_art.py`, `game/assets/tiles/snow.png` (+ `.import`) | 눈 덮개 타일 (절차적으로 그림) | 생성 |
 | `docs/*.md`, `README.md`, `PROGRESS.md`, `CREDITS.md`, `CLAUDE.md` | 문서 | 수정 |
 
+## 마일스톤 4 — 위협 (2026-11-05)
+
+| 파일 / 폴더 | 내용 | 종류 |
+| --- | --- | --- |
+| `core/src/threat.c`, `core/src/threat.h` | 위협 예고·습격 구성 표(`THREAT_KINDS`)·적 동적 배열·보고 적용·시간 초과 | 생성 |
+| `core/include/castle_core.h` | ABI 4: 위협·방향·적 행동·적 상태 열거형, 위협·습격·적 뷰, 적 정의 뷰, 습격 보고 함수, 건물 공격 수치, `CORE_DENY_RAID` | 수정 |
+| `core/src/` api, defs, defs_builtin, events, placement, save, validate, villager_ai, world | 적 정의 파일, 습격 이벤트, 피신·경비 상태, 습격 중 수리 금지, 세이브 v4, 불변 조건 | 수정 |
+| `cli/battle.c`, `cli/battle.h` | 숫자 전투 (같은 보고 API) | 생성 |
+| `cli/` commands, format, main, sim | 위협·습격 상태와 문장, 봇의 감시탑·병영, 소크의 습격 보고 | 수정 |
+| `tests/test_threat.c`, 나머지 테스트 | 위협 예고, 습격 시작(피신·경비), 보고 적용, 시간 초과, 무너진 성벽, 적 정의, 저장, 습격 중 수리, 피신한 주민의 식사 (9개) | 생성 / 수정 |
+| `game/data/enemies.def`, `game/data/buildings.def` | 적 6종, 건물 공격 수치 | 생성 / 수정 (`--dump-defs`) |
+| `game/scripts/world/EnemyAgent.cs`, `CombatDirector.cs`, `game/scripts/audio/Sfx.cs`, `game/default_bus_layout.tres` | 적 행동, 전투 지휘(감시탑·경비병·화살), 효과음, 오디오 버스 | 생성 |
+| `game/scripts/` core/Native, core/CoreBridge, world/Pathfinder, world/VillagerAgent, world/WorldSync, world/Art, world/CameraRig, ui/Hud, ui/Inspector, ui/Strings, Main, debug/* | ABI 4, 적용 길찾기, 피신·경비 모습, 위협 카운트다운·습격 띠, 화면 흔들림, 자동 조종의 방어·습격 진행, 습격 스크린숏 | 수정 |
+| `tools/make_art.py`, `game/assets/units/enemies.png`, `game/assets/units/arrow.png`, `game/assets/ui/bubble_alarm.png` (+ `.import`) | 적 그림(Kenney 타일), 화살·경보 말풍선(직접 그림) | 생성 |
+| `docs/*.md`, `README.md`, `PROGRESS.md`, `CREDITS.md`, `CLAUDE.md` | 문서 | 수정 |
