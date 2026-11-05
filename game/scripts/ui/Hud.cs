@@ -1,5 +1,6 @@
 // Hud.cs — 화면 위의 UI 를 한데 모읍니다.
-//   위쪽 막대: 성채 이름, 날짜, 시각, 배속 단추, 자원(아이콘 + 하루 변화), 주민 수
+//   위쪽 막대: 성채 이름, 날짜, 시각, 배속 단추, 날씨·자연 사건·겨울 준비, 상인·시장 단추,
+//              자원(아이콘 + 하루 변화, 툴팁에 장부 내역), 주민 수
 //   아래쪽: 건설 막대 / 왼쪽 아래: 검사창 / 가운데: 주민 목록 / 오른쪽 위: 알림
 //   마우스 옆: 건설·철거 안내 문구
 //
@@ -25,6 +26,11 @@ public partial class Hud : CanvasLayer
     private Label[] _resourceLabels = Array.Empty<Label>();
     private TextureRect[] _resourceIcons = Array.Empty<TextureRect>();
     private Label _population = null!;
+    private Label _weather = null!;
+    private Label _nature = null!;
+    private Label _winter = null!;
+    private Button _merchantButton = null!;
+    private Button _marketButton = null!;
     private PanelContainer _hint = null!;
     private Label _hintLabel = null!;
     private Control _fatal = null!;
@@ -35,6 +41,8 @@ public partial class Hud : CanvasLayer
     public BuildBar Bar { get; private set; } = null!;
     public Inspector Inspector { get; private set; } = null!;
     public VillagerList Villagers { get; private set; } = null!;
+    public MarketPanel Market { get; private set; } = null!;
+    public MerchantPanel Merchant { get; private set; } = null!;
 
     public override void _Ready()
     {
@@ -53,6 +61,7 @@ public partial class Hud : CanvasLayer
         GetNode<Label>("Root/Fatal/Box/Title").Text = Strings.FatalTitle;
 
         BuildSpeedButtons(GetNode<HBoxContainer>("Root/TopBar/Row/Left/Speed"));
+        BuildStatus(GetNode<Control>("Root/TopBar/Row"));
         BuildResourceLabels();
         BuildPanels();
         GetNode<Label>("Root/Paused/Label").Text = Strings.PausedBanner;
@@ -125,6 +134,27 @@ public partial class Hud : CanvasLayer
         OnSpeedChanged(GameClock.Instance.Speed);
     }
 
+    /// <summary>날씨, 자연 사건, 겨울 준비, 상인·시장 단추 (날짜 오른쪽)</summary>
+    private void BuildStatus(Control row)
+    {
+        var status = new HBoxContainer { Name = "Status" };
+        row.AddChild(status);
+        row.MoveChild(status, 1);
+        status.AddChild(new VSeparator());
+        _weather = new Label { MouseFilter = Control.MouseFilterEnum.Stop };
+        _nature = new Label { MouseFilter = Control.MouseFilterEnum.Stop };
+        _winter = new Label { MouseFilter = Control.MouseFilterEnum.Stop };
+        status.AddChild(_weather);
+        status.AddChild(_nature);
+        status.AddChild(_winter);
+        _merchantButton = new Button { FocusMode = Control.FocusModeEnum.None, TooltipText = Strings.MerchantButtonTooltip, Visible = false };
+        _merchantButton.Pressed += () => Merchant.Toggle();
+        _marketButton = new Button { Text = Strings.MarketButton, FocusMode = Control.FocusModeEnum.None, TooltipText = Strings.MarketButtonTooltip, Visible = false };
+        _marketButton.Pressed += () => Market.Toggle();
+        status.AddChild(_merchantButton);
+        status.AddChild(_marketButton);
+    }
+
     private void BuildResourceLabels()
     {
         _resourceLabels = new Label[CoreSummaryView.ResourceCount];
@@ -168,11 +198,18 @@ public partial class Hud : CanvasLayer
 
         Villagers = new VillagerList { Name = "VillagerList" };
         _root.AddChild(Villagers);
-        // 가운데 한 점(크기 0)에 두고 최소 크기만큼 양쪽으로 자라게 → 언제나 화면 가운데
-        Villagers.SetAnchorsPreset(Control.LayoutPreset.Center);
-        Villagers.OffsetLeft = Villagers.OffsetRight = Villagers.OffsetTop = Villagers.OffsetBottom = 0;
-        Villagers.GrowHorizontal = Control.GrowDirection.Both;
-        Villagers.GrowVertical = Control.GrowDirection.Both;
+        CenterPanel(Villagers);
+
+        Market = new MarketPanel { Name = "Market" };
+        _root.AddChild(Market);
+        CenterPanel(Market);
+        Market.Message += ShowToast;
+        Merchant = new MerchantPanel { Name = "Merchant" };
+        _root.AddChild(Merchant);
+        CenterPanel(Merchant);
+        Merchant.Message += ShowToast;
+        Inspector.TradeRequested += () => Market.Open();
+        Inspector.Message += ShowToast;
 
         _hint = new PanelContainer { Name = "Hint", Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore };
         _hintLabel = new Label { MouseFilter = Control.MouseFilterEnum.Ignore };
@@ -182,6 +219,15 @@ public partial class Hud : CanvasLayer
 
         // 패널이 위쪽 막대(툴팁 포함)보다 아래에 그려지도록 순서를 맞춥니다
         _root.MoveChild(_fatal, _root.GetChildCount() - 1);
+    }
+
+    /// <summary>가운데 한 점(크기 0)에 두고 최소 크기만큼 양쪽으로 자라게 → 언제나 화면 가운데</summary>
+    private static void CenterPanel(Control panel)
+    {
+        panel.SetAnchorsPreset(Control.LayoutPreset.Center);
+        panel.OffsetLeft = panel.OffsetRight = panel.OffsetTop = panel.OffsetBottom = 0;
+        panel.GrowHorizontal = Control.GrowDirection.Both;
+        panel.GrowVertical = Control.GrowDirection.Both;
     }
 
     private void OnSpeedChanged(int speed)
@@ -204,6 +250,7 @@ public partial class Hud : CanvasLayer
         _date.TooltipText = Strings.DateTooltip(summary, config);
         _clock.Text = Strings.Clock(summary.MinuteOfDay);
         _clock.TooltipText = Strings.ClockTooltip(config);
+        bool hasLedger = CoreBridge.Instance.TryGetLedger(out CoreLedgerView ledger);
         for (int i = 0; i < _resourceLabels.Length; i++)
         {
             var kind = (ResourceKind)i;
@@ -217,11 +264,54 @@ public partial class Hud : CanvasLayer
                 : delta < 0 ? new Color(1f, 0.6f, 0.55f)
                 : Colors.White;
             label.AddThemeColorOverride("font_color", color);
-            ((Control)label.GetParent()).TooltipText = Strings.ResourceTooltip(kind, amount, capacity, delta);
+            ((Control)label.GetParent()).TooltipText = hasLedger
+                ? Strings.ResourceTooltip(kind, amount, capacity, delta, ledger)
+                : Strings.ResourceTooltip(kind, amount, capacity, delta);
         }
         _population.Text = Strings.Population(summary);
         _population.TooltipText = Strings.PopulationTooltip(summary);
+        UpdateStatus(summary);
         Bar.Refresh(summary);
+    }
+
+    private void UpdateStatus(in CoreSummaryView summary)
+    {
+        _weather.Text = Strings.WeatherLabel(summary);
+        _weather.TooltipText = Strings.WeatherTooltip(summary);
+        string nature = Strings.NatureLabel(summary);
+        _nature.Visible = nature.Length > 0;
+        _nature.Text = nature;
+        _nature.TooltipText = nature.Length > 0 ? Strings.NatureTooltip(summary) : "";
+        _nature.AddThemeColorOverride("font_color", summary.NatureEvent == (int)NatureEvent.Bumper
+            ? new Color(0.7f, 1f, 0.6f)
+            : new Color(1f, 0.75f, 0.45f));
+        string winter = Strings.WinterLabel(summary);
+        _winter.Visible = winter.Length > 0;
+        _winter.Text = winter;
+        _winter.TooltipText = winter.Length > 0 ? Strings.WinterTooltip(summary) : "";
+        _winter.AddThemeColorOverride("font_color", Strings.WinterShort(summary) ? new Color(1f, 0.55f, 0.5f) : new Color(0.75f, 0.9f, 1f));
+        _merchantButton.Visible = summary.MerchantDaysLeft > 0;
+        _merchantButton.Text = Strings.MerchantButton(summary.MerchantDaysLeft);
+        _marketButton.Visible = HasMarket();
+        Market.Refresh();
+        Merchant.Refresh();
+    }
+
+    private static bool HasMarket()
+    {
+        WorldSync? sync = WorldSync.Instance;
+        if (sync == null)
+        {
+            return false;
+        }
+        foreach (CoreBuildingView building in sync.Buildings)
+        {
+            if (building.Type == (int)BuildingType.Market && building.State == (int)BuildingState.Active)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void ShowToast(string text) => Toasts.Show(text);
@@ -282,6 +372,8 @@ public partial class Hud : CanvasLayer
         Bar.ApplyScale(scale);
         Inspector.ApplyScale(scale);
         Villagers.ApplyScale(scale);
+        Market.ApplyScale(scale);
+        Merchant.ApplyScale(scale);
     }
 
     public void ShowFatal(string message, string detail)

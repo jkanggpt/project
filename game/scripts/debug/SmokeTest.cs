@@ -4,6 +4,7 @@
 // 하는 일: N일을 진행하며 매 프레임 불변 조건을 검사하고, 카메라·배속을 건드려 보고,
 // 끝에 저장 → 불러오기 해시를 비교합니다. 엔진 오류·경고가 하나라도 있으면 실패(종료 코드 1).
 // 마일스톤 2부터는 자동 조종(오토파일럿)이 건물과 도로를 짓고, 검사창·주민 목록·일꾼 명령도 눌러 봅니다.
+// 마일스톤 3부터는 부서진 건물을 고치고, 시장에서 사고팔고, 떠돌이 상인과 거래하고, 시장·상인 창도 열어 봅니다.
 using System;
 using System.Collections.Generic;
 using Godot;
@@ -22,8 +23,9 @@ public partial class SmokeTest : Node
     internal static readonly BuildingType[] Plan =
     {
         BuildingType.Farm, BuildingType.House, BuildingType.Lumber, BuildingType.House, BuildingType.Gatherer,
-        BuildingType.Quarry, BuildingType.Warehouse, BuildingType.Farm, BuildingType.House, BuildingType.House,
-        BuildingType.Farm, BuildingType.House, BuildingType.Lumber, BuildingType.House,
+        BuildingType.Quarry, BuildingType.Warehouse, BuildingType.Farm, BuildingType.House, BuildingType.Healer,
+        BuildingType.Market, BuildingType.House, BuildingType.Farm, BuildingType.House, BuildingType.Lumber,
+        BuildingType.House,
     };
 
     private readonly List<int> _placed = new();
@@ -96,7 +98,9 @@ public partial class SmokeTest : Node
         {
             _lastReportDay = summary.Day;
             GD.Print($"day {summary.Day}: population {summary.Population}, food {summary.GetResource(ResourceKind.Food)}" +
-                     $" ({summary.GetDelta(ResourceKind.Food):+#;-#;0}/day), gold {summary.GetResource(ResourceKind.Gold)}, mood {summary.AverageMood}");
+                     $" ({summary.GetDelta(ResourceKind.Food):+#;-#;0}/day), wood {summary.GetResource(ResourceKind.Wood)}," +
+                     $" gold {summary.GetResource(ResourceKind.Gold)}, mood {summary.AverageMood}, weather {summary.Weather}," +
+                     $" event {summary.NatureEvent}, sick {summary.SickCount}, cold {summary.ColdHouses}");
         }
         Vector2I keepDoor = new(summary.KeepX + summary.KeepSize / 2, summary.KeepY + summary.KeepSize);
         if (!_roadsDone)
@@ -106,6 +110,10 @@ public partial class SmokeTest : Node
             CoreBridge.Instance.PlaceLine(BuildingType.Road, keepDoor + new Vector2I(-6, 6), keepDoor + new Vector2I(6, 6), out int across, out _);
             _roadsDone = true;
             GD.Print($"autopilot: roads {down}+{across}");
+        }
+        if (_frames % 8 == 0)
+        {
+            KeepUp(summary);
         }
         if (_planIndex >= Plan.Length || _frames % 2 != 0)
         {
@@ -129,6 +137,42 @@ public partial class SmokeTest : Node
             GD.Print($"autopilot: gave up on {type}");
             _planIndex++;
             _planTries = 0;
+        }
+    }
+
+    /// <summary>하루에 한 번: 부서진 건물 고치기, 겨울 준비가 모자라면 시장에서 사기, 넘치는 석재 팔기, 상인의 마정석 사기</summary>
+    private void KeepUp(in CoreSummaryView summary)
+    {
+        foreach (CoreBuildingView building in _main.Sync.Buildings)
+        {
+            if (building.State != (int)BuildingState.Constructing && building.Hp < building.MaxHp)
+            {
+                CoreBridge.Instance.Repair(building.Id, out _);
+            }
+        }
+        if (summary.MarketOpen != 0)
+        {
+            if (summary.GetResource(ResourceKind.Food) < summary.WinterFoodNeed)
+            {
+                CoreBridge.Instance.Trade(ResourceKind.Food, 3, out _, out _);
+            }
+            if (summary.GetResource(ResourceKind.Wood) < summary.WinterWoodNeed)
+            {
+                CoreBridge.Instance.Trade(ResourceKind.Wood, 2, out _, out _);
+            }
+            if (summary.GetResource(ResourceKind.Stone) * 10 > summary.GetCapacity(ResourceKind.Stone) * 9)
+            {
+                CoreBridge.Instance.Trade(ResourceKind.Stone, -2, out _, out _);
+            }
+        }
+        if (summary.MerchantDaysLeft > 0 && CoreBridge.Instance.TryGetMerchant(out CoreMerchantView merchant))
+        {
+            CoreDealView deal = merchant.GetDeal(0);
+            if (deal.Taken == 0 && summary.GetResource(ResourceKind.Gold) > deal.GiveAmount + 60)
+            {
+                CoreBridge.Instance.AcceptDeal(0, out _);
+                GD.Print($"autopilot: bought {deal.GetAmount} mana from the merchant");
+            }
         }
     }
 
@@ -200,10 +244,18 @@ public partial class SmokeTest : Node
             case 11:
                 ExerciseWorkers(sync, frame);
                 break;
+            case 12:
+                _main.Hud.Market.Toggle();
+                _main.Hud.Merchant.Toggle();
+                break;
             case 13:
                 _main.Tools.BeginDemolish();
                 _main.Tools.Cancel();
                 _main.Tools.Select(0, 0);
+                break;
+            case 14:
+                _main.Hud.Market.Toggle();
+                _main.Hud.Merchant.Toggle();
                 break;
         }
     }

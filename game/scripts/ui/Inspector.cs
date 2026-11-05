@@ -25,10 +25,20 @@ public partial class Inspector : PanelContainer
     private OptionButton _idlePicker = null!;
     private Button _addWorker = null!;
     private Button _demolish = null!;
+    private Button _repair = null!;
+    private Button _trade = null!;
     private Button _release = null!;
     private Button _fire = null!;
     private int _villagerId;
     private int _buildingId;
+
+    /// <summary>시장 창을 열어 달라는 요청 (HUD 가 받음)</summary>
+    [Signal]
+    public delegate void TradeRequestedEventHandler();
+
+    /// <summary>알림으로 보여 줄 문장</summary>
+    [Signal]
+    public delegate void MessageEventHandler(string text);
 
     public override void _Ready()
     {
@@ -80,6 +90,22 @@ public partial class Inspector : PanelContainer
             BuildMode.Instance?.Select(0, 0);
         };
         _buildingBox.AddChild(_demolish);
+        var actions = new HBoxContainer();
+        _repair = new Button { Text = Strings.Repair, FocusMode = FocusModeEnum.None, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _repair.Pressed += () =>
+        {
+            CoreResult result = CoreBridge.Instance.Repair(_buildingId, out DenyReason reason);
+            if (!result.Ok)
+            {
+                EmitSignal(SignalName.Message, Strings.RepairRejected(reason));
+            }
+        };
+        _trade = new Button { Text = Strings.TradeButton, FocusMode = FocusModeEnum.None, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _trade.Pressed += () => EmitSignal(SignalName.TradeRequested);
+        actions.AddChild(_repair);
+        actions.AddChild(_trade);
+        _buildingBox.AddChild(actions);
+        _buildingBox.MoveChild(actions, _buildingBox.GetChildCount() - 2); // 철거 단추 위에
 
         // 주민 부분
         _villagerBox = new VBoxContainer();
@@ -129,7 +155,8 @@ public partial class Inspector : PanelContainer
         _title.Text = Strings.VillagerTitle(v);
         string traitA = CoreBridge.Instance.TryGetTraitDef(v.TraitA, out CoreTraitDefView a) ? a.GetKey() : "";
         string traitB = CoreBridge.Instance.TryGetTraitDef(v.TraitB, out CoreTraitDefView b) ? b.GetKey() : "";
-        _lines.Text = string.Join("\n", Strings.VillagerStateText(v.State), Strings.JobLine(v.Job),
+        string state = v.Has(VillagerFlags.Sick) ? Strings.SickLine : Strings.VillagerStateText(v.State);
+        _lines.Text = string.Join("\n", state, Strings.JobLine(v.Job),
             Strings.HomeLine(v.HomeId != 0), Strings.Traits(traitA, traitB), Strings.Stats(v), Strings.Needs(v));
         _mood.Visible = true;
         _mood.Text = Strings.MoodLine(v);
@@ -145,8 +172,21 @@ public partial class Inspector : PanelContainer
         _villagerBox.Visible = false;
         _mood.Visible = false;
         _title.Text = Strings.BuildingName(b.Type);
-        var lines = new List<string> { b.State == (int)BuildingState.Constructing ? Strings.Progress(b.BuildProgress, b.BuildTotal) : Strings.BuildingStateText(b.State) };
+        var lines = new List<string>
+        {
+            b.State == (int)BuildingState.Constructing ? Strings.Progress(b.BuildProgress, b.BuildTotal)
+            : b.State == (int)BuildingState.Ruined ? Strings.RuinedLine
+            : Strings.BuildingStateText(b.State),
+        };
         lines.Add(Strings.Hp(b.Hp, b.MaxHp));
+        if ((b.Flags & (int)BuildingFlags.Cold) != 0)
+        {
+            lines.Add(Strings.ColdHouseLine);
+        }
+        if (b.Type == (int)BuildingType.Healer)
+        {
+            lines.Add(Strings.HealerLine(sync.Summary.GetResource(ResourceKind.Herbs)));
+        }
         if (b.WorkerSlots > 0)
         {
             lines.Add(Strings.Workers(b.Workers, b.WorkerSlots));
@@ -183,10 +223,32 @@ public partial class Inspector : PanelContainer
         _autoAssign.Visible = b.WorkerSlots > 0;
         _autoAssign.SetPressedNoSignal(b.AutoAssign != 0);
         _demolish.Visible = b.Type != (int)BuildingType.Keep;
+        bool damaged = b.State != (int)BuildingState.Constructing && b.Hp < b.MaxHp;
+        _repair.Visible = damaged;
+        if (damaged)
+        {
+            int[] cost = CoreBridge.Instance.GetRepairCost(b.Id);
+            _repair.TooltipText = Strings.RepairTooltip(cost);
+            _repair.Disabled = !CanAfford(sync.Summary, cost);
+        }
+        _trade.Visible = b.Type == (int)BuildingType.Market && b.State == (int)BuildingState.Active;
+        _repair.GetParent<Control>().Visible = _repair.Visible || _trade.Visible;
         if (hasJobs)
         {
             FillIdlePicker(sync);
         }
+    }
+
+    private static bool CanAfford(in CoreSummaryView summary, int[] cost)
+    {
+        for (int i = 0; i < cost.Length; i++)
+        {
+            if (summary.GetResource((ResourceKind)i) < cost[i])
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void FillIdlePicker(WorldSync sync)

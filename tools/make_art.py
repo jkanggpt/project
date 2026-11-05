@@ -8,6 +8,7 @@ Kenney Tiny Town(CC0)에 없는 타일(물, 바위 지대, 마정석 광맥)은 
 결과 파일 (커밋합니다):
   game/assets/tiles/terrain.png    16×16 타일, 4열(변형) × 5행(지형: 풀밭, 숲, 바위, 물, 마정석)
   game/assets/tiles/roads.png      도로 타일 2가지
+  game/assets/tiles/snow.png       겨울 눈 덮개 4가지 (반투명, 땅 위에 겹쳐 그림)
   game/assets/buildings/<키>.png    건물 그림 (키는 data/buildings.def 의 [building 키])
   game/assets/buildings/construction_WxH.png  짓는 중 그림 (발자국 크기별)
   game/assets/units/villagers.png  주민 그림 8가지 (16×16 가로 띠)
@@ -30,6 +31,7 @@ OUT_BUILDINGS = os.path.join(ROOT, "game/assets/buildings")
 OUT_UNITS = os.path.join(ROOT, "game/assets/units")
 OUT_UI = os.path.join(ROOT, "game/assets/ui")
 OUT_ROADS = os.path.join(ROOT, "game/assets/tiles/roads.png")
+OUT_SNOW = os.path.join(ROOT, "game/assets/tiles/snow.png")
 
 T = 16  # 타일 크기
 VARIANTS = 4
@@ -412,6 +414,37 @@ def make_roads(town):
     return atlas
 
 
+def make_snow(rng):
+    """눈 덮개 (가로 띠, 변형 4가지 × 2줄).
+    1행: 풀밭·바위용 두꺼운 눈 — 거의 하얗고 군데군데 맨땅이 비침. 가장자리까지 고르게 칠해 이웃 타일과 이어짐
+    2행: 숲용 얇은 눈 — 나무가 보이도록 듬성듬성"""
+    snow = (0xF2, 0xF6, 0xFC)
+    shade = (0xD6, 0xE2, 0xF2)
+    atlas = Image.new("RGBA", (T * VARIANTS, T * 2), (0, 0, 0, 0))
+    px = atlas.load()
+    for v in range(VARIANTS):
+        ox = v * T
+        # 두꺼운 눈: 전부 칠하고, 그늘 몇 점과 맨땅 구멍 몇 개
+        for y in range(T):
+            for x in range(T):
+                px[ox + x, y] = snow + (225,)
+        for _ in range(rng.randint(2, 4)):
+            cx, cy = rng.randint(1, T - 3), rng.randint(1, T - 3)
+            for dx, dy in [(0, 0), (1, 0), (0, 1), (1, 1)][: rng.randint(2, 4)]:
+                px[ox + cx + dx, cy + dy] = (0, 0, 0, 0)
+        for _ in range(rng.randint(4, 7)):
+            cx, cy = rng.randint(0, T - 2), rng.randint(0, T - 1)
+            px[ox + cx, cy] = shade + (225,)
+            px[ox + cx + 1, cy] = shade + (225,)
+        # 얇은 눈: 위쪽(나무 꼭대기 쪽)에 몰린 하얀 점들
+        for y in range(T):
+            for x in range(T):
+                chance = 0.32 if y < T // 2 else 0.12
+                if rng.random() < chance:
+                    px[ox + x, T + y] = snow + (200,)
+    return atlas
+
+
 def main():
     rng = random.Random(20261105)  # 다시 만들어도 같은 그림이 나오게 고정 시드
     sheet = Image.open(KENNEY_TOWN).convert("RGBA")
@@ -443,7 +476,8 @@ def main():
     for key, img in make_ui(sheet, dungeon).items():
         img.save(os.path.join(OUT_UI, key + ".png"))
     make_roads(sheet).save(OUT_ROADS)
-    print("wrote terrain, keep, buildings, construction, villagers, ui icons, roads")
+    make_snow(random.Random(1225)).save(OUT_SNOW)
+    print("wrote terrain, keep, buildings, construction, villagers, ui icons, roads, snow")
 
 
 if __name__ == "__main__":

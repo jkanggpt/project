@@ -118,7 +118,41 @@ public static class Strings
         ["strong"] = "장사", ["frugal"] = "검소함",
     };
 
-    private static readonly string[] MoodTermNames = { "기본", "배고픔", "피로", "안전", "집", "성격", "임금", "슬픔" };
+    private static readonly string[] MoodTermNames = { "기본", "배고픔", "피로", "안전", "집", "성격", "임금", "슬픔", "추위", "병" };
+
+    private static readonly string[] WeatherNames = { "맑음", "비", "눈", "폭풍" };
+
+    private static readonly string[] WeatherDescriptions =
+    {
+        "맑은 날입니다.",
+        "비가 옵니다. 농장 생산 +10%.",
+        "눈이 옵니다. 걷는 속도가 조금 느려집니다.",
+        "폭풍이 붑니다. 건물이 부서질 수 있고 걷기가 느려집니다.",
+    };
+
+    private static readonly string[] NatureNames = { "", "가뭄", "역병", "폭풍", "혹한", "풍년" };
+
+    private static readonly string[] NatureDescriptions =
+    {
+        "",
+        "비가 오지 않아 농장 생산이 절반으로 줄어듭니다.",
+        "병이 돕니다. 아픈 주민은 일하지 못합니다. 치료소(일꾼 + 약초)가 있으면 금방 낫습니다. 이주민도 오지 않습니다.",
+        "강한 바람에 건물이 부서집니다. 검사창에서 고치세요.",
+        "매서운 추위로 집마다 난방 목재가 하나 더 듭니다.",
+        "풍년! 농장 생산이 1.5배가 됩니다.",
+    };
+
+    private static readonly string[] LedgerNames =
+    {
+        "생산", "식사", "임금", "세금", "건설", "철거 환불", "거래", "난방", "약탈", "기타(넘쳐 버림)", "치료", "수리",
+    };
+
+    private static readonly string[] DenyReasons =
+    {
+        "", "다 지은 시장이 없습니다", "시장에 일꾼이 없습니다", "시장에서 다루지 않는 자원입니다", "금화가 모자랍니다",
+        "팔 물건이 모자랍니다", "창고에 자리가 없습니다", "상인이 없습니다", "이미 한 거래입니다", "고칠 곳이 없습니다",
+        "아직 짓는 중입니다", "수량이 범위 밖입니다", "수리 비용이 모자랍니다",
+    };
 
     public static string SeasonName(int season) => Pick(SeasonNames, season);
     public static string DifficultyName(int difficulty) => Pick(DifficultyNames, difficulty);
@@ -133,6 +167,73 @@ public static class Strings
     public static string VillagerStateText(int state) => Pick(VillagerStates, state);
     public static string MoodTermName(int term) => Pick(MoodTermNames, term);
     public static string TraitName(string key) => TraitNames.TryGetValue(key, out string? name) ? name : key;
+    public static string WeatherName(int weather) => Pick(WeatherNames, weather);
+    public static string NatureName(int nature) => Pick(NatureNames, nature);
+    public static string LedgerName(int category) => Pick(LedgerNames, category);
+    public static string DenyText(DenyReason reason) => Pick(DenyReasons, (int)reason);
+
+    // ---- 날씨, 자연 사건, 겨울 준비 (위쪽 막대) ----
+    public static string WeatherLabel(in CoreSummaryView s) => WeatherName(s.Weather);
+
+    public static string WeatherTooltip(in CoreSummaryView s)
+    {
+        string text = $"날씨: {WeatherName(s.Weather)}\n{Pick(WeatherDescriptions, s.Weather)}\n\n농장 생산 {s.FarmPercent}%";
+        text += s.Season == 3 ? " (겨울에는 농장이 멈춥니다)" : " (계절 × 날씨 × 자연 사건)";
+        text += s.HeatingPerHouse > 0
+            ? $"\n난방: 사람이 사는 집마다 밤에 목재 {s.HeatingPerHouse}"
+            : "\n난방: 여름에는 필요 없음";
+        if (s.ForecastEvent != 0)
+        {
+            text += $"\n\n예보: 내일 {NatureName(s.ForecastEvent)} — {Pick(NatureDescriptions, s.ForecastEvent)}";
+        }
+        return text;
+    }
+
+    /// <summary>진행 중인 사건 (없으면 예보, 둘 다 없으면 빈 문자열)</summary>
+    public static string NatureLabel(in CoreSummaryView s)
+    {
+        if (s.NatureEvent != 0)
+        {
+            return $"{NatureName(s.NatureEvent)} {s.NatureDaysLeft}일";
+        }
+        return s.ForecastEvent != 0 ? $"내일 {NatureName(s.ForecastEvent)}" : "";
+    }
+
+    public static string NatureTooltip(in CoreSummaryView s)
+    {
+        int nature = s.NatureEvent != 0 ? s.NatureEvent : s.ForecastEvent;
+        string when = s.NatureEvent != 0 ? $"{s.NatureDaysLeft}일 더 이어집니다." : "내일 아침에 시작합니다. 미리 준비하세요.";
+        string text = $"{NatureName(nature)}: {Pick(NatureDescriptions, nature)}\n{when}";
+        if (s.SickCount > 0)
+        {
+            text += $"\n아픈 주민 {s.SickCount}명";
+        }
+        return text;
+    }
+
+    /// <summary>가을·겨울에만: "겨울 준비 식량 120/300 · 목재 40/96"</summary>
+    public static string WinterLabel(in CoreSummaryView s) =>
+        s.WinterFoodNeed > 0 || s.WinterWoodNeed > 0
+            ? $"겨울 준비 {ResourceName(ResourceKind.Food)} {s.GetResource(ResourceKind.Food)}/{s.WinterFoodNeed} · " +
+              $"{ResourceName(ResourceKind.Wood)} {s.GetResource(ResourceKind.Wood)}/{s.WinterWoodNeed}"
+            : "";
+
+    public static bool WinterShort(in CoreSummaryView s) =>
+        s.GetResource(ResourceKind.Food) < s.WinterFoodNeed || s.GetResource(ResourceKind.Wood) < s.WinterWoodNeed;
+
+    public static string WinterTooltip(in CoreSummaryView s) =>
+        (s.Season == 2 ? "곧 겨울입니다. 겨울에는 농장이 멈추고 집마다 난방 목재가 두 배로 듭니다.\n"
+                       : "겨울입니다. 농장이 멈췄습니다. 봄까지 버텨야 합니다.\n") +
+        $"봄까지 필요한 양 (지금 주민 {s.Population}명, 사는 집 기준):\n" +
+        $"  식량 {s.WinterFoodNeed} (주민 한 명이 하루에 약 1.2)\n" +
+        $"  목재 {s.WinterWoodNeed} (집 한 채가 하룻밤에 2)\n" +
+        "모자라면 시장이나 떠돌이 상인에게서 살 수 있습니다." +
+        (s.ColdHouses > 0 ? $"\n지난밤 난방을 못 한 집: {s.ColdHouses}채" : "");
+
+    public const string MarketButton = "시장";
+    public const string MarketButtonTooltip = "시장에서 금화로 식량·목재·석재·약초를 사고팝니다.";
+    public static string MerchantButton(int days) => $"떠돌이 상인 ({days}일)";
+    public const string MerchantButtonTooltip = "떠돌이 상인이 왔습니다. 마정석을 살 수 있는 유일한 기회입니다.";
 
     private static string Pick(string[] names, int index) =>
         index >= 0 && index < names.Length ? names[index] : "?";
@@ -164,6 +265,35 @@ public static class Strings
         text += capacity > 0 ? $"\n저장 한도 {capacity} (성채와 창고가 정합니다)" : "\n화폐라서 저장 한도가 없습니다.";
         text += $"\n어제 하루 변화: {delta:+#;-#;0}";
         return text;
+    }
+
+    /// <summary>장부 내역까지 넣은 툴팁: 어제 하루 항목별, 그리고 오늘 지금까지</summary>
+    public static string ResourceTooltip(ResourceKind resource, int amount, int capacity, int delta, in CoreLedgerView ledger)
+    {
+        var text = new System.Text.StringBuilder(ResourceTooltip(resource, amount, capacity, delta));
+        AppendLedger(text, "어제 내역", resource, ledger, true);
+        AppendLedger(text, "오늘 지금까지", resource, ledger, false);
+        return text.ToString();
+    }
+
+    private static void AppendLedger(System.Text.StringBuilder text, string title, ResourceKind resource,
+        in CoreLedgerView ledger, bool yesterday)
+    {
+        bool any = false;
+        for (int c = 0; c < (int)LedgerCategory.Count; c++)
+        {
+            int value = ledger.Get(resource, (LedgerCategory)c, yesterday);
+            if (value == 0)
+            {
+                continue;
+            }
+            if (!any)
+            {
+                text.Append($"\n\n{title}:");
+                any = true;
+            }
+            text.Append($"\n  {LedgerName(c)} {value:+#;-#;0}");
+        }
     }
 
     public static string Population(in CoreSummaryView s) => $"주민 {s.Population}";
@@ -278,6 +408,52 @@ public static class Strings
     public const string Unemployed = "일터 없음";
     public const string Homeless = "집 없음";
     public const string Close = "닫기";
+    public const string Repair = "수리";
+    public const string RepairNothing = "고칠 곳이 없습니다.";
+    public const string RuinedLine = "무너짐 — 고치기 전에는 일도 잠도 못 합니다";
+    public const string ColdHouseLine = "지난밤 추웠습니다 (목재 부족)";
+    public const string TradeButton = "거래하기";
+    public const string SickLine = "아픔 — 일하지 못합니다";
+
+    public static string RepairTooltip(int[] cost)
+    {
+        var parts = new List<string>();
+        for (int i = 0; i < cost.Length; i++)
+        {
+            if (cost[i] > 0)
+            {
+                parts.Add($"{ResourceName(i)} {cost[i]}");
+            }
+        }
+        return parts.Count > 0 ? "수리 비용: " + string.Join(", ", parts) + "\n(건설 비용의 절반 × 부서진 정도)" : RepairNothing;
+    }
+
+    public static string RepairRejected(DenyReason reason) => $"고칠 수 없습니다: {DenyText(reason)}";
+    public static string HealerLine(int herbs) => $"약초 {herbs}개 — 아픈 주민이 오면 한 시간 치료에 하나씩 씁니다";
+
+    // ---- 시장, 떠돌이 상인 ----
+    public const string MarketTitle = "시장";
+    public const string MarketHelp = "한 묶음은 10개입니다. 살 때는 비싸고 팔 때는 쌉니다. 많이 사면 값이 오르고, 날마다 조금씩 제자리로 돌아갑니다. 겨울에는 식량·목재가 비쌉니다.";
+    public static string MarketClosed(DenyReason reason) => $"지금은 거래할 수 없습니다: {DenyText(reason)}";
+    public const string Buy = "사기";
+    public const string Sell = "팔기";
+    public static string PriceLine(int buy, int sell) => $"살 때 {buy} · 팔 때 {sell}";
+    public static string TrendText(int percent) => percent > 110 ? "▲ 비쌈" : percent < 90 ? "▼ 쌈" : "보통";
+    public static string PriceTooltip(ResourceKind resource, int basePrice, int percent) =>
+        $"{ResourceName(resource)} 기준 가격 {basePrice} (한 묶음). 지금은 기준의 {percent}%입니다.";
+    public static string Traded(ResourceKind resource, int lots, int gold) =>
+        lots > 0
+            ? $"{ResourceName(resource)} {lots * CoreMarketView.Lot}개를 금화 {-gold}에 샀습니다."
+            : $"{ResourceName(resource)} {-lots * CoreMarketView.Lot}개를 금화 {gold}에 팔았습니다.";
+    public static string TradeRejected(DenyReason reason) => $"거래할 수 없습니다: {DenyText(reason)}";
+
+    public static string MerchantTitle(int days) => $"떠돌이 상인 — {days}일 더 머뭅니다";
+    public const string MerchantHelp = "상인의 제안은 한 번씩만 받을 수 있습니다. 마정석은 상인에게서만 살 수 있습니다.";
+    public const string MerchantGone = "떠돌이 상인이 떠났습니다.";
+    public static string DealText(in CoreDealView deal) =>
+        $"{ResourceName(deal.GiveResource)} {deal.GiveAmount} → {ResourceName(deal.GetResource)} {deal.GetAmount}";
+    public const string Accept = "거래";
+    public const string DealDone = "거래함";
 
     public static string WorkerLine(string name, int state) => $"{name} — {VillagerStateText(state)}";
 
@@ -357,7 +533,7 @@ public static class Strings
             case CoreEventType.VillagerLeft:
                 return $"{Subject(name)} 마을을 떠났습니다.";
             case CoreEventType.VillagerDied:
-                return $"{Subject(name)} {(coreEvent.B == 1 ? "굶주림으로 " : "")}세상을 떠났습니다.";
+                return $"{Subject(name)} {(coreEvent.B == (int)DeathCause.Starvation ? "굶주림으로 " : coreEvent.B == (int)DeathCause.Illness ? "병으로 " : "")}세상을 떠났습니다.";
             case CoreEventType.PathBlocked:
                 return $"{name}: 길이 막혔습니다.";
             case CoreEventType.StorageFull:
@@ -370,6 +546,32 @@ public static class Strings
                 return StoryText(name, (Story)coreEvent.B, coreEvent.C);
             case CoreEventType.DefWarning:
                 return $"정의 파일 {Pick(DataFileNames, coreEvent.A)} 의 {coreEvent.B}번째 줄이 잘못되어 기본값을 씁니다.";
+            case CoreEventType.WeatherChanged:
+                return null; // 위쪽 막대와 화면 효과로 보여 줌
+            case CoreEventType.NatureForecast:
+                return $"예보: 내일 {Subject(NatureName(coreEvent.A))} 옵니다. {Pick(NatureDescriptions, coreEvent.A)}";
+            case CoreEventType.NatureStarted:
+                return $"{Subject(NatureName(coreEvent.A))} 시작되었습니다 ({coreEvent.B}일).";
+            case CoreEventType.NatureEnded:
+                return $"{Subject(NatureName(coreEvent.A))} 끝났습니다.";
+            case CoreEventType.BuildingDamaged:
+                return $"{Subject(BuildingName(coreEvent.B))} 부서졌습니다. 검사창에서 고칠 수 있습니다.";
+            case CoreEventType.BuildingRuined:
+                return $"{Subject(BuildingName(coreEvent.B))} 무너졌습니다! 고치기 전에는 쓸 수 없습니다.";
+            case CoreEventType.BuildingRepaired:
+                return $"{Object(BuildingName(coreEvent.B))} 고쳤습니다.";
+            case CoreEventType.VillagerSick:
+                return $"{Subject(name)} 병에 걸렸습니다.";
+            case CoreEventType.VillagerCured:
+                return coreEvent.B == 1 ? $"{Subject(name)} 치료소에서 나았습니다." : $"{Subject(name)} 병이 저절로 나았습니다.";
+            case CoreEventType.MerchantArrived:
+                return $"떠돌이 상인이 왔습니다! {coreEvent.A}일 머뭅니다. (위쪽 막대의 상인 단추)";
+            case CoreEventType.MerchantLeft:
+                return "떠돌이 상인이 떠났습니다.";
+            case CoreEventType.WinterWarning:
+                return $"겨울 준비가 모자랍니다: 봄까지 식량 {coreEvent.A}, 목재 {coreEvent.B} 정도가 있어야 합니다.";
+            case CoreEventType.HousesCold:
+                return $"목재가 모자라 집 {coreEvent.A}채가 지난밤 난방을 못 했습니다.";
             default:
                 return null;
         }

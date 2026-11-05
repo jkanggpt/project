@@ -24,6 +24,7 @@ public partial class Main : Node2D
     public Hud Hud { get; private set; } = null!;
     public WorldSync Sync { get; private set; } = null!;
     public BuildMode Tools { get; private set; } = null!;
+    public WeatherFx Weather { get; private set; } = null!;
 
     public override void _Ready()
     {
@@ -35,6 +36,7 @@ public partial class Main : Node2D
         Hud = GetNode<Hud>("Hud");
         Sync = GetNode<WorldSync>("WorldSync");
         Tools = GetNode<BuildMode>("World/BuildMode");
+        Weather = GetNode<WeatherFx>("WeatherFx");
         Sync.Map = Map;
         Sync.BuildingsLayer = GetNode<Node2D>("World/Buildings");
         Sync.UnitsLayer = GetNode<Node2D>("World/Units");
@@ -159,7 +161,10 @@ public partial class Main : Node2D
 
     private void OnRefreshed()
     {
-        Hud.UpdateSummary(Sync.Summary);
+        CoreSummaryView summary = Sync.Summary;
+        Map.SetLook(summary.Season, summary.Weather, summary.NatureEvent);
+        Weather.SetWeather(summary.Weather);
+        Hud.UpdateSummary(summary);
         Hud.Inspector.Refresh();
         Hud.Villagers.Refresh();
     }

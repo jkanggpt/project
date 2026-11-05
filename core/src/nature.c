@@ -229,6 +229,10 @@ static void advance_events(World *world)
     if (nature->event != CORE_NATURE_NONE) {
         const NatureEventDef *def = &NATURE_EVENTS[nature->event];
         nature->event_days--;
+        /* 계절이 바뀌어 그 사건이 있을 수 없는 계절이 되면 끝냅니다 (겨울의 풍년 같은 일이 없게) */
+        if (!(def->season_mask & SEASON_BIT(clock_season(&world->clock)))) {
+            nature->event_days = 0;
+        }
         if (nature->event_days <= 0) {
             int32_t ended = nature->event;
             if (def->on_end != NULL) {

@@ -1,4 +1,5 @@
-// MapView.cs — C 의 지형 격자로 TileMapLayer 를 채우고 성채를 그립니다.
+// MapView.cs — C 의 지형 격자로 TileMapLayer 를 채우고, 도로 층과 겨울 눈 덮개를 그립니다.
+// 계절에 따라 땅 색을 바꾸고(가을은 따뜻하게, 겨울은 눈), 가뭄이면 누렇게 합니다. (규칙이 아니라 보이는 모습만)
 //
 // 지형 그림은 assets/tiles/terrain.png 한 장(4열 변형 × 5행 지형)에서 가져옵니다.
 // 그림 파일이 없으면 단색 임시 타일을 만들어 씁니다 (그림만 바꾸면 코드는 그대로).
@@ -32,14 +33,31 @@ public partial class MapView : Node2D
 
     private TileMapLayer _ground = null!;
     private TileMapLayer _roads = null!;
+    private TileMapLayer _snow = null!;
     private int _sourceId = -1;
     private int _roadSourceId = -1;
+    private int _snowSourceId = -1;
+    private int _snowRows = 1;
+    private Tween? _lookTween;
+    private byte[] _terrain = System.Array.Empty<byte>();
+    private int _width;
+    private Color _tint = Colors.White;
+    private float _snowAlpha;
+
+    // 계절별 땅 색 (봄, 여름, 가을, 겨울)
+    private static readonly Color[] SeasonTints =
+    {
+        new(1f, 1f, 1f), new(1.04f, 1.02f, 0.9f), new(1.12f, 0.94f, 0.74f), new(0.92f, 0.96f, 1.06f),
+    };
 
     [Export]
     public Texture2D? TerrainAtlas { get; set; }
 
     [Export]
     public Texture2D? RoadAtlas { get; set; }
+
+    [Export]
+    public Texture2D? SnowAtlas { get; set; }
 
     /// <summary>지도 전체의 픽셀 영역 (카메라 경계에 씀)</summary>
     public Rect2 PixelBounds { get; private set; }
@@ -48,6 +66,8 @@ public partial class MapView : Node2D
     {
         _ground = GetNode<TileMapLayer>("Ground");
         _roads = GetNode<TileMapLayer>("Roads");
+        _snow = new TileMapLayer { Name = "Snow", Modulate = new Color(1, 1, 1, 0) };
+        AddChild(_snow); // 도로 위에 덮음
     }
 
     /// <summary>지형을 처음부터 다시 그립니다 (새 게임, 불러오기 후).</summary>
@@ -68,7 +88,83 @@ public partial class MapView : Node2D
             }
         }
         PixelBounds = new Rect2(0, 0, width * TileSize, height * TileSize);
-        _ = summary; // 성채는 이제 건물(BuildingNode)로 그립니다
+        BuildSnow(terrain, width, height);
+        _lookTween?.Kill();
+        _tint = Colors.White;
+        _snowAlpha = 0;
+        SetLook(summary.Season, summary.Weather, summary.NatureEvent, instant: true);
+    }
+
+    /// <summary>물이 아닌 모든 칸에 눈 덮개를 깔아 둡니다 (보일지는 투명도로 정함)</summary>
+    private void BuildSnow(byte[] terrain, int width, int height)
+    {
+        if (_snowSourceId < 0)
+        {
+            Texture2D atlas = SnowAtlas ?? MakePlaceholderSnow();
+            var tileSet = new TileSet { TileSize = new Vector2I(TileSize, TileSize) };
+            var source = new TileSetAtlasSource { Texture = atlas, TextureRegionSize = new Vector2I(TileSize, TileSize) };
+            for (int row = 0; row < atlas.GetHeight() / TileSize; row++)
+            {
+                for (int column = 0; column < atlas.GetWidth() / TileSize; column++)
+                {
+                    source.CreateTile(new Vector2I(column, row));
+                }
+            }
+            _snowRows = atlas.GetHeight() / TileSize;
+            _snowSourceId = tileSet.AddSource(source);
+            _snow.TileSet = tileSet;
+        }
+        _terrain = terrain;
+        _width = width;
+        _snow.Clear();
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                PutSnow(x, y);
+            }
+        }
+    }
+
+    /// <summary>한 칸의 눈: 물에는 없음, 숲은 얇게(2행), 나머지는 두껍게(1행)</summary>
+    private void PutSnow(int x, int y)
+    {
+        int index = y * _width + x;
+        if (index < 0 || index >= _terrain.Length || _terrain[index] == (byte)Terrain.Water)
+        {
+            _snow.EraseCell(new Vector2I(x, y));
+            return;
+        }
+        int row = _terrain[index] == (byte)Terrain.Forest && _snowRows > 1 ? 1 : 0;
+        _snow.SetCell(new Vector2I(x, y), _snowSourceId, new Vector2I(PickVariant(0, x, y) % Variants, row));
+    }
+
+    /// <summary>계절·날씨·사건에 맞게 땅 색과 눈을 바꿉니다 (천천히 바뀜)</summary>
+    public void SetLook(int season, int weather, int natureEvent, bool instant = false)
+    {
+        Color tint = season >= 0 && season < SeasonTints.Length ? SeasonTints[season] : Colors.White;
+        if (natureEvent == (int)NatureEvent.Drought)
+        {
+            tint *= new Color(1.08f, 1.0f, 0.72f); // 가뭄: 누렇게
+        }
+        // 겨울이면 눈이 쌓여 있고, 겨울이 아니어도 눈이 오는 날은 조금 덮임
+        float snow = season == 3 ? 0.9f : weather == (int)Weather.Snow ? 0.35f : 0f;
+        if (tint.IsEqualApprox(_tint) && Mathf.IsEqualApprox(snow, _snowAlpha))
+        {
+            return;
+        }
+        _tint = tint;
+        _snowAlpha = snow;
+        _lookTween?.Kill();
+        if (instant)
+        {
+            _ground.Modulate = tint;
+            _snow.Modulate = new Color(1, 1, 1, snow);
+            return;
+        }
+        _lookTween = CreateTween().SetParallel();
+        _lookTween.TweenProperty(_ground, "modulate", tint, 2.0);
+        _lookTween.TweenProperty(_snow, "modulate:a", snow, 2.0);
     }
 
     /// <summary>도로 층을 다시 그립니다 (C 의 비용 격자가 바뀔 때마다)</summary>
@@ -87,6 +183,7 @@ public partial class MapView : Node2D
             _roads.TileSet = tileSet;
         }
         _roads.Clear();
+        bool snowReady = _snowSourceId >= 0 && _terrain.Length == width * height;
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
@@ -94,6 +191,14 @@ public partial class MapView : Node2D
                 if (roads[y * width + x] != 0)
                 {
                     _roads.SetCell(new Vector2I(x, y), _roadSourceId, new Vector2I((x * 7 + y * 3) % 2, 0));
+                    if (snowReady)
+                    {
+                        _snow.EraseCell(new Vector2I(x, y)); // 도로는 눈을 치워 둠
+                    }
+                }
+                else if (snowReady && _snow.GetCellSourceId(new Vector2I(x, y)) < 0)
+                {
+                    PutSnow(x, y); // 도로를 없앤 칸에는 다시 눈
                 }
             }
         }
@@ -164,6 +269,14 @@ public partial class MapView : Node2D
                 image.FillRect(new Rect2I(column * TileSize, row * TileSize, TileSize, TileSize), color);
             }
         }
+        return ImageTexture.CreateFromImage(image);
+    }
+
+    private static ImageTexture MakePlaceholderSnow()
+    {
+        GD.PushWarning("snow.png 가 없어 임시 눈 타일을 씁니다 (game/assets/tiles/snow.png).");
+        var image = Image.CreateEmpty(TileSize * Variants, TileSize, false, Image.Format.Rgba8);
+        image.Fill(new Color(0.96f, 0.98f, 1f, 0.85f));
         return ImageTexture.CreateFromImage(image);
     }
 

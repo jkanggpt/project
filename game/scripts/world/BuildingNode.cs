@@ -1,4 +1,5 @@
 // BuildingNode.cs — 건물 하나의 그림 (C 의 건물 뷰를 보고 모습을 맞춤)
+//   짓는 중: 공사 현장 그림 + 진행 막대 / 부서짐: 체력 막대 / 무너짐: 어둡게 + 기울임 / 추운 집: 눈송이 표시
 using Godot;
 using MagicCastle.Core;
 
@@ -11,6 +12,8 @@ public partial class BuildingNode : Node2D
     private int _shownState = -1;
     private bool _selected;
     private float _progress = -1f;
+    private float _health = 1f;
+    private bool _cold;
 
     public int Id { get; private set; }
     public CoreBuildingView View { get; private set; }
@@ -51,7 +54,9 @@ public partial class BuildingNode : Node2D
             _sprite.Texture = view.State == (int)BuildingState.Constructing
                 ? Art.Construction(view.W, view.H)
                 : Art.Building(key, view.W, view.H);
-            _sprite.Modulate = view.State == (int)BuildingState.Ruined ? new Color(0.45f, 0.4f, 0.4f) : Colors.White;
+            bool ruined = view.State == (int)BuildingState.Ruined;
+            _sprite.Modulate = ruined ? new Color(0.45f, 0.4f, 0.4f) : Colors.White;
+            _sprite.Skew = ruined ? 0.12f : 0f; // 무너진 건물은 살짝 기울게
             if (!firstShow || view.State == (int)BuildingState.Constructing)
             {
                 Squash();
@@ -67,11 +72,28 @@ public partial class BuildingNode : Node2D
         float progress = view.State == (int)BuildingState.Constructing && view.BuildTotal > 0
             ? view.BuildProgress / (float)view.BuildTotal
             : -1f;
-        if (!Mathf.IsEqualApprox(progress, _progress))
+        float health = view.MaxHp > 0 && view.State == (int)BuildingState.Active ? view.Hp / (float)view.MaxHp : 1f;
+        bool cold = (view.Flags & (int)BuildingFlags.Cold) != 0;
+        if (!Mathf.IsEqualApprox(progress, _progress) || !Mathf.IsEqualApprox(health, _health) || cold != _cold)
         {
             _progress = progress;
+            _health = health;
+            _cold = cold;
             QueueRedraw();
         }
+    }
+
+    /// <summary>부서지는 순간: 붉게 번쩍이고 흔들림</summary>
+    public void Flash()
+    {
+        _sprite.Modulate = new Color(1.6f, 0.6f, 0.6f);
+        Tween tween = CreateTween();
+        tween.TweenProperty(_sprite, "modulate", View.State == (int)BuildingState.Ruined ? new Color(0.45f, 0.4f, 0.4f) : Colors.White, 0.4);
+        Vector2 home = _sprite.Position;
+        Tween shake = CreateTween();
+        shake.TweenProperty(_sprite, "position", home + new Vector2(1.5f, 0), 0.05);
+        shake.TweenProperty(_sprite, "position", home - new Vector2(1.5f, 0), 0.08);
+        shake.TweenProperty(_sprite, "position", home, 0.05);
     }
 
     public bool Selected
@@ -103,6 +125,25 @@ public partial class BuildingNode : Node2D
         {
             DrawRect(new Rect2(2, h - 4, w - 4, 3), new Color(0, 0, 0, 0.6f));
             DrawRect(new Rect2(2, h - 4, (w - 4) * _progress, 3), new Color(0.95f, 0.8f, 0.3f));
+        }
+        else if (_health < 1f)
+        {
+            // 부서진 건물: 위쪽에 체력 막대 (어두운 테두리 + 많이 부서질수록 빨강)
+            Color fill = _health < 0.34f ? new Color(0.95f, 0.25f, 0.2f)
+                : _health < 0.67f ? new Color(1f, 0.72f, 0.2f)
+                : new Color(0.45f, 0.95f, 0.4f);
+            DrawRect(new Rect2(1, -6, w - 2, 5), new Color(0.08f, 0.06f, 0.1f, 0.85f));
+            DrawRect(new Rect2(2, -5, (w - 4) * _health, 3), fill);
+        }
+        if (_cold)
+        {
+            // 추운 집: 지붕 위 작은 눈송이 (+ 와 × 겹침)
+            var center = new Vector2(w - 4, 3);
+            var ice = new Color(0.75f, 0.9f, 1f);
+            DrawLine(center + new Vector2(-2.5f, 0), center + new Vector2(2.5f, 0), ice, 1f);
+            DrawLine(center + new Vector2(0, -2.5f), center + new Vector2(0, 2.5f), ice, 1f);
+            DrawLine(center + new Vector2(-1.8f, -1.8f), center + new Vector2(1.8f, 1.8f), ice, 1f);
+            DrawLine(center + new Vector2(-1.8f, 1.8f), center + new Vector2(1.8f, -1.8f), ice, 1f);
         }
         if (_selected)
         {

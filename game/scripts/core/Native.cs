@@ -62,7 +62,32 @@ public enum IntentFlags { None = 0, Hold = 1, SpawnEdge = 2 }
 [Flags]
 public enum VillagerFlags { None = 0, Manual = 1, Unpaid = 2, Starving = 4, Homeless = 8, Unhappy = 16, Sick = 32 }
 
-public enum MoodTerm { Base = 0, Hunger = 1, Rest = 2, Safety = 3, Housing = 4, Traits = 5, Wages = 6, Mourning = 7, Count = 8 }
+public enum MoodTerm
+{
+    Base = 0, Hunger = 1, Rest = 2, Safety = 3, Housing = 4, Traits = 5, Wages = 6, Mourning = 7, Cold = 8, Sickness = 9,
+    Count = 10,
+}
+
+[Flags]
+public enum BuildingFlags { None = 0, Cold = 1 }
+
+public enum Weather { Clear = 0, Rain = 1, Snow = 2, Storm = 3, Count = 4 }
+
+public enum NatureEvent { None = 0, Drought = 1, Plague = 2, Storm = 3, ColdSnap = 4, Bumper = 5, Count = 6 }
+
+public enum LedgerCategory
+{
+    Production = 0, Consumption = 1, Wages = 2, Taxes = 3, Construction = 4, Refund = 5, Trade = 6, Heating = 7,
+    Raid = 8, Other = 9, Healing = 10, Repair = 11, Count = 12,
+}
+
+public enum DenyReason
+{
+    None = 0, NoMarket = 1, NoTrader = 2, NotTradable = 3, NoGold = 4, NoGoods = 5, StorageFull = 6, NoMerchant = 7,
+    DealTaken = 8, NotDamaged = 9, UnderConstruction = 10, BadAmount = 11, NoResources = 12, Count = 13,
+}
+
+public enum DeathCause { Starvation = 1, Illness = 2, Raid = 3 }
 
 public enum DataFile { Buildings = 0, Traits = 1, Names = 2, Count = 3 }
 
@@ -71,7 +96,9 @@ public enum CoreEventType
     None = 0, DayStarted = 1, SeasonChanged = 2, NightFell = 3, Dawn = 4, Warning = 5, BuildingPlaced = 6,
     BuildingCompleted = 7, BuildingRemoved = 8, Produced = 9, Immigrant = 10, VillagerLeaving = 11,
     VillagerLeft = 12, VillagerDied = 13, PathBlocked = 14, StorageFull = 15, WagesUnpaid = 16, Story = 17,
-    Starving = 18, DefWarning = 19,
+    Starving = 18, DefWarning = 19, WeatherChanged = 20, NatureForecast = 21, NatureStarted = 22, NatureEnded = 23,
+    BuildingDamaged = 24, BuildingRuined = 25, BuildingRepaired = 26, VillagerSick = 27, VillagerCured = 28,
+    MerchantArrived = 29, MerchantLeft = 30, WinterWarning = 31, HousesCold = 32,
 }
 
 public enum CoreWarning { None = 0, EventsDropped = 1 }
@@ -157,6 +184,18 @@ public unsafe struct CoreSummaryView
     public int VillagerCountHint;
     public int BuildingCountHint;
     public int Rank;
+    public int Weather;
+    public int NatureEvent;
+    public int NatureDaysLeft;
+    public int ForecastEvent;
+    public int MerchantDaysLeft;
+    public int MarketOpen;
+    public int SickCount;
+    public int ColdHouses;
+    public int HeatingPerHouse;
+    public int FarmPercent;
+    public int WinterFoodNeed;
+    public int WinterWoodNeed;
     public fixed int Resources[ResourceCount];
     /// <summary>자원별 저장 한도. 0 이면 한도 없음</summary>
     public fixed int ResourceCapacity[ResourceCount];
@@ -377,6 +416,81 @@ public struct CoreStructSizes
     public int TraitDefView;
     public int PlacementView;
     public int MoodTermView;
+    public int LedgerView;
+    public int MarketView;
+    public int MerchantView;
+}
+
+/// <summary>장부: [자원 × 항목] (오늘 쌓는 중, 어제 하루)</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct CoreLedgerView
+{
+    public const int Cells = CoreSummaryView.ResourceCount * (int)LedgerCategory.Count;
+    public fixed int Today[Cells];
+    public fixed int Yesterday[Cells];
+
+    public readonly int Get(ResourceKind resource, LedgerCategory category, bool yesterday)
+    {
+        int index = (int)resource * (int)LedgerCategory.Count + (int)category;
+        if (index < 0 || index >= Cells)
+        {
+            return 0;
+        }
+        return yesterday ? Yesterday[index] : Today[index];
+    }
+}
+
+/// <summary>시장 가격 (한 묶음 = Lot 개, 금화)</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct CoreMarketView
+{
+    public const int Lot = 10;
+    public const int MaxLots = 10;
+    public int Open;
+    public int ClosedReason;
+    public fixed int BuyPrice[CoreSummaryView.ResourceCount];
+    public fixed int SellPrice[CoreSummaryView.ResourceCount];
+    public fixed int BasePrice[CoreSummaryView.ResourceCount];
+    public fixed int Trend[CoreSummaryView.ResourceCount];
+
+    public readonly bool Tradable(ResourceKind r) => Index(r) >= 0 && BasePrice[Index(r)] > 0;
+    public readonly int Buy(ResourceKind r) => Index(r) >= 0 ? BuyPrice[Index(r)] : 0;
+    public readonly int Sell(ResourceKind r) => Index(r) >= 0 ? SellPrice[Index(r)] : 0;
+    public readonly int Base(ResourceKind r) => Index(r) >= 0 ? BasePrice[Index(r)] : 0;
+    public readonly int TrendPercent(ResourceKind r) => Index(r) >= 0 ? Trend[Index(r)] : 0;
+
+    private static int Index(ResourceKind r) => (int)r >= 0 && (int)r < CoreSummaryView.ResourceCount ? (int)r : -1;
+}
+
+/// <summary>떠돌이 상인의 제안 하나: Give 를 내고 Get 을 받음</summary>
+[StructLayout(LayoutKind.Sequential)]
+public struct CoreDealView
+{
+    public int GiveResource;
+    public int GiveAmount;
+    public int GetResource;
+    public int GetAmount;
+    public int Taken;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct CoreMerchantView
+{
+    public const int MaxDeals = 4;
+    public int DaysLeft;
+    public int DealCount;
+    public CoreDealView Deal0;
+    public CoreDealView Deal1;
+    public CoreDealView Deal2;
+    public CoreDealView Deal3;
+
+    public readonly CoreDealView GetDeal(int index) => index switch
+    {
+        0 => Deal0,
+        1 => Deal1,
+        2 => Deal2,
+        _ => Deal3,
+    };
 }
 
 /// <summary>고정 크기 UTF-8 버퍼 읽기/쓰기</summary>
@@ -444,6 +558,10 @@ internal static class Native
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_building_def(IntPtr world, int type, out CoreBuildingDefView def);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_trait_def(IntPtr world, int index, out CoreTraitDefView def);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_mood_terms(IntPtr world, int villagerId, [Out] CoreMoodTermView[] buffer, int capacity, out int count);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_ledger(IntPtr world, out CoreLedgerView ledger);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_market(IntPtr world, out CoreMarketView market);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_merchant(IntPtr world, out CoreMerchantView merchant);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_repair_cost(IntPtr world, int buildingId, [Out] int[] cost, int count);
 
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_can_place(IntPtr world, int type, int x, int y, out CorePlacementView view);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_place_building(IntPtr world, int type, int x, int y, out int id, out int reason);
@@ -454,6 +572,9 @@ internal static class Native
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_unassign_worker(IntPtr world, int villagerId);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_release_worker(IntPtr world, int villagerId);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_set_auto_assign(IntPtr world, int buildingId, int enabled);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_trade(IntPtr world, int resource, int lots, out int gold, out int reason);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_merchant_accept(IntPtr world, int index, out int reason);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_repair(IntPtr world, int buildingId, out int reason);
 
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_villager_arrived(IntPtr world, int villagerId, int intentRev);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_villager_unreachable(IntPtr world, int villagerId, int intentRev);

@@ -40,7 +40,7 @@ public enum CoreStatus
 public partial class CoreBridge : Node
 {
     /// <summary>C 의 CORE_ABI_VERSION 과 같아야 합니다.</summary>
-    public const int ExpectedAbiVersion = 2;
+    public const int ExpectedAbiVersion = 3;
 
     /// <summary>정의 파일 (순서는 DataFile)</summary>
     private static readonly string[] DataFiles = { "res://data/buildings.def", "res://data/traits.def", "res://data/names.txt" };
@@ -51,6 +51,7 @@ public partial class CoreBridge : Node
     private IntPtr _world = IntPtr.Zero;
     private IntPtr _defs = IntPtr.Zero;
     private readonly CoreMoodTermView[] _moodBuffer = new CoreMoodTermView[(int)MoodTerm.Count];
+    private readonly int[] _repairCost = new int[CoreSummaryView.ResourceCount];
 
     public static CoreBridge Instance { get; private set; } = null!;
 
@@ -206,6 +207,9 @@ public partial class CoreBridge : Node
         Compare("CoreTraitDefView", sizes.TraitDefView, Marshal.SizeOf<CoreTraitDefView>(), problems);
         Compare("CorePlacementView", sizes.PlacementView, Marshal.SizeOf<CorePlacementView>(), problems);
         Compare("CoreMoodTermView", sizes.MoodTermView, Marshal.SizeOf<CoreMoodTermView>(), problems);
+        Compare("CoreLedgerView", sizes.LedgerView, Marshal.SizeOf<CoreLedgerView>(), problems);
+        Compare("CoreMarketView", sizes.MarketView, Marshal.SizeOf<CoreMarketView>(), problems);
+        Compare("CoreMerchantView", sizes.MerchantView, Marshal.SizeOf<CoreMerchantView>(), problems);
         detail = string.Join("; ", problems);
         return problems.Count == 0;
     }
@@ -481,6 +485,35 @@ public partial class CoreBridge : Node
     }
 
     /// <summary>주민 기분 항목. 주민이 없으면 빈 범위</summary>
+    public bool TryGetLedger(out CoreLedgerView ledger)
+    {
+        ledger = default;
+        return HasWorld && Native.core_get_ledger(_world, out ledger) == 0;
+    }
+
+    public bool TryGetMarket(out CoreMarketView market)
+    {
+        market = default;
+        return HasWorld && Native.core_get_market(_world, out market) == 0;
+    }
+
+    public bool TryGetMerchant(out CoreMerchantView merchant)
+    {
+        merchant = default;
+        return HasWorld && Native.core_get_merchant(_world, out merchant) == 0;
+    }
+
+    /// <summary>수리 비용 (자원 6개, 고칠 곳이 없으면 모두 0). 호출할 때마다 새 배열을 만들지 않게 버퍼를 돌려 씁니다</summary>
+    public int[] GetRepairCost(int buildingId)
+    {
+        System.Array.Clear(_repairCost);
+        if (HasWorld)
+        {
+            _ = Native.core_get_repair_cost(_world, buildingId, _repairCost, _repairCost.Length);
+        }
+        return _repairCost;
+    }
+
     public ReadOnlySpan<CoreMoodTermView> GetMoodTerms(int villagerId)
     {
         if (!HasWorld || Native.core_get_mood_terms(_world, villagerId, _moodBuffer, _moodBuffer.Length, out int count) != 0)
@@ -546,6 +579,44 @@ public partial class CoreBridge : Node
 
     public CoreResult SetAutoAssign(int buildingId, bool enabled) =>
         HasWorld ? Checked("core_set_auto_assign", Native.core_set_auto_assign(_world, buildingId, enabled ? 1 : 0)) : new CoreResult(CoreResultCode.NullArg);
+
+    /// <summary>시장 거래: lots &gt; 0 이면 사고, &lt; 0 이면 팝니다. gold = 금화 변화</summary>
+    public CoreResult Trade(ResourceKind resource, int lots, out int gold, out DenyReason reason)
+    {
+        gold = 0;
+        reason = DenyReason.None;
+        if (!HasWorld)
+        {
+            return new CoreResult(CoreResultCode.NullArg);
+        }
+        int rc = Native.core_trade(_world, (int)resource, lots, out gold, out int why);
+        reason = (DenyReason)why;
+        return Checked("core_trade", rc);
+    }
+
+    public CoreResult AcceptDeal(int index, out DenyReason reason)
+    {
+        reason = DenyReason.None;
+        if (!HasWorld)
+        {
+            return new CoreResult(CoreResultCode.NullArg);
+        }
+        int rc = Native.core_merchant_accept(_world, index, out int why);
+        reason = (DenyReason)why;
+        return Checked("core_merchant_accept", rc);
+    }
+
+    public CoreResult Repair(int buildingId, out DenyReason reason)
+    {
+        reason = DenyReason.None;
+        if (!HasWorld)
+        {
+            return new CoreResult(CoreResultCode.NullArg);
+        }
+        int rc = Native.core_repair(_world, buildingId, out int why);
+        reason = (DenyReason)why;
+        return Checked("core_repair", rc);
+    }
 
     // ---- 보고 (Godot 이 본 물리적 사실 → C) -----------------------------------
 

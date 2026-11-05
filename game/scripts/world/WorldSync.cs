@@ -264,6 +264,11 @@ public partial class WorldSync : Node
                 AddProduced(coreEvent.A, coreEvent.B, coreEvent.C);
                 continue;
             }
+            if (coreEvent.Type is (int)CoreEventType.BuildingDamaged or (int)CoreEventType.BuildingRuined &&
+                _buildingNodes.TryGetValue(coreEvent.A, out BuildingNode? hit))
+            {
+                hit.Flash();
+            }
             string? text = Strings.EventText(coreEvent);
             if (text == null)
             {
@@ -283,12 +288,17 @@ public partial class WorldSync : Node
             case CoreEventType.BuildingPlaced:
             case CoreEventType.BuildingCompleted:
             case CoreEventType.BuildingRemoved:
+            case CoreEventType.BuildingDamaged:
+            case CoreEventType.BuildingRuined:
+            case CoreEventType.BuildingRepaired:
                 position = new Vector2((coreEvent.C + 1) * Art.Tile, (coreEvent.D + 1) * Art.Tile);
                 return true;
             case CoreEventType.Immigrant:
             case CoreEventType.VillagerLeaving:
             case CoreEventType.PathBlocked:
             case CoreEventType.Story:
+            case CoreEventType.VillagerSick:
+            case CoreEventType.VillagerCured:
                 if (_agents.TryGetValue(coreEvent.A, out VillagerAgent? agent))
                 {
                     position = agent.Position;
