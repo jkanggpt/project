@@ -15,6 +15,7 @@ public static class Art
 
     private static readonly Dictionary<string, Texture2D?> Cache = new();
     private static readonly Dictionary<int, Texture2D> VillagerCache = new();
+    private static readonly Dictionary<int, Texture2D> EnemyCache = new();
     private static readonly string[] ResourceKeys = { "gold", "mana", "food", "wood", "stone", "herbs" };
 
     private static Texture2D? Load(string path)
@@ -60,6 +61,32 @@ public static class Art
         VillagerCache[variant] = result;
         return result;
     }
+
+    /// <summary>적 그림: units/enemies.png 의 type 번째 칸 (순서는 data/enemies.def)</summary>
+    public static Texture2D Enemy(int type)
+    {
+        if (EnemyCache.TryGetValue(type, out Texture2D? cached))
+        {
+            return cached;
+        }
+        Texture2D? strip = Load("res://assets/units/enemies.png");
+        Texture2D result;
+        int columns = strip != null ? strip.GetWidth() / Tile : 0;
+        if (strip != null && type >= 0 && type < columns)
+        {
+            result = new AtlasTexture { Atlas = strip, Region = new Rect2(type * Tile, 0, Tile, Tile) };
+        }
+        else
+        {
+            result = Placeholder($"enemy:{type}", 1, 1, new Color(0.75f, 0.2f, 0.2f));
+        }
+        EnemyCache[type] = result;
+        return result;
+    }
+
+    /// <summary>화살 (오른쪽을 향함)</summary>
+    public static Texture2D Arrow() =>
+        Load("res://assets/units/arrow.png") ?? Placeholder("arrow", 1, 1, new Color(0.55f, 0.35f, 0.2f));
 
     public static Texture2D? Icon(string name) => Load($"res://assets/ui/{name}.png");
 

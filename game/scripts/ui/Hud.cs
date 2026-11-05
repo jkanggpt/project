@@ -29,6 +29,10 @@ public partial class Hud : CanvasLayer
     private Label _weather = null!;
     private Label _nature = null!;
     private Label _winter = null!;
+    private Label _threat = null!;
+    private PanelContainer _raidBanner = null!;
+    private Label _raidLabel = null!;
+    private double _bannerTime;
     private Button _merchantButton = null!;
     private Button _marketButton = null!;
     private PanelContainer _hint = null!;
@@ -64,6 +68,7 @@ public partial class Hud : CanvasLayer
         BuildStatus(GetNode<Control>("Root/TopBar/Row"));
         BuildResourceLabels();
         BuildPanels();
+        BuildRaidBanner();
         GetNode<Label>("Root/Paused/Label").Text = Strings.PausedBanner;
         _paused.Visible = false;
         _topBar.Visible = false;
@@ -147,12 +152,37 @@ public partial class Hud : CanvasLayer
         status.AddChild(_weather);
         status.AddChild(_nature);
         status.AddChild(_winter);
+        _threat = new Label { MouseFilter = Control.MouseFilterEnum.Stop };
+        status.AddChild(_threat);
         _merchantButton = new Button { FocusMode = Control.FocusModeEnum.None, TooltipText = Strings.MerchantButtonTooltip, Visible = false };
         _merchantButton.Pressed += () => Merchant.Toggle();
         _marketButton = new Button { Text = Strings.MarketButton, FocusMode = Control.FocusModeEnum.None, TooltipText = Strings.MarketButtonTooltip, Visible = false };
         _marketButton.Pressed += () => Market.Toggle();
         status.AddChild(_merchantButton);
         status.AddChild(_marketButton);
+    }
+
+    /// <summary>습격 중 화면 위 가운데의 붉은 띠 (남은 적 수)</summary>
+    private void BuildRaidBanner()
+    {
+        var style = new StyleBoxFlat
+        {
+            BgColor = new Color(0.45f, 0.06f, 0.06f, 0.92f),
+            BorderColor = new Color(1f, 0.55f, 0.4f),
+        };
+        style.SetBorderWidthAll(1);
+        style.SetContentMarginAll(4);
+        _raidBanner = new PanelContainer { Name = "RaidBanner", Visible = false, MouseFilter = Control.MouseFilterEnum.Stop };
+        _raidBanner.AddThemeStyleboxOverride("panel", style);
+        _raidBanner.SetAnchorsPreset(Control.LayoutPreset.CenterTop);
+        _raidBanner.GrowHorizontal = Control.GrowDirection.Both;
+        _raidBanner.OffsetLeft = 0;
+        _raidBanner.OffsetRight = 0;
+        _raidLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+        _raidLabel.AddThemeColorOverride("font_color", new Color(1f, 0.92f, 0.85f));
+        _raidBanner.AddChild(_raidLabel);
+        _raidBanner.TooltipText = Strings.RaidBannerTooltip;
+        _root.AddChild(_raidBanner);
     }
 
     private void BuildResourceLabels()
@@ -290,11 +320,39 @@ public partial class Hud : CanvasLayer
         _winter.Text = winter;
         _winter.TooltipText = winter.Length > 0 ? Strings.WinterTooltip(summary) : "";
         _winter.AddThemeColorOverride("font_color", Strings.WinterShort(summary) ? new Color(1f, 0.55f, 0.5f) : new Color(0.75f, 0.9f, 1f));
+        UpdateThreat(summary);
         _merchantButton.Visible = summary.MerchantDaysLeft > 0;
         _merchantButton.Text = Strings.MerchantButton(summary.MerchantDaysLeft);
         _marketButton.Visible = HasMarket();
         Market.Refresh();
         Merchant.Refresh();
+    }
+
+    private void UpdateThreat(in CoreSummaryView summary)
+    {
+        bool raid = summary.RaidId != 0;
+        _raidBanner.Visible = raid;
+        if (raid)
+        {
+            int total = CoreBridge.Instance.TryGetRaid(out CoreRaidView view) ? view.EnemyCount : summary.RaidEnemiesLeft;
+            _raidLabel.Text = Strings.RaidBanner(summary.RaidType, summary.RaidEnemiesLeft, total, summary.Guards);
+        }
+        _threat.Visible = !raid;
+        if (summary.ThreatType == (int)ThreatType.None)
+        {
+            _threat.Text = Strings.NoThreat;
+            _threat.TooltipText = Strings.NoThreatTooltip;
+            _threat.AddThemeColorOverride("font_color", new Color(0.8f, 0.8f, 0.8f));
+            return;
+        }
+        _threat.Text = Strings.ThreatLabel(summary.ThreatType, summary.ThreatDirection, summary.ThreatTicksLeft);
+        _threat.TooltipText = Strings.ThreatTooltip(summary.ThreatType, summary.ThreatDirection, summary.ThreatTicksLeft, summary.ThreatStrength);
+        // 반나절 안이면 붉게, 하루 안이면 주황
+        int ticksPerDay = CoreBridge.Instance.Config.TicksPerDay;
+        Color color = summary.ThreatTicksLeft <= ticksPerDay / 2 ? new Color(1f, 0.45f, 0.4f)
+            : summary.ThreatTicksLeft <= ticksPerDay ? new Color(1f, 0.75f, 0.45f)
+            : Colors.White;
+        _threat.AddThemeColorOverride("font_color", color);
     }
 
     private static bool HasMarket()
@@ -334,7 +392,15 @@ public partial class Hud : CanvasLayer
         float top = _topBar.Visible ? _topBar.Size.Y : 0;
         float bottom = Bar.Visible ? Bar.Size.Y : 0;
         Toasts.OffsetTop = top + 4 * scale;
-        _paused.OffsetTop = top + 4 * scale;
+        _raidBanner.OffsetTop = top + 4 * scale;
+        _raidBanner.OffsetBottom = _raidBanner.OffsetTop;
+        _paused.OffsetTop = top + 4 * scale + (_raidBanner.Visible ? _raidBanner.Size.Y + 2 * scale : 0);
+        if (_raidBanner.Visible)
+        {
+            // 습격 띠는 천천히 깜빡여 눈에 띄게 함 (일시정지 중에도)
+            _bannerTime += delta;
+            _raidBanner.Modulate = new Color(1, 1, 1, 0.8f + 0.2f * (float)Math.Sin(_bannerTime * 4));
+        }
         Vector2 inspectorSize = Inspector.GetCombinedMinimumSize();
         Inspector.OffsetLeft = 4 * scale;
         Inspector.OffsetRight = Inspector.OffsetLeft + inspectorSize.X;

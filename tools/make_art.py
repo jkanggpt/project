@@ -12,6 +12,8 @@ Kenney Tiny Town(CC0)에 없는 타일(물, 바위 지대, 마정석 광맥)은 
   game/assets/buildings/<키>.png    건물 그림 (키는 data/buildings.def 의 [building 키])
   game/assets/buildings/construction_WxH.png  짓는 중 그림 (발자국 크기별)
   game/assets/units/villagers.png  주민 그림 8가지 (16×16 가로 띠)
+  game/assets/units/enemies.png    적 그림 6가지 (data/enemies.def 순서: 도적, 두목, 고블린, 오우거, 병사, 궁수)
+  game/assets/units/arrow.png      감시탑 화살 (오른쪽을 향함, Godot 이 돌려서 씀)
   game/assets/ui/res_*.png, job_*.png, bubble_*.png  자원·직업 아이콘, 상태 말풍선
 
 진짜 그림으로 바꾸고 싶으면 같은 배치의 PNG로 위 파일만 바꾸면 됩니다 (코드는 그대로).
@@ -325,6 +327,34 @@ def make_construction(town, w, h):
     return img
 
 
+def make_enemies(dungeon):
+    """적 그림 6가지 (Tiny Dungeon). 순서는 core/src/defs.h 의 ENEMY_* 와 같음"""
+    indices = [87, 109, 108, 110, 96, 97]
+    strip = Image.new("RGBA", (T * len(indices), T), (0, 0, 0, 0))
+    for i, index in enumerate(indices):
+        strip.alpha_composite(kenney_tile(dungeon, index), (i * T, 0))
+    return strip
+
+
+def make_arrow():
+    """화살: 8×8, 오른쪽을 향함 (나무 자루 + 쇠 촉 + 깃)"""
+    img = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+    px = img.load()
+    shaft = (0x8B, 0x5A, 0x2B, 255)
+    tip = (0xD8, 0xDC, 0xE8, 255)
+    feather = (0xF0, 0xF0, 0xF0, 255)
+    for x in range(1, 7):
+        px[x, 4] = shaft
+    px[7, 4] = tip
+    px[6, 3] = tip
+    px[6, 5] = tip
+    px[0, 3] = feather
+    px[0, 5] = feather
+    px[1, 3] = feather
+    px[1, 5] = feather
+    return img
+
+
 def make_villagers(dungeon):
     """주민 그림 8가지 (Tiny Dungeon 사람들)"""
     indices = [85, 86, 88, 98, 99, 100, 111, 112]
@@ -404,6 +434,8 @@ def make_ui(town, dungeon):
     ui["bubble_sick"] = bubble(sick, (0x4C, 0xAF, 0x50, 255))
     blocked = [(4, 2), (5, 2), (4, 3), (5, 3), (4, 4), (5, 4), (4, 5), (5, 5), (4, 7), (5, 7)]
     ui["bubble_blocked"] = bubble(blocked, (0xE0, 0x8A, 0x1E, 255))
+    alarm = [(3, 2), (3, 3), (3, 4), (3, 5), (3, 7), (6, 2), (6, 3), (6, 4), (6, 5), (6, 7)]
+    ui["bubble_alarm"] = bubble(alarm, (0xC6, 0x28, 0x28, 255))  # 습격: 피신 중
     return ui
 
 
@@ -473,6 +505,8 @@ def main():
     for (w, h) in [(1, 1), (2, 2), (3, 2), (3, 3)]:
         make_construction(sheet, w, h).save(os.path.join(OUT_BUILDINGS, "construction_%dx%d.png" % (w, h)))
     make_villagers(dungeon).save(os.path.join(OUT_UNITS, "villagers.png"))
+    make_enemies(dungeon).save(os.path.join(OUT_UNITS, "enemies.png"))
+    make_arrow().save(os.path.join(OUT_UNITS, "arrow.png"))
     for key, img in make_ui(sheet, dungeon).items():
         img.save(os.path.join(OUT_UI, key + ".png"))
     make_roads(sheet).save(OUT_ROADS)

@@ -25,7 +25,7 @@ public static class Strings
 
     public static string DataFileMissing(string path) => $"정의 파일이 없어 기본값을 씁니다: {path}";
 
-    private static readonly string[] DataFileNames = { "buildings.def", "traits.def", "names.txt" };
+    private static readonly string[] DataFileNames = { "buildings.def", "traits.def", "names.txt", "enemies.def" };
 
     // ---- 조사 ----
     /// <summary>마지막 글자에 받침이 있으면 withFinal("이", "을"), 없으면 withoutFinal("가", "를")</summary>
@@ -354,6 +354,11 @@ public static class Strings
         {
             text += $"\n저장 한도 +{def.Storage}";
         }
+        if (def.Attack > 0)
+        {
+            string who = type == BuildingType.Barracks ? "경비병 한 명" : "화살";
+            text += $"\n{who}: 피해 {def.Attack}, 거리 {def.AttackRange}칸, {def.AttackCooldown}분마다";
+        }
         if (disabledReason != null)
         {
             text += $"\n\n지금 지을 수 없음: {disabledReason}";
@@ -533,7 +538,9 @@ public static class Strings
             case CoreEventType.VillagerLeft:
                 return $"{Subject(name)} 마을을 떠났습니다.";
             case CoreEventType.VillagerDied:
-                return $"{Subject(name)} {(coreEvent.B == (int)DeathCause.Starvation ? "굶주림으로 " : coreEvent.B == (int)DeathCause.Illness ? "병으로 " : "")}세상을 떠났습니다.";
+                return coreEvent.B == (int)DeathCause.Raid
+                    ? $"{Subject(name)} 습격에 맞서다 쓰러졌습니다."
+                    : $"{Subject(name)} {(coreEvent.B == (int)DeathCause.Starvation ? "굶주림으로 " : coreEvent.B == (int)DeathCause.Illness ? "병으로 " : "")}세상을 떠났습니다.";
             case CoreEventType.PathBlocked:
                 return $"{name}: 길이 막혔습니다.";
             case CoreEventType.StorageFull:
@@ -572,10 +579,88 @@ public static class Strings
                 return $"겨울 준비가 모자랍니다: 봄까지 식량 {coreEvent.A}, 목재 {coreEvent.B} 정도가 있어야 합니다.";
             case CoreEventType.HousesCold:
                 return $"목재가 모자라 집 {coreEvent.A}채가 지난밤 난방을 못 했습니다.";
+            case CoreEventType.ThreatScheduled:
+                return $"위협 예고: {ThreatName(coreEvent.A)} {coreEvent.D}명이 {DirectionName(coreEvent.B)}쪽에서 {Countdown(coreEvent.C)} 뒤에 옵니다. {Pick(ThreatAdvice, coreEvent.A)}";
+            case CoreEventType.ThreatNear:
+                return $"경보! {Subject(ThreatName(coreEvent.A))} {DirectionName(coreEvent.B)}쪽에서 다가옵니다. 반나절 안에 도착합니다.";
+            case CoreEventType.RaidStarted:
+                return $"습격! {ThreatName(coreEvent.B)} {coreEvent.C}명이 {DirectionName(coreEvent.D)}쪽에 나타났습니다. 주민들이 성채로 피합니다.";
+            case CoreEventType.RaidEnded:
+                return RaidEndedText(coreEvent.A, coreEvent.B, coreEvent.C, coreEvent.D);
+            case CoreEventType.EnemyKilled:
+                return coreEvent.C > 0 ? $"{Object(EnemyName(coreEvent.B))} 쓰러뜨렸습니다. 마정석 +{coreEvent.C}" : null;
+            case CoreEventType.LootStolen:
+                return coreEvent.B > 0 ? $"적이 {ResourceName(coreEvent.A)} {coreEvent.B}개를 훔쳐 갔습니다!" : null;
             default:
                 return null;
         }
     }
+
+    // ---- 위협, 습격 ----
+    private static readonly string[] ThreatNames = { "없음", "도적", "마물", "적대 영주 군대" };
+    private static readonly string[] DirectionNames = { "북", "동", "남", "서" };
+    private static readonly string[] EnemyNames = { "도적", "도적 두목", "고블린", "오우거", "병사", "궁수" };
+    private static readonly string[] ThreatAdvice =
+    {
+        "",
+        "도적은 성채에서 금화를 훔쳐 달아납니다. 감시탑과 성벽으로 막으세요.",
+        "마물은 밤에 옵니다. 쓰러뜨리면 마정석을 떨어뜨립니다.",
+        "군대는 건물을 부숩니다. 성벽, 감시탑, 경비병을 준비하세요.",
+    };
+
+    public static string ThreatName(int type) => Pick(ThreatNames, type);
+    public static string DirectionName(int direction) => Pick(DirectionNames, direction);
+    public static string EnemyName(int type) => Pick(EnemyNames, type);
+
+    /// <summary>틱 수를 "2일 5시간" 처럼 (한 틱 = 10분)</summary>
+    public static string Countdown(int ticks)
+    {
+        int days = ticks / 144;
+        int hours = ticks % 144 / 6;
+        if (days > 0)
+        {
+            return hours > 0 ? $"{days}일 {hours}시간" : $"{days}일";
+        }
+        return hours > 0 ? $"{hours}시간" : $"{ticks % 6 * 10}분";
+    }
+
+    public static string ThreatLabel(int type, int direction, int ticksLeft) =>
+        $"⚔ {ThreatName(type)} {Countdown(ticksLeft)}";
+
+    public static string ThreatTooltip(int type, int direction, int ticksLeft, int strength) =>
+        $"다음 위협: {ThreatName(type)} {strength}명, {DirectionName(direction)}쪽에서 {Countdown(ticksLeft)} 뒤 도착\n{Pick(ThreatAdvice, type)}\n" +
+        "습격 중에는 주민이 성채로 피하고, 병영의 일꾼이 경비병으로 싸웁니다. 습격 중에는 저장할 수 없습니다.";
+
+    public const string NoThreat = "⚔ 위협 없음";
+
+    public static string RaidBanner(int type, int alive, int total, int guards) =>
+        guards > 0
+            ? $"⚔ 습격! {ThreatName(type)} — 남은 적 {alive}/{total} · 경비병 {guards}명"
+            : $"⚔ 습격! {ThreatName(type)} — 남은 적 {alive}/{total}";
+
+    public const string RaidBannerTooltip =
+        "주민들이 성채로 피했습니다. 감시탑과 성채 망루가 화살을 쏘고, 병영의 일꾼이 경비병으로 싸웁니다.\n" +
+        "적이 모두 쓰러지거나 달아나면 습격이 끝납니다. 습격 중에는 저장할 수 없습니다.";
+
+    public const string NoThreatTooltip = "지금 예고된 위협이 없습니다. 위협은 언제나 미리 예고됩니다.";
+
+    public static string RaidEndedText(int killed, int total, int stolen, int fallen)
+    {
+        string text = $"습격이 끝났습니다: 적 {total}명 중 {killed}명을 쓰러뜨렸습니다.";
+        if (stolen > 0)
+        {
+            text += $" 빼앗긴 자원 {stolen}.";
+        }
+        if (fallen > 0)
+        {
+            text += $" 쓰러진 주민 {fallen}명.";
+        }
+        return text;
+    }
+
+    public static string EnemyTooltip(int type, int hp, int maxHp) => $"{EnemyName(type)} — 체력 {hp}/{maxHp}";
+
+    public const string SaveBlockedRaid = "습격 중에는 저장할 수 없습니다.";
 
     private static string? StoryText(string name, Story story, int value) => story switch
     {

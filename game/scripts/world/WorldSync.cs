@@ -30,6 +30,8 @@ public partial class WorldSync : Node
 
     public CoreSummaryView Summary { get; private set; }
     public Pathfinder Paths { get; } = new();
+    /// <summary>적용 길찾기: 성벽·성문을 비싼 칸으로 지나감 (CombatDirector 가 씀)</summary>
+    public Pathfinder EnemyPaths { get; } = new(forEnemies: true);
     public int VillagerCount { get; private set; }
     public int BuildingCount { get; private set; }
 
@@ -42,6 +44,9 @@ public partial class WorldSync : Node
     /// <summary>보여 줄 알림 문장이 생겼을 때 (월드 위치가 있으면 함께)</summary>
     [Signal]
     public delegate void NotifyEventHandler(string text, Vector2 worldPosition, bool hasPosition);
+
+    /// <summary>꺼낸 피드백 이벤트 하나하나 (소리, 화면 흔들기 같은 효과용)</summary>
+    public event System.Action<CoreEventView>? EventPolled;
 
     /// <summary>스냅숏을 새로 맞춘 뒤 (검사창, 목록이 다시 그리도록)</summary>
     [Signal]
@@ -111,6 +116,8 @@ public partial class WorldSync : Node
         int index = tile.Y * width + tile.X;
         return tile.X >= 0 && tile.Y >= 0 && tile.X < width && index >= 0 && index < _roads.Length && _roads[index] != 0;
     }
+
+    public IEnumerable<VillagerAgent> Agents => _agents.Values;
 
     public VillagerAgent? AgentFor(int id) => _agents.TryGetValue(id, out VillagerAgent? agent) ? agent : null;
     public BuildingNode? NodeFor(int id) => _buildingNodes.TryGetValue(id, out BuildingNode? node) ? node : null;
@@ -196,6 +203,7 @@ public partial class WorldSync : Node
         CoreBridge.Instance.CopyRoads(_roads);
         // AStarGrid2D 는 Rebuild 가 배열을 그대로 기억하므로 복사본을 넘깁니다
         Paths.Rebuild((byte[])_cost.Clone(), summary.MapWidth, summary.MapHeight, revision);
+        EnemyPaths.Rebuild((byte[])_cost.Clone(), summary.MapWidth, summary.MapHeight, revision);
         Map?.SetRoads(_roads, summary.MapWidth, summary.MapHeight);
         _knownCostGridRev = revision;
     }
@@ -269,6 +277,12 @@ public partial class WorldSync : Node
             {
                 hit.Flash();
             }
+            EventPolled?.Invoke(coreEvent);
+            // 습격 중에는 맞을 때마다 "부서졌습니다" 가 쏟아지므로 깜빡임만 보여 줍니다 (무너짐은 알림)
+            if (coreEvent.Type == (int)CoreEventType.BuildingDamaged && Summary.RaidId != 0)
+            {
+                continue;
+            }
             string? text = Strings.EventText(coreEvent);
             if (text == null)
             {
@@ -293,6 +307,20 @@ public partial class WorldSync : Node
             case CoreEventType.BuildingRepaired:
                 position = new Vector2((coreEvent.C + 1) * Art.Tile, (coreEvent.D + 1) * Art.Tile);
                 return true;
+            case CoreEventType.LootStolen:
+                if (_buildingNodes.TryGetValue(coreEvent.C, out BuildingNode? robbed))
+                {
+                    position = robbed.Position + new Vector2(robbed.View.W, robbed.View.H) * Art.Tile / 2f;
+                    return true;
+                }
+                return false;
+            case CoreEventType.ThreatScheduled:
+            case CoreEventType.ThreatNear:
+                position = EdgeCenter(coreEvent.B);
+                return true;
+            case CoreEventType.RaidStarted:
+                position = EdgeCenter(coreEvent.D);
+                return true;
             case CoreEventType.Immigrant:
             case CoreEventType.VillagerLeaving:
             case CoreEventType.PathBlocked:
@@ -308,6 +336,21 @@ public partial class WorldSync : Node
             default:
                 return false;
         }
+    }
+
+    /// <summary>지도 가장자리 가운데 (위협이 오는 방향)</summary>
+    public Vector2 EdgeCenter(int direction)
+    {
+        int w = Summary.MapWidth;
+        int h = Summary.MapHeight;
+        Vector2I cell = (Direction)direction switch
+        {
+            Direction.North => new Vector2I(w / 2, 0),
+            Direction.East => new Vector2I(w - 1, h / 2),
+            Direction.South => new Vector2I(w / 2, h - 1),
+            _ => new Vector2I(0, h / 2),
+        };
+        return VillagerAgent.CellCenter(cell);
     }
 
     // ---- 떠오르는 숫자: 같은 건물의 생산을 1초 동안 모아서 "+3 식량" 하나로 ----

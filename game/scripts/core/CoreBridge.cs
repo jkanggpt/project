@@ -40,10 +40,10 @@ public enum CoreStatus
 public partial class CoreBridge : Node
 {
     /// <summary>C 의 CORE_ABI_VERSION 과 같아야 합니다.</summary>
-    public const int ExpectedAbiVersion = 3;
+    public const int ExpectedAbiVersion = 4;
 
     /// <summary>정의 파일 (순서는 DataFile)</summary>
-    private static readonly string[] DataFiles = { "res://data/buildings.def", "res://data/traits.def", "res://data/names.txt" };
+    private static readonly string[] DataFiles = { "res://data/buildings.def", "res://data/traits.def", "res://data/names.txt", "res://data/enemies.def" };
 
     private static bool _resolverInstalled;
     private static string _loadError = "";
@@ -210,6 +210,10 @@ public partial class CoreBridge : Node
         Compare("CoreLedgerView", sizes.LedgerView, Marshal.SizeOf<CoreLedgerView>(), problems);
         Compare("CoreMarketView", sizes.MarketView, Marshal.SizeOf<CoreMarketView>(), problems);
         Compare("CoreMerchantView", sizes.MerchantView, Marshal.SizeOf<CoreMerchantView>(), problems);
+        Compare("CoreEnemyDefView", sizes.EnemyDefView, Marshal.SizeOf<CoreEnemyDefView>(), problems);
+        Compare("CoreThreatView", sizes.ThreatView, Marshal.SizeOf<CoreThreatView>(), problems);
+        Compare("CoreRaidView", sizes.RaidView, Marshal.SizeOf<CoreRaidView>(), problems);
+        Compare("CoreEnemyView", sizes.EnemyView, Marshal.SizeOf<CoreEnemyView>(), problems);
         detail = string.Join("; ", problems);
         return problems.Count == 0;
     }
@@ -503,6 +507,50 @@ public partial class CoreBridge : Node
         return HasWorld && Native.core_get_merchant(_world, out merchant) == 0;
     }
 
+    public bool TryGetEnemyDef(int type, out CoreEnemyDefView def)
+    {
+        def = default;
+        return HasWorld && type >= 0 && Native.core_get_enemy_def(_world, type, out def) == 0;
+    }
+
+    /// <summary>예고된 위협들 (도착이 빠른 순). 개수를 돌려줌</summary>
+    public int CopyThreats(CoreThreatView[] buffer)
+    {
+        if (!HasWorld || Native.core_copy_threats(_world, buffer, buffer.Length, out int count) != 0)
+        {
+            return 0;
+        }
+        return count;
+    }
+
+    /// <summary>진행 중인 습격 (없으면 raid.Id == 0)</summary>
+    public bool TryGetRaid(out CoreRaidView raid)
+    {
+        raid = default;
+        return HasWorld && Native.core_get_raid(_world, out raid) == 0;
+    }
+
+    /// <summary>진행 중인 습격의 적 전체. 모자라면 buffer 를 키웁니다. 개수를 돌려줌</summary>
+    public int CopyEnemies(ref CoreEnemyView[] buffer)
+    {
+        if (!HasWorld)
+        {
+            return 0;
+        }
+        int rc = Native.core_copy_enemies(_world, buffer, buffer.Length, out int count);
+        if (rc == (int)CoreResultCode.BufferTooSmall)
+        {
+            buffer = new CoreEnemyView[count + 16];
+            rc = Native.core_copy_enemies(_world, buffer, buffer.Length, out count);
+        }
+        if (rc != 0)
+        {
+            Report("core_copy_enemies", CoreResult.FromCode(rc));
+            return 0;
+        }
+        return count;
+    }
+
     /// <summary>수리 비용 (자원 6개, 고칠 곳이 없으면 모두 0). 호출할 때마다 새 배열을 만들지 않게 버퍼를 돌려 씁니다</summary>
     public int[] GetRepairCost(int buildingId)
     {
@@ -626,6 +674,30 @@ public partial class CoreBridge : Node
     public CoreResult VillagerUnreachable(int villagerId, int intentRev) =>
         HasWorld ? Checked("core_villager_unreachable", Native.core_villager_unreachable(_world, villagerId, intentRev)) : new CoreResult(CoreResultCode.NullArg);
 
+    // 습격 보고: 전투는 Godot 이 하고, 결과(피해, 처치, 약탈, 달아남, 끝)만 C 에 알립니다.
+    // C 가 규칙대로 적용합니다. 습격이 이미 끝났으면 IGNORED 가 조용히 돌아옵니다.
+
+    public CoreResult ReportBuildingDamage(int raidId, int buildingId, int damage) =>
+        HasWorld ? Checked("core_report_building_damage", Native.core_report_building_damage(_world, raidId, buildingId, damage)) : new CoreResult(CoreResultCode.NullArg);
+
+    public CoreResult ReportVillagerDamage(int raidId, int villagerId, int damage) =>
+        HasWorld ? Checked("core_report_villager_damage", Native.core_report_villager_damage(_world, raidId, villagerId, damage)) : new CoreResult(CoreResultCode.NullArg);
+
+    public CoreResult ReportEnemyKilled(int raidId, int enemyId) =>
+        HasWorld ? Checked("core_report_enemy_killed", Native.core_report_enemy_killed(_world, raidId, enemyId)) : new CoreResult(CoreResultCode.NullArg);
+
+    public CoreResult ReportLoot(int raidId, int enemyId, int buildingId, out int amount)
+    {
+        amount = 0;
+        return HasWorld ? Checked("core_report_loot", Native.core_report_loot(_world, raidId, enemyId, buildingId, out amount)) : new CoreResult(CoreResultCode.NullArg);
+    }
+
+    public CoreResult ReportEnemyEscaped(int raidId, int enemyId) =>
+        HasWorld ? Checked("core_report_enemy_escaped", Native.core_report_enemy_escaped(_world, raidId, enemyId)) : new CoreResult(CoreResultCode.NullArg);
+
+    public CoreResult ReportRaidEnded(int raidId) =>
+        HasWorld ? Checked("core_report_raid_ended", Native.core_report_raid_ended(_world, raidId)) : new CoreResult(CoreResultCode.NullArg);
+
     /// <summary>
     /// 결과 코드를 CoreResult 로 바꿉니다. 규칙상 거절(REJECTED), 오래된 보고(IGNORED), 이미 사라진 대상(NOT_FOUND)은
     /// 게임 중에 늘 있는 일이라 조용히 돌려주고, 나머지 오류만 버그로 기록합니다.
@@ -637,7 +709,9 @@ public partial class CoreBridge : Node
         {
             Report(call, result);
         }
-        if (result.Ok && !call.StartsWith("core_villager_", System.StringComparison.Ordinal))
+        // 보고는 플레이어 명령이 아니므로 화면을 바로 맞추지 않습니다 (다음 틱에 맞춤)
+        if (result.Ok && !call.StartsWith("core_villager_", System.StringComparison.Ordinal) &&
+            !call.StartsWith("core_report_", System.StringComparison.Ordinal))
         {
             EmitSignal(SignalName.CommandApplied);
         }

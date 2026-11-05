@@ -7,6 +7,7 @@
 // 둘 다 WorldSync.Reconcile 한 번으로 스냅숏 전체를 다시 맞춥니다.
 using System;
 using Godot;
+using MagicCastle.Audio;
 using MagicCastle.Core;
 using MagicCastle.Debugging;
 using MagicCastle.UI;
@@ -25,6 +26,8 @@ public partial class Main : Node2D
     public WorldSync Sync { get; private set; } = null!;
     public BuildMode Tools { get; private set; } = null!;
     public WeatherFx Weather { get; private set; } = null!;
+    public CombatDirector Combat { get; private set; } = null!;
+    public Sfx Sounds { get; private set; } = null!;
 
     public override void _Ready()
     {
@@ -41,6 +44,11 @@ public partial class Main : Node2D
         Sync.BuildingsLayer = GetNode<Node2D>("World/Buildings");
         Sync.UnitsLayer = GetNode<Node2D>("World/Units");
         Sync.Floating = GetNode<FloatingText>("World/FloatingText");
+        Sounds = new Sfx { Name = "Sfx" };
+        AddChild(Sounds);
+        // 싸움은 일시정지되면 멈춰야 하므로 World(일시정지 가능) 아래에 둡니다
+        Combat = new CombatDirector { Name = "Combat", Sync = Sync, UnitsLayer = Sync.UnitsLayer, Camera = Camera };
+        GetNode<Node2D>("World").AddChild(Combat);
 
         ApplyUiScale();
         GetViewport().SizeChanged += ApplyUiScale;
@@ -76,6 +84,7 @@ public partial class Main : Node2D
         GameClock.Instance.Ticked += OnTicked;
         core.CommandApplied += QueueReconcile;
         Sync.Notify += Hud.ShowNotice;
+        Sync.EventPolled += Combat.OnCoreEvent;
         Sync.Refreshed += OnRefreshed;
         Tools.SelectionChanged += Hud.Inspector.ShowSelection;
         Tools.Message += Hud.ShowToast;
@@ -126,6 +135,7 @@ public partial class Main : Node2D
             return;
         }
         Map.Build(terrain, width, height, summary);
+        Combat.Reset();
         Sync.Reset();
         Camera.SetBounds(Map.PixelBounds);
         Camera.CenterOn(Map.TileCenter(summary.KeepX + summary.KeepSize / 2, summary.KeepY + summary.KeepSize));
@@ -162,6 +172,7 @@ public partial class Main : Node2D
     private void OnRefreshed()
     {
         CoreSummaryView summary = Sync.Summary;
+        Combat.OnRefreshed();
         Map.SetLook(summary.Season, summary.Weather, summary.NatureEvent);
         Weather.SetWeather(summary.Weather);
         Hud.UpdateSummary(summary);

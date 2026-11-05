@@ -5,6 +5,9 @@
 // 끝에 저장 → 불러오기 해시를 비교합니다. 엔진 오류·경고가 하나라도 있으면 실패(종료 코드 1).
 // 마일스톤 2부터는 자동 조종(오토파일럿)이 건물과 도로를 짓고, 검사창·주민 목록·일꾼 명령도 눌러 봅니다.
 // 마일스톤 3부터는 부서진 건물을 고치고, 시장에서 사고팔고, 떠돌이 상인과 거래하고, 시장·상인 창도 열어 봅니다.
+// 마일스톤 4부터는 위협이 오는 쪽에 감시탑을 짓고 병영을 세웁니다. 습격이 오면 한 프레임에 한 틱씩 진행하며
+// CombatDirector 를 직접 돌려(같은 규칙, 빠르게) 적·화살·경비병·보고가 모두 실제로 돌아가는지 봅니다.
+// 습격 중에는 저장이 거절되는지도 확인합니다. 20일이면 첫 습격(5일째 도적)이 반드시 옵니다.
 using System;
 using System.Collections.Generic;
 using Godot;
@@ -37,6 +40,11 @@ public partial class SmokeTest : Node
     private bool _roadsDone;
     private int _lastReportDay;
     private bool _finished;
+    private int _raidsStarted;
+    private int _raidsEnded;
+    private int _raidFrames;
+    private int _totalKills;
+    private bool _saveBlockChecked;
 
     public override void _Ready()
     {
@@ -44,6 +52,8 @@ public partial class SmokeTest : Node
         _main = GetParent<Main>();
         GameClock.Instance.ManualMode = true;
         VillagerAgent.InstantTravel = true; // 걷는 애니메이션을 기다리지 않고 바로 도착을 알립니다
+        _main.Combat.ManualStep = true;     // 싸움은 아래에서 틱마다 직접 진행
+        _main.Sync.EventPolled += OnCoreEvent;
         CoreBridge.Instance.TryGetSummary(out CoreSummaryView summary);
         _targetTick = summary.Tick + LaunchOptions.Current.SmokeDays * CoreBridge.Instance.Config.TicksPerDay;
         GD.Print($"Smoke test: {LaunchOptions.Current.SmokeDays} days, seed {summary.Seed}");
@@ -63,8 +73,15 @@ public partial class SmokeTest : Node
         }
         CoreConfigView config = CoreBridge.Instance.Config;
 
+        if (_main.Sync.Summary.RaidId != 0)
+        {
+            if (!StepRaid(config))
+            {
+                return;
+            }
+        }
         // 1/8일씩 진행 (렌더링·UI 갱신·도착 보고가 여러 번 돌도록 프레임을 나눔)
-        if (!GameClock.Instance.Advance(config.TicksPerDay / 8))
+        else if (!GameClock.Instance.Advance(config.TicksPerDay / 8))
         {
             Finish(false, "core_tick failed");
             return;
@@ -83,10 +100,94 @@ public partial class SmokeTest : Node
         Autopilot();
         Exercise(_frames);
 
-        if (_main.Sync.Summary.Tick >= _targetTick)
+        if (_main.Sync.Summary.Tick >= _targetTick && _main.Sync.Summary.RaidId == 0)
         {
-            Finish(CheckColony(out string colony) && CheckSaveLoad(out colony), colony);
+            Finish(CheckColony(out string colony) && CheckRaids(out colony) && CheckSaveLoad(out colony), colony);
         }
+    }
+
+    // ---- 습격 ------------------------------------------------------------
+
+    /// <summary>습격 중: 한 틱 진행 + 싸움 10분 진행. 실패하면 false (Finish 를 이미 부름)</summary>
+    private bool StepRaid(in CoreConfigView config)
+    {
+        _raidFrames++;
+        if (!_saveBlockChecked)
+        {
+            _saveBlockChecked = true;
+            CoreResult saved = CoreBridge.Instance.Save(SavePath);
+            if (saved.Code != CoreResultCode.Rejected)
+            {
+                Finish(false, $"save during a raid should be rejected, got {saved.Name}");
+                return false;
+            }
+            GD.Print("raid: save correctly blocked");
+        }
+        // 싸움을 먼저 진행해 보고가 이번 틱 안에 들어가게 함 (보통 플레이와 같은 순서: 틱 사이에 싸움)
+        _main.Combat.Step(config.MinutesPerTick);
+        if (!GameClock.Instance.Advance(1))
+        {
+            Finish(false, "core_tick failed");
+            return false;
+        }
+        if (_raidFrames > config.TicksPerDay * 2)
+        {
+            Finish(false, "raid did not end within two days (C timeout should end it after one)");
+            return false;
+        }
+        return true;
+    }
+
+    private void OnCoreEvent(CoreEventView coreEvent)
+    {
+        switch ((CoreEventType)coreEvent.Type)
+        {
+            case CoreEventType.ThreatScheduled:
+                GD.Print($"threat: {(ThreatType)coreEvent.A} x{coreEvent.D} from {(Direction)coreEvent.B} in {coreEvent.C} ticks");
+                break;
+            case CoreEventType.RaidStarted:
+                _raidsStarted++;
+                _raidFrames = 0;
+                GD.Print($"raid {coreEvent.A} started: {(ThreatType)coreEvent.B} x{coreEvent.C} (day {_main.Sync.Summary.Day})");
+                break;
+            case CoreEventType.RaidEnded:
+                _raidsEnded++;
+                _totalKills += coreEvent.A;
+                GD.Print($"raid ended after {_raidFrames} ticks: killed {coreEvent.A}/{coreEvent.B}, stolen {coreEvent.C}, fallen {coreEvent.D}");
+                break;
+        }
+    }
+
+    /// <summary>습격이 와서 싸움이 돌았는지: 20일이면 첫 도적 습격(5일째)이 와서 끝나야 합니다</summary>
+    private bool CheckRaids(out string reason)
+    {
+        string counts = $"raids {_raidsEnded}/{_raidsStarted}, enemies killed {_totalKills}";
+        GD.Print($"raids: {counts}");
+        if (LaunchOptions.Current.SmokeDays >= 6 && _raidsStarted == 0)
+        {
+            reason = "no raid arrived (the first bandit raid comes on day 5)";
+            return false;
+        }
+        if (_raidsEnded != _raidsStarted)
+        {
+            reason = $"a raid did not end: {counts}";
+            return false;
+        }
+        if (_main.Combat.EnemyCount != 0)
+        {
+            reason = $"{_main.Combat.EnemyCount} enemy agents left after the raids";
+            return false;
+        }
+        foreach (CoreVillagerView villager in _main.Sync.Villagers)
+        {
+            if (_main.Sync.AgentFor(villager.Id) is VillagerAgent agent && agent.CombatControlled)
+            {
+                reason = $"villager {villager.Id} still under combat control after the raids";
+                return false;
+            }
+        }
+        reason = counts;
+        return true;
     }
 
     // ---- 자동 조종 --------------------------------------------------------
@@ -115,6 +216,10 @@ public partial class SmokeTest : Node
         {
             KeepUp(summary);
         }
+        if (_frames % 4 == 2)
+        {
+            Defend(summary);
+        }
         if (_planIndex >= Plan.Length || _frames % 2 != 0)
         {
             return;
@@ -137,6 +242,58 @@ public partial class SmokeTest : Node
             GD.Print($"autopilot: gave up on {type}");
             _planIndex++;
             _planTries = 0;
+        }
+    }
+
+    /// <summary>위협이 예고되면 그쪽에 감시탑을, 주민이 늘면 병영을 짓습니다 (CLI 봇의 bot_defend 와 같은 생각)</summary>
+    private void Defend(in CoreSummaryView summary)
+    {
+        if (summary.ThreatType == (int)ThreatType.None || summary.RaidId != 0)
+        {
+            return;
+        }
+        // 먹을 것·집·벌목장을 먼저 (위협이 이틀 안으로 다가오면 그때 짓기 시작)
+        bool soon = summary.ThreatTicksLeft <= 2 * CoreBridge.Instance.Config.TicksPerDay;
+        if (_planIndex < 3 || !soon && _planIndex < 6)
+        {
+            return;
+        }
+        int towers = 0;
+        int barracks = 0;
+        foreach (CoreBuildingView building in _main.Sync.Buildings)
+        {
+            towers += building.Type == (int)BuildingType.Tower ? 1 : 0;
+            barracks += building.Type == (int)BuildingType.Barracks ? 1 : 0;
+        }
+        Vector2I keep = new(summary.KeepX + summary.KeepSize / 2, summary.KeepY + summary.KeepSize / 2);
+        Vector2I toward = (Direction)summary.ThreatDirection switch
+        {
+            Direction.North => new Vector2I(0, -5),
+            Direction.East => new Vector2I(5, 0),
+            Direction.South => new Vector2I(0, 5),
+            _ => new Vector2I(-5, 0),
+        };
+        BuildingType type;
+        Vector2I center;
+        if (towers < 1 + summary.Population / 8)
+        {
+            type = BuildingType.Tower;
+            center = keep + toward;
+        }
+        else if (barracks == 0 && summary.Population >= 8)
+        {
+            type = BuildingType.Barracks;
+            center = keep + toward / 2;
+        }
+        else
+        {
+            return;
+        }
+        if (TryFindSpot(type, center, out Vector2I spot) &&
+            CoreBridge.Instance.PlaceBuilding(type, spot, out int id, out PlaceResult reason).Ok && reason == PlaceResult.Ok)
+        {
+            _placed.Add(id);
+            GD.Print($"autopilot: {type} at {spot} toward {(Direction)summary.ThreatDirection} (day {summary.Day})");
         }
     }
 

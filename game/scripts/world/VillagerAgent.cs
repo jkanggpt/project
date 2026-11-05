@@ -4,6 +4,7 @@
 // 2. 목표에 닿으면 core_villager_arrived(id, rev) 를 보고합니다.
 // 3. 길이 없으면 core_villager_unreachable(id, rev) 를 보고합니다.
 // 걷는 속도는 C 가 준 값(한 틱에 걷는 칸)을 실제 시간과 배속으로 바꿔 씁니다. 도로 위에서는 빨라집니다.
+// 습격 중: 성채에 피신한 주민은 숨기고, 자리에 선 경비병은 CombatDirector 가 움직입니다(CombatControlled).
 using System.Collections.Generic;
 using Godot;
 using MagicCastle.Core;
@@ -25,10 +26,17 @@ public partial class VillagerAgent : Node2D
     private int _reportedRev = -1;
     private float _bobTime;
     private bool _selected;
+    private bool _silent; // 싸움을 마치고 C 가 아는 자리로 걸어 돌아가는 중 (이미 도착한 것으로 되어 있어 보고하지 않음)
 
     public int Id { get; private set; }
     public CoreVillagerView View { get; private set; }
     public bool Walking => _walkingRev >= 0;
+
+    /// <summary>경비병이 싸우는 동안 CombatDirector 가 위치를 정합니다 (이때는 C 의 의도대로 걷지 않음)</summary>
+    public bool CombatControlled { get; private set; }
+
+    /// <summary>밖에 나와 있어 적에게 보이는가 (성채에 숨었거나 집에서 자면 아님)</summary>
+    public bool Exposed => Visible && View.State != (int)VillagerState.Leaving;
 
     public static VillagerAgent Create(in CoreVillagerView view)
     {
@@ -56,8 +64,17 @@ public partial class VillagerAgent : Node2D
     {
         View = view;
         UpdateLooks(view, jobKey);
+        if (CombatControlled)
+        {
+            return;
+        }
         if (view.AtTarget != 0 || view.Holding)
         {
+            if (_silent && _walkingRev >= 0 && view.IntentRev == _walkingRev)
+            {
+                return; // 싸운 자리에서 걸어 돌아가는 중
+            }
+            _silent = false;
             _walkingRev = -1; // 이미 도착했거나 제자리에 있으라는 의도
             var location = new Vector2I(view.LocX, view.LocY);
             if (view.AtTarget != 0 && CurrentCell != location)
@@ -67,10 +84,11 @@ public partial class VillagerAgent : Node2D
             }
             return;
         }
-        if (view.IntentRev == _walkingRev || view.IntentRev == _reportedRev)
+        if (!_silent && (view.IntentRev == _walkingRev || view.IntentRev == _reportedRev))
         {
             return; // 같은 의도로 걷는 중이거나 이미 보고함
         }
+        _silent = false;
         var target = new Vector2I(view.TargetX, view.TargetY);
         if (!paths.FindPath(CurrentCell, target, _path))
         {
@@ -88,12 +106,69 @@ public partial class VillagerAgent : Node2D
         }
     }
 
+    /// <summary>경비병을 넘겨받습니다 (CombatDirector)</summary>
+    public void BeginCombat()
+    {
+        CombatControlled = true;
+        _walkingRev = -1;
+        _silent = false;
+    }
+
+    /// <summary>
+    /// 경비병을 돌려줍니다. C 는 경비병이 아직 자리에 있다고 알고 있으므로, 싸운 곳에서 그 자리까지 조용히 걸어 돌아갑니다.
+    /// 그 사이 C 가 새 의도를 주면 평소처럼 그 의도를 따릅니다.
+    /// </summary>
+    public void EndCombat(Pathfinder paths)
+    {
+        if (!CombatControlled)
+        {
+            return;
+        }
+        CombatControlled = false;
+        _body.Position = Vector2.Zero;
+        var location = new Vector2I(View.LocX, View.LocY);
+        if (View.AtTarget != 0 && CurrentCell != location && paths.FindPath(CurrentCell, location, _path))
+        {
+            _walkingRev = View.IntentRev;
+            _pathIndex = 0;
+            _silent = true;
+        }
+    }
+
+    /// <summary>싸우는 동안 CombatDirector 가 옮김 (방향과 걷는 흔들림도 맞춤)</summary>
+    public void CombatMove(Vector2 position, float delta)
+    {
+        Vector2 offset = position - Position;
+        if (offset.LengthSquared() > 0.0001f)
+        {
+            _body.FlipH = offset.X < 0;
+            _bobTime += delta * 12f;
+            _body.Position = new Vector2(0, -Mathf.Abs(Mathf.Sin(_bobTime)) * 1.5f);
+        }
+        else
+        {
+            _body.Position = Vector2.Zero;
+        }
+        Position = position;
+    }
+
+    /// <summary>적에게 맞음 (빨갛게 깜빡임)</summary>
+    public void Hit()
+    {
+        _body.Modulate = new Color(1f, 0.35f, 0.35f);
+        Tween tween = CreateTween();
+        tween.TweenProperty(_body, "modulate", Colors.White, 0.25f);
+    }
+
     private void UpdateLooks(in CoreVillagerView view, string? jobKey)
     {
-        // 집 안에서 자는 주민은 보이지 않음
-        Visible = !(view.State == (int)VillagerState.Sleep && view.AtTarget != 0 && view.HomeId != 0 &&
-                    view.TargetBuilding == view.HomeId);
-        Texture2D? tool = jobKey != null && view.State == (int)VillagerState.Working ? Art.JobIcon(jobKey) : null;
+        // 집 안에서 자는 주민, 습격 중 성채에 피신한 주민은 보이지 않음
+        bool asleepInside = view.State == (int)VillagerState.Sleep && view.AtTarget != 0 && view.HomeId != 0 &&
+                            view.TargetBuilding == view.HomeId;
+        bool sheltered = view.State == (int)VillagerState.Flee && view.AtTarget != 0 && !CombatControlled;
+        Visible = !(asleepInside || sheltered);
+        bool showsTool = view.State is (int)VillagerState.Working or (int)VillagerState.GuardPost;
+        Texture2D? tool = jobKey != null && showsTool ? Art.JobIcon(jobKey) : null;
         _tool.Texture = tool;
         _tool.Visible = tool != null;
         string? bubble = null;
@@ -113,6 +188,10 @@ public partial class VillagerAgent : Node2D
         {
             bubble = "bubble_angry";
         }
+        else if (view.State == (int)VillagerState.Flee)
+        {
+            bubble = "bubble_alarm";
+        }
         else if (view.State == (int)VillagerState.Sleep)
         {
             bubble = "bubble_sleep";
@@ -124,6 +203,10 @@ public partial class VillagerAgent : Node2D
 
     public override void _Process(double delta)
     {
+        if (CombatControlled)
+        {
+            return;
+        }
         if (_walkingRev < 0)
         {
             _body.Position = Vector2.Zero;
@@ -171,8 +254,13 @@ public partial class VillagerAgent : Node2D
     {
         int rev = _walkingRev;
         _walkingRev = -1;
-        _reportedRev = rev;
         _body.Position = Vector2.Zero;
+        if (_silent)
+        {
+            _silent = false; // 제자리로 돌아옴 (C 는 이미 도착한 것으로 알고 있음)
+            return;
+        }
+        _reportedRev = rev;
         if (rev >= 0)
         {
             CoreBridge.Instance.VillagerArrived(Id, rev);

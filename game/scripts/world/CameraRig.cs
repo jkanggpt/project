@@ -15,6 +15,8 @@ public partial class CameraRig : Camera2D
 
     private Rect2 _bounds = new(0, 0, 1536, 1536);
     private bool _dragging;
+    private float _shake;      // 남은 흔들림 세기 (월드 픽셀)
+    private float _shakeTime;
 
     public int ZoomLevel { get; private set; } = 3;
 
@@ -58,8 +60,25 @@ public partial class CameraRig : Camera2D
         ClampAndSnap();
     }
 
+    /// <summary>화면을 살짝 흔듭니다 (성벽이 무너질 때). Offset 만 움직이므로 카메라 위치는 그대로입니다</summary>
+    public void Shake(float strength = 2.5f)
+    {
+        _shake = Math.Max(_shake, strength);
+    }
+
     public override void _Process(double delta)
     {
+        if (_shake > 0)
+        {
+            _shakeTime += (float)delta * 40f;
+            // 정수 픽셀만큼만 움직여 픽셀 아트가 번지지 않게 함
+            Offset = new Vector2(Mathf.Round(Mathf.Sin(_shakeTime) * _shake), Mathf.Round(Mathf.Cos(_shakeTime * 1.3f) * _shake));
+            _shake = Math.Max(0, _shake - (float)delta * 8f);
+            if (_shake == 0)
+            {
+                Offset = Vector2.Zero;
+            }
+        }
         Vector2 direction = Input.GetVector("camera_left", "camera_right", "camera_up", "camera_down");
         if (EdgeScrollEnabled && DisplayServer.WindowIsFocused())
         {

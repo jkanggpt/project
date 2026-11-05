@@ -89,7 +89,15 @@ public enum DenyReason
 
 public enum DeathCause { Starvation = 1, Illness = 2, Raid = 3 }
 
-public enum DataFile { Buildings = 0, Traits = 1, Names = 2, Count = 3 }
+public enum DataFile { Buildings = 0, Traits = 1, Names = 2, Enemies = 3, Count = 4 }
+
+public enum ThreatType { None = 0, Bandits = 1, Monsters = 2, Army = 3, Count = 4 }
+
+public enum Direction { North = 0, East = 1, South = 2, West = 3, Count = 4 }
+
+public enum EnemyBehavior { Thief = 0, Raider = 1, Monster = 2 }
+
+public enum EnemyState { Alive = 0, Killed = 1, Escaped = 2 }
 
 public enum CoreEventType
 {
@@ -98,7 +106,8 @@ public enum CoreEventType
     VillagerLeft = 12, VillagerDied = 13, PathBlocked = 14, StorageFull = 15, WagesUnpaid = 16, Story = 17,
     Starving = 18, DefWarning = 19, WeatherChanged = 20, NatureForecast = 21, NatureStarted = 22, NatureEnded = 23,
     BuildingDamaged = 24, BuildingRuined = 25, BuildingRepaired = 26, VillagerSick = 27, VillagerCured = 28,
-    MerchantArrived = 29, MerchantLeft = 30, WinterWarning = 31, HousesCold = 32,
+    MerchantArrived = 29, MerchantLeft = 30, WinterWarning = 31, HousesCold = 32, ThreatScheduled = 33,
+    RaidStarted = 34, RaidEnded = 35, EnemyKilled = 36, LootStolen = 37, ThreatNear = 38,
 }
 
 public enum CoreWarning { None = 0, EventsDropped = 1 }
@@ -196,6 +205,14 @@ public unsafe struct CoreSummaryView
     public int FarmPercent;
     public int WinterFoodNeed;
     public int WinterWoodNeed;
+    public int ThreatType;
+    public int ThreatDirection;
+    public int ThreatTicksLeft;
+    public int ThreatStrength;
+    public int RaidId;
+    public int RaidType;
+    public int RaidEnemiesLeft;
+    public int Guards;
     public fixed int Resources[ResourceCount];
     /// <summary>자원별 저장 한도. 0 이면 한도 없음</summary>
     public fixed int ResourceCapacity[ResourceCount];
@@ -348,6 +365,11 @@ public unsafe struct CoreBuildingDefView
     public int Category;
     public int Line;
     public int Available;
+    /// <summary>한 번에 주는 피해 (감시탑, 성채 망루, 병영의 경비병)</summary>
+    public int Attack;
+    public int AttackRange;
+    /// <summary>공격 사이 (게임 속 분)</summary>
+    public int AttackCooldown;
     public fixed byte Key[KeyBytes];
 
     public readonly int GetCost(ResourceKind resource)
@@ -419,6 +441,69 @@ public struct CoreStructSizes
     public int LedgerView;
     public int MarketView;
     public int MerchantView;
+    public int EnemyDefView;
+    public int ThreatView;
+    public int RaidView;
+    public int EnemyView;
+}
+
+/// <summary>적 정의 (data/enemies.def)</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct CoreEnemyDefView
+{
+    public int Type;
+    public int Hp;
+    public int Damage;
+    /// <summary>공격 사이 (게임 속 분)</summary>
+    public int Cooldown;
+    /// <summary>한 틱에 걷는 칸 × 1000</summary>
+    public int Speed;
+    public int Range;
+    public int Behavior;
+    public int LootResource;
+    public int LootAmount;
+    public int ManaReward;
+    public fixed byte Key[CoreBuildingDefView.KeyBytes];
+
+    public readonly string GetKey()
+    {
+        fixed (byte* buffer = Key)
+        {
+            return Utf8Text.Read(new ReadOnlySpan<byte>(buffer, CoreBuildingDefView.KeyBytes));
+        }
+    }
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct CoreThreatView
+{
+    public int Type;
+    public int Direction;
+    public int EtaTick;
+    public int TicksLeft;
+    public int Strength;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct CoreRaidView
+{
+    public int Id;
+    public int Type;
+    public int Direction;
+    public int SpawnX;
+    public int SpawnY;
+    public int EnemyCount;
+    public int Alive;
+    public int StartedTick;
+    public int Stolen;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct CoreEnemyView
+{
+    public int Id;
+    public int Type;
+    public int State;
 }
 
 /// <summary>장부: [자원 × 항목] (오늘 쌓는 중, 어제 하루)</summary>
@@ -559,6 +644,10 @@ internal static class Native
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_trait_def(IntPtr world, int index, out CoreTraitDefView def);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_mood_terms(IntPtr world, int villagerId, [Out] CoreMoodTermView[] buffer, int capacity, out int count);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_ledger(IntPtr world, out CoreLedgerView ledger);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_enemy_def(IntPtr world, int type, out CoreEnemyDefView def);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_copy_threats(IntPtr world, [Out] CoreThreatView[] buffer, int capacity, out int count);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_raid(IntPtr world, out CoreRaidView raid);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_copy_enemies(IntPtr world, [Out] CoreEnemyView[] buffer, int capacity, out int count);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_market(IntPtr world, out CoreMarketView market);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_merchant(IntPtr world, out CoreMerchantView merchant);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_repair_cost(IntPtr world, int buildingId, [Out] int[] cost, int count);
@@ -578,6 +667,12 @@ internal static class Native
 
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_villager_arrived(IntPtr world, int villagerId, int intentRev);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_villager_unreachable(IntPtr world, int villagerId, int intentRev);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_report_building_damage(IntPtr world, int raidId, int buildingId, int damage);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_report_villager_damage(IntPtr world, int raidId, int villagerId, int damage);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_report_enemy_killed(IntPtr world, int raidId, int enemyId);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_report_loot(IntPtr world, int raidId, int enemyId, int buildingId, out int amount);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_report_enemy_escaped(IntPtr world, int raidId, int enemyId);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_report_raid_ended(IntPtr world, int raidId);
 
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_poll_event(IntPtr world, out CoreEventView coreEvent);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_save(IntPtr world, byte[] pathUtf8);
