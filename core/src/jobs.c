@@ -8,8 +8,9 @@
 #define STORY_FIRST_PRODUCE_BIT 1
 #define STORY_MOVED_IN_BIT 2
 
-/* 계절별 농장 생산 % (봄, 여름, 가을, 겨울). 겨울에는 농장이 멈춥니다 */
-static const int32_t FARM_SEASON_PERCENT[CORE_SEASON_COUNT] = {100, 120, 110, 0};
+/* 계절별 농장 생산 % (봄, 여름, 가을, 겨울). 겨울에는 절반만 거둡니다.
+ * (겨울에 농장이 완전히 멈추는 것은 마일스톤 3 "계절의 압박"에서 경고·비축 안내와 함께 들어옵니다) */
+static const int32_t FARM_SEASON_PERCENT[CORE_SEASON_COUNT] = {100, 120, 110, 50};
 
 int32_t jobs_relevant_stat(const Villager *villager, int32_t building_type)
 {

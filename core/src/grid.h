@@ -51,8 +51,17 @@ typedef struct Grid {
 int grid_alloc(Grid *grid, int32_t width, int32_t height);
 void grid_free(Grid *grid);
 
-int grid_in_bounds(const Grid *grid, int32_t x, int32_t y);
-int32_t grid_index(const Grid *grid, int32_t x, int32_t y);
+/* 아주 자주 불리므로 헤더에 inline 으로 둡니다 (길 검사, 비용 계산의 안쪽 반복문) */
+static inline int grid_in_bounds(const Grid *grid, int32_t x, int32_t y)
+{
+    return x >= 0 && y >= 0 && x < grid->width && y < grid->height;
+}
+
+static inline int32_t grid_index(const Grid *grid, int32_t x, int32_t y)
+{
+    return y * grid->width + x;
+}
+
 /* 지도 밖이면 CORE_TERRAIN_WATER (지나갈 수 없는 칸으로 취급) */
 uint8_t grid_terrain_at(const Grid *grid, int32_t x, int32_t y);
 

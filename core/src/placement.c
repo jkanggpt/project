@@ -238,8 +238,10 @@ static int passable_with(const Grid *grid, int32_t index, int32_t x, int32_t y, 
     return cost != CORE_COST_BLOCKED && cost != CORE_COST_WALL;
 }
 
-/* 성채 문에서 걸어서 닿는 칸을 scratch_mark 에 표시합니다 (새 발자국이 있다고 치고). 닿은 칸 수 */
-static int32_t flood_from_keep(const World *world, int32_t type, int32_t bx, int32_t by, int32_t bw, int32_t bh)
+/* 성채 문에서 걸어서 닿는 칸을 scratch_mark 에 표시합니다 (새 발자국이 있다고 치고). 닿은 칸 수.
+ * stop_index >= 0 이면 그 칸에 닿는 즉시 멈춥니다 (가까운 문 하나만 확인할 때 지도 전체를 돌지 않게). */
+static int32_t flood_from_keep(const World *world, int32_t type, int32_t bx, int32_t by, int32_t bw, int32_t bh,
+                               int32_t stop_index)
 {
     static const int32_t DX[4] = {0, 1, 0, -1};
     static const int32_t DY[4] = {-1, 0, 1, 0};
@@ -277,9 +279,60 @@ static int32_t flood_from_keep(const World *world, int32_t type, int32_t bx, int
             }
             grid->scratch_mark[next] = 1;
             grid->scratch_queue[tail++] = next;
+            if (next == stop_index) {
+                return tail;
+            }
         }
     }
     return tail;
+}
+
+/* 지나갈 수 있는 칸인가 (지도 밖은 막힘) */
+static int walkable_at(const Grid *grid, int32_t x, int32_t y)
+{
+    uint8_t cost;
+    if (!grid_in_bounds(grid, x, y)) {
+        return 0;
+    }
+    cost = grid->cost[grid_index(grid, x, y)];
+    return cost != CORE_COST_BLOCKED && cost != CORE_COST_WALL;
+}
+
+/*
+ * 빠른 검사: 발자국을 한 칸 둘러싼 테두리에서 지나갈 수 있는 칸들이 한 덩어리(한 줄로 이어짐)인가?
+ * 그렇다면 발자국을 지나던 길은 모두 테두리를 따라 돌아갈 수 있으므로, 막아도 끊기는 곳이 없습니다.
+ * (테두리에서 이웃한 두 칸은 언제나 상하좌우로 붙어 있습니다. 모서리 칸이 두 변을 이어 줍니다.)
+ * 덩어리가 둘 이상이면 끊길 수도 있으니 지도 전체를 검사합니다.
+ */
+static int ring_is_connected(const Grid *grid, int32_t x, int32_t y, int32_t w, int32_t h)
+{
+    int32_t length = 2 * (w + 2) + 2 * h;
+    int32_t runs = 0;
+    int32_t walkable = 0;
+    int previous;
+    int32_t i;
+    int32_t rx = x - 1;
+    int32_t ry = y - 1;
+    /* 테두리를 시계 방향으로 한 바퀴: 위 → 오른쪽 → 아래 → 왼쪽. 마지막 칸이 첫 칸과 이웃합니다. */
+    previous = walkable_at(grid, x - 1, y); /* 첫 칸 (x-1, y-1) 바로 앞 칸 */
+    for (i = 0; i < length; i++) {
+        int here = walkable_at(grid, rx, ry);
+        walkable += here;
+        if (here && !previous) {
+            runs++;
+        }
+        previous = here;
+        if (ry == y - 1 && rx < x + w) {
+            rx++;
+        } else if (rx == x + w && ry < y + h) {
+            ry++;
+        } else if (ry == y + h && rx > x - 1) {
+            rx--;
+        } else {
+            ry--;
+        }
+    }
+    return walkable == length || runs <= 1;
 }
 
 /* 지금 표시된 칸 중에서: 문 앞이 몇 개 닿는지, 가장자리에 닿는지 */
@@ -313,12 +366,20 @@ static int32_t check_paths(const World *world, int32_t type, int32_t x, int32_t 
     int32_t doors_after;
     int edge_before;
     int edge_after;
-    (void)flood_from_keep(world, type, 0, 0, 0, 0);
+    if (type == CORE_BLD_GATE || ring_is_connected(grid, x, y, w, h)) {
+        /* 아무 길도 끊기지 않음: 새 문에 닿는지만 보면 됩니다 (닿으면 바로 멈춤) */
+        if (door_x < 0) {
+            return CORE_PLACE_OK;
+        }
+        (void)flood_from_keep(world, type, x, y, w, h, grid_index(grid, door_x, door_y));
+        return grid->scratch_mark[grid_index(grid, door_x, door_y)] ? CORE_PLACE_OK : CORE_PLACE_UNREACHABLE;
+    }
+    (void)flood_from_keep(world, type, 0, 0, 0, 0, -1);
     count_reached(world, &doors_before, &edge_before);
     if (door_x >= 0 && !grid->scratch_mark[grid_index(grid, door_x, door_y)]) {
         return CORE_PLACE_UNREACHABLE;
     }
-    (void)flood_from_keep(world, type, x, y, w, h);
+    (void)flood_from_keep(world, type, x, y, w, h, -1);
     count_reached(world, &doors_after, &edge_after);
     if (doors_after < doors_before || (edge_before && !edge_after)) {
         return CORE_PLACE_BLOCKS_PATH;

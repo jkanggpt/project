@@ -104,16 +104,6 @@ void grid_free(Grid *grid)
     memset(grid, 0, sizeof(*grid));
 }
 
-int grid_in_bounds(const Grid *grid, int32_t x, int32_t y)
-{
-    return x >= 0 && y >= 0 && x < grid->width && y < grid->height;
-}
-
-int32_t grid_index(const Grid *grid, int32_t x, int32_t y)
-{
-    return y * grid->width + x;
-}
-
 uint8_t grid_terrain_at(const Grid *grid, int32_t x, int32_t y)
 {
     if (!grid_in_bounds(grid, x, y)) {

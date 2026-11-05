@@ -20,6 +20,7 @@
 #define VIL_MEAL_HUNGER 70         /* 한 끼에 채워지는 배고픔 */
 #define VIL_UNHAPPY_BELOW 25       /* 이보다 기분이 낮으면 떠날 위기 */
 #define VIL_LEAVE_AFTER_TICKS 288  /* 기분이 낮은 채로 이틀이면 떠남 */
+#define VIL_STARVING_LEAVE_HEALTH 50 /* 굶어서 건강이 이만큼 떨어지면 죽기 전에 마을을 떠남 */
 #define VIL_HOLD_TICKS 18          /* 길이 막히면 3시간 기다렸다가 다시 시도 */
 #define VIL_WALK_TIMEOUT_TICKS 144 /* 하루가 지나도 도착 보고가 없으면 길이 없는 것으로 봄 */
 #define VIL_BASE_WALK_MILLI 2000   /* 보통 풀밭에서 한 틱에 2칸 */

@@ -329,7 +329,7 @@ static void update_needs(World *world, Villager *villager)
     villager->needs.housing = villager->home != NULL ? 100 : 25;
 
     /* 굶주림: 배고픔이 0 이면 여섯 틱(한 시간)마다 건강이 1 줄고(약 4일이면 위험), 먹으면 한 시간에 1 씩 회복.
-     * 그 전에 기분이 크게 떨어져 대부분은 마을을 떠나는 쪽을 고릅니다 */
+     * 건강이 절반(약 이틀)까지 떨어지면 죽기 전에 마을을 떠납니다 (vil_tick) */
     if (villager->needs.hunger == 0) {
         if (world->clock.tick % 6 == 0) {
             villager->health--;
@@ -426,6 +426,11 @@ void vil_tick(World *world, Villager *villager)
     update_needs(world, villager);
     if (villager->health <= 0) {
         population_kill(world, villager, CORE_DEATH_STARVATION);
+        return;
+    }
+    if (villager->needs.hunger == 0 && villager->health <= VIL_STARVING_LEAVE_HEALTH &&
+        villager->state != CORE_VS_LEAVING) {
+        population_begin_leaving(world, villager);
         return;
     }
     if (clock_minute_of_day(&world->clock) % 60 == 0) {

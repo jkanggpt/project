@@ -466,6 +466,7 @@ void test_consumption_and_starvation(void)
     CoreEventView event;
     int32_t population;
     int died = 0;
+    int left = 0;
     int ate = 0;
     CHECK(world != NULL);
     population = world->villager_count;
@@ -474,13 +475,15 @@ void test_consumption_and_starvation(void)
     ate = world->ledger.today[CORE_RES_FOOD][LEDGER_CONSUMPTION] < 0;
     CHECK(ate);
     CHECK(world->villagers[0]->needs.hunger >= 70 || world->villager_count != population);
-    /* 식량이 없으면 굶다가 결국 죽거나 떠남 */
+    /* 식량이 없으면 굶다가, 건강이 절반이 되면 죽기 전에 마을을 떠남 (굶어 죽는 주민은 없음) */
     world->bank.amount[CORE_RES_FOOD] = 0;
     CHECK(run(world, 144 * 6));
     while (core_poll_event(world, &event) == 1) {
-        died += event.type == CORE_EVT_VILLAGER_DIED || event.type == CORE_EVT_VILLAGER_LEFT;
+        died += event.type == CORE_EVT_VILLAGER_DIED;
+        left += event.type == CORE_EVT_VILLAGER_LEFT;
     }
-    CHECK(died > 0);
+    CHECK_EQ(died, 0);
+    CHECK(left > 0);
     CHECK(world->villager_count < population);
     CHECK_EQ(test_validate_verbose(world), 0);
     core_destroy(world);
