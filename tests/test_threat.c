@@ -289,6 +289,27 @@ void test_ruined_wall_is_passable(void)
     core_destroy(world);
 }
 
+/* 습격 중에는 고칠 수 없음 (맞는 동안 고치면 성벽이 무너지지 않으므로). 끝나면 다시 고칠 수 있음 */
+void test_no_repair_during_raid(void)
+{
+    CoreWorld *world = test_make_world(406, CORE_DIFF_NORMAL);
+    Building *keep;
+    int32_t reason = -1;
+    CHECK(world != NULL);
+    test_give(world, 500);
+    keep = entity_find_building(world, world->keep_id);
+    CHECK(keep != NULL);
+    CHECK(run_until_raid(world));
+    keep->hp -= 50;
+    CHECK_EQ(core_repair(world, keep->id, &reason), CORE_ERR_REJECTED);
+    CHECK_EQ(reason, CORE_DENY_RAID);
+    CHECK_EQ(core_report_raid_ended(world, world->threat.raid.id), CORE_OK);
+    CHECK_EQ(core_repair(world, keep->id, &reason), CORE_OK);
+    CHECK_EQ(reason, CORE_DENY_NONE);
+    CHECK_EQ(test_validate_verbose(world), 0);
+    core_destroy(world);
+}
+
 void test_enemy_defs_and_composition(void)
 {
     static const char GOOD[] = "[enemy goblin]\nhp = 55\nmana_reward = 3\n";

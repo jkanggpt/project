@@ -26,6 +26,7 @@ static const char *const DENY_REASONS[CORE_DENY_COUNT] = {
     "아직 짓는 중입니다",
     "수량이 범위 밖입니다",
     "수리 비용이 모자랍니다",
+    "습격 중에는 고칠 수 없습니다",
 };
 static const char *const THREAT_NAMES[CORE_THREAT_COUNT] = {"없음", "도적", "마물", "적대 영주 군대"};
 static const char *const DIRECTION_NAMES[CORE_DIR_COUNT] = {"북", "동", "남", "서"};

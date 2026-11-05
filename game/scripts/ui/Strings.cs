@@ -151,7 +151,7 @@ public static class Strings
     {
         "", "다 지은 시장이 없습니다", "시장에 일꾼이 없습니다", "시장에서 다루지 않는 자원입니다", "금화가 모자랍니다",
         "팔 물건이 모자랍니다", "창고에 자리가 없습니다", "상인이 없습니다", "이미 한 거래입니다", "고칠 곳이 없습니다",
-        "아직 짓는 중입니다", "수량이 범위 밖입니다", "수리 비용이 모자랍니다",
+        "아직 짓는 중입니다", "수량이 범위 밖입니다", "수리 비용이 모자랍니다", "습격 중에는 고칠 수 없습니다",
     };
 
     public static string SeasonName(int season) => Pick(SeasonNames, season);
@@ -433,6 +433,7 @@ public static class Strings
         return parts.Count > 0 ? "수리 비용: " + string.Join(", ", parts) + "\n(건설 비용의 절반 × 부서진 정도)" : RepairNothing;
     }
 
+    public const string RepairDuringRaid = "습격 중에는 고칠 수 없습니다. 습격이 끝나면 고치세요.";
     public static string RepairRejected(DenyReason reason) => $"고칠 수 없습니다: {DenyText(reason)}";
     public static string HealerLine(int herbs) => $"약초 {herbs}개 — 아픈 주민이 오면 한 시간 치료에 하나씩 씁니다";
 

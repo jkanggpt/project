@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "jobs.h"
+#include "threat.h"
 
 int placement_needs_door(const BuildingDef *def, int32_t type)
 {
@@ -824,6 +825,11 @@ int placement_repair(World *world, Building *building, int32_t *out_reason)
     int32_t cost[CORE_RES_COUNT];
     int was_ruined = building->state == CORE_BSTATE_RUINED;
     *out_reason = CORE_DENY_NONE;
+    if (threat_raid_active(world)) {
+        /* 맞는 동안 곧바로 고치면 성벽이 무너지지 않으므로, 습격이 끝난 뒤에 고칩니다 */
+        *out_reason = CORE_DENY_RAID;
+        return CORE_ERR_REJECTED;
+    }
     if (building->state == CORE_BSTATE_CONSTRUCTING) {
         *out_reason = CORE_DENY_UNDER_CONSTRUCTION;
         return CORE_ERR_REJECTED;

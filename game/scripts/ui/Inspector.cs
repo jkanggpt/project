@@ -228,8 +228,9 @@ public partial class Inspector : PanelContainer
         if (damaged)
         {
             int[] cost = CoreBridge.Instance.GetRepairCost(b.Id);
-            _repair.TooltipText = Strings.RepairTooltip(cost);
-            _repair.Disabled = !CanAfford(sync.Summary, cost);
+            bool raid = sync.Summary.RaidId != 0;
+            _repair.TooltipText = raid ? Strings.RepairDuringRaid : Strings.RepairTooltip(cost);
+            _repair.Disabled = raid || !CanAfford(sync.Summary, cost);
         }
         _trade.Visible = b.Type == (int)BuildingType.Market && b.State == (int)BuildingState.Active;
         _repair.GetParent<Control>().Visible = _repair.Visible || _trade.Visible;

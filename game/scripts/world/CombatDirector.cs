@@ -88,6 +88,12 @@ public partial class CombatDirector : Node2D
     /// <summary>이번 습격에서 감시탑·성채·경비병이 쓰러뜨린 적 (스모크 테스트 기록용)</summary>
     public int KillsThisRaid { get; private set; }
 
+    // 이번 습격의 기록 (로그로 남겨 성벽·경비병이 실제로 싸웠는지 확인)
+    private int _arrowsFired;
+    private int _guardStrikes;
+    private int _barrierHits;
+    private int _loots;
+
     public IEnumerable<EnemyAgent> Enemies => _enemies.Values;
 
     public override void _Ready()
@@ -151,6 +157,10 @@ public partial class CombatDirector : Node2D
             Clear();
             _raidId = raid.Id;
             KillsThisRaid = 0;
+            _arrowsFired = 0;
+            _guardStrikes = 0;
+            _barrierHits = 0;
+            _loots = 0;
             GD.Print($"raid {raid.Id}: {Strings.ThreatName(raid.Type)} x{raid.EnemyCount} from ({raid.SpawnX},{raid.SpawnY})");
         }
         Raid = raid;
@@ -198,7 +208,8 @@ public partial class CombatDirector : Node2D
 
     private void EndRaid()
     {
-        GD.Print($"raid {_raidId} over: {KillsThisRaid} killed by defenders");
+        GD.Print($"raid {_raidId} over: {KillsThisRaid} killed by defenders, arrows {_arrowsFired}, guard strikes {_guardStrikes}," +
+                 $" wall/gate hits {_barrierHits}, loots {_loots}");
         foreach (EnemyAgent enemy in _enemies.Values)
         {
             enemy.Vanish(false); // 남은 적은 물러남 (C 가 달아난 것으로 셈)
@@ -390,6 +401,7 @@ public partial class CombatDirector : Node2D
                 if (guard.Cooldown <= 0 && def.Attack > 0)
                 {
                     guard.Cooldown = System.Math.Max(1, def.AttackCooldown);
+                    _guardStrikes++;
                     Sfx.Instance?.Play(Sound.Strike);
                     if (enemy.TakeDamage(def.Attack))
                     {
@@ -578,6 +590,10 @@ public partial class CombatDirector : Node2D
 
     private void HitBuilding(int buildingId, int damage)
     {
+        if (Sync.TryGetBuilding(buildingId, out CoreBuildingView hit) && hit.Type is (int)BuildingType.Wall or (int)BuildingType.Gate)
+        {
+            _barrierHits++;
+        }
         CoreBridge.Instance.ReportBuildingDamage(_raidId, buildingId, damage);
         Sync.NodeFor(buildingId)?.Flash();
         Sfx.Instance?.Play(Sound.WallHit);
@@ -603,6 +619,7 @@ public partial class CombatDirector : Node2D
     public void Loot(EnemyAgent enemy, in CoreBuildingView building)
     {
         CoreBridge.Instance.ReportLoot(_raidId, enemy.Id, building.Id, out int amount);
+        _loots++;
         if (amount > 0 && enemy.Type >= 0 && enemy.Type < _enemyDefs.Length)
         {
             Vector2 top = RectCenter(building) - new Vector2(0, building.H * Art.Tile / 2f);
@@ -647,6 +664,7 @@ public partial class CombatDirector : Node2D
     private void FireArrow(Vector2 from, EnemyAgent target, int damage)
     {
         target.IncomingDamage += damage;
+        _arrowsFired++;
         Projectile projectile = Launch(from, target.Position + new Vector2(0, -4));
         projectile.Target = target;
         projectile.Damage = damage;

@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Godot;
+using MagicCastle.Audio;
 using MagicCastle.Core;
 using MagicCastle.World;
 
@@ -164,7 +165,7 @@ public partial class ScreenshotTour : Node
         GD.Print(errors == 0 && ok
             ? $"SCREENSHOTS SAVED to {_directory}"
             : $"SCREENSHOTS FAILED ({errors} engine errors/warnings)\n{ErrorCounter.Summary()}");
-        GetTree().Quit(errors == 0 && ok ? 0 : 1);
+        Sfx.QuitQuietly(GetTree(), errors == 0 && ok ? 0 : 1);
     }
 
     /// <summary>자동 조종 계획의 앞쪽 count 개를 지을 수 있는 만큼 짓고 도로도 놓습니다.</summary>

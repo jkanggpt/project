@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using MagicCastle.Audio;
 using MagicCastle.Core;
 using MagicCastle.World;
 
@@ -45,6 +46,7 @@ public partial class SmokeTest : Node
     private int _raidFrames;
     private int _totalKills;
     private bool _saveBlockChecked;
+    private readonly HashSet<int> _walledDirections = new();
 
     public override void _Ready()
     {
@@ -275,6 +277,12 @@ public partial class SmokeTest : Node
         };
         BuildingType type;
         Vector2I center;
+        if (towers >= 1 && !_walledDirections.Contains(summary.ThreatDirection) &&
+            summary.GetResource(ResourceKind.Stone) >= 40 && summary.GetResource(ResourceKind.Wood) >= 10)
+        {
+            BuildWall(summary, keep, toward);
+            return;
+        }
         if (towers < 1 + summary.Population / 8)
         {
             type = BuildingType.Tower;
@@ -295,6 +303,49 @@ public partial class SmokeTest : Node
             _placed.Add(id);
             GD.Print($"autopilot: {type} at {spot} toward {(Direction)summary.ThreatDirection} (day {summary.Day})");
         }
+    }
+
+    /// <summary>
+    /// 위협 쪽에 성벽 한 줄 (가운데에 성문). 적이 돌아가거나 부수고 지나가는 길을 시험합니다.
+    /// 성채에서 9~14칸 사이에서 성문 자리가 비어 있고 놓을 수 있는 칸이 가장 많은 줄을 고릅니다.
+    /// </summary>
+    private void BuildWall(in CoreSummaryView summary, Vector2I keep, Vector2I toward)
+    {
+        _walledDirections.Add(summary.ThreatDirection);
+        Vector2I unit = toward / 5;
+        Vector2I side = unit.X != 0 ? new Vector2I(0, 1) : new Vector2I(1, 0);
+        Vector2I bestMiddle = default;
+        int bestCells = -1;
+        for (int distance = 9; distance <= 14; distance++)
+        {
+            Vector2I middle = keep + unit * distance;
+            if (CoreBridge.Instance.CanPlace(BuildingType.Gate, middle).Result != (int)PlaceResult.Ok)
+            {
+                continue;
+            }
+            int cells = 0;
+            for (int offset = -5; offset <= 5; offset++)
+            {
+                if (offset != 0 && CoreBridge.Instance.CanPlace(BuildingType.Wall, middle + side * offset).Result == (int)PlaceResult.Ok)
+                {
+                    cells++;
+                }
+            }
+            if (cells > bestCells)
+            {
+                bestCells = cells;
+                bestMiddle = middle;
+            }
+        }
+        if (bestCells < 0)
+        {
+            GD.Print($"autopilot: no room for a wall toward {(Direction)summary.ThreatDirection}");
+            return;
+        }
+        CoreBridge.Instance.PlaceBuilding(BuildingType.Gate, bestMiddle, out _, out PlaceResult gate);
+        CoreBridge.Instance.PlaceLine(BuildingType.Wall, bestMiddle - side * 5, bestMiddle - side, out int left, out _);
+        CoreBridge.Instance.PlaceLine(BuildingType.Wall, bestMiddle + side, bestMiddle + side * 5, out int right, out _);
+        GD.Print($"autopilot: wall {left}+{right} cells, gate {gate} at {bestMiddle} toward {(Direction)summary.ThreatDirection} (day {summary.Day})");
     }
 
     /// <summary>하루에 한 번: 부서진 건물 고치기, 겨울 준비가 모자라면 시장에서 사기, 넘치는 석재 팔기, 상인의 마정석 사기</summary>
@@ -536,12 +587,12 @@ public partial class SmokeTest : Node
         if (ok && errors == 0)
         {
             GD.Print($"SMOKE TEST PASSED: day {_main.Sync.Summary.Day}, {_frames} frames, {reason}");
-            GetTree().Quit(0);
+            Sfx.QuitQuietly(GetTree(), 0);
             return;
         }
         string why = errors > 0 ? $"{errors} engine errors/warnings:\n{ErrorCounter.Summary()}" : reason;
         GD.Print($"SMOKE TEST FAILED: {why}");
         Console.Error.WriteLine($"SMOKE TEST FAILED: {why}");
-        GetTree().Quit(1);
+        Sfx.QuitQuietly(GetTree(), 1);
     }
 }

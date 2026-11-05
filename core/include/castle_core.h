@@ -330,7 +330,8 @@ typedef enum CoreDenyReason {
     CORE_DENY_UNDER_CONSTRUCTION = 10,/* 아직 짓는 중 */
     CORE_DENY_BAD_AMOUNT = 11,        /* 수량이 범위 밖 */
     CORE_DENY_NO_RESOURCES = 12,      /* 수리 비용이 모자람 */
-    CORE_DENY_COUNT = 13
+    CORE_DENY_RAID = 13,              /* 습격 중 (싸우는 동안에는 고칠 수 없음) */
+    CORE_DENY_COUNT = 14
 } CoreDenyReason;
 
 /* 위협 종류 (습격 구성 함수는 threat.c 의 THREAT_KINDS 표) */

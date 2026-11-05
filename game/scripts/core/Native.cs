@@ -84,7 +84,7 @@ public enum LedgerCategory
 public enum DenyReason
 {
     None = 0, NoMarket = 1, NoTrader = 2, NotTradable = 3, NoGold = 4, NoGoods = 5, StorageFull = 6, NoMerchant = 7,
-    DealTaken = 8, NotDamaged = 9, UnderConstruction = 10, BadAmount = 11, NoResources = 12, Count = 13,
+    DealTaken = 8, NotDamaged = 9, UnderConstruction = 10, BadAmount = 11, NoResources = 12, Raid = 13, Count = 14,
 }
 
 public enum DeathCause { Starvation = 1, Illness = 2, Raid = 3 }

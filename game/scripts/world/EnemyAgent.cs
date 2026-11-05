@@ -281,20 +281,15 @@ public partial class EnemyAgent : Node2D
         while (step > 0 && _pathIndex < _path.Count)
         {
             Vector2I next = _path[_pathIndex];
-            if (next != CurrentCell && Pathfinder.IsBarrier(paths.CostAt(next)))
+            if (BlockingBarrier(director, CurrentCell, next, out CoreBuildingView barrier))
             {
-                int wall = director.Sync.BuildingAt(next);
-                if (wall != 0 && director.TryGetBuilding(wall, out CoreBuildingView barrier) &&
-                    barrier.State == (int)BuildingState.Active)
+                Face(CombatDirector.RectCenter(barrier));
+                if (_cooldown <= 0)
                 {
-                    Face(VillagerAgent.CellCenter(next));
-                    if (_cooldown <= 0)
-                    {
-                        _cooldown = _def.Cooldown;
-                        director.StrikeBuilding(this, barrier, _def.Damage);
-                    }
-                    break; // 무너질 때까지 여기서 기다림 (무너지면 격자가 바뀌어 길을 다시 찾음)
+                    _cooldown = _def.Cooldown;
+                    director.StrikeBuilding(this, barrier, _def.Damage);
                 }
+                break; // 무너질 때까지 여기서 기다림 (무너지면 격자가 바뀌어 길을 다시 찾음)
             }
             Vector2 goal = VillagerAgent.CellCenter(next) + _jitter;
             Vector2 offset = goal - Position;
@@ -323,6 +318,40 @@ public partial class EnemyAgent : Node2D
             _body.Position = Vector2.Zero;
         }
         return _pathIndex >= _path.Count;
+    }
+
+    /// <summary>
+    /// from → next 로 가는 길을 막는 서 있는 성벽·성문. next 가 성벽이거나,
+    /// 대각선으로 갈 때 양옆 두 칸이 모두 성벽이면(계단 모양 성벽 사이로 빠져나가지 못하게) 그중 하나
+    /// </summary>
+    private static bool BlockingBarrier(CombatDirector director, Vector2I from, Vector2I next, out CoreBuildingView barrier)
+    {
+        barrier = default;
+        if (next == from)
+        {
+            return false;
+        }
+        Pathfinder paths = director.Sync.EnemyPaths;
+        if (Pathfinder.IsBarrier(paths.CostAt(next)))
+        {
+            return StandingBarrier(director, next, out barrier);
+        }
+        Vector2I step = next - from;
+        if (step.X == 0 || step.Y == 0)
+        {
+            return false;
+        }
+        var sideA = new Vector2I(next.X, from.Y);
+        var sideB = new Vector2I(from.X, next.Y);
+        return Pathfinder.IsBarrier(paths.CostAt(sideA)) && Pathfinder.IsBarrier(paths.CostAt(sideB)) &&
+               (StandingBarrier(director, sideA, out barrier) || StandingBarrier(director, sideB, out barrier));
+    }
+
+    private static bool StandingBarrier(CombatDirector director, Vector2I cell, out CoreBuildingView barrier)
+    {
+        barrier = default;
+        int id = director.Sync.BuildingAt(cell);
+        return id != 0 && director.TryGetBuilding(id, out barrier) && barrier.State == (int)BuildingState.Active;
     }
 
     private void Face(Vector2 point)

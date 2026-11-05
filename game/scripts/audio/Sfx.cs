@@ -61,6 +61,17 @@ public partial class Sfx : Node
         {
             Instance = null;
         }
+        // 기억해 둔 소리를 직접 놓아 줍니다. C# 쪽 참조가 GC 를 기다리면 종료 때 "자원이 아직 쓰이는 중" 경고가 납니다
+        foreach (AudioStreamPlayer player in _players)
+        {
+            player.Stop();
+            player.Stream = null;
+        }
+        foreach (AudioStream? stream in _streams.Values)
+        {
+            stream?.Dispose();
+        }
+        _streams.Clear();
     }
 
     public override void _Ready()
@@ -77,6 +88,24 @@ public partial class Sfx : Node
         {
             _lastPlayed[i] = -1000;
         }
+    }
+
+    /// <summary>모든 소리를 멈춥니다. 오디오 서버는 멈춘 재생을 조금 뒤에 놓아 주므로,
+    /// 끝내기 직전이라면 한두 프레임 기다린 뒤에 끝내야 종료 때 "자원이 아직 쓰이는 중" 경고가 나지 않습니다.</summary>
+    public void StopAll()
+    {
+        foreach (AudioStreamPlayer player in _players)
+        {
+            player.Stop();
+        }
+    }
+
+    /// <summary>소리를 모두 멈추고 잠깐 기다렸다가 게임을 끝냅니다 (자동 검사, 스크린숏)</summary>
+    public static void QuitQuietly(SceneTree tree, int exitCode)
+    {
+        Instance?.StopAll();
+        SceneTreeTimer timer = tree.CreateTimer(0.2, processAlways: true);
+        timer.Timeout += () => tree.Quit(exitCode);
     }
 
     public void Play(Sound sound)
