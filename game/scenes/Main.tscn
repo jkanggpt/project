@@ -1,0 +1,38 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/Main.cs" id="1_main"]
+[ext_resource type="Script" path="res://scripts/world/MapView.cs" id="2_map"]
+[ext_resource type="Script" path="res://scripts/world/CameraRig.cs" id="3_camera"]
+[ext_resource type="Script" path="res://scripts/world/DayNight.cs" id="4_daynight"]
+[ext_resource type="Script" path="res://scripts/world/WorldSync.cs" id="5_sync"]
+[ext_resource type="PackedScene" path="res://scenes/ui/Hud.tscn" id="6_hud"]
+[ext_resource type="Texture2D" path="res://assets/tiles/terrain.png" id="7_terrain"]
+[ext_resource type="Texture2D" path="res://assets/buildings/keep.png" id="8_keep"]
+
+[node name="Main" type="Node2D"]
+process_mode = 3
+script = ExtResource("1_main")
+
+[node name="WorldSync" type="Node" parent="."]
+script = ExtResource("5_sync")
+
+[node name="World" type="Node2D" parent="."]
+process_mode = 1
+
+[node name="Map" type="Node2D" parent="World"]
+script = ExtResource("2_map")
+TerrainAtlas = ExtResource("7_terrain")
+KeepTexture = ExtResource("8_keep")
+
+[node name="Ground" type="TileMapLayer" parent="World/Map"]
+
+[node name="Keep" type="Sprite2D" parent="World/Map"]
+
+[node name="DayNight" type="CanvasModulate" parent="."]
+script = ExtResource("4_daynight")
+
+[node name="Camera" type="Camera2D" parent="."]
+process_mode = 3
+script = ExtResource("3_camera")
+
+[node name="Hud" parent="." instance=ExtResource("6_hud")]
