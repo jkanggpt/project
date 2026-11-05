@@ -2,6 +2,7 @@
 //
 // 숫자는 모두 WorldSync 의 스냅숏(C 의 뷰)에서 읽고, 단추는 CoreBridge 명령만 부릅니다.
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using MagicCastle.Core;
 using MagicCastle.World;
@@ -14,6 +15,7 @@ public partial class Inspector : PanelContainer
 
     private readonly List<(Label Name, Button Remove)> _workerRows = new();
     private readonly List<int> _idleIds = new();
+    private readonly List<int> _newIdleIds = new();
     private Label _title = null!;
     private Label _lines = null!;
     private Label _mood = null!;
@@ -189,11 +191,26 @@ public partial class Inspector : PanelContainer
 
     private void FillIdlePicker(WorldSync sync)
     {
+        // 틱마다 다시 채우므로, 플레이어가 골라 둔 주민(id)을 기억했다가 다시 고릅니다.
+        // 목록이 그대로면 아예 건드리지 않습니다 (펼친 목록이 닫히지 않게).
+        _newIdleIds.Clear();
+        foreach (CoreVillagerView v in sync.Villagers)
+        {
+            if (v.WorkplaceId == 0 && v.State != (int)VillagerState.Leaving)
+            {
+                _newIdleIds.Add(v.Id);
+            }
+        }
+        if (_newIdleIds.Count > 0 && _newIdleIds.SequenceEqual(_idleIds))
+        {
+            return;
+        }
+        int selectedId = _idlePicker.Selected >= 0 && _idlePicker.Selected < _idleIds.Count ? _idleIds[_idlePicker.Selected] : 0;
         _idleIds.Clear();
         _idlePicker.Clear();
         foreach (CoreVillagerView v in sync.Villagers)
         {
-            if (v.WorkplaceId == 0 && v.State != (int)VillagerState.Leaving)
+            if (_newIdleIds.Contains(v.Id))
             {
                 _idlePicker.AddItem(v.GetName());
                 _idleIds.Add(v.Id);
@@ -203,6 +220,8 @@ public partial class Inspector : PanelContainer
         {
             _idlePicker.AddItem(Strings.NoIdleVillagers);
         }
+        int keep = _idleIds.IndexOf(selectedId);
+        _idlePicker.Select(keep >= 0 ? keep : 0);
         _addWorker.Disabled = _idleIds.Count == 0;
     }
 
