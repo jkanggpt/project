@@ -36,6 +36,7 @@ npm 패키지 `galmuri` 에서 받았습니다 (`npm pack galmuri`). 글꼴 파�
 | `game/assets/units/villagers.png` | `tools/make_art.py`: Kenney Tiny Dungeon(CC0) 인물 8명을 한 줄로 모음 | CC0 (원본 Kenney CC0) |
 | `game/assets/ui/res_*.png`, `job_*.png`, `bubble_*.png` | `tools/make_art.py`: Kenney Tiny Town·Tiny Dungeon(CC0) 아이템 타일과 직접 그린 8×8 말풍선 기호 | CC0 (원본 Kenney CC0) |
 | `game/assets/tiles/roads.png` | `tools/make_art.py`: Kenney Tiny Town(CC0) 흙길 타일 2개 | CC0 (원본 Kenney CC0) |
+| `game/assets/tiles/snow.png` | `tools/make_art.py`: 절차적으로 그린 눈 덮개 (외부 그림 없음) | CC0 |
 
 ## 음악
 

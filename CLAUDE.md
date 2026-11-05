@@ -19,7 +19,7 @@ Run from the repository root. Presets live in `CMakePresets.json`.
 
 - Configure + build C (Linux, sanitizers): `cmake --preset linux-debug -DCASTLE_WERROR=ON && cmake --build --preset linux-debug` (Clang: preset `linux-clang-debug`; needs `libclang-rt-18-dev`)
 - Run C tests: `ctest --preset linux-debug -j8`
-- Soak test (quality gate, ~9 min under ASan): `build/linux-debug/bin/castle_cli --soak 400 --seeds 20`
+- Soak test (quality gate, ~7 min under ASan): `build/linux-debug/bin/castle_cli --soak 400 --seeds 20`
 - Simulator CSV: `mkdir -p artifacts && build/linux-debug/bin/castle_cli --simulate 60 --seed 7 --bot reasonable --out artifacts/sim.csv` (bots: `idle`, `reasonable`; add `--events` to print notifications)
 - The CLI reads definition files from `game/data` by default (`--data <dir>` to change). Regenerate them from the built-in defaults: `build/linux-debug/bin/castle_cli --dump-defs game/data`
 - Windows cross-compile check (MinGW): `cmake --preset mingw-release -DCASTLE_WERROR=ON && cmake --build --preset mingw-release`

@@ -45,3 +45,18 @@
 | `tools/make_art.py`, `game/assets/buildings/*.png`, `game/assets/units/villagers.png`, `game/assets/ui/*.png`, `game/assets/tiles/roads.png` (+ `.import`) | Kenney CC0 타일을 잘라 만든 건물·주민·아이콘 그림 | 생성 |
 | `docs/*.md`, `PROGRESS.md`, `CREDITS.md`, `CLAUDE.md`, `.github/workflows/ci.yml` | 문서, CI 시간 제한 | 수정 |
 
+## 마일스톤 3 — 계절의 압박 (2026-11-05)
+
+| 파일 / 폴더 | 내용 | 종류 |
+| --- | --- | --- |
+| `core/src/nature.c`, `core/src/nature.h`, `core/src/market.c`, `core/src/market.h` | 날씨·자연 사건·난방·병, 시장·떠돌이 상인 | 생성 |
+| `core/include/castle_core.h` | ABI 3: 날씨·사건·장부·거절 이유 열거형, 장부·시장·상인 뷰, 거래·수리 명령 | 수정 |
+| `core/src/` api, world, events, economy, entity, jobs, placement, population, save, validate, villager_ai, defs_builtin | 사건·시장 연결, 피해·수리, 병 행동, 세이브 v3, 불변 조건 | 수정 |
+| `cli/` commands, format, sim | 장부·시장·상인·수리 메뉴, 사건 문장, 봇의 거래·수리, 소크 명령 | 수정 |
+| `tests/test_pressure.c`, `tests/test_town.c`, `tests/test_town.h`, 나머지 테스트 | 계절·사건·수리·병·시장·상인·장부·저장 테스트 9개, 공통 도우미 분리 | 생성 / 수정 |
+| `game/data/buildings.def` | 시장·치료소 등급 0 | 수정 (`--dump-defs`) |
+| `game/scripts/ui/MarketPanel.cs`, `MerchantPanel.cs`, `game/scripts/world/WeatherFx.cs` | 시장 창, 상인 창, 비·눈 입자 | 생성 |
+| `game/scripts/` core/Native, core/CoreBridge, ui/Hud, ui/Inspector, ui/Strings, world/MapView, world/BuildingNode, world/WorldSync, Main, debug/* | ABI 3, 위쪽 막대 상태, 장부 툴팁, 수리, 계절 색·눈, 피해 표시, 자동 조종·스크린숏 | 수정 |
+| `tools/make_art.py`, `game/assets/tiles/snow.png` (+ `.import`) | 눈 덮개 타일 (절차적으로 그림) | 생성 |
+| `docs/*.md`, `README.md`, `PROGRESS.md`, `CREDITS.md`, `CLAUDE.md` | 문서 | 수정 |
+

@@ -1,7 +1,7 @@
 # C 요구사항 대응표
 
 고급프로그래밍 과제의 C 요구사항(`docs/SPEC.md` §1.1)이 **어느 파일의 어느 함수**에서, **어떤 게임 기능**으로 쓰이는지 정리한 표입니다.
-마일스톤마다 갱신합니다. (지금: 마일스톤 2 끝)
+마일스톤마다 갱신합니다. (지금: 마일스톤 3 끝)
 
 ## 한눈에 보기
 
@@ -10,10 +10,10 @@
 | 구조체 2개 이상, 포함·참조 관계 | `core/src/entity.h` `Villager`, `Building` / `world.h` `struct CoreWorld` | 주민과 건물, 게임 상태 전체 |
 | 포인터로 원본 수정, 포인터로 배열·구조체 접근 | `entity.c:entity_link_worker`, `economy.c:eco_change`, `villager_ai.c:vil_set_intent` | 일꾼 배치, 자원·장부, 주민 의도 |
 | 사용자 정의 함수 10개 이상 | 코어 약 330개, CLI 약 90개 | 모듈마다 한 가지 역할 |
-| 함수 포인터 | `villager_ai.c:STATE_TABLE[]`, `jobs.c:JOB_TABLE[]`, `defs.c:SECTION_PARSERS[]`, `save.c:SECTIONS[]`, `cli/commands.c:COMMANDS[]` | 주민 행동, 직업별 생산, 정의 파일·세이브 해석, CLI 메뉴 |
+| 함수 포인터 | `nature.c:NATURE_EVENTS[]`, `villager_ai.c:STATE_TABLE[]`, `jobs.c:JOB_TABLE[]`, `defs.c:SECTION_PARSERS[]`, `save.c:SECTIONS[]`, `cli/commands.c:COMMANDS[]` | 자연 사건, 주민 행동, 직업별 생산, 정의 파일·세이브 해석, CLI 메뉴 |
 | 동적 메모리 | `entity.c:entity_add_villager`·`reserve_slot`·`insert_sorted`, `grid.c:grid_alloc`, `events.c:grow` | 늘었다 줄었다 하는 주민·건물 목록, 일꾼·거주민 배열, 지도, 이벤트 큐 |
-| 파일 입출력 | `save.c:save_write`/`save_read`, `api.c:core_defs_load_file`, `defs.c:defs_write_file` | 저장 → 껐다 켜기 → 이어하기, 건물·특성·이름 정의 파일 |
-| 오류 처리 | `save.c:save_read`, `defs.c:defs_load_text`, `cli/console.c:read_int`, 모든 `mem_*` 호출 | 파일 없음, 망가진 정의 파일, 잘못된 입력, 메모리 부족 |
+| 파일 입출력 | `save.c:save_write`/`save_read`, `api.c:core_defs_load_file`, `defs.c:defs_write_file` | 저장 → 껐다 켜기 → 이어하기 (날씨·사건·시장 가격·상인까지), 건물·특성·이름 정의 파일 |
+| 오류 처리 | `save.c:save_read`, `defs.c:defs_load_text`, `market.c:market_trade`, `cli/console.c:read_int`, 모든 `mem_*` 호출 | 파일 없음, 망가진 정의 파일, 할 수 없는 거래·수리(이유 코드), 잘못된 입력, 메모리 부족 |
 
 ## 1. 구조체 (서로 다른 목적 2개 이상, 포함·참조 관계)
 
@@ -25,9 +25,12 @@
 | `Stats`, `Needs` | `core/src/entity.h` | 능력치 4개, 욕구 5개 | `Villager` 안에 포함 |
 | `BuildingDef`, `TraitDef`, `NameEntry`, `Defs` | `core/src/defs.h` | 정의 파일에서 읽은 건물·특성·이름 | `Defs` 가 `TraitDef *traits`, `NameEntry *names` 동적 배열을 **소유** |
 | `Ledger` | `core/src/economy.h` | 자원별·항목별 오늘/어제 변화 (HUD 툴팁) | `World` 안에 포함 |
+| `Nature` | `core/src/nature.h` | 날씨, 진행 중인 자연 사건, 예보, 추운 집 수 | `World` 안에 포함 |
+| `NatureEventDef` | `core/src/nature.c` | 사건 하나의 계절·확률·기간·날씨와 **처리 함수 포인터 3개**(시작, 매일, 끝) | `NATURE_EVENTS[]` 표 |
+| `Market`, `Merchant`, `MerchantDeal` | `core/src/market.h` | 시장 가격, 떠돌이 상인과 그 제안들 | `Merchant` 가 `MerchantDeal deals[4]` 를 **포함**, 둘 다 `World` 안에 포함 |
 | `Grid` | `core/src/grid.h` | 지도 | 동적 배열 `terrain`, `cost` 를 **포인터로 소유** |
 | `ResourceBank` | `core/src/economy.h` | 자원 6종과 저장 한도 | `World` 안에 포함 |
-| `Event` | `core/src/events.h` | 피드백 이벤트 하나 | 종류(`type`)로 고르는 **태그 붙은 공용체(union)** 포함 |
+| `Event` | `core/src/events.h` | 피드백 이벤트 하나 | 종류(`type`)로 고르는 **태그 붙은 공용체(union)** 포함 (날짜, 계절, 건물, 주민, 수, 두 값 짝 …) |
 | `EventQueue` | `core/src/events.h` | 원형 큐 | `Event *items` 동적 배열을 **참조** |
 | `LoadState` | `core/src/save.c` | 불러오는 중인 상태 | 만들고 있는 `World *world` 를 **참조** |
 | `SectionDef` | `core/src/save.c` | 섹션 이름 → 해석 함수 | 함수 포인터 필드 |
@@ -49,6 +52,8 @@
 | | `entity.c:entity_link_worker(Building *building, Villager *villager, ...)` — 두 구조체를 함께 고침 | 일꾼 배치 |
 | | `economy.c:eco_change(ResourceBank *bank, Ledger *ledger, ...)` — 자원과 장부를 함께 고침 | 생산, 소비, 임금 |
 | | `villager_ai.c:vil_set_intent(Villager *villager, ...)` — 의도와 `intent_rev` 를 바꿈 | 주민 걷기 핸드셰이크 |
+| | `placement.c:placement_damage(World *world, Building *building, int32_t damage)` — 체력을 깎고, 0 이면 무너뜨림 | 폭풍 피해 |
+| | `market.c:market_trade(..., int32_t *out_gold, int32_t *out_reason)` — 결과와 거절 이유를 출력 매개변수로 | 시장 거래 |
 | | `api.c:core_get_map_size(..., int32_t *out_width, int32_t *out_height)` | 출력 매개변수 |
 | 포인터로 배열 원소 접근 | `grid.c:stamp_blob`, `place_mana_cluster`, `carve_corridor` — `uint8_t *cell = &grid->terrain[i]; *cell = ...` | 지형 칠하기 |
 | | `world.c:world_name_is_valid` — `const unsigned char *s` 로 한 바이트씩 걸으며 UTF-8 검사 | 성채 이름 검사 |
@@ -73,6 +78,8 @@
 | `villager_ai.c` | `vil_tick`, `vil_arrived`, `vil_unreachable`, `vil_mood_terms`, `update_needs`, `fall_back` |
 | `jobs.c` | `jobs_auto_assign`, `jobs_assign_housing`, `jobs_assign_manual`, `jobs_work`, `jobs_pay_wages_and_taxes`, `jobs_relevant_stat` |
 | `population.c` | `population_create`, `population_spawn_initial`, `population_daily`, `population_begin_leaving`, `population_kill` |
+| `nature.c` | `nature_daily`, `nature_farm_percent`, `nature_heating_per_house`, `nature_winter_needs`, `nature_make_sick`, `nature_cure`, `plague_start`, `storm_start` |
+| `market.c` | `market_trade`, `market_is_open`, `market_buy_price`, `market_sell_price`, `market_daily`, `merchant_accept`, `make_deals` |
 | `defs.c` | `defs_load_text`, `defs_write_file`, `parse_sections`, `parse_names`, `apply_field`, `begin_building`, `begin_trait` |
 | `cli/console.c` | `console_init`, `console_read_line`, `read_int`, `read_text` |
 
@@ -80,16 +87,17 @@
 
 | 표 | 위치 | 고르는 기준 | 게임 기능 |
 | --- | --- | --- | --- |
+| `NatureHandler` / `NATURE_EVENTS[]` | `core/src/nature.c` | 자연 사건 번호(가뭄, 역병, 폭풍, 혹한, 풍년) → `on_start`, `on_day`, `on_end` 함수 (역병은 `plague_start`·`plague_day`, 폭풍은 `storm_start`, 효과만 있는 사건은 NULL) | 계절의 압박 |
 | `StateHandler` / `STATE_TABLE[]` | `core/src/villager_ai.c` | 주민 상태 번호(쉬기, 잠, 출근, 일, 식사, 떠남 …) → 그 상태에서 할 일을 정하는 함수 | 주민 행동 |
 | `JobWorkFn` / `JOB_TABLE[]` | `core/src/jobs.c` | 건물 종류 → `work_farm`(계절을 따짐), `work_gatherer`(약초 + 식량 조금), `work_extract`(벌목장·채석장·광산: 주변 지형 칸 수를 따짐) | 생산 |
 | `SectionParser` / `SECTION_PARSERS[]` | `core/src/defs.c` | 정의 파일의 `[building …]`, `[trait …]` → 시작 함수(`begin_building`, `begin_trait`)와 필드 함수(`field_building`, `field_trait`) 짝 | 건물·특성 정의 읽기 |
-| `SectionParser` / `SECTIONS[]` | `core/src/save.c` | 세이브 파일의 `[섹션]` 이름 → `parse_meta`, `parse_clock`, `parse_rng`, `parse_resources`, `parse_ledger`, `parse_map`, `parse_building`, `parse_villager` | 불러오기 |
+| `SectionParser` / `SECTIONS[]` | `core/src/save.c` | 세이브 파일의 `[섹션]` 이름 → `parse_meta`, `parse_clock`, `parse_rng`, `parse_resources`, `parse_ledger`, `parse_map`, `parse_building`, `parse_villager`, `parse_nature`, `parse_market`, `parse_merchant` | 불러오기 |
 | `CliCommandFn` / `COMMANDS[]` | `cli/commands.c` | 메뉴 번호 → `cmd_status`, `cmd_map`, `cmd_save` … | CLI 메뉴 |
 | `EventFormatter` / `EVENT_FORMATTERS[]` | `cli/format.c` | 이벤트 종류 번호 → 문장 만드는 함수 | CLI 알림 문장 |
 | `BotDailyFn` / `BOTS[]` | `cli/sim.c` | `--bot` 이름 → 봇 함수 | 밸런스 시뮬레이터 |
 | `ValidateReportFn` | `core/src/validate.h` | 호출한 쪽이 넘긴 콜백 | 테스트에서 위반 내용 출력 |
 
-마일스톤 3~5 에서 더해질 것: 자연 사건 처리기, 연구 효과 함수, 적 행동 표.
+마일스톤 4~5 에서 더해질 것: 연구 효과 함수, 습격 구성·결과 처리.
 
 ## 5. 동적 메모리 (크기를 미리 모르는 데이터, 모두 해제)
 
@@ -126,7 +134,7 @@
 | `platform.c:platform_replace_file` | Windows 는 `MoveFileExW(REPLACE_EXISTING)`, 그 밖은 `rename` |
 
 게임 기능: CLI 메뉴 "저장하기"/"불러오기", `castle_cli --load <파일>`, Godot 스모크 테스트의 저장→불러오기 해시 비교. 세이브 메뉴 UI 는 마일스톤 6.
-확인하는 테스트: `save_roundtrip_same_hash`, `save_roundtrip_colony`(주민·건물·연결까지), `save_keeps_backup`, `save_korean_path`(Windows CI 포함), `defs_builtin_roundtrip`, `cli_menu_script`.
+확인하는 테스트: `save_roundtrip_same_hash`, `save_roundtrip_colony`(주민·건물·연결까지), `save_roundtrip_world_pressure`(사건·예보·상인·가격·병까지), `save_keeps_backup`, `save_korean_path`(Windows CI 포함), `defs_builtin_roundtrip`, `cli_menu_script`.
 
 ## 7. 오류 처리
 
@@ -137,6 +145,7 @@
 | 망가진 정의 파일 | `defs.c:defs_load_text` | 그 파일은 기본값으로, 나머지 파일은 그대로. 경고(파일·줄)를 Godot 알림과 CLI 에 보여 줌 | `defs_errors_keep_defaults` |
 | 지을 수 없는 자리, 돈 부족, 길을 막는 건물 | `placement.c:placement_check` | 이유 코드(`CORE_PLACE_*`)를 돌려주고 아무것도 바꾸지 않음. Godot 은 미리보기를 빨갛게 하고 이유를 보여 줌 | `placement_rules`, `placement_roads_and_paths` |
 | 늦게 온 걷기 보고 | `villager_ai.c:vil_arrived` | 주민의 의도가 그사이 바뀌었으면 `CORE_IGNORED` 로 무시 | `villager_handshake_stale_rev` |
+| 할 수 없는 거래·수리 | `market.c:market_trade`, `merchant_accept`, `placement.c:placement_repair` | `CORE_ERR_REJECTED` 와 이유(`CORE_DENY_*`: 시장 없음, 금화 부족, 창고 가득 …). 미리 다 계산해 보고 **전부 할 수 있을 때만** 바꿈 | `market_trade_rules`, `merchant_visits_and_deals`, `storm_damage_ruin_and_repair` |
 | 잘못된 사용자 입력 → 다시 묻기 | `cli/console.c:read_int`, `read_text` | 숫자가 아니거나 범위 밖이면 이유를 말하고 다시 물음 | `cli_menu_script` ("abc", "99", "-1", "5" 입력) |
 | 잘못된 명령줄 인자 | `cli/main.c:parse_options` | 사용법 출력 후 종료 코드 2 | `cli_bad_arguments` |
 | 할당이 `NULL` | 모든 `mem_*` 호출 지점 | `CORE_ERR_OUT_OF_MEMORY` 반환, 이미 할당한 것은 해제, 기존 상태 유지 | `world_out_of_memory_is_clean`, `load_out_of_memory_is_clean` (k 번째 할당을 일부러 실패시킴) |

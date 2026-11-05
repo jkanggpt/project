@@ -12,14 +12,15 @@ flowchart LR
         Sync["WorldSync<br/>스냅숏으로 화면 맞추기"]
         Units["VillagerAgent · BuildingNode<br/>Pathfinder(AStarGrid2D)"]
         Tools["BuildMode<br/>미리보기 · 줄 놓기 · 철거 · 고르기"]
-        View["MapView · CameraRig · DayNight<br/>Hud · BuildBar · Inspector · VillagerList · Toasts"]
+        View["MapView(계절 색·눈) · WeatherFx · CameraRig · DayNight<br/>Hud · BuildBar · Inspector · VillagerList · MarketPanel · MerchantPanel · Toasts"]
         Debug["SmokeTest · ScreenshotTour"]
     end
     subgraph C["castle_core (C11 DLL)"]
         API["api.c<br/>인자 검사 · 뷰 복사"]
         World["world.c<br/>틱 진행 · 해시"]
         Grid["grid.c<br/>지형 · 비용 격자 · 생성"]
-        Eco["economy.c<br/>자원 은행 · 장부"]
+        Eco["economy.c · market.c<br/>자원 은행 · 장부 · 시장 · 상인"]
+        Nat["nature.c<br/>날씨 · 자연 사건 표 · 난방 · 병"]
         Ent["entity.c · placement.c<br/>주민·건물 연결 · 배치 규칙"]
         AI["villager_ai.c · jobs.c · population.c<br/>상태 표 · 직업 표 · 이주"]
         Defs["defs.c<br/>건물·특성·이름 정의"]
@@ -33,7 +34,7 @@ flowchart LR
     Clock -- "core_tick(n)" --> Bridge
     Bridge -- "P/Invoke" --> API
     API --> World & Grid & Eco & Ev & Save & Val & Ent & Defs
-    World --> AI
+    World --> AI & Nat
     Save --> Plat
     Bridge -- "뷰 구조체 복사" --> Sync --> View
     Sync --> Units
@@ -51,7 +52,7 @@ flowchart LR
 | **모든 규칙과 수치**: 생산, 소비, 임금, 저장 한도, 기분, 병, 이주, 배치 검사, 비용, 연구 효과, 사건 일정, 습격 구성, 등급 조건, 승패, 적·탑의 능력치 | **물리적 사실을 C 에 보고**: 주민 도착 / 길 없음, 건물·주민 피해, 적 처치, 약탈, 습격 끝 |
 | 위 모든 것의 저장·불러오기 | 설정 파일만 (음량, 해상도, UI 배율) |
 
-마일스톤 2 까지 실제로 있는 것: 지도(지형, 도로, 점유, 비용 격자), 시계, 난수, 자원 은행과 장부, 건물·특성·이름 정의 파일, 주민과 건물(양방향 연결), 배치·건설·철거, 생산·소비·임금·세금, 기분, 이주와 떠남, 피드백 이벤트, 저장·불러오기, 불변 조건 검사.
+마일스톤 3 까지 실제로 있는 것: 지도(지형, 도로, 점유, 비용 격자), 시계, 난수, 자원 은행과 장부, 건물·특성·이름 정의 파일, 주민과 건물(양방향 연결), 배치·건설·철거·피해·수리, 생산·소비·임금·세금·난방, 기분, 병과 치료, 이주와 떠남, 날씨와 자연 사건(예보), 시장과 떠돌이 상인, 피드백 이벤트, 저장·불러오기, 불변 조건 검사.
 
 ## 경계 규칙 (안정성의 핵심)
 
@@ -108,7 +109,15 @@ flowchart LR
              DayNight 는 매 프레임 (분 + 틱 진행률) 로 색을 부드럽게 계산
 ```
 
-## 공개 API (`core/include/castle_core.h`, ABI 2)
+## 하루 결산 순서 (06:00, `world.c:daily`)
+
+1. 장부 넘기기 (오늘 → 어제)
+2. `nature_daily`: 사건 진행·시작 → 날씨 → 난방 → 겨울 경고 → 내일 예보
+3. 임금과 세금
+4. `market_daily`: 시장 가격 움직임, 상인이 오거나 떠남
+5. 이주 (`population_daily`), 일자리·집 다시 배치, 굶주림 알림
+
+## 공개 API (`core/include/castle_core.h`, ABI 3)
 
 | 분류 | 함수 | 하는 일 |
 | --- | --- | --- |
@@ -127,9 +136,12 @@ flowchart LR
 | | `core_copy_cost_grid(world, buf, cap, &rev)` | 이동 비용 격자 + 수정 번호 |
 | | `core_copy_villagers`, `core_copy_buildings` | 주민·건물 뷰 전체 (버퍼가 작으면 필요한 개수를 알려 줌) |
 | | `core_get_building_def`, `core_get_trait_def`, `core_get_mood_terms` | 건물·특성 정의, 주민 기분의 항목별 이유 |
+| | `core_get_ledger` | 장부 (자원 × 항목, 오늘·어제) — 자원 툴팁 |
+| | `core_get_market`, `core_get_merchant`, `core_get_repair_cost` | 시장 가격, 상인 제안, 수리 비용 |
 | 배치 | `core_can_place(world, type, x, y, out)` | 미리보기: 결과 이유, 문 앞 칸, 생산성 |
 | 명령 | `core_place_building`, `core_place_line`, `core_demolish`, `core_remove_road` | 짓기, 줄 놓기(도로·성벽), 철거(절반 환불) |
 | | `core_assign_worker`, `core_unassign_worker`, `core_release_worker`, `core_set_auto_assign` | 일꾼 직접 배치·빼기·자동에 맡기기, 건물별 자동 배치 |
+| | `core_trade`, `core_merchant_accept`, `core_repair` | 시장 거래, 상인 제안 받기, 수리 (안 되면 `CORE_ERR_REJECTED` + 이유 `CORE_DENY_*`) |
 | 보고 | `core_villager_arrived`, `core_villager_unreachable` | 주민 핸드셰이크 |
 | 피드백 | `core_poll_event(world, out)` | 이벤트 하나 꺼내기 (있으면 1) |
 | 저장 | `core_save(world, path)` | 원자적 저장 + `.bak` |
@@ -137,7 +149,7 @@ flowchart LR
 | 디버그 | `core_validate(world)` | 불변 조건 위반 개수 |
 | | `core_state_hash(world, &hash)` | 저장되는 상태 전체의 해시 |
 
-다음 마일스톤에서 더해질 것: 수리, 거래, 연구, 승급 명령, 습격 보고(피해, 처치, 약탈, 습격 끝), 위협 뷰.
+다음 마일스톤에서 더해질 것: 연구, 승급 명령, 습격 보고(피해, 처치, 약탈, 습격 끝), 위협 뷰.
 
 ## 결과 코드
 
