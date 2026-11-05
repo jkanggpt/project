@@ -5,6 +5,15 @@
 
 #include <stddef.h>
 
+#include "placement.h"
+
+#include "text.h"
+
+static int text_ok(const char *name)
+{
+    return text_is_valid_name(name, CORE_NAME_BYTES);
+}
+
 /* 검사 하나를 실행하고, 틀렸으면 개수를 올리고 알립니다 */
 typedef struct Checker {
     int32_t violations;
@@ -40,14 +49,14 @@ static void check_grid(Checker *checker, const World *world)
     }
     count = grid->width * grid->height;
     for (i = 0; i < count; i++) {
-        if (grid->terrain[i] >= CORE_TERRAIN_COUNT) {
+        if (grid->terrain[i] >= CORE_TERRAIN_COUNT || grid->road[i] > 1 || grid->block[i] > GRID_BLOCK_GATE) {
             bad_terrain++;
-        } else if (grid->cost[i] != grid_terrain_cost(grid->terrain[i])) {
+        } else if (grid->cost[i] != grid_expected_cost(grid, i)) {
             bad_cost++;
         }
     }
-    expect(checker, bad_terrain == 0, "terrain value out of range");
-    expect(checker, bad_cost == 0, "cost grid does not match terrain");
+    expect(checker, bad_terrain == 0, "terrain/road/block value out of range");
+    expect(checker, bad_cost == 0, "cost grid does not match terrain, roads and buildings");
     expect(checker, grid->cost_rev >= 1, "cost grid revision not set");
 
     /* 성채 자리와 그 둘레는 비어 있어야 합니다 */
@@ -88,6 +97,134 @@ static void check_events(Checker *checker, const EventQueue *queue)
     expect(checker, queue->dropped >= 0, "negative dropped count");
 }
 
+/* 포인터가 월드의 건물 목록에 들어 있는가 (포인터를 따라가지 않고 비교만 함: 잘못된 포인터여도 안전) */
+static int building_listed(const World *world, const Building *building)
+{
+    int32_t i;
+    for (i = 0; i < world->building_count; i++) {
+        if (world->buildings[i] == building) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int contains(Villager *const *array, int32_t count, const Villager *villager)
+{
+    int32_t i;
+    for (i = 0; i < count; i++) {
+        if (array[i] == villager) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void check_building(Checker *checker, const World *world, const Building *b, int32_t *storage_total)
+{
+    const Grid *grid = &world->grid;
+    const BuildingDef *def = world_building_def(world, b->type);
+    int32_t cx;
+    int32_t cy;
+    int32_t i;
+    int footprint_ok = 1;
+
+    expect(checker, b->id >= 1 && b->id < world->next_building_id, "building id out of range");
+    expect(checker, def != NULL && b->type != CORE_BLD_ROAD, "building type invalid");
+    if (def == NULL) {
+        return;
+    }
+    expect(checker, b->state >= CORE_BSTATE_CONSTRUCTING && b->state <= CORE_BSTATE_RUINED,
+           "building state invalid");
+    expect(checker, b->hp >= 0 && b->hp <= def->max_hp, "building hp out of range");
+    expect(checker, b->build_progress >= 0, "building progress negative");
+    expect(checker, b->w >= 1 && b->w <= 4 && b->h >= 1 && b->h <= 4, "building size invalid");
+    expect(checker, b->x >= 0 && b->y >= 0 && b->x + b->w <= grid->width && b->y + b->h <= grid->height,
+           "building out of bounds");
+    if (b->x < 0 || b->y < 0 || b->x + b->w > grid->width || b->y + b->h > grid->height) {
+        return;
+    }
+    for (cy = b->y; cy < b->y + b->h; cy++) {
+        for (cx = b->x; cx < b->x + b->w; cx++) {
+            if (grid->occupant[grid_index(grid, cx, cy)] != b->id) {
+                footprint_ok = 0;
+            }
+        }
+    }
+    expect(checker, footprint_ok, "occupancy grid does not match building footprint");
+    if (placement_needs_door(def, b->type)) {
+        expect(checker, grid_in_bounds(grid, b->door_x, b->door_y), "building door out of bounds");
+        if (grid_in_bounds(grid, b->door_x, b->door_y)) {
+            int32_t door = grid_index(grid, b->door_x, b->door_y);
+            expect(checker, grid->occupant[door] == 0 && grid->door_count[door] > 0, "building door blocked");
+        }
+    }
+    expect(checker, b->worker_count >= 0 && b->worker_count <= def->worker_slots, "too many workers");
+    expect(checker, b->resident_count >= 0 && b->resident_count <= def->resident_slots, "too many residents");
+    for (i = 0; i < b->worker_count; i++) {
+        expect(checker, b->workers[i]->workplace == b, "worker does not point back to workplace");
+        expect(checker, i == 0 || b->workers[i - 1]->id < b->workers[i]->id, "worker list not sorted");
+    }
+    for (i = 0; i < b->resident_count; i++) {
+        expect(checker, b->residents[i]->home == b, "resident does not point back to home");
+    }
+    expect(checker, b->work_milli[0] >= 0 && b->work_milli[1] >= 0, "work progress negative");
+    if (b->state == CORE_BSTATE_ACTIVE) {
+        *storage_total += def->storage;
+    }
+}
+
+static void check_villager(Checker *checker, const World *world, const Villager *v)
+{
+    expect(checker, v->id >= 1 && v->id < world->next_villager_id, "villager id out of range");
+    expect(checker, text_ok(v->name), "villager name invalid");
+    expect(checker, v->needs.hunger >= 0 && v->needs.hunger <= 100 && v->needs.rest >= 0 && v->needs.rest <= 100 &&
+                        v->needs.safety >= 0 && v->needs.safety <= 100 && v->needs.housing >= 0 &&
+                        v->needs.housing <= 100,
+           "villager needs out of range");
+    expect(checker, v->mood >= 0 && v->mood <= 100, "villager mood out of range");
+    expect(checker, v->health > 0 && v->health <= 100, "villager health out of range");
+    expect(checker, v->state >= 0 && v->state < CORE_VS_COUNT, "villager state invalid");
+    expect(checker, grid_in_bounds(&world->grid, v->target_x, v->target_y), "villager target off map");
+    expect(checker, grid_in_bounds(&world->grid, v->loc_x, v->loc_y), "villager location off map");
+    expect(checker, v->traits[0] >= -1 && v->traits[0] < world->defs.trait_count && v->traits[1] >= -1 &&
+                        v->traits[1] < world->defs.trait_count,
+           "villager trait out of range");
+    if (v->home != NULL) {
+        expect(checker, building_listed(world, v->home), "villager home is not a building");
+        if (building_listed(world, v->home)) {
+            expect(checker, contains(v->home->residents, v->home->resident_count, v), "home does not list resident");
+        }
+    }
+    if (v->workplace != NULL) {
+        expect(checker, building_listed(world, v->workplace), "villager workplace is not a building");
+        if (building_listed(world, v->workplace)) {
+            expect(checker, contains(v->workplace->workers, v->workplace->worker_count, v),
+                   "workplace does not list worker");
+        }
+    }
+    if (v->target != NULL) {
+        expect(checker, building_listed(world, v->target), "villager target is not a building");
+    }
+}
+
+static void check_entities(Checker *checker, const World *world)
+{
+    const Building *keep = world_keep(world);
+    int32_t storage_total = 0;
+    int32_t i;
+    expect(checker, keep != NULL && keep->type == CORE_BLD_KEEP, "keep missing");
+    for (i = 0; i < world->building_count; i++) {
+        check_building(checker, world, world->buildings[i], &storage_total);
+    }
+    for (i = 0; i < world->villager_count; i++) {
+        check_villager(checker, world, world->villagers[i]);
+    }
+    expect(checker, world->bank.capacity == (storage_total > 0 ? storage_total : 1),
+           "storage capacity does not match buildings");
+    expect(checker, world->mourning >= 0 && world->mourning <= 30, "mourning out of range");
+}
+
 int32_t validate_world(const World *world, ValidateReportFn report, void *context)
 {
     Checker checker;
@@ -107,5 +244,8 @@ int32_t validate_world(const World *world, ValidateReportFn report, void *contex
     check_bank(&checker, &world->bank);
     check_grid(&checker, world);
     check_events(&checker, &world->events);
+    if (world->grid.occupant != NULL) {
+        check_entities(&checker, world);
+    }
     return checker.violations;
 }

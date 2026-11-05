@@ -4,15 +4,124 @@
 #include "sim.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "castle_core.h"
 #include "format.h"
+#include "walker.h"
+
+/* ---- 봇 공통 도우미 ---------------------------------------------------- */
+
+typedef struct BotContext {
+    CoreWorld *world;
+    CoreSummaryView summary;
+    CoreBuildingView *buildings; /* 동적 배열 */
+    int32_t building_count;
+    int32_t building_capacity;
+    int32_t keep_door_x;
+    int32_t keep_door_y;
+} BotContext;
+
+static int refresh_buildings(BotContext *bot)
+{
+    int32_t rc;
+    (void)core_get_summary(bot->world, &bot->summary);
+    rc = core_copy_buildings(bot->world, bot->buildings, bot->building_capacity, &bot->building_count);
+    if (rc == CORE_ERR_BUFFER_TOO_SMALL) {
+        int32_t capacity = bot->building_count + 32;
+        CoreBuildingView *grown =
+            (CoreBuildingView *)realloc(bot->buildings, (size_t)capacity * sizeof(CoreBuildingView));
+        if (grown == NULL) {
+            return 0;
+        }
+        bot->buildings = grown;
+        bot->building_capacity = capacity;
+        rc = core_copy_buildings(bot->world, bot->buildings, bot->building_capacity, &bot->building_count);
+    }
+    if (rc != CORE_OK) {
+        return 0;
+    }
+    bot->keep_door_x = bot->summary.keep_x;
+    bot->keep_door_y = bot->summary.keep_y + 2;
+    return 1;
+}
+
+static int32_t count_type(const BotContext *bot, int32_t type)
+{
+    int32_t count = 0;
+    int32_t i;
+    for (i = 0; i < bot->building_count; i++) {
+        count += bot->buildings[i].type == type;
+    }
+    return count;
+}
+
+static int32_t count_constructing(const BotContext *bot)
+{
+    int32_t count = 0;
+    int32_t i;
+    for (i = 0; i < bot->building_count; i++) {
+        count += bot->buildings[i].state == CORE_BSTATE_CONSTRUCTING && bot->buildings[i].type != CORE_BLD_WALL;
+    }
+    return count;
+}
+
+/* 성채 둘레에서 이 종류를 지을 가장 좋은 자리를 찾아 짓고, 문에서 성채까지 도로를 냅니다.
+ * 생산성이 높은 자리를 고르되, 성채에서 멀수록 조금씩 깎습니다 */
+static int build_best(BotContext *bot, int32_t type, int32_t radius)
+{
+    CorePlacementView preview;
+    int32_t best_score = -1000000;
+    int32_t best_x = 0;
+    int32_t best_y = 0;
+    int32_t dx;
+    int32_t dy;
+    int32_t id;
+    int32_t reason;
+    int32_t placed;
+    for (dy = -radius; dy <= radius; dy++) {
+        for (dx = -radius; dx <= radius; dx++) {
+            int32_t x = bot->summary.keep_x + dx;
+            int32_t y = bot->summary.keep_y + dy;
+            int32_t score;
+            (void)core_can_place(bot->world, type, x, y, &preview);
+            if (preview.result != CORE_PLACE_OK) {
+                continue;
+            }
+            score = preview.productivity * 4 - (abs(dx) + abs(dy)) * 3;
+            if (score > best_score) {
+                best_score = score;
+                best_x = x;
+                best_y = y;
+            }
+        }
+    }
+    if (best_score == -1000000 || core_place_building(bot->world, type, best_x, best_y, &id, &reason) != CORE_OK) {
+        return 0;
+    }
+    (void)core_can_place(bot->world, type, best_x, best_y, &preview);
+    /* 새 건물의 문에서 성채 문까지 도로 (모자라면 놓을 수 있는 만큼만) */
+    {
+        int32_t i;
+        if (refresh_buildings(bot)) {
+            for (i = 0; i < bot->building_count; i++) {
+                if (bot->buildings[i].id == id && bot->buildings[i].door_x >= 0) {
+                    (void)core_place_line(bot->world, CORE_BLD_ROAD, bot->buildings[i].door_x,
+                                          bot->buildings[i].door_y, bot->keep_door_x, bot->keep_door_y, &placed,
+                                          &reason);
+                }
+            }
+        }
+    }
+    (void)refresh_buildings(bot);
+    return 1;
+}
 
 /* ---- 봇 (이름 → 하루 행동 함수 표) -------------------------------------- */
 
 /* 하루가 시작될 때 불립니다. 봇은 공개 API 명령만 씁니다 */
-typedef void (*BotDailyFn)(CoreWorld *world, const CoreSummaryView *summary);
+typedef void (*BotDailyFn)(BotContext *bot);
 
 typedef struct Bot {
     const char *name;
@@ -20,15 +129,63 @@ typedef struct Bot {
     BotDailyFn on_new_day;
 } Bot;
 
-static void bot_idle(CoreWorld *world, const CoreSummaryView *summary)
+static void bot_idle(BotContext *bot)
 {
-    /* 아무것도 하지 않는 기준선 봇. 건설 명령이 생기는 마일스톤 2에서 "reasonable" 봇이 추가됩니다 */
-    (void)world;
-    (void)summary;
+    (void)bot; /* 아무것도 하지 않는 기준선 */
+}
+
+/* "적당히 하는 플레이어": 먹을 것, 집, 목재, 석재, 약초, 창고 순으로 부족한 것을 채웁니다 */
+static void bot_reasonable(BotContext *bot)
+{
+    const CoreSummaryView *s;
+    int32_t farms;
+    int32_t houses;
+    int32_t built = 0;
+    int32_t i;
+    if (!refresh_buildings(bot)) {
+        return;
+    }
+    s = &bot->summary;
+    if (count_constructing(bot) >= 3) {
+        return; /* 한꺼번에 너무 많이 짓지 않음 */
+    }
+    farms = count_type(bot, CORE_BLD_FARM);
+    houses = count_type(bot, CORE_BLD_HOUSE);
+    /* 0) 창고: 물건 하나라도 한도의 70% 를 넘으면 가장 먼저 (겨울 대비 비축 공간) */
+    for (i = CORE_RES_FOOD; i < CORE_RES_COUNT; i++) {
+        if (s->resource_capacity[i] > 0 && s->resources[i] * 100 >= s->resource_capacity[i] * 70) {
+            built += build_best(bot, CORE_BLD_WAREHOUSE, 10);
+            break;
+        }
+    }
+    /* 1) 식량: 주민 4명당 농장 하나 (여름·가을에는 겨울을 대비해 3명당 하나), 첫날은 무조건 하나 */
+    if (farms == 0 || (farms < s->population / (s->season == CORE_SEASON_SUMMER || s->season == CORE_SEASON_AUTUMN
+                                                     ? 3
+                                                     : 4) +
+                                    1 &&
+                       s->resources[CORE_RES_FOOD] < s->population * 12)) {
+        built += build_best(bot, CORE_BLD_FARM, 10);
+    }
+    /* 2) 집: 집 없는 주민이 있거나 빈자리가 2 보다 적으면 */
+    if (built < 2 && (s->homeless > 0 || s->housing_capacity - (s->population - s->homeless) < 2)) {
+        built += build_best(bot, CORE_BLD_HOUSE, 8);
+    }
+    /* 3) 목재: 벌목장은 주민 8명당 하나 */
+    if (built < 2 && count_type(bot, CORE_BLD_LUMBER) < 1 + s->population / 8) {
+        built += build_best(bot, CORE_BLD_LUMBER, 14);
+    }
+    /* 4) 석재와 약초 */
+    if (built < 2 && houses >= 2 && count_type(bot, CORE_BLD_QUARRY) < 1 + s->population / 12) {
+        built += build_best(bot, CORE_BLD_QUARRY, 16);
+    }
+    if (built < 2 && s->population >= 8 && count_type(bot, CORE_BLD_GATHERER) < 1 + s->population / 15) {
+        built += build_best(bot, CORE_BLD_GATHERER, 14);
+    }
 }
 
 static const Bot BOTS[] = {
     {"idle", "아무것도 하지 않음 (기준선)", bot_idle},
+    {"reasonable", "먹을 것, 집, 자원, 창고를 차례로 짓는 보통 플레이어", bot_reasonable},
 };
 #define BOT_COUNT ((int)(sizeof(BOTS) / sizeof(BOTS[0])))
 
@@ -52,18 +209,18 @@ void sim_print_bots(void)
 {
     int i;
     for (i = 0; i < BOT_COUNT; i++) {
-        printf("  %-10s %s\n", BOTS[i].name, BOTS[i].description);
+        printf("  %-12s %s\n", BOTS[i].name, BOTS[i].description);
     }
 }
 
-static int32_t create_world(int32_t seed, int difficulty, const char *name, CoreWorld **out)
+static int32_t create_world(int32_t seed, int difficulty, const char *name, const CoreDefs *defs, CoreWorld **out)
 {
     CoreNewGameParams params;
     memset(&params, 0, sizeof(params));
     strncpy(params.castle_name, name, sizeof(params.castle_name) - 1);
     params.seed = seed;
     params.difficulty = difficulty;
-    return core_create(&params, out);
+    return core_create(&params, defs, out);
 }
 
 static void write_csv_row(FILE *out, const CoreSummaryView *summary)
@@ -73,63 +230,77 @@ static void write_csv_row(FILE *out, const CoreSummaryView *summary)
     for (i = 0; i < CORE_RES_COUNT; i++) {
         fprintf(out, ",%d", (int)summary->resources[i]);
     }
-    /* 인구, 평균 기분, 위협은 마일스톤 2~4 에서 채워집니다 */
-    fprintf(out, ",%d,0,0,0\n", (int)summary->resource_capacity[CORE_RES_FOOD]);
+    /* 위협은 마일스톤 4 에서 채워집니다 */
+    fprintf(out, ",%d,%d,%d,%d,%d,%d,%d,0\n", (int)summary->resource_capacity[CORE_RES_FOOD],
+            (int)summary->population, (int)summary->average_mood, (int)summary->homeless, (int)summary->employed,
+            (int)summary->building_count, (int)summary->rank);
 }
 
-int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_name, const char *csv_path)
+int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_name, const char *csv_path,
+                       const CoreDefs *defs, int print_events)
 {
     const Bot *bot = find_bot(bot_name);
-    CoreWorld *world = NULL;
+    BotContext context;
+    Walker walker;
     CoreConfigView config;
     CoreSummaryView summary;
     FILE *out = stdout;
     int day;
-    int32_t rc;
+    int32_t tick;
     int status = 0;
 
     if (bot == NULL) {
         fprintf(stderr, "모르는 봇입니다: %s\n", bot_name);
         return 1;
     }
+    memset(&context, 0, sizeof(context));
     (void)core_get_config(&config);
-    rc = create_world(seed, difficulty, "Simulation", &world);
-    if (rc != CORE_OK) {
-        fprintf(stderr, "월드를 만들 수 없습니다: %s\n", core_result_name(rc));
+    if (create_world(seed, difficulty, "Simulation", defs, &context.world) != CORE_OK) {
+        fprintf(stderr, "월드를 만들 수 없습니다\n");
         return 1;
     }
     if (csv_path != NULL) {
         out = fopen(csv_path, "w");
         if (out == NULL) {
             fprintf(stderr, "CSV 파일을 열 수 없습니다: %s\n", csv_path);
-            core_destroy(world);
+            core_destroy(context.world);
             return 1;
         }
     }
-    fprintf(out, "day,year,season,gold,mana,food,wood,stone,herbs,capacity,population,mood,threats\n");
-    (void)core_get_summary(world, &summary);
+    walker_init(&walker);
+    fprintf(out, "day,year,season,gold,mana,food,wood,stone,herbs,capacity,population,mood,homeless,employed,"
+                 "buildings,rank,threats\n");
+    (void)core_get_summary(context.world, &summary);
     write_csv_row(out, &summary);
-    for (day = 0; day < days; day++) {
+    for (day = 0; day < days && status == 0; day++) {
         CoreEventView event;
-        bot->on_new_day(world, &summary);
-        rc = core_tick(world, config.ticks_per_day);
-        if (rc != CORE_OK || core_validate(world) != 0) {
-            fprintf(stderr, "시뮬레이션 %d일째에 문제가 생겼습니다 (%s)\n", day + 1, core_result_name(rc));
-            status = 1;
-            break;
+        bot->on_new_day(&context);
+        for (tick = 0; tick < config.ticks_per_day; tick++) {
+            if (walker_tick(&walker, context.world) != CORE_OK || core_validate(context.world) != 0) {
+                fprintf(stderr, "시뮬레이션 %d일째에 문제가 생겼습니다\n", day + 1);
+                status = 1;
+                break;
+            }
         }
-        while (core_poll_event(world, &event) == 1) {
-            /* 시뮬레이터는 피드백 이벤트를 쓰지 않으므로 비우기만 합니다 */
+        while (core_poll_event(context.world, &event) == 1) {
+            if (print_events && event.type != CORE_EVT_PRODUCED) {
+                char text[200];
+                fmt_event(&event, text, sizeof(text));
+                fprintf(stderr, "[%d일] %s\n", day + 2, text);
+            }
         }
-        (void)core_get_summary(world, &summary);
+        (void)core_get_summary(context.world, &summary);
         write_csv_row(out, &summary);
     }
     if (out != stdout && fclose(out) != 0) {
         status = 1;
     }
-    core_destroy(world);
+    walker_free(&walker);
+    free(context.buildings);
+    core_destroy(context.world);
     if (status == 0 && csv_path != NULL) {
-        printf("시뮬레이션 완료: %d일, 시드 %d, 봇 %s → %s\n", days, (int)seed, bot_name, csv_path);
+        printf("시뮬레이션 완료: %d일, 시드 %d, 봇 %s → %s (주민 %d명, 기분 %d)\n", days, (int)seed, bot_name,
+               csv_path, (int)summary.population, (int)summary.average_mood);
     }
     return status;
 }
@@ -147,12 +318,19 @@ static uint32_t soak_random(uint32_t *state)
     return x;
 }
 
+static int32_t soak_pick(uint32_t *state, int32_t lo, int32_t hi)
+{
+    return lo + (int32_t)(soak_random(state) % (uint32_t)(hi - lo + 1));
+}
+
 /* 잘못된 호출을 섞어 보냅니다. 모두 오류 코드를 돌려줘야 하고 상태를 바꾸면 안 됩니다 */
 static int poke_invalid_calls(CoreWorld *world)
 {
     uint8_t tiny[4];
     uint64_t before = 0;
     uint64_t after = 1;
+    int32_t id = 0;
+    int32_t reason = 0;
     int ok = 1;
     (void)core_state_hash(world, &before);
     ok &= core_tick(world, 0) == CORE_ERR_INVALID_ARG;
@@ -160,17 +338,24 @@ static int poke_invalid_calls(CoreWorld *world)
     ok &= core_copy_terrain(world, tiny, (int32_t)sizeof(tiny)) == CORE_ERR_BUFFER_TOO_SMALL;
     ok &= core_get_summary(world, NULL) == CORE_ERR_NULL_ARG;
     ok &= core_save(world, "") == CORE_ERR_INVALID_ARG;
+    ok &= core_place_building(world, CORE_BLD_KEEP, 10, 10, &id, &reason) == CORE_ERR_REJECTED;
+    ok &= core_place_building(world, 999, 10, 10, &id, &reason) == CORE_ERR_REJECTED;
+    ok &= core_place_building(world, CORE_BLD_HOUSE, -50, 9999, &id, &reason) == CORE_ERR_REJECTED;
+    ok &= core_demolish(world, -1) == CORE_ERR_NOT_FOUND;
+    ok &= core_assign_worker(world, 999999, 1) == CORE_ERR_NOT_FOUND;
+    ok &= core_villager_arrived(world, 999999, 1) == CORE_ERR_NOT_FOUND;
+    ok &= core_set_auto_assign(world, 1, 7) == CORE_ERR_INVALID_ARG;
     (void)core_state_hash(world, &after);
     return ok && before == after;
 }
 
 /* 저장했다가 다시 불러와서, 불러온 월드로 계속 진행합니다. 해시가 같아야 합니다 */
-static int save_load_roundtrip(CoreWorld **world, const char *path)
+static int save_load_roundtrip(CoreWorld **world, const char *path, const CoreDefs *defs)
 {
     CoreWorld *loaded = NULL;
     uint64_t before = 0;
     uint64_t after = 1;
-    if (core_save(*world, path) != CORE_OK || core_load(path, &loaded, NULL) != CORE_OK) {
+    if (core_save(*world, path) != CORE_OK || core_load(path, defs, &loaded, NULL) != CORE_OK) {
         return 0;
     }
     (void)core_state_hash(*world, &before);
@@ -180,9 +365,65 @@ static int save_load_roundtrip(CoreWorld **world, const char *path)
     return before == after;
 }
 
-static int soak_one_seed(int days, int32_t seed, long *ticks_run)
+/* 하루에 한 번: 무작위 명령 (대부분은 규칙에 막혀 거절됨, 그것도 확인할 것) */
+static void random_commands(BotContext *bot, uint32_t *random_state)
 {
-    CoreWorld *world = NULL;
+    CoreVillagerView *views;
+    int32_t villager_count = 0;
+    int32_t i;
+    int32_t id;
+    int32_t reason;
+    int32_t placed;
+    if (!refresh_buildings(bot)) {
+        return;
+    }
+    for (i = 0; i < 6; i++) {
+        int32_t type = soak_pick(random_state, 1, CORE_BLD_COUNT - 1);
+        int32_t x = bot->summary.keep_x + soak_pick(random_state, -16, 16);
+        int32_t y = bot->summary.keep_y + soak_pick(random_state, -16, 16);
+        (void)core_place_building(bot->world, type, x, y, &id, &reason);
+    }
+    (void)core_place_line(bot->world, soak_pick(random_state, 0, 1) ? CORE_BLD_ROAD : CORE_BLD_WALL,
+                          bot->summary.keep_x + soak_pick(random_state, -12, 12),
+                          bot->summary.keep_y + soak_pick(random_state, -12, 12),
+                          bot->summary.keep_x + soak_pick(random_state, -12, 12),
+                          bot->summary.keep_y + soak_pick(random_state, -12, 12), &placed, &reason);
+    if (bot->building_count > 1 && soak_pick(random_state, 0, 3) == 0) {
+        (void)core_demolish(bot->world, bot->buildings[soak_pick(random_state, 0, bot->building_count - 1)].id);
+    }
+    (void)core_remove_road(bot->world, bot->summary.keep_x + soak_pick(random_state, -12, 12),
+                           bot->summary.keep_y + soak_pick(random_state, -12, 12));
+    views = (CoreVillagerView *)malloc((size_t)(bot->summary.villager_count_hint + 1) * sizeof(CoreVillagerView));
+    if (views != NULL &&
+        core_copy_villagers(bot->world, views, bot->summary.villager_count_hint + 1, &villager_count) == CORE_OK &&
+        villager_count > 0 && bot->building_count > 0) {
+        const CoreVillagerView *v = &views[soak_pick(random_state, 0, villager_count - 1)];
+        int32_t target = bot->buildings[soak_pick(random_state, 0, bot->building_count - 1)].id;
+        switch (soak_pick(random_state, 0, 4)) {
+        case 0:
+            (void)core_assign_worker(bot->world, v->id, target);
+            break;
+        case 1:
+            (void)core_unassign_worker(bot->world, v->id);
+            break;
+        case 2:
+            (void)core_release_worker(bot->world, v->id);
+            break;
+        case 3:
+            (void)core_villager_arrived(bot->world, v->id, v->intent_rev - 1); /* 오래된 보고 */
+            break;
+        default:
+            (void)core_villager_unreachable(bot->world, v->id, v->intent_rev);
+            break;
+        }
+    }
+    free(views);
+}
+
+static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *ticks_run)
+{
+    BotContext bot;
+    Walker walker;
     CoreSummaryView summary;
     char path[64];
     char backup[72];
@@ -191,13 +432,16 @@ static int soak_one_seed(int days, int32_t seed, long *ticks_run)
     int32_t last_day;
     int failures = 0;
 
-    if (create_world(seed, seed % CORE_DIFF_COUNT, "Soak", &world) != CORE_OK) {
+    memset(&bot, 0, sizeof(bot));
+    if (create_world(seed, seed % CORE_DIFF_COUNT, "Soak", defs, &bot.world) != CORE_OK) {
         fprintf(stderr, "  시드 %d: 월드를 만들 수 없습니다\n", (int)seed);
         return 1;
     }
+    walker_init(&walker);
+    walker.instant = (seed % 2) == 0; /* 시드의 반은 바로 도착, 반은 실제 걷는 시간 */
     snprintf(path, sizeof(path), "soak_%d.sav", (int)seed);
     snprintf(backup, sizeof(backup), "%s.bak", path);
-    (void)core_get_summary(world, &summary);
+    (void)core_get_summary(bot.world, &summary);
     end_day = summary.day + days;
     last_day = summary.day;
 
@@ -207,50 +451,57 @@ static int soak_one_seed(int days, int32_t seed, long *ticks_run)
         int32_t violations;
 
         /* 매 틱 진행 후 불변 조건 검사 */
-        if (core_tick(world, 1) != CORE_OK) {
+        if (walker_tick(&walker, bot.world) != CORE_OK) {
             fprintf(stderr, "  시드 %d: core_tick 실패\n", (int)seed);
             failures++;
             break;
         }
         (*ticks_run)++;
-        violations = core_validate(world);
+        violations = core_validate(bot.world);
         if (violations != 0) {
-            fprintf(stderr, "  시드 %d: 불변 조건 위반 %d개\n", (int)seed, (int)violations);
+            fprintf(stderr, "  시드 %d: 불변 조건 위반 %d개 (%d일)\n", (int)seed, (int)violations, (int)summary.day);
             failures++;
             break;
         }
         /* 이벤트는 가끔만 꺼냅니다 (꺼내지 않아도 문제없어야 함) */
         if (roll % 7 == 0) {
-            while (core_poll_event(world, &event) == 1) {
+            while (core_poll_event(bot.world, &event) == 1) {
             }
         }
-        (void)core_get_summary(world, &summary);
+        (void)core_get_summary(bot.world, &summary);
         if (summary.day != last_day) {
             last_day = summary.day;
-            if (roll % 10 == 0 && !save_load_roundtrip(&world, path)) {
+            if (roll % 3 == 0) {
+                bot_reasonable(&bot);
+            } else {
+                random_commands(&bot, &random_state);
+            }
+            if (roll % 10 == 0 && !save_load_roundtrip(&bot.world, path, defs)) {
                 fprintf(stderr, "  시드 %d: 저장/불러오기 왕복이 어긋났습니다 (%d일)\n", (int)seed, (int)summary.day);
                 failures++;
             }
-            if (roll % 13 == 0 && !poke_invalid_calls(world)) {
+            if (roll % 13 == 0 && !poke_invalid_calls(bot.world)) {
                 fprintf(stderr, "  시드 %d: 잘못된 호출이 상태를 바꾸었습니다\n", (int)seed);
                 failures++;
             }
         }
     }
-    core_destroy(world);
+    walker_free(&walker);
+    free(bot.buildings);
+    core_destroy(bot.world);
     remove(path);
     remove(backup);
     return failures;
 }
 
-int sim_run_soak(int days, int seeds, int32_t first_seed)
+int sim_run_soak(int days, int seeds, int32_t first_seed, const CoreDefs *defs)
 {
     int i;
     int failed_seeds = 0;
     long ticks_run = 0;
     for (i = 0; i < seeds; i++) {
         int32_t seed = first_seed + i;
-        if (soak_one_seed(days, seed, &ticks_run) != 0) {
+        if (soak_one_seed(days, seed, defs, &ticks_run) != 0) {
             failed_seeds++;
         }
     }

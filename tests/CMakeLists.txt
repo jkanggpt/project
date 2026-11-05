@@ -6,6 +6,7 @@ add_executable(castle_tests
   test_world.c
   test_save.c
   test_api.c
+  test_colony.c
 )
 target_link_libraries(castle_tests PRIVATE castle_core_testing castle_warnings)
 
@@ -24,10 +25,12 @@ if(TARGET castle_cli)
     COMMAND ${CMAKE_COMMAND}
       -DCLI=$<TARGET_FILE:castle_cli>
       -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/cli_menu_input.txt
+      -DDATA=${PROJECT_SOURCE_DIR}/game/data
       -P ${CMAKE_CURRENT_SOURCE_DIR}/run_cli_script.cmake
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-  add_test(NAME cli_simulate COMMAND castle_cli --simulate 10 --seed 7 --bot idle --out sim_test.csv)
-  add_test(NAME cli_soak_short COMMAND castle_cli --soak 12 --seeds 3)
+  add_test(NAME cli_simulate COMMAND castle_cli --simulate 20 --seed 7 --bot reasonable --out sim_test.csv
+    --data ${PROJECT_SOURCE_DIR}/game/data)
+  add_test(NAME cli_soak_short COMMAND castle_cli --soak 12 --seeds 3 --data ${PROJECT_SOURCE_DIR}/game/data)
   add_test(NAME cli_bad_arguments COMMAND castle_cli --soak abc)
   set_tests_properties(cli_bad_arguments PROPERTIES WILL_FAIL TRUE)
   set_tests_properties(cli_simulate cli_soak_short cli_bad_arguments PROPERTIES

@@ -12,14 +12,37 @@
 
 #define CLI_MORNING_MINUTE (6 * 60)
 
-/* 쌓인 이벤트를 모두 꺼내 한 줄씩 출력합니다 */
-static void print_events(CoreWorld *world)
+/* 지도 글자: 성채 K, 주택 H, 농장 F, 채집 G, 벌목 L, 채석 Q, 광산 M, 창고 W, 시장 $, 병영 B, 탑 T, 성벽 #, 성문 +,
+ * 치료소 &, 마탑 A, 도로 = */
+static const char BUILDING_SYMBOLS[CORE_BLD_COUNT] = {'K', 'H', 'F', 'G', 'L', 'Q', 'M', 'W',
+                                                      '$', 'B', 'T', '#', '+', '&', 'A', '='};
+
+char cli_building_symbol(int32_t type)
+{
+    return (type >= 0 && type < CORE_BLD_COUNT) ? BUILDING_SYMBOLS[type] : '?';
+}
+
+void cli_print_events(CoreWorld *world)
 {
     CoreEventView event;
-    char text[160];
+    char text[200];
+    int32_t produced[CORE_RES_COUNT];
+    int32_t i;
+    memset(produced, 0, sizeof(produced));
     while (core_poll_event(world, &event) == 1) {
+        if (event.type == CORE_EVT_PRODUCED) {
+            if (event.b >= 0 && event.b < CORE_RES_COUNT) {
+                produced[event.b] += event.c; /* 생산은 너무 많아서 합계만 */
+            }
+            continue;
+        }
         fmt_event(&event, text, sizeof(text));
         printf("  · %s\n", text);
+    }
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        if (produced[i] > 0) {
+            printf("  · 생산: %s +%d\n", fmt_resource_name(i), (int)produced[i]);
+        }
     }
 }
 
@@ -37,6 +60,21 @@ static void replace_world(CliContext *context, CoreWorld *world)
 {
     core_destroy(context->world);
     context->world = world;
+    walker_free(&context->walker);
+    walker_init(&context->walker);
+}
+
+/* ticks 만큼 한 틱씩 진행하며 걷기를 흉내 냅니다 */
+static int32_t advance(CliContext *context, int32_t ticks)
+{
+    int32_t i;
+    for (i = 0; i < ticks; i++) {
+        int32_t rc = walker_tick(&context->walker, context->world);
+        if (rc != CORE_OK) {
+            return rc;
+        }
+    }
+    return CORE_OK;
 }
 
 /* ---- 명령 ------------------------------------------------------------ */
@@ -55,13 +93,17 @@ static int cmd_status(CliContext *context)
     printf("\n=== %s ===\n", summary.castle_name);
     printf("날짜   : %s\n", date);
     printf("난이도 : %s   시드: %d\n", fmt_difficulty_name(summary.difficulty), (int)summary.seed);
-    printf("지도   : %d×%d, 성채 위치 (%d, %d)\n", (int)summary.map_width, (int)summary.map_height,
-           (int)summary.keep_x, (int)summary.keep_y);
+    printf("주민   : %d명 (집 없음 %d, 일하는 사람 %d / 일자리 %d, 집 자리 %d), 평균 기분 %d\n",
+           (int)summary.population, (int)summary.homeless, (int)summary.employed, (int)summary.job_slots,
+           (int)summary.housing_capacity, (int)summary.average_mood);
     printf("자원   :");
     for (i = 0; i < CORE_RES_COUNT; i++) {
         printf(" %s %d", fmt_resource_name(i), (int)summary.resources[i]);
         if (summary.resource_capacity[i] > 0) {
             printf("/%d", (int)summary.resource_capacity[i]);
+        }
+        if (summary.resource_delta[i] != 0) {
+            printf("(%+d)", (int)summary.resource_delta[i]);
         }
         printf(i + 1 < CORE_RES_COUNT ? "," : "\n");
     }
@@ -70,41 +112,67 @@ static int cmd_status(CliContext *context)
 
 static int cmd_map(CliContext *context)
 {
-    static const char SYMBOLS[CORE_TERRAIN_COUNT] = {'.', 'T', '^', '~', '*'};
+    static const char TERRAIN_SYMBOLS[CORE_TERRAIN_COUNT] = {'.', 'T', '^', '~', '*'};
     CoreSummaryView summary;
+    CoreBuildingView *buildings = NULL;
     uint8_t *terrain;
+    uint8_t *roads;
+    char *canvas;
+    int32_t count = 0;
+    int32_t cells;
     int32_t x;
     int32_t y;
-    int32_t half;
-    int32_t rc = core_get_summary(context->world, &summary);
-    if (rc != CORE_OK) {
-        print_result("지도 읽기", rc);
+    int32_t i;
+    if (core_get_summary(context->world, &summary) != CORE_OK) {
         return 1;
     }
-    /* 지도 크기는 실행 중에 정해지므로 동적으로 할당합니다 */
-    terrain = (uint8_t *)malloc((size_t)summary.map_width * (size_t)summary.map_height);
-    if (terrain == NULL) {
-        printf("메모리가 부족해서 지도를 보여 줄 수 없습니다.\n");
-        return 1;
-    }
-    rc = core_copy_terrain(context->world, terrain, summary.map_width * summary.map_height);
-    if (rc != CORE_OK) {
-        print_result("지도 읽기", rc);
+    cells = summary.map_width * summary.map_height;
+    /* 지도 크기와 건물 수는 실행 중에 정해지므로 동적으로 할당합니다 */
+    terrain = (uint8_t *)malloc((size_t)cells);
+    roads = (uint8_t *)malloc((size_t)cells);
+    canvas = (char *)malloc((size_t)cells);
+    buildings = (CoreBuildingView *)malloc((size_t)(summary.building_count_hint + 1) * sizeof(CoreBuildingView));
+    if (terrain == NULL || roads == NULL || canvas == NULL || buildings == NULL ||
+        core_copy_terrain(context->world, terrain, cells) != CORE_OK ||
+        core_copy_roads(context->world, roads, cells) != CORE_OK ||
+        core_copy_buildings(context->world, buildings, summary.building_count_hint + 1, &count) != CORE_OK) {
+        printf("지도를 읽을 수 없습니다.\n");
         free(terrain);
+        free(roads);
+        free(canvas);
+        free(buildings);
         return 1;
     }
-    half = summary.keep_size / 2;
-    for (y = 0; y < summary.map_height; y++) {
-        for (x = 0; x < summary.map_width; x++) {
-            int in_keep = abs(x - summary.keep_x) <= half && abs(y - summary.keep_y) <= half;
-            uint8_t t = terrain[y * summary.map_width + x];
-            putchar(in_keep ? 'K' : (t < CORE_TERRAIN_COUNT ? SYMBOLS[t] : '?'));
+    for (i = 0; i < cells; i++) {
+        canvas[i] = roads[i] ? '=' : (terrain[i] < CORE_TERRAIN_COUNT ? TERRAIN_SYMBOLS[terrain[i]] : '?');
+    }
+    for (i = 0; i < count; i++) {
+        const CoreBuildingView *b = &buildings[i];
+        for (y = b->y; y < b->y + b->h; y++) {
+            for (x = b->x; x < b->x + b->w; x++) {
+                char symbol = cli_building_symbol(b->type);
+                /* 짓는 중이면 소문자 */
+                canvas[y * summary.map_width + x] =
+                    (b->state == CORE_BSTATE_CONSTRUCTING && symbol >= 'A' && symbol <= 'Z') ? (char)(symbol + 32)
+                                                                                              : symbol;
+            }
         }
+    }
+    for (y = 0; y < summary.map_height; y++) {
+        fwrite(&canvas[y * summary.map_width], 1, (size_t)summary.map_width, stdout);
         putchar('\n');
     }
-    printf("범례: K 성채  . %s  T %s  ^ %s  ~ %s  * %s\n", fmt_terrain_name(0), fmt_terrain_name(1),
-           fmt_terrain_name(2), fmt_terrain_name(3), fmt_terrain_name(4));
+    printf("지형: . %s  T %s  ^ %s  ~ %s  * %s   도로 =   (소문자 = 짓는 중)\n", fmt_terrain_name(0),
+           fmt_terrain_name(1), fmt_terrain_name(2), fmt_terrain_name(3), fmt_terrain_name(4));
+    printf("건물:");
+    for (i = 0; i < CORE_BLD_COUNT - 1; i++) {
+        printf(" %c %s", cli_building_symbol(i), fmt_building_name(i));
+    }
+    printf("\n");
     free(terrain);
+    free(roads);
+    free(canvas);
+    free(buildings);
     return 1;
 }
 
@@ -118,12 +186,11 @@ static int cmd_advance_ticks(CliContext *context)
     if (!read_int("몇 틱 진행할까요?", 1, config.max_ticks_per_call, &ticks)) {
         return 0;
     }
-    rc = core_tick(context->world, ticks);
+    rc = advance(context, ticks);
     if (rc != CORE_OK) {
         print_result("시간 진행", rc);
-        return 1;
     }
-    print_events(context->world);
+    cli_print_events(context->world);
     return cmd_status(context);
 }
 
@@ -144,13 +211,205 @@ static int cmd_next_morning(CliContext *context)
     if (summary.minute_of_day < CLI_MORNING_MINUTE) {
         minutes = CLI_MORNING_MINUTE - summary.minute_of_day;
     }
-    rc = core_tick(context->world, minutes / config.minutes_per_tick);
+    rc = advance(context, minutes / config.minutes_per_tick);
     if (rc != CORE_OK) {
         print_result("시간 진행", rc);
+    }
+    cli_print_events(context->world);
+    return cmd_status(context);
+}
+
+static void print_cost(const int32_t cost[CORE_RES_COUNT])
+{
+    int32_t i;
+    int printed = 0;
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        if (cost[i] > 0) {
+            printf("%s%s %d", printed ? ", " : "", fmt_resource_name(i), (int)cost[i]);
+            printed = 1;
+        }
+    }
+    if (!printed) {
+        printf("무료");
+    }
+}
+
+static int cmd_build(CliContext *context)
+{
+    CoreBuildingDefView def;
+    CorePlacementView preview;
+    int type = 0;
+    int x = 0;
+    int y = 0;
+    int32_t id = 0;
+    int32_t reason = 0;
+    int32_t rc;
+    int32_t i;
+
+    printf("지을 수 있는 건물:\n");
+    for (i = 1; i < CORE_BLD_COUNT; i++) {
+        if (core_get_building_def(context->world, i, &def) != CORE_OK) {
+            continue;
+        }
+        printf("%2d) %-10s %dx%d  비용: ", (int)i, fmt_building_name(i), (int)def.w, (int)def.h);
+        print_cost(def.cost);
+        printf(def.available ? "\n" : "  (등급 부족)\n");
+    }
+    if (!read_int("종류 번호", 1, CORE_BLD_COUNT - 1, &type) || !read_int("왼쪽 위 x", 0, 255, &x) ||
+        !read_int("왼쪽 위 y", 0, 255, &y)) {
+        return 0;
+    }
+    (void)core_can_place(context->world, type, x, y, &preview);
+    if (preview.terrain_count >= 0) {
+        printf("작업 반경 안 지형 %d칸 → 생산성 %d%%\n", (int)preview.terrain_count, (int)preview.productivity);
+    }
+    rc = core_place_building(context->world, type, x, y, &id, &reason);
+    if (rc == CORE_OK) {
+        printf("%s%s 짓기 시작했습니다 (번호 %d).\n", fmt_building_name(type), fmt_josa(fmt_building_name(type), "을", "를"),
+               (int)id);
+    } else if (rc == CORE_ERR_REJECTED) {
+        printf("지을 수 없습니다: %s\n", fmt_place_result(reason));
+    } else {
+        print_result("건설", rc);
+    }
+    cli_print_events(context->world);
+    return 1;
+}
+
+static int cmd_build_line(CliContext *context)
+{
+    int kind = 0;
+    int x0 = 0;
+    int y0 = 0;
+    int x1 = 0;
+    int y1 = 0;
+    int32_t placed = 0;
+    int32_t reason = 0;
+    int32_t type;
+    printf("1) 도로  2) 성벽\n");
+    if (!read_int("종류", 1, 2, &kind) || !read_int("시작 x", 0, 255, &x0) || !read_int("시작 y", 0, 255, &y0) ||
+        !read_int("끝 x", 0, 255, &x1) || !read_int("끝 y", 0, 255, &y1)) {
+        return 0;
+    }
+    type = kind == 1 ? CORE_BLD_ROAD : CORE_BLD_WALL;
+    (void)core_place_line(context->world, type, x0, y0, x1, y1, &placed, &reason);
+    printf("%s %d칸을 놓았습니다.", fmt_building_name(type), (int)placed);
+    if (reason != CORE_PLACE_OK) {
+        printf(" (놓지 못한 칸: %s)", fmt_place_result(reason));
+    }
+    printf("\n");
+    return 1;
+}
+
+static int cmd_demolish(CliContext *context)
+{
+    int id = 0;
+    int32_t rc;
+    if (!read_int("철거할 건물 번호 (0 = 도로 한 칸)", 0, 2147483647, &id)) {
+        return 0;
+    }
+    if (id == 0) {
+        int x = 0;
+        int y = 0;
+        if (!read_int("도로 x", 0, 255, &x) || !read_int("도로 y", 0, 255, &y)) {
+            return 0;
+        }
+        rc = core_remove_road(context->world, x, y);
+    } else {
+        rc = core_demolish(context->world, id);
+    }
+    print_result("철거", rc);
+    cli_print_events(context->world);
+    return 1;
+}
+
+/* 주민 뷰 전체를 새로 할당한 배열로 (호출한 쪽이 free) */
+static CoreVillagerView *copy_villagers(CoreWorld *world, int32_t *out_count)
+{
+    CoreSummaryView summary;
+    CoreVillagerView *views;
+    (void)core_get_summary(world, &summary);
+    views = (CoreVillagerView *)malloc((size_t)(summary.villager_count_hint + 1) * sizeof(CoreVillagerView));
+    if (views == NULL || core_copy_villagers(world, views, summary.villager_count_hint + 1, out_count) != CORE_OK) {
+        free(views);
+        return NULL;
+    }
+    return views;
+}
+
+static int cmd_villagers(CliContext *context)
+{
+    int32_t count = 0;
+    int32_t i;
+    CoreVillagerView *views = copy_villagers(context->world, &count);
+    if (views == NULL) {
+        printf("주민 목록을 읽을 수 없습니다.\n");
         return 1;
     }
-    print_events(context->world);
-    return cmd_status(context);
+    printf("번호  이름          나이 상태           일터          기분 배고픔 피로 집\n");
+    for (i = 0; i < count; i++) {
+        const CoreVillagerView *v = &views[i];
+        printf("%4d  %-12s  %3d  %-14s %-12s  %3d  %3d  %3d  %s\n", (int)v->id, v->name, (int)v->age,
+               fmt_villager_state(v->state), v->job >= 0 ? fmt_building_name(v->job) : "-", (int)v->mood,
+               (int)v->hunger, (int)v->rest, v->home_id != 0 ? "있음" : "없음");
+    }
+    free(views);
+    return 1;
+}
+
+static int cmd_buildings(CliContext *context)
+{
+    static const char *const STATES[3] = {"짓는 중", "운영 중", "무너짐"};
+    CoreSummaryView summary;
+    CoreBuildingView *views;
+    int32_t count = 0;
+    int32_t i;
+    (void)core_get_summary(context->world, &summary);
+    views = (CoreBuildingView *)malloc((size_t)(summary.building_count_hint + 1) * sizeof(CoreBuildingView));
+    if (views == NULL ||
+        core_copy_buildings(context->world, views, summary.building_count_hint + 1, &count) != CORE_OK) {
+        free(views);
+        printf("건물 목록을 읽을 수 없습니다.\n");
+        return 1;
+    }
+    printf("번호  종류          위치       상태     일꾼   거주   생산성\n");
+    for (i = 0; i < count; i++) {
+        const CoreBuildingView *b = &views[i];
+        if (b->type == CORE_BLD_WALL) {
+            continue; /* 성벽은 너무 많아서 생략 */
+        }
+        printf("%4d  %-12s (%2d,%2d)   %-8s %d/%d    %d/%d    %d%%", (int)b->id, fmt_building_name(b->type),
+               (int)b->x, (int)b->y, STATES[b->state % 3], (int)b->workers, (int)b->worker_slots, (int)b->residents,
+               (int)b->resident_slots, (int)b->productivity);
+        if (b->state == CORE_BSTATE_CONSTRUCTING && b->build_total > 0) {
+            printf("  (%d%%)", (int)(b->build_progress * 100 / b->build_total));
+        }
+        printf("\n");
+    }
+    free(views);
+    return 1;
+}
+
+static int cmd_assign(CliContext *context)
+{
+    int villager = 0;
+    int building = 0;
+    if (!read_int("주민 번호", 1, 2147483647, &villager) || !read_int("건물 번호", 1, 2147483647, &building)) {
+        return 0;
+    }
+    print_result("일꾼 배치", core_assign_worker(context->world, villager, building));
+    cli_print_events(context->world);
+    return 1;
+}
+
+static int cmd_unassign(CliContext *context)
+{
+    int villager = 0;
+    if (!read_int("주민 번호", 1, 2147483647, &villager)) {
+        return 0;
+    }
+    print_result("일꾼 빼기", core_unassign_worker(context->world, villager));
+    return 1;
 }
 
 static int cmd_save(CliContext *context)
@@ -172,7 +431,7 @@ int cli_load_game(CliContext *context, const char *path)
 {
     CoreWorld *loaded = NULL;
     int32_t line = 0;
-    int32_t rc = core_load(path, &loaded, &line);
+    int32_t rc = core_load(path, context->defs, &loaded, &line);
     if (rc != CORE_OK) {
         print_result("불러오기", rc);
         if (line > 0) {
@@ -222,7 +481,7 @@ static int cmd_new_game(CliContext *context)
         }
         params.seed = seed;
         params.difficulty = difficulty;
-        rc = core_create(&params, &world);
+        rc = core_create(&params, context->defs, &world);
         if (rc == CORE_OK) {
             break;
         }
@@ -234,6 +493,7 @@ static int cmd_new_game(CliContext *context)
     }
     replace_world(context, world);
     printf("새 게임을 시작했습니다.\n");
+    cli_print_events(context->world);
     return cmd_status(context);
 }
 
@@ -250,6 +510,13 @@ static const CliCommand COMMANDS[] = {
     {"지도 보기", cmd_map, 1},
     {"시간 진행 (틱 단위)", cmd_advance_ticks, 1},
     {"다음 날 아침까지 진행", cmd_next_morning, 1},
+    {"건물 짓기", cmd_build, 1},
+    {"도로·성벽 줄 놓기", cmd_build_line, 1},
+    {"철거하기", cmd_demolish, 1},
+    {"주민 목록", cmd_villagers, 1},
+    {"건물 목록", cmd_buildings, 1},
+    {"일꾼 배치", cmd_assign, 1},
+    {"일꾼 빼기", cmd_unassign, 1},
     {"저장하기", cmd_save, 1},
     {"불러오기", cmd_load, 0},
     {"새 게임", cmd_new_game, 0},

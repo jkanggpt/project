@@ -2,7 +2,7 @@
 # 사용: cmake -DCLI=<castle_cli> -DINPUT=<입력 파일> -P run_cli_script.cmake
 file(REMOVE cli_test.sav cli_test.sav.bak)
 execute_process(
-  COMMAND ${CLI}
+  COMMAND ${CLI} --data ${DATA}
   INPUT_FILE ${INPUT}
   OUTPUT_VARIABLE output
   ERROR_VARIABLE errors
@@ -12,7 +12,7 @@ if(NOT result EQUAL 0)
 endif()
 foreach(expected IN ITEMS
     "숫자를 입력하세요"
-    "0부터 7 사이의 숫자를 입력하세요"
+    "0부터 14 사이의 숫자를 입력하세요"
     "먼저 새 게임을 시작하거나 불러오세요"
     "0부터 2147483647 사이의 숫자를 입력하세요"
     "0부터 2 사이의 숫자를 입력하세요"
@@ -20,7 +20,10 @@ foreach(expected IN ITEMS
     "=== 바람언덕 ==="
     "밤이 되었습니다"
     "2일째가 시작되었습니다"
-    "범례: K 성채"
+    "주택(45, 45)을 짓기 시작했습니다"
+    "건물: K 성채"
+    "번호  이름"
+    "번호  종류"
     "저장: 성공했습니다"
     "'cli_test.sav' 에서 불러왔습니다"
     "불러오기 실패: 파일을 열 수 없습니다"

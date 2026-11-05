@@ -2,20 +2,28 @@
  * api.c — 공개 API (castle_core.h) 의 구현
  *
  * 여기는 "접착제"만 있습니다: 인자를 검사하고, 알맞은 모듈 함수를 부르고, 결과를 뷰 구조체로 복사합니다.
- * 게임 규칙은 각 모듈(world, grid, economy, ...)에 있습니다.
+ * 게임 규칙은 각 모듈(world, placement, villager_ai, jobs, …)에 있습니다.
  * 바깥(Godot, CLI)에서 무엇을 넘기든 죽지 않고 오류 코드를 돌려주는 것이 이 파일의 책임입니다.
  */
 #include <string.h>
 
 #include "castle_core.h"
+#include "jobs.h"
+#include "mem.h"
+#include "placement.h"
+#include "platform.h"
 #include "save.h"
 #include "validate.h"
+#include "villager_ai.h"
 #include "world.h"
 
 /* 공개 헤더의 상수와 내부 상수가 어긋나면 컴파일 단계에서 막습니다 */
 _Static_assert(CORE_RES_COUNT == 6, "resource count changed: update save keys and C# views");
 _Static_assert(sizeof(CoreSummaryView) % 4 == 0, "views must stay 4-byte aligned for C#");
 _Static_assert(sizeof(CoreNewGameParams) == CORE_NAME_BYTES + 8, "unexpected padding in CoreNewGameParams");
+_Static_assert(CORE_MOOD_TERM_COUNT == 8, "mood terms changed: update C# strings");
+
+#define DEFS_MAX_FILE_BYTES (1024 * 1024) /* 정의 파일 하나의 최대 크기 */
 
 CORE_API int32_t core_abi_version(void)
 {
@@ -34,6 +42,12 @@ CORE_API int32_t core_get_struct_sizes(CoreStructSizes *out, int32_t out_size)
     out->config_view = (int32_t)sizeof(CoreConfigView);
     out->summary_view = (int32_t)sizeof(CoreSummaryView);
     out->event_view = (int32_t)sizeof(CoreEventView);
+    out->villager_view = (int32_t)sizeof(CoreVillagerView);
+    out->building_view = (int32_t)sizeof(CoreBuildingView);
+    out->building_def_view = (int32_t)sizeof(CoreBuildingDefView);
+    out->trait_def_view = (int32_t)sizeof(CoreTraitDefView);
+    out->placement_view = (int32_t)sizeof(CorePlacementView);
+    out->mood_term_view = (int32_t)sizeof(CoreMoodTermView);
     return CORE_OK;
 }
 
@@ -55,12 +69,19 @@ CORE_API int32_t core_get_config(CoreConfigView *out)
     out->night_end_minute = CLOCK_NIGHT_END_MIN;
     out->resource_count = CORE_RES_COUNT;
     out->terrain_count = CORE_TERRAIN_COUNT;
+    out->building_type_count = CORE_BLD_COUNT;
+    out->villager_state_count = CORE_VS_COUNT;
+    out->walk_milli_tiles_per_tick = VIL_BASE_WALK_MILLI;
+    out->work_start_minute = WORLD_WORK_START_MIN;
+    out->work_end_minute = WORLD_WORK_END_MIN;
     return CORE_OK;
 }
 
 CORE_API const char *core_result_name(int32_t code)
 {
     switch (code) {
+    case CORE_IGNORED:
+        return "CORE_IGNORED";
     case CORE_OK:
         return "CORE_OK";
     case CORE_ERR_NULL_ARG:
@@ -81,12 +102,120 @@ CORE_API const char *core_result_name(int32_t code)
         return "CORE_ERR_VERSION";
     case CORE_ERR_STRUCT_SIZE:
         return "CORE_ERR_STRUCT_SIZE";
+    case CORE_ERR_REJECTED:
+        return "CORE_ERR_REJECTED";
+    case CORE_ERR_NOT_FOUND:
+        return "CORE_ERR_NOT_FOUND";
     default:
         return "CORE_ERR_UNKNOWN";
     }
 }
 
-CORE_API int32_t core_create(const CoreNewGameParams *params, CoreWorld **out_world)
+/* ---- 정의 ------------------------------------------------------------ */
+
+CORE_API int32_t core_defs_create(CoreDefs **out_defs)
+{
+    CoreDefs *defs;
+    if (out_defs == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    *out_defs = NULL;
+    defs = (CoreDefs *)mem_calloc(1, sizeof(CoreDefs));
+    if (defs == NULL) {
+        return CORE_ERR_OUT_OF_MEMORY;
+    }
+    if (defs_init_builtin(&defs->defs) != CORE_OK) {
+        mem_free(defs);
+        return CORE_ERR_OUT_OF_MEMORY;
+    }
+    *out_defs = defs;
+    return CORE_OK;
+}
+
+CORE_API void core_defs_destroy(CoreDefs *defs)
+{
+    if (defs != NULL) {
+        defs_free(&defs->defs);
+        mem_free(defs);
+    }
+}
+
+CORE_API int32_t core_defs_load_text(CoreDefs *defs, int32_t file_id, const char *text, int32_t length,
+                                     int32_t *out_line)
+{
+    int32_t line = 0;
+    int rc;
+    if (out_line != NULL) {
+        *out_line = 0;
+    }
+    if (defs == NULL || text == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    if (length < 0 || length > DEFS_MAX_FILE_BYTES || file_id < 0 || file_id >= CORE_DATA_COUNT) {
+        return CORE_ERR_INVALID_ARG;
+    }
+    rc = defs_load_text(&defs->defs, file_id, text, (size_t)length, &line);
+    if (out_line != NULL) {
+        *out_line = line;
+    }
+    return rc;
+}
+
+CORE_API int32_t core_defs_load_file(CoreDefs *defs, int32_t file_id, const char *path_utf8, int32_t *out_line)
+{
+    FILE *file;
+    char *text;
+    size_t length = 0;
+    size_t got;
+    int32_t rc;
+    if (out_line != NULL) {
+        *out_line = 0;
+    }
+    if (defs == NULL || path_utf8 == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    file = platform_fopen_utf8(path_utf8, "rb");
+    if (file == NULL) {
+        return CORE_ERR_FILE_OPEN;
+    }
+    /* 크기를 미리 모르므로 상한만큼 할당하고 읽은 만큼만 씁니다 */
+    text = (char *)mem_malloc(DEFS_MAX_FILE_BYTES + 1);
+    if (text == NULL) {
+        fclose(file);
+        return CORE_ERR_OUT_OF_MEMORY;
+    }
+    while ((got = fread(text + length, 1, DEFS_MAX_FILE_BYTES + 1 - length, file)) > 0) {
+        length += got;
+        if (length > DEFS_MAX_FILE_BYTES) {
+            break;
+        }
+    }
+    if (ferror(file)) {
+        rc = CORE_ERR_FILE_IO;
+    } else if (length > DEFS_MAX_FILE_BYTES) {
+        rc = CORE_ERR_FORMAT;
+    } else {
+        rc = core_defs_load_text(defs, file_id, text, (int32_t)length, out_line);
+    }
+    fclose(file);
+    mem_free(text);
+    return rc;
+}
+
+CORE_API int32_t core_defs_save_file(const CoreDefs *defs, int32_t file_id, const char *path_utf8)
+{
+    if (defs == NULL || path_utf8 == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    if (file_id < 0 || file_id >= CORE_DATA_COUNT || path_utf8[0] == '\0') {
+        return CORE_ERR_INVALID_ARG;
+    }
+    return defs_write_file(&defs->defs, file_id, path_utf8);
+}
+
+/* ---- 생성, 해제, 시간 --------------------------------------------------- */
+
+CORE_API int32_t core_create(const CoreNewGameParams *params, const CoreDefs *defs, CoreWorld **out_world)
 {
     if (out_world == NULL) {
         return CORE_ERR_NULL_ARG;
@@ -95,7 +224,7 @@ CORE_API int32_t core_create(const CoreNewGameParams *params, CoreWorld **out_wo
     if (params == NULL) {
         return CORE_ERR_NULL_ARG;
     }
-    return world_create(params, out_world);
+    return world_create(params, defs != NULL ? &defs->defs : NULL, out_world);
 }
 
 CORE_API void core_destroy(CoreWorld *world)
@@ -114,8 +243,11 @@ CORE_API int32_t core_tick(CoreWorld *world, int32_t ticks)
     return world_tick(world, ticks);
 }
 
+/* ---- 읽기 ------------------------------------------------------------ */
+
 CORE_API int32_t core_get_summary(const CoreWorld *world, CoreSummaryView *out)
 {
+    int32_t mood_total = 0;
     int32_t i;
     if (world == NULL || out == NULL) {
         return CORE_ERR_NULL_ARG;
@@ -136,9 +268,30 @@ CORE_API int32_t core_get_summary(const CoreWorld *world, CoreSummaryView *out)
     out->keep_y = world->keep_y;
     out->keep_size = GRID_KEEP_SIZE;
     out->cost_grid_rev = world->grid.cost_rev;
+    out->population = world->villager_count;
+    out->rank = world->rank;
+    out->building_count = world->building_count;
+    out->villager_count_hint = world->villager_count;
+    out->building_count_hint = world->building_count;
+    for (i = 0; i < world->building_count; i++) {
+        const Building *b = world->buildings[i];
+        const BuildingDef *def = world_building_def(world, b->type);
+        if (b->state == CORE_BSTATE_ACTIVE) {
+            out->housing_capacity += def->resident_slots;
+            out->job_slots += def->worker_slots;
+        }
+    }
+    for (i = 0; i < world->villager_count; i++) {
+        const Villager *v = world->villagers[i];
+        mood_total += v->mood;
+        out->homeless += v->home == NULL;
+        out->employed += v->workplace != NULL;
+    }
+    out->average_mood = world->villager_count > 0 ? mood_total / world->villager_count : 0;
     for (i = 0; i < CORE_RES_COUNT; i++) {
         out->resources[i] = world->bank.amount[i];
         out->resource_capacity[i] = eco_is_stored_good(i) ? world->bank.capacity : 0;
+        out->resource_delta[i] = eco_ledger_net(&world->ledger, i);
     }
     /* 이름 버퍼는 크기가 같고 항상 '\0' 으로 끝나므로 통째로 복사합니다 */
     memcpy(out->castle_name, world->castle_name, CORE_NAME_BYTES);
@@ -156,7 +309,8 @@ CORE_API int32_t core_get_map_size(const CoreWorld *world, int32_t *out_width, i
     return CORE_OK;
 }
 
-CORE_API int32_t core_copy_terrain(const CoreWorld *world, uint8_t *out, int32_t capacity)
+/* 격자 층 하나를 복사하는 공통 부분 */
+static int32_t copy_layer(const CoreWorld *world, const uint8_t *layer, uint8_t *out, int32_t capacity)
 {
     int32_t count;
     if (world == NULL || out == NULL) {
@@ -166,26 +320,388 @@ CORE_API int32_t core_copy_terrain(const CoreWorld *world, uint8_t *out, int32_t
     if (capacity < count) {
         return CORE_ERR_BUFFER_TOO_SMALL;
     }
-    memcpy(out, world->grid.terrain, (size_t)count);
+    memcpy(out, layer, (size_t)count);
     return CORE_OK;
+}
+
+CORE_API int32_t core_copy_terrain(const CoreWorld *world, uint8_t *out, int32_t capacity)
+{
+    return copy_layer(world, world != NULL ? world->grid.terrain : NULL, out, capacity);
+}
+
+CORE_API int32_t core_copy_roads(const CoreWorld *world, uint8_t *out, int32_t capacity)
+{
+    return copy_layer(world, world != NULL ? world->grid.road : NULL, out, capacity);
 }
 
 CORE_API int32_t core_copy_cost_grid(const CoreWorld *world, uint8_t *out, int32_t capacity, int32_t *out_rev)
 {
-    int32_t count;
-    if (world == NULL || out == NULL) {
+    int32_t rc = copy_layer(world, world != NULL ? world->grid.cost : NULL, out, capacity);
+    if (rc == CORE_OK && out_rev != NULL) {
+        *out_rev = world->grid.cost_rev;
+    }
+    return rc;
+}
+
+static void villager_to_view(const World *world, const Villager *v, CoreVillagerView *out)
+{
+    memset(out, 0, sizeof(*out));
+    out->id = v->id;
+    out->state = v->state;
+    out->intent_rev = v->intent_rev;
+    out->intent_flags = v->intent_flags;
+    out->target_building = v->target != NULL ? v->target->id : 0;
+    out->target_x = v->target_x;
+    out->target_y = v->target_y;
+    out->at_target = v->at_target;
+    out->loc_x = v->loc_x;
+    out->loc_y = v->loc_y;
+    out->home_id = v->home != NULL ? v->home->id : 0;
+    out->workplace_id = v->workplace != NULL ? v->workplace->id : 0;
+    out->job = v->workplace != NULL ? v->workplace->type : -1;
+    out->mood = v->mood;
+    {
+        int32_t terms[CORE_MOOD_TERM_COUNT];
+        out->mood_target = vil_mood_terms(world, v, terms);
+    }
+    out->health = v->health;
+    out->hunger = v->needs.hunger;
+    out->rest = v->needs.rest;
+    out->safety = v->needs.safety;
+    out->housing = v->needs.housing;
+    out->strength = v->stats.strength;
+    out->intellect = v->stats.intellect;
+    out->dexterity = v->stats.dexterity;
+    out->vitality = v->stats.vitality;
+    out->trait_a = v->traits[0];
+    out->trait_b = v->traits[1];
+    out->age = v->age;
+    out->flags = v->flags;
+    out->walk_speed = vil_walk_speed(v);
+    memcpy(out->name, v->name, CORE_NAME_BYTES);
+    out->name[CORE_NAME_BYTES - 1] = '\0';
+}
+
+CORE_API int32_t core_copy_villagers(const CoreWorld *world, CoreVillagerView *out, int32_t capacity,
+                                     int32_t *out_count)
+{
+    int32_t i;
+    if (world == NULL || out_count == NULL) {
         return CORE_ERR_NULL_ARG;
     }
-    count = world->grid.width * world->grid.height;
-    if (capacity < count) {
+    *out_count = world->villager_count;
+    if (capacity < world->villager_count) {
         return CORE_ERR_BUFFER_TOO_SMALL;
     }
-    memcpy(out, world->grid.cost, (size_t)count);
-    if (out_rev != NULL) {
-        *out_rev = world->grid.cost_rev;
+    if (out == NULL && world->villager_count > 0) {
+        return CORE_ERR_NULL_ARG;
+    }
+    for (i = 0; i < world->villager_count; i++) {
+        villager_to_view(world, world->villagers[i], &out[i]);
     }
     return CORE_OK;
 }
+
+static void building_to_view(const World *world, const Building *b, CoreBuildingView *out)
+{
+    const BuildingDef *def = world_building_def(world, b->type);
+    int32_t i;
+    memset(out, 0, sizeof(*out));
+    out->id = b->id;
+    out->type = b->type;
+    out->x = b->x;
+    out->y = b->y;
+    out->w = b->w;
+    out->h = b->h;
+    out->state = b->state;
+    out->hp = b->hp;
+    out->max_hp = def->max_hp;
+    out->build_progress = b->build_progress;
+    out->build_total = def->build_ticks;
+    out->workers = b->worker_count;
+    out->worker_slots = def->worker_slots;
+    out->residents = b->resident_count;
+    out->resident_slots = def->resident_slots;
+    for (i = 0; i < b->worker_count; i++) {
+        const Villager *worker = b->workers[i];
+        out->working_now += worker->state == CORE_VS_WORKING && worker->at_target;
+    }
+    out->auto_assign = b->auto_assign;
+    out->door_x = b->door_x;
+    out->door_y = b->door_y;
+    out->productivity = b->productivity;
+}
+
+CORE_API int32_t core_copy_buildings(const CoreWorld *world, CoreBuildingView *out, int32_t capacity,
+                                     int32_t *out_count)
+{
+    int32_t i;
+    if (world == NULL || out_count == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    *out_count = world->building_count;
+    if (capacity < world->building_count) {
+        return CORE_ERR_BUFFER_TOO_SMALL;
+    }
+    if (out == NULL && world->building_count > 0) {
+        return CORE_ERR_NULL_ARG;
+    }
+    for (i = 0; i < world->building_count; i++) {
+        building_to_view(world, world->buildings[i], &out[i]);
+    }
+    return CORE_OK;
+}
+
+CORE_API int32_t core_get_building_def(const CoreWorld *world, int32_t type, CoreBuildingDefView *out)
+{
+    const BuildingDef *def;
+    int32_t i;
+    if (world == NULL || out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    def = world_building_def(world, type);
+    if (def == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    memset(out, 0, sizeof(*out));
+    out->type = type;
+    out->w = def->w;
+    out->h = def->h;
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        out->cost[i] = def->cost[i];
+    }
+    out->build_ticks = def->build_ticks;
+    out->max_hp = def->max_hp;
+    out->worker_slots = def->worker_slots;
+    out->resident_slots = def->resident_slots;
+    out->storage = def->storage;
+    out->produces = def->produces;
+    out->rate = def->rate;
+    out->secondary = def->secondary;
+    out->secondary_rate = def->secondary_rate;
+    out->work_radius = def->work_radius;
+    out->placement = def->placement;
+    out->min_terrain = def->min_terrain;
+    out->ideal_terrain = def->ideal_terrain;
+    out->wage = def->wage;
+    out->required_rank = def->required_rank;
+    out->category = def->category;
+    out->line = def->line;
+    out->available = type != CORE_BLD_KEEP && def->required_rank <= world->rank;
+    memcpy(out->key, def->key, CORE_KEY_BYTES);
+    out->key[CORE_KEY_BYTES - 1] = '\0';
+    return CORE_OK;
+}
+
+CORE_API int32_t core_get_trait_def(const CoreWorld *world, int32_t index, CoreTraitDefView *out)
+{
+    const TraitDef *trait;
+    if (world == NULL || out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    if (index < 0 || index >= world->defs.trait_count) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    trait = &world->defs.traits[index];
+    memset(out, 0, sizeof(*out));
+    out->index = index;
+    out->work_pct = trait->work_pct;
+    out->food_pct = trait->food_pct;
+    out->mood = trait->mood;
+    out->bravery = trait->bravery;
+    out->magic_pct = trait->magic_pct;
+    memcpy(out->key, trait->key, CORE_KEY_BYTES);
+    out->key[CORE_KEY_BYTES - 1] = '\0';
+    return CORE_OK;
+}
+
+CORE_API int32_t core_get_mood_terms(const CoreWorld *world, int32_t villager_id, CoreMoodTermView *out,
+                                     int32_t capacity, int32_t *out_count)
+{
+    const Villager *villager;
+    int32_t terms[CORE_MOOD_TERM_COUNT];
+    int32_t i;
+    if (world == NULL || out == NULL || out_count == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    *out_count = CORE_MOOD_TERM_COUNT;
+    if (capacity < CORE_MOOD_TERM_COUNT) {
+        return CORE_ERR_BUFFER_TOO_SMALL;
+    }
+    villager = entity_find_villager(world, villager_id);
+    if (villager == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    (void)vil_mood_terms(world, villager, terms);
+    for (i = 0; i < CORE_MOOD_TERM_COUNT; i++) {
+        out[i].term = i;
+        out[i].value = terms[i];
+    }
+    return CORE_OK;
+}
+
+/* ---- 배치와 명령 ------------------------------------------------------ */
+
+CORE_API int32_t core_can_place(const CoreWorld *world, int32_t type, int32_t x, int32_t y, CorePlacementView *out)
+{
+    if (world == NULL || out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    placement_check(world, type, x, y, out);
+    return CORE_OK;
+}
+
+CORE_API int32_t core_place_building(CoreWorld *world, int32_t type, int32_t x, int32_t y, int32_t *out_id,
+                                     int32_t *out_reason)
+{
+    int32_t id = 0;
+    int32_t reason = CORE_PLACE_OK;
+    int rc;
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    rc = placement_place(world, type, x, y, &id, &reason);
+    if (out_id != NULL) {
+        *out_id = id;
+    }
+    if (out_reason != NULL) {
+        *out_reason = reason;
+    }
+    return rc;
+}
+
+CORE_API int32_t core_place_line(CoreWorld *world, int32_t type, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
+                                 int32_t *out_placed, int32_t *out_reason)
+{
+    int32_t placed = 0;
+    int32_t reason = CORE_PLACE_OK;
+    int rc;
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    rc = placement_line(world, type, x0, y0, x1, y1, &placed, &reason);
+    if (out_placed != NULL) {
+        *out_placed = placed;
+    }
+    if (out_reason != NULL) {
+        *out_reason = reason;
+    }
+    return rc;
+}
+
+CORE_API int32_t core_demolish(CoreWorld *world, int32_t building_id)
+{
+    Building *building;
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    building = entity_find_building(world, building_id);
+    if (building == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    return placement_demolish(world, building);
+}
+
+CORE_API int32_t core_remove_road(CoreWorld *world, int32_t x, int32_t y)
+{
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    return placement_remove_road(world, x, y);
+}
+
+CORE_API int32_t core_assign_worker(CoreWorld *world, int32_t villager_id, int32_t building_id)
+{
+    Villager *villager;
+    Building *building;
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    villager = entity_find_villager(world, villager_id);
+    building = entity_find_building(world, building_id);
+    if (villager == NULL || building == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    return jobs_assign_manual(world, villager, building);
+}
+
+CORE_API int32_t core_unassign_worker(CoreWorld *world, int32_t villager_id)
+{
+    Villager *villager;
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    villager = entity_find_villager(world, villager_id);
+    if (villager == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    jobs_unassign_manual(world, villager);
+    return CORE_OK;
+}
+
+CORE_API int32_t core_release_worker(CoreWorld *world, int32_t villager_id)
+{
+    Villager *villager;
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    villager = entity_find_villager(world, villager_id);
+    if (villager == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    jobs_release_manual(world, villager);
+    return CORE_OK;
+}
+
+CORE_API int32_t core_set_auto_assign(CoreWorld *world, int32_t building_id, int32_t enabled)
+{
+    Building *building;
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    if (enabled != 0 && enabled != 1) {
+        return CORE_ERR_INVALID_ARG;
+    }
+    building = entity_find_building(world, building_id);
+    if (building == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    building->auto_assign = enabled;
+    if (enabled) {
+        jobs_auto_assign(world);
+    }
+    return CORE_OK;
+}
+
+/* ---- 보고 ------------------------------------------------------------ */
+
+CORE_API int32_t core_villager_arrived(CoreWorld *world, int32_t villager_id, int32_t intent_rev)
+{
+    Villager *villager;
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    villager = entity_find_villager(world, villager_id);
+    if (villager == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    return vil_arrived(world, villager, intent_rev);
+}
+
+CORE_API int32_t core_villager_unreachable(CoreWorld *world, int32_t villager_id, int32_t intent_rev)
+{
+    Villager *villager;
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    villager = entity_find_villager(world, villager_id);
+    if (villager == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    return vil_unreachable(world, villager, intent_rev);
+}
+
+/* ---- 피드백, 저장, 디버그 ------------------------------------------------ */
 
 CORE_API int32_t core_poll_event(CoreWorld *world, CoreEventView *out)
 {
@@ -212,7 +728,8 @@ CORE_API int32_t core_save(const CoreWorld *world, const char *path_utf8)
     return save_write(world, path_utf8);
 }
 
-CORE_API int32_t core_load(const char *path_utf8, CoreWorld **out_world, int32_t *out_error_line)
+CORE_API int32_t core_load(const char *path_utf8, const CoreDefs *defs, CoreWorld **out_world,
+                           int32_t *out_error_line)
 {
     int32_t line = 0;
     int rc;
@@ -229,7 +746,7 @@ CORE_API int32_t core_load(const char *path_utf8, CoreWorld **out_world, int32_t
     if (path_utf8[0] == '\0') {
         return CORE_ERR_INVALID_ARG;
     }
-    rc = save_read(path_utf8, out_world, &line);
+    rc = save_read(path_utf8, defs != NULL ? &defs->defs : NULL, out_world, &line);
     if (out_error_line != NULL) {
         *out_error_line = line;
     }

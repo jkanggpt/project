@@ -8,12 +8,15 @@
 #define CASTLE_CLI_COMMANDS_H
 
 #include "castle_core.h"
+#include "walker.h"
 
 #define CLI_PATH_BYTES 260
 
 typedef struct CliContext {
-    CoreWorld *world; /* 지금 진행 중인 게임 (없으면 NULL) */
-    int running;      /* 0 이 되면 메뉴를 끝냄 */
+    CoreWorld *world;       /* 지금 진행 중인 게임 (없으면 NULL) */
+    const CoreDefs *defs;   /* 정의 (data 폴더에서 읽은 것) */
+    Walker walker;          /* 주민 걷기 흉내 */
+    int running;            /* 0 이 되면 메뉴를 끝냄 */
     char save_path[CLI_PATH_BYTES];
 } CliContext;
 
@@ -26,9 +29,13 @@ typedef struct CliCommand {
     int needs_world; /* 게임이 있어야 쓸 수 있는 명령이면 1 */
 } CliCommand;
 
-/* 메인 메뉴를 돌립니다. 게임이 없으면 새 게임/불러오기부터 묻습니다 */
+/* 메인 메뉴를 돌립니다 */
 void cli_run_menu(CliContext *context);
 /* 파일에서 게임을 불러와 context 의 게임으로 삼습니다. 성공 1 */
 int cli_load_game(CliContext *context, const char *path);
+/* 쌓인 이벤트를 모두 출력합니다 (생산 이벤트는 개수만 모아서) */
+void cli_print_events(CoreWorld *world);
+/* 한 칸 글자 (지도 보기용) */
+char cli_building_symbol(int32_t type);
 
 #endif

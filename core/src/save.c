@@ -1,29 +1,29 @@
 /*
  * save.c — 저장과 불러오기 (설명은 save.h)
  *
- * 저장 파일 예:
- *   MAGICCASTLE_SAVE 1
+ * 저장 파일 예 (버전 2):
+ *   MAGICCASTLE_SAVE 2
  *   [meta]
  *   name=바람언덕
  *   difficulty=1
  *   seed=12345
  *   keep=48,48
- *   [clock]
- *   tick=36
- *   [rng]
- *   state=0123456789abcdef
- *   inc=fedcba9876543211
- *   [resources]
- *   capacity=200
- *   gold=200
- *   ...
- *   [map]
- *   size=96,96
- *   row=..TT^^~~**....   (height 줄, 한 글자가 한 칸)
+ *   keep_id=1
+ *   rank=0
+ *   next_ids=7,4            ← 다음 주민 id, 다음 건물 id (id 는 다시 쓰지 않음)
+ *   mourning=0
+ *   [clock] tick=36
+ *   [rng] state=…  inc=…
+ *   [resources] capacity=200, gold=200, …
+ *   [ledger] today_gold=0,0,…  yesterday_gold=…   (항목 10개씩)
+ *   [map] size=96,96, row=..TT^^~~**…, road=0001100…
+ *   [buildings] building=id,종류,x,y,w,h,상태,체력,건설진행,문x,문y,자동배치,생산누적1,생산누적2
+ *   [villagers] villager=id,나이,…,특성1,특성2,이름   (이름은 마지막: 쉼표가 들어 있어도 됨)
  *   [end]
  *
- * 읽을 때는 섹션 이름 → 해석 함수 표(함수 포인터)로 줄을 나눠 보냅니다.
- * 모든 값은 범위를 검사하고, 끝에 불변 조건 검사기까지 통과해야 성공입니다.
+ * 포인터는 저장하지 않고 id 를 저장합니다. 불러온 뒤 id 로 찾아 포인터를 다시 잇습니다.
+ * 섹션 이름 → 해석 함수 표(SECTIONS[], 함수 포인터)로 줄을 나눠 보내고, 모든 값의 범위를 검사하며,
+ * 끝에 불변 조건 검사기까지 통과해야 성공입니다.
  */
 #include "save.h"
 
@@ -32,11 +32,18 @@
 #include <string.h>
 
 #include "mem.h"
+#include "placement.h"
 #include "platform.h"
+#include "text.h"
 #include "validate.h"
 
 #define SAVE_LINE_INITIAL 128
 #define SAVE_LINE_MAX 4096 /* 이보다 긴 줄은 망가진 파일로 봅니다 (메모리를 무한히 쓰지 않게) */
+#define SAVE_MAX_BUILDINGS 20000
+#define SAVE_MAX_VILLAGERS 5000
+
+#define BUILDING_FIELDS 14
+#define VILLAGER_INT_FIELDS 31
 
 /* 자원 키 이름 (순서는 CoreResource) */
 static const char *const RESOURCE_KEYS[CORE_RES_COUNT] = {"gold", "mana", "food", "wood", "stone", "herbs"};
@@ -57,45 +64,162 @@ static void write_hex64(FILE *file, uint64_t value)
     fputs(text, file);
 }
 
-static int write_world(FILE *file, const World *world)
+static void write_int_list(FILE *file, const int32_t *values, int32_t count)
 {
-    int32_t x;
-    int32_t y;
     int32_t i;
+    for (i = 0; i < count; i++) {
+        fprintf(file, i == 0 ? "%d" : ",%d", (int)values[i]);
+    }
+    fputc('\n', file);
+}
 
-    fprintf(file, "%s %d\n", SAVE_MAGIC, SAVE_VERSION);
-    fputs("# 마법성채 키우기 저장 파일입니다. 직접 고치면 불러오지 못할 수 있습니다.\n", file);
-
+static void write_meta(FILE *file, const World *world)
+{
     fputs("[meta]\n", file);
     fprintf(file, "name=%s\n", world->castle_name);
     fprintf(file, "difficulty=%d\n", (int)world->difficulty);
     fprintf(file, "seed=%d\n", (int)world->seed);
     fprintf(file, "keep=%d,%d\n", (int)world->keep_x, (int)world->keep_y);
-
+    fprintf(file, "keep_id=%d\n", (int)world->keep_id);
+    fprintf(file, "rank=%d\n", (int)world->rank);
+    fprintf(file, "next_ids=%d,%d\n", (int)world->next_villager_id, (int)world->next_building_id);
+    fprintf(file, "mourning=%d\n", (int)world->mourning);
     fputs("[clock]\n", file);
     fprintf(file, "tick=%d\n", (int)world->clock.tick);
-
     fputs("[rng]\nstate=", file);
     write_hex64(file, world->rng.state);
     fputs("\ninc=", file);
     write_hex64(file, world->rng.inc);
     fputs("\n", file);
+}
 
+static void write_economy(FILE *file, const World *world)
+{
+    int32_t i;
     fputs("[resources]\n", file);
     fprintf(file, "capacity=%d\n", (int)world->bank.capacity);
     for (i = 0; i < CORE_RES_COUNT; i++) {
         fprintf(file, "%s=%d\n", RESOURCE_KEYS[i], (int)world->bank.amount[i]);
     }
+    fputs("[ledger]\n", file);
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        fprintf(file, "today_%s=", RESOURCE_KEYS[i]);
+        write_int_list(file, world->ledger.today[i], LEDGER_CAT_COUNT);
+        fprintf(file, "yesterday_%s=", RESOURCE_KEYS[i]);
+        write_int_list(file, world->ledger.yesterday[i], LEDGER_CAT_COUNT);
+    }
+}
 
+static void write_map(FILE *file, const World *world)
+{
+    const Grid *grid = &world->grid;
+    int32_t x;
+    int32_t y;
     fputs("[map]\n", file);
-    fprintf(file, "size=%d,%d\n", (int)world->grid.width, (int)world->grid.height);
-    for (y = 0; y < world->grid.height; y++) {
+    fprintf(file, "size=%d,%d\n", (int)grid->width, (int)grid->height);
+    for (y = 0; y < grid->height; y++) {
         fputs("row=", file);
-        for (x = 0; x < world->grid.width; x++) {
-            fputc(grid_terrain_symbol(world->grid.terrain[grid_index(&world->grid, x, y)]), file);
+        for (x = 0; x < grid->width; x++) {
+            fputc(grid_terrain_symbol(grid->terrain[grid_index(grid, x, y)]), file);
         }
         fputc('\n', file);
     }
+    for (y = 0; y < grid->height; y++) {
+        fputs("road=", file);
+        for (x = 0; x < grid->width; x++) {
+            fputc(grid->road[grid_index(grid, x, y)] ? '1' : '0', file);
+        }
+        fputc('\n', file);
+    }
+}
+
+static void write_buildings(FILE *file, const World *world)
+{
+    int32_t i;
+    fputs("[buildings]\n", file);
+    for (i = 0; i < world->building_count; i++) {
+        const Building *b = world->buildings[i];
+        int32_t values[BUILDING_FIELDS];
+        values[0] = b->id;
+        values[1] = b->type;
+        values[2] = b->x;
+        values[3] = b->y;
+        values[4] = b->w;
+        values[5] = b->h;
+        values[6] = b->state;
+        values[7] = b->hp;
+        values[8] = b->build_progress;
+        values[9] = b->door_x;
+        values[10] = b->door_y;
+        values[11] = b->auto_assign;
+        values[12] = b->work_milli[0];
+        values[13] = b->work_milli[1];
+        fputs("building=", file);
+        write_int_list(file, values, BUILDING_FIELDS);
+    }
+}
+
+static const char *trait_key(const World *world, int32_t trait)
+{
+    return (trait >= 0 && trait < world->defs.trait_count) ? world->defs.traits[trait].key : "-";
+}
+
+static void write_villagers(FILE *file, const World *world)
+{
+    int32_t i;
+    int32_t k;
+    fputs("[villagers]\n", file);
+    for (i = 0; i < world->villager_count; i++) {
+        const Villager *v = world->villagers[i];
+        int32_t values[VILLAGER_INT_FIELDS];
+        values[0] = v->id;
+        values[1] = v->age;
+        values[2] = v->stats.strength;
+        values[3] = v->stats.intellect;
+        values[4] = v->stats.dexterity;
+        values[5] = v->stats.vitality;
+        values[6] = v->needs.hunger;
+        values[7] = v->needs.rest;
+        values[8] = v->needs.safety;
+        values[9] = v->needs.housing;
+        values[10] = v->mood;
+        values[11] = v->health;
+        values[12] = v->flags;
+        values[13] = v->home != NULL ? v->home->id : 0;
+        values[14] = v->workplace != NULL ? v->workplace->id : 0;
+        values[15] = v->state;
+        values[16] = v->intent_rev;
+        values[17] = v->intent_flags;
+        values[18] = v->target != NULL ? v->target->id : 0;
+        values[19] = v->target_x;
+        values[20] = v->target_y;
+        values[21] = v->at_target;
+        values[22] = v->loc_x;
+        values[23] = v->loc_y;
+        values[24] = v->state_ticks;
+        values[25] = v->hold_ticks;
+        values[26] = v->low_mood_ticks;
+        values[27] = v->hunger_acc;
+        values[28] = v->rest_acc;
+        values[29] = v->story_flags;
+        values[30] = v->blocked_day;
+        fputs("villager=", file);
+        for (k = 0; k < VILLAGER_INT_FIELDS; k++) {
+            fprintf(file, "%d,", (int)values[k]);
+        }
+        fprintf(file, "%s,%s,%s\n", trait_key(world, v->traits[0]), trait_key(world, v->traits[1]), v->name);
+    }
+}
+
+static int write_world(FILE *file, const World *world)
+{
+    fprintf(file, "%s %d\n", SAVE_MAGIC, SAVE_VERSION);
+    fputs("# 마법성채 키우기 저장 파일입니다. 직접 고치면 불러오지 못할 수 있습니다.\n", file);
+    write_meta(file, world);
+    write_economy(file, world);
+    write_map(file, world);
+    write_buildings(file, world);
+    write_villagers(file, world);
     fputs("[end]\n", file);
     return ferror(file) ? CORE_ERR_FILE_IO : CORE_OK;
 }
@@ -215,22 +339,33 @@ static int read_line(LineReader *reader)
     return 1;
 }
 
+/* 주민의 연결은 모든 건물을 읽은 뒤에 이어야 하므로 id 를 잠시 적어 둡니다 */
+typedef struct PendingLinks {
+    int32_t home;
+    int32_t workplace;
+    int32_t target;
+} PendingLinks;
+
 /* 불러오는 중인 상태 */
 typedef struct LoadState {
     World *world;
     int32_t section;         /* 지금 섹션 (SECTIONS 의 번호), -1 = 아직 없음 */
     uint32_t sections_seen;  /* 섹션별 비트 */
-    uint32_t keys_seen[8];   /* 섹션마다 읽은 키 비트 */
+    uint32_t keys_seen[16];  /* 섹션마다 읽은 키 비트 */
     int32_t rows_read;
+    int32_t road_rows_read;
     int ended;               /* [end] 를 읽었으면 1 */
+    PendingLinks *links;     /* 주민마다 하나 (주민 목록과 같은 순서), 동적 배열 */
+    int32_t link_capacity;
 } LoadState;
 
-typedef int (*SectionParser)(LoadState *state, const char *key, const char *value);
+typedef int (*SectionParser)(LoadState *state, const char *key, char *value);
 
 typedef struct SectionDef {
     const char *name;
     SectionParser parse;
     uint32_t required_keys; /* 반드시 있어야 하는 키 비트 */
+    uint32_t requires;      /* 먼저 읽혀 있어야 하는 섹션 비트 */
 } SectionDef;
 
 /* 이 키를 처음 읽었으면 1, 같은 키가 두 번 나왔으면 0 */
@@ -281,6 +416,28 @@ static int parse_pair(const char *text, int32_t min, int32_t max, int32_t *out_a
     return parse_i32(first, min, max, out_a) && parse_i32(comma + 1, min, max, out_b);
 }
 
+/* 쉼표로 나뉜 정수 count 개를 읽습니다. 성공하면 마지막 쉼표 뒤(남은 글자)의 위치, 실패하면 NULL.
+ * exact 가 1 이면 남은 글자가 없어야 합니다. text 를 직접 고칩니다(쉼표 → '\0') */
+static char *parse_int_list(char *text, int32_t *out, int32_t count, int exact)
+{
+    char *cursor = text;
+    int32_t i;
+    for (i = 0; i < count; i++) {
+        char *comma = strchr(cursor, ',');
+        int last = (i == count - 1);
+        if (comma != NULL && !(last && exact)) {
+            *comma = '\0';
+        } else if (!(last && exact) || comma != NULL) {
+            return NULL;
+        }
+        if (!parse_i32(cursor, INT32_MIN + 1, INT32_MAX, &out[i])) {
+            return NULL;
+        }
+        cursor = (last && exact) ? cursor + strlen(cursor) : comma + 1;
+    }
+    return cursor;
+}
+
 /* 정확히 16자리 16진수 */
 static int parse_hex64(const char *text, uint64_t *out)
 {
@@ -305,7 +462,7 @@ static int parse_hex64(const char *text, uint64_t *out)
     return 1;
 }
 
-static int parse_meta(LoadState *state, const char *key, const char *value)
+static int parse_meta(LoadState *state, const char *key, char *value)
 {
     World *world = state->world;
     if (strcmp(key, "name") == 0 && mark_key(state, 0)) {
@@ -321,10 +478,24 @@ static int parse_meta(LoadState *state, const char *key, const char *value)
         return parse_pair(value, 0, GRID_MAX_SIZE - 1, &world->keep_x, &world->keep_y) ? CORE_OK
                                                                                          : CORE_ERR_FORMAT;
     }
+    if (strcmp(key, "keep_id") == 0 && mark_key(state, 4)) {
+        return parse_i32(value, 1, INT32_MAX - 1, &world->keep_id) ? CORE_OK : CORE_ERR_FORMAT;
+    }
+    if (strcmp(key, "rank") == 0 && mark_key(state, 5)) {
+        return parse_i32(value, 0, 4, &world->rank) ? CORE_OK : CORE_ERR_FORMAT;
+    }
+    if (strcmp(key, "next_ids") == 0 && mark_key(state, 6)) {
+        return parse_pair(value, 1, INT32_MAX - 1, &world->next_villager_id, &world->next_building_id)
+                   ? CORE_OK
+                   : CORE_ERR_FORMAT;
+    }
+    if (strcmp(key, "mourning") == 0 && mark_key(state, 7)) {
+        return parse_i32(value, 0, 30, &world->mourning) ? CORE_OK : CORE_ERR_FORMAT;
+    }
     return CORE_ERR_FORMAT; /* 모르는 키이거나 같은 키가 두 번 */
 }
 
-static int parse_clock(LoadState *state, const char *key, const char *value)
+static int parse_clock(LoadState *state, const char *key, char *value)
 {
     if (strcmp(key, "tick") == 0 && mark_key(state, 0)) {
         return parse_i32(value, 0, CLOCK_MAX_TICK, &state->world->clock.tick) ? CORE_OK : CORE_ERR_FORMAT;
@@ -332,7 +503,7 @@ static int parse_clock(LoadState *state, const char *key, const char *value)
     return CORE_ERR_FORMAT;
 }
 
-static int parse_rng(LoadState *state, const char *key, const char *value)
+static int parse_rng(LoadState *state, const char *key, char *value)
 {
     if (strcmp(key, "state") == 0 && mark_key(state, 0)) {
         return parse_hex64(value, &state->world->rng.state) ? CORE_OK : CORE_ERR_FORMAT;
@@ -343,7 +514,7 @@ static int parse_rng(LoadState *state, const char *key, const char *value)
     return CORE_ERR_FORMAT;
 }
 
-static int parse_resources(LoadState *state, const char *key, const char *value)
+static int parse_resources(LoadState *state, const char *key, char *value)
 {
     ResourceBank *bank = &state->world->bank;
     int i;
@@ -358,9 +529,38 @@ static int parse_resources(LoadState *state, const char *key, const char *value)
     return CORE_ERR_FORMAT;
 }
 
-static int parse_map(LoadState *state, const char *key, const char *value)
+static int parse_ledger(LoadState *state, const char *key, char *value)
+{
+    Ledger *ledger = &state->world->ledger;
+    int i;
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        char expected[32];
+        int32_t *target = NULL;
+        int bit = -1;
+        snprintf(expected, sizeof(expected), "today_%s", RESOURCE_KEYS[i]);
+        if (strcmp(key, expected) == 0) {
+            target = ledger->today[i];
+            bit = i * 2;
+        }
+        snprintf(expected, sizeof(expected), "yesterday_%s", RESOURCE_KEYS[i]);
+        if (strcmp(key, expected) == 0) {
+            target = ledger->yesterday[i];
+            bit = i * 2 + 1;
+        }
+        if (target != NULL) {
+            if (!mark_key(state, bit) || parse_int_list(value, target, LEDGER_CAT_COUNT, 1) == NULL) {
+                return CORE_ERR_FORMAT;
+            }
+            return CORE_OK;
+        }
+    }
+    return CORE_ERR_FORMAT;
+}
+
+static int parse_map(LoadState *state, const char *key, char *value)
 {
     Grid *grid = &state->world->grid;
+    int32_t x;
 
     if (strcmp(key, "size") == 0 && mark_key(state, 0)) {
         int32_t width;
@@ -370,10 +570,12 @@ static int parse_map(LoadState *state, const char *key, const char *value)
         }
         return grid_alloc(grid, width, height) == CORE_OK ? CORE_OK : CORE_ERR_OUT_OF_MEMORY;
     }
+    if (grid->terrain == NULL || (int32_t)strlen(value) != grid->width) {
+        return CORE_ERR_FORMAT; /* size 보다 먼저 나왔거나 길이가 틀림 */
+    }
     if (strcmp(key, "row") == 0) {
-        int32_t x;
-        if (grid->terrain == NULL || state->rows_read >= grid->height || (int32_t)strlen(value) != grid->width) {
-            return CORE_ERR_FORMAT; /* size 보다 먼저 나왔거나, 줄이 너무 많거나, 길이가 틀림 */
+        if (state->rows_read >= grid->height) {
+            return CORE_ERR_FORMAT;
         }
         for (x = 0; x < grid->width; x++) {
             int terrain = grid_terrain_from_symbol(value[x]);
@@ -385,21 +587,238 @@ static int parse_map(LoadState *state, const char *key, const char *value)
         state->rows_read++;
         return CORE_OK;
     }
+    if (strcmp(key, "road") == 0) {
+        if (state->road_rows_read >= grid->height) {
+            return CORE_ERR_FORMAT;
+        }
+        for (x = 0; x < grid->width; x++) {
+            if (value[x] != '0' && value[x] != '1') {
+                return CORE_ERR_FORMAT;
+            }
+            grid->road[grid_index(grid, x, state->road_rows_read)] = (uint8_t)(value[x] == '1');
+        }
+        state->road_rows_read++;
+        return CORE_OK;
+    }
     return CORE_ERR_FORMAT;
 }
 
+static int in_bounds_or_none(const Grid *grid, int32_t x, int32_t y)
+{
+    return (x == -1 && y == -1) || grid_in_bounds(grid, x, y);
+}
+
+static int parse_building(LoadState *state, const char *key, char *value)
+{
+    World *world = state->world;
+    int32_t v[BUILDING_FIELDS];
+    Building *building;
+    const BuildingDef *def;
+
+    if (strcmp(key, "building") != 0 || parse_int_list(value, v, BUILDING_FIELDS, 1) == NULL) {
+        return CORE_ERR_FORMAT;
+    }
+    def = world_building_def(world, v[1]);
+    if (def == NULL || v[1] == CORE_BLD_ROAD || v[0] < 1 || v[0] >= world->next_building_id ||
+        entity_find_building(world, v[0]) != NULL || world->building_count >= SAVE_MAX_BUILDINGS) {
+        return CORE_ERR_FORMAT; /* 종류 오류, id 범위 밖, id 중복, 너무 많음 */
+    }
+    if (v[4] < 1 || v[4] > 4 || v[5] < 1 || v[5] > 4 || !grid_in_bounds(&world->grid, v[2], v[3]) ||
+        !grid_in_bounds(&world->grid, v[2] + v[4] - 1, v[3] + v[5] - 1) || v[6] < CORE_BSTATE_CONSTRUCTING ||
+        v[6] > CORE_BSTATE_RUINED || v[7] < 0 || v[7] > def->max_hp || v[8] < 0 ||
+        !in_bounds_or_none(&world->grid, v[9], v[10]) || (v[11] != 0 && v[11] != 1) || v[12] < 0 || v[13] < 0 ||
+        v[12] > 1000000 || v[13] > 1000000) {
+        return CORE_ERR_FORMAT;
+    }
+    building = entity_add_building(world, v[1]);
+    if (building == NULL) {
+        return CORE_ERR_OUT_OF_MEMORY;
+    }
+    world->next_building_id--; /* entity_add_building 이 올린 카운터를 되돌리고 저장된 id 를 씀 */
+    building->id = v[0];
+    building->x = v[2];
+    building->y = v[3];
+    building->w = v[4];
+    building->h = v[5];
+    building->state = v[6];
+    building->hp = v[7];
+    building->build_progress = v[8];
+    building->door_x = v[9];
+    building->door_y = v[10];
+    building->auto_assign = v[11];
+    building->work_milli[0] = v[12];
+    building->work_milli[1] = v[13];
+    return CORE_OK;
+}
+
+static int reserve_links(LoadState *state, int32_t needed)
+{
+    PendingLinks *grown;
+    int32_t new_capacity;
+    if (needed <= state->link_capacity) {
+        return CORE_OK;
+    }
+    new_capacity = state->link_capacity > 0 ? state->link_capacity * 2 : 16;
+    grown = (PendingLinks *)mem_realloc(state->links, (size_t)new_capacity * sizeof(PendingLinks));
+    if (grown == NULL) {
+        return CORE_ERR_OUT_OF_MEMORY;
+    }
+    state->links = grown;
+    state->link_capacity = new_capacity;
+    return CORE_OK;
+}
+
+/* 특성 키 → 번호. "-" 는 없음. 정의 파일이 바뀌어 모르는 특성이 되면 그냥 없음으로 둡니다 */
+static int32_t trait_from_key(const World *world, const char *key)
+{
+    if (strcmp(key, "-") == 0) {
+        return -1;
+    }
+    return defs_find_trait(&world->defs, key);
+}
+
+static int parse_villager(LoadState *state, const char *key, char *value)
+{
+    World *world = state->world;
+    const Grid *grid = &world->grid;
+    int32_t v[VILLAGER_INT_FIELDS];
+    char *rest;
+    char *comma;
+    char *trait_b;
+    char *name;
+    Villager *villager;
+    int rc;
+
+    if (strcmp(key, "villager") != 0) {
+        return CORE_ERR_FORMAT;
+    }
+    rest = parse_int_list(value, v, VILLAGER_INT_FIELDS, 0);
+    if (rest == NULL) {
+        return CORE_ERR_FORMAT;
+    }
+    /* 특성1,특성2,이름 */
+    comma = strchr(rest, ',');
+    if (comma == NULL) {
+        return CORE_ERR_FORMAT;
+    }
+    *comma = '\0';
+    trait_b = comma + 1;
+    comma = strchr(trait_b, ',');
+    if (comma == NULL) {
+        return CORE_ERR_FORMAT;
+    }
+    *comma = '\0';
+    name = comma + 1;
+
+    if (v[0] < 1 || v[0] >= world->next_villager_id || entity_find_villager(world, v[0]) != NULL ||
+        world->villager_count >= SAVE_MAX_VILLAGERS || !text_is_valid_name(name, CORE_NAME_BYTES) || v[1] < 0 ||
+        v[1] > 200 || v[2] < 1 || v[2] > 10 || v[3] < 1 || v[3] > 10 || v[4] < 1 || v[4] > 10 || v[5] < 1 ||
+        v[5] > 10 || v[6] < 0 || v[6] > 100 || v[7] < 0 || v[7] > 100 || v[8] < 0 || v[8] > 100 || v[9] < 0 ||
+        v[9] > 100 || v[10] < 0 || v[10] > 100 || v[11] < 1 || v[11] > 100 || v[12] < 0 || v[12] > 255 ||
+        v[13] < 0 || v[14] < 0 || v[15] < 0 || v[15] >= CORE_VS_COUNT || v[16] < 0 || v[17] < 0 || v[17] > 3 ||
+        v[18] < 0 || !grid_in_bounds(grid, v[19], v[20]) || (v[21] != 0 && v[21] != 1) ||
+        !grid_in_bounds(grid, v[22], v[23]) || v[24] < 0 || v[25] < 0 || v[26] < 0 || v[27] < 0 || v[27] >= 1000 ||
+        v[28] < 0 || v[28] >= 1000 || v[29] < 0 || v[30] < -1) {
+        return CORE_ERR_FORMAT;
+    }
+    rc = reserve_links(state, world->villager_count + 1);
+    if (rc != CORE_OK) {
+        return rc;
+    }
+    villager = entity_add_villager(world);
+    if (villager == NULL) {
+        return CORE_ERR_OUT_OF_MEMORY;
+    }
+    world->next_villager_id--; /* 저장된 id 를 씀 */
+    villager->id = v[0];
+    strcpy(villager->name, name); /* 길이는 text_is_valid_name 으로 확인함 */
+    villager->age = v[1];
+    villager->stats.strength = v[2];
+    villager->stats.intellect = v[3];
+    villager->stats.dexterity = v[4];
+    villager->stats.vitality = v[5];
+    villager->needs.hunger = v[6];
+    villager->needs.rest = v[7];
+    villager->needs.safety = v[8];
+    villager->needs.housing = v[9];
+    villager->mood = v[10];
+    villager->health = v[11];
+    villager->flags = v[12];
+    villager->state = v[15];
+    villager->intent_rev = v[16];
+    villager->intent_flags = v[17];
+    villager->target_x = v[19];
+    villager->target_y = v[20];
+    villager->at_target = v[21];
+    villager->loc_x = v[22];
+    villager->loc_y = v[23];
+    villager->state_ticks = v[24];
+    villager->hold_ticks = v[25];
+    villager->low_mood_ticks = v[26];
+    villager->hunger_acc = v[27];
+    villager->rest_acc = v[28];
+    villager->story_flags = v[29];
+    villager->blocked_day = v[30];
+    villager->traits[0] = trait_from_key(world, rest);
+    villager->traits[1] = trait_from_key(world, trait_b);
+    /* 연결은 모든 건물을 읽은 뒤 [end] 에서 */
+    state->links[world->villager_count - 1].home = v[13];
+    state->links[world->villager_count - 1].workplace = v[14];
+    state->links[world->villager_count - 1].target = v[18];
+    return CORE_OK;
+}
+
+#define SEC_META 0
+#define SEC_MAP 5
+
 /* 섹션 이름 → 해석 함수 표 */
 static const SectionDef SECTIONS[] = {
-    {"meta", parse_meta, 0xFu},        /* name, difficulty, seed, keep */
-    {"clock", parse_clock, 0x1u},      /* tick */
-    {"rng", parse_rng, 0x3u},          /* state, inc */
-    {"resources", parse_resources, 0x7Fu}, /* capacity + 자원 6개 */
-    {"map", parse_map, 0x1u},          /* size (줄 수는 따로 확인) */
+    {"meta", parse_meta, 0xFFu, 0},                                    /* 키 8개 */
+    {"clock", parse_clock, 0x1u, 0},                                   /* tick */
+    {"rng", parse_rng, 0x3u, 0},                                       /* state, inc */
+    {"resources", parse_resources, 0x7Fu, 0},                          /* capacity + 자원 6개 */
+    {"ledger", parse_ledger, 0xFFFu, 0},                               /* 오늘·어제 × 자원 6개 */
+    {"map", parse_map, 0x1u, 0},                                       /* size (줄 수는 따로 확인) */
+    {"buildings", parse_building, 0u, (1u << SEC_META) | (1u << SEC_MAP)},
+    {"villagers", parse_villager, 0u, (1u << SEC_META) | (1u << SEC_MAP) | (1u << 6)},
 };
 #define SECTION_COUNT ((int32_t)(sizeof(SECTIONS) / sizeof(SECTIONS[0])))
 
-/* [end]: 모든 섹션과 필수 키가 있는지 확인합니다 */
-static int finish_sections(const LoadState *state)
+/* 주민의 집·일터·목표 id 를 포인터로 다시 잇습니다 (양쪽 모두) */
+static int relink(LoadState *state)
+{
+    World *world = state->world;
+    int32_t i;
+    for (i = 0; i < world->villager_count; i++) {
+        Villager *villager = world->villagers[i];
+        const PendingLinks *links = &state->links[i];
+        if (links->home != 0) {
+            Building *home = entity_find_building(world, links->home);
+            if (home == NULL ||
+                entity_link_resident(home, villager, world_building_def(world, home->type)->resident_slots) !=
+                    CORE_OK) {
+                return CORE_ERR_FORMAT;
+            }
+        }
+        if (links->workplace != 0) {
+            Building *work = entity_find_building(world, links->workplace);
+            if (work == NULL ||
+                entity_link_worker(work, villager, world_building_def(world, work->type)->worker_slots) != CORE_OK) {
+                return CORE_ERR_FORMAT;
+            }
+        }
+        if (links->target != 0) {
+            villager->target = entity_find_building(world, links->target);
+            if (villager->target == NULL) {
+                return CORE_ERR_FORMAT;
+            }
+        }
+    }
+    return CORE_OK;
+}
+
+/* [end]: 모든 섹션과 필수 키가 있는지 확인하고 연결을 잇습니다 */
+static int finish_sections(LoadState *state)
 {
     int32_t i;
     for (i = 0; i < SECTION_COUNT; i++) {
@@ -410,10 +829,10 @@ static int finish_sections(const LoadState *state)
             return CORE_ERR_FORMAT;
         }
     }
-    if (state->rows_read != state->world->grid.height) {
+    if (state->rows_read != state->world->grid.height || state->road_rows_read != state->world->grid.height) {
         return CORE_ERR_FORMAT;
     }
-    return CORE_OK;
+    return relink(state);
 }
 
 /* "[이름]" 줄 처리 */
@@ -437,6 +856,9 @@ static int begin_section(LoadState *state, char *line)
         if (strcmp(line + 1, SECTIONS[i].name) == 0) {
             if (state->sections_seen & (1u << i)) {
                 return CORE_ERR_FORMAT; /* 같은 섹션이 두 번 */
+            }
+            if ((state->sections_seen & SECTIONS[i].requires) != SECTIONS[i].requires) {
+                return CORE_ERR_FORMAT; /* 순서가 틀림 (건물은 지도 뒤에) */
             }
             state->sections_seen |= 1u << i;
             state->section = i;
@@ -500,7 +922,7 @@ static int read_world(LineReader *reader, LoadState *state)
     return state->ended ? CORE_OK : CORE_ERR_FORMAT; /* [end] 가 없으면 잘린 파일 */
 }
 
-int save_read(const char *path, World **out_world, int32_t *out_line)
+int save_read(const char *path, const Defs *defs, World **out_world, int32_t *out_line)
 {
     LineReader reader;
     LoadState state;
@@ -519,7 +941,7 @@ int save_read(const char *path, World **out_world, int32_t *out_line)
 
     memset(&state, 0, sizeof(state));
     state.section = -1;
-    state.world = world_alloc();
+    state.world = world_alloc(defs);
 
     if (reader.buffer == NULL || state.world == NULL) {
         rc = CORE_ERR_OUT_OF_MEMORY;
@@ -527,14 +949,16 @@ int save_read(const char *path, World **out_world, int32_t *out_line)
         rc = read_world(&reader, &state);
     }
     if (rc == CORE_OK) {
-        /* 비용 격자는 저장하지 않고 지형에서 다시 계산합니다 */
-        grid_rebuild_costs(&state.world->grid);
+        /* 점유·문·막힘 층과 비용 격자는 저장하지 않고 건물 목록에서 다시 만듭니다 */
+        placement_rebuild_layers(state.world);
+        placement_refresh_productivity(state.world);
         if (validate_world(state.world, NULL, NULL) != 0) {
             rc = CORE_ERR_FORMAT;
         }
     }
     fclose(reader.file);
     mem_free(reader.buffer);
+    mem_free(state.links);
 
     if (rc != CORE_OK) {
         /* 반쯤 읽은 월드는 모두 해제합니다. 호출한 쪽의 기존 월드는 건드리지 않았습니다 */

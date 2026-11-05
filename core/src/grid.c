@@ -73,12 +73,17 @@ int grid_alloc(Grid *grid, int32_t width, int32_t height)
     }
     count = (size_t)width * (size_t)height;
     grid->terrain = (uint8_t *)mem_calloc(count, sizeof(uint8_t));
+    grid->road = (uint8_t *)mem_calloc(count, sizeof(uint8_t));
+    grid->occupant = (int32_t *)mem_calloc(count, sizeof(int32_t));
+    grid->door_count = (uint8_t *)mem_calloc(count, sizeof(uint8_t));
+    grid->block = (uint8_t *)mem_calloc(count, sizeof(uint8_t));
     grid->cost = (uint8_t *)mem_calloc(count, sizeof(uint8_t));
-    if (grid->terrain == NULL || grid->cost == NULL) {
-        /* 하나만 성공했을 수도 있으니 둘 다 해제합니다 (mem_free(NULL) 은 안전) */
-        mem_free(grid->terrain);
-        mem_free(grid->cost);
-        memset(grid, 0, sizeof(*grid));
+    grid->scratch_mark = (uint8_t *)mem_calloc(count, sizeof(uint8_t));
+    grid->scratch_queue = (int32_t *)mem_calloc(count, sizeof(int32_t));
+    if (grid->terrain == NULL || grid->road == NULL || grid->occupant == NULL || grid->door_count == NULL ||
+        grid->block == NULL || grid->cost == NULL || grid->scratch_mark == NULL || grid->scratch_queue == NULL) {
+        /* 일부만 성공했을 수도 있으니 모두 해제합니다 (mem_free(NULL) 은 안전) */
+        grid_free(grid);
         return CORE_ERR_OUT_OF_MEMORY;
     }
     grid->width = width;
@@ -89,7 +94,13 @@ int grid_alloc(Grid *grid, int32_t width, int32_t height)
 void grid_free(Grid *grid)
 {
     mem_free(grid->terrain);
+    mem_free(grid->road);
+    mem_free(grid->occupant);
+    mem_free(grid->door_count);
+    mem_free(grid->block);
     mem_free(grid->cost);
+    mem_free(grid->scratch_mark);
+    mem_free(grid->scratch_queue);
     memset(grid, 0, sizeof(*grid));
 }
 
@@ -119,14 +130,39 @@ uint8_t grid_terrain_cost(uint8_t terrain)
     return TERRAIN_COST[terrain];
 }
 
+/* 칸 하나의 비용 */
+static uint8_t cell_cost(const Grid *grid, int32_t i)
+{
+    uint8_t base = grid_terrain_cost(grid->terrain[i]);
+    switch (grid->block[i]) {
+    case GRID_BLOCK_SOLID:
+        return GRID_COST_BLOCKED;
+    case GRID_BLOCK_WALL:
+        return CORE_COST_WALL;
+    case GRID_BLOCK_GATE:
+        return CORE_COST_GATE;
+    default:
+        break;
+    }
+    if (base == GRID_COST_BLOCKED) {
+        return GRID_COST_BLOCKED;
+    }
+    return grid->road[i] ? GRID_COST_ROAD : base;
+}
+
 void grid_rebuild_costs(Grid *grid)
 {
     int32_t count = grid->width * grid->height;
     int32_t i;
     for (i = 0; i < count; i++) {
-        grid->cost[i] = grid_terrain_cost(grid->terrain[i]);
+        grid->cost[i] = cell_cost(grid, i);
     }
     grid->cost_rev++;
+}
+
+uint8_t grid_expected_cost(const Grid *grid, int32_t index)
+{
+    return cell_cost(grid, index);
 }
 
 int32_t grid_count_in_radius(const Grid *grid, int32_t cx, int32_t cy, int32_t radius, uint8_t terrain)

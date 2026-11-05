@@ -5,6 +5,7 @@ add_executable(castle_cli
   console.c
   format.c
   sim.c
+  walker.c
 )
 target_link_libraries(castle_cli PRIVATE castle_core_static castle_warnings)
 if(MINGW)

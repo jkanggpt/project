@@ -19,6 +19,27 @@ typedef struct ResourceBank {
     int32_t capacity; /* 물건 하나당 저장 한도 */
 } ResourceBank;
 
+/* 장부 항목: 자원이 어디서 들어오고 어디로 나갔는지 */
+typedef enum LedgerCategory {
+    LEDGER_PRODUCTION = 0,   /* 생산 */
+    LEDGER_CONSUMPTION = 1,  /* 식사 */
+    LEDGER_WAGES = 2,        /* 임금 */
+    LEDGER_TAXES = 3,        /* 세금 */
+    LEDGER_CONSTRUCTION = 4, /* 건설 */
+    LEDGER_REFUND = 5,       /* 철거 환불 */
+    LEDGER_TRADE = 6,        /* 거래 (마일스톤 3) */
+    LEDGER_UPKEEP = 7,       /* 난방 등 유지비 (마일스톤 3) */
+    LEDGER_RAID = 8,         /* 약탈·전리품 (마일스톤 4) */
+    LEDGER_OTHER = 9,        /* 저장 한도 초과로 버림 등 */
+    LEDGER_CAT_COUNT = 10
+} LedgerCategory;
+
+/* 하루치 장부 두 장: 오늘 쌓는 것과 어제 끝난 것 */
+typedef struct Ledger {
+    int32_t today[CORE_RES_COUNT][LEDGER_CAT_COUNT];
+    int32_t yesterday[CORE_RES_COUNT][LEDGER_CAT_COUNT];
+} Ledger;
+
 /* 난이도별 시작 자원으로 채웁니다. */
 void eco_bank_init(ResourceBank *bank, int32_t difficulty);
 /* 저장 한도가 적용되는 자원이면 1 */
@@ -30,5 +51,16 @@ int32_t eco_bank_add(ResourceBank *bank, int32_t resource, int32_t amount);
 int eco_bank_can_afford(const ResourceBank *bank, const int32_t cost[CORE_RES_COUNT]);
 /* 모두 낼 수 있을 때만 빼고 1, 아니면 아무것도 바꾸지 않고 0 */
 int eco_bank_spend(ResourceBank *bank, const int32_t cost[CORE_RES_COUNT]);
+
+/* 은행에 amount 를 더하고(음수면 뺌) 실제 바뀐 양을 장부의 category 에 적습니다 */
+int32_t eco_change(ResourceBank *bank, Ledger *ledger, int32_t resource, int32_t amount, int32_t category);
+/* 비용 전체를 냅니다 (모두 낼 수 있을 때만). 장부의 category 에 적습니다 */
+int eco_pay(ResourceBank *bank, Ledger *ledger, const int32_t cost[CORE_RES_COUNT], int32_t category);
+/* 하루가 끝나면 오늘 장부를 어제로 옮기고 오늘을 비웁니다 */
+void eco_roll_ledger(Ledger *ledger);
+/* 어제 하루의 순변화 */
+int32_t eco_ledger_net(const Ledger *ledger, int32_t resource);
+/* 저장 한도를 바꾸고, 넘친 물건은 버립니다 (장부: 기타) */
+void eco_set_capacity(ResourceBank *bank, Ledger *ledger, int32_t capacity);
 
 #endif

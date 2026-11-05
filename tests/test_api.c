@@ -18,9 +18,9 @@ void test_api_rejects_null_and_bad_args(void)
     CoreWorld *loaded = world;
 
     CHECK(world != NULL);
-    CHECK_EQ(core_create(NULL, &loaded), CORE_ERR_NULL_ARG);
+    CHECK_EQ(core_create(NULL, NULL, &loaded), CORE_ERR_NULL_ARG);
     CHECK(loaded == NULL);
-    CHECK_EQ(core_create(NULL, NULL), CORE_ERR_NULL_ARG);
+    CHECK_EQ(core_create(NULL, NULL, NULL), CORE_ERR_NULL_ARG);
     CHECK_EQ(core_tick(NULL, 1), CORE_ERR_NULL_ARG);
     CHECK_EQ(core_tick(world, 0), CORE_ERR_INVALID_ARG);
     CHECK_EQ(core_tick(world, -5), CORE_ERR_INVALID_ARG);
@@ -40,10 +40,10 @@ void test_api_rejects_null_and_bad_args(void)
     CHECK_EQ(core_save(NULL, "x.sav"), CORE_ERR_NULL_ARG);
     CHECK_EQ(core_save(world, NULL), CORE_ERR_NULL_ARG);
     CHECK_EQ(core_save(world, ""), CORE_ERR_INVALID_ARG);
-    CHECK_EQ(core_load(NULL, &loaded, &line), CORE_ERR_NULL_ARG);
+    CHECK_EQ(core_load(NULL, NULL, &loaded, &line), CORE_ERR_NULL_ARG);
     CHECK_EQ(line, 0);
-    CHECK_EQ(core_load("x.sav", NULL, NULL), CORE_ERR_NULL_ARG);
-    CHECK_EQ(core_load("", &loaded, NULL), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_load("x.sav", NULL, NULL, NULL), CORE_ERR_NULL_ARG);
+    CHECK_EQ(core_load("", NULL, &loaded, NULL), CORE_ERR_INVALID_ARG);
     CHECK_EQ(core_validate(NULL), CORE_ERR_NULL_ARG);
     CHECK_EQ(core_state_hash(NULL, &hash), CORE_ERR_NULL_ARG);
     CHECK_EQ(core_state_hash(world, NULL), CORE_ERR_NULL_ARG);
@@ -64,10 +64,16 @@ void test_api_struct_sizes_and_config(void)
     CHECK_EQ(core_get_struct_sizes(&sizes, (int32_t)sizeof(sizes)), CORE_OK);
     CHECK_EQ(sizes.new_game_params, (int32_t)sizeof(CoreNewGameParams));
     CHECK_EQ(sizes.summary_view, (int32_t)sizeof(CoreSummaryView));
-    CHECK_EQ(sizes.event_view, 20);
-    /* C# 에서 같은 크기가 나와야 하는 값: 15개 int + 자원 6개 + 한도 6개 + 이름 48바이트 */
-    CHECK_EQ(sizes.summary_view, 15 * 4 + 6 * 4 + 6 * 4 + 48);
-    CHECK_EQ(sizes.config_view, 12 * 4);
+    CHECK_EQ(sizes.event_view, 20 + 48);
+    /* C# 에서 같은 크기가 나와야 하는 값: int 25개 + 자원·한도·변화 6개씩 + 이름 48바이트 */
+    CHECK_EQ(sizes.summary_view, 25 * 4 + 18 * 4 + 48);
+    CHECK_EQ(sizes.config_view, 17 * 4);
+    CHECK_EQ(sizes.villager_view, 29 * 4 + 48);
+    CHECK_EQ(sizes.building_view, 21 * 4);
+    CHECK_EQ(sizes.building_def_view, 27 * 4 + 24);
+    CHECK_EQ(sizes.trait_def_view, 6 * 4 + 24);
+    CHECK_EQ(sizes.placement_view, 11 * 4);
+    CHECK_EQ(sizes.mood_term_view, 8);
 
     CHECK_EQ(core_get_config(&config), CORE_OK);
     CHECK_EQ(config.abi_version, CORE_ABI_VERSION);

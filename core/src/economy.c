@@ -3,8 +3,10 @@
  */
 #include "economy.h"
 
-/* 성채 하나가 주는 저장 한도 */
+/* 처음 저장 한도 (성채의 storage 값이 곧 덮어씁니다) */
 #define ECO_KEEP_CAPACITY 200
+
+#include <string.h>
 
 /* 난이도별 시작 자원. 순서는 CoreResource (금화, 마정석, 식량, 목재, 석재, 약초) */
 static const int32_t START_RESOURCES[CORE_DIFF_COUNT][CORE_RES_COUNT] = {
@@ -81,4 +83,58 @@ int eco_bank_spend(ResourceBank *bank, const int32_t cost[CORE_RES_COUNT])
         }
     }
     return 1;
+}
+
+int32_t eco_change(ResourceBank *bank, Ledger *ledger, int32_t resource, int32_t amount, int32_t category)
+{
+    int32_t changed = eco_bank_add(bank, resource, amount);
+    if (ledger != NULL && resource >= 0 && resource < CORE_RES_COUNT && category >= 0 &&
+        category < LEDGER_CAT_COUNT) {
+        ledger->today[resource][category] += changed;
+    }
+    return changed;
+}
+
+int eco_pay(ResourceBank *bank, Ledger *ledger, const int32_t cost[CORE_RES_COUNT], int32_t category)
+{
+    int32_t i;
+    if (!eco_bank_can_afford(bank, cost)) {
+        return 0;
+    }
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        if (cost[i] > 0) {
+            (void)eco_change(bank, ledger, i, -cost[i], category);
+        }
+    }
+    return 1;
+}
+
+void eco_roll_ledger(Ledger *ledger)
+{
+    memcpy(ledger->yesterday, ledger->today, sizeof(ledger->today));
+    memset(ledger->today, 0, sizeof(ledger->today));
+}
+
+int32_t eco_ledger_net(const Ledger *ledger, int32_t resource)
+{
+    int32_t total = 0;
+    int32_t category;
+    if (resource < 0 || resource >= CORE_RES_COUNT) {
+        return 0;
+    }
+    for (category = 0; category < LEDGER_CAT_COUNT; category++) {
+        total += ledger->yesterday[resource][category];
+    }
+    return total;
+}
+
+void eco_set_capacity(ResourceBank *bank, Ledger *ledger, int32_t capacity)
+{
+    int32_t i;
+    bank->capacity = capacity > 0 ? capacity : 1;
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        if (eco_is_stored_good(i) && bank->amount[i] > bank->capacity) {
+            (void)eco_change(bank, ledger, i, bank->capacity - bank->amount[i], LEDGER_OTHER);
+        }
+    }
 }

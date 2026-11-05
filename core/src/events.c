@@ -112,6 +112,68 @@ void events_push_season(EventQueue *queue, int32_t season, int32_t year)
     events_push(queue, &event);
 }
 
+void events_push_building(EventQueue *queue, CoreEventType type, int32_t id, int32_t building_type, int32_t x,
+                          int32_t y)
+{
+    Event event;
+    memset(&event, 0, sizeof(event));
+    event.type = type;
+    event.as.building.id = id;
+    event.as.building.type = building_type;
+    event.as.building.x = x;
+    event.as.building.y = y;
+    events_push(queue, &event);
+}
+
+void events_push_produced(EventQueue *queue, int32_t building_id, int32_t resource, int32_t amount)
+{
+    Event event;
+    memset(&event, 0, sizeof(event));
+    event.type = CORE_EVT_PRODUCED;
+    event.as.produced.building_id = building_id;
+    event.as.produced.resource = resource;
+    event.as.produced.amount = amount;
+    events_push(queue, &event);
+}
+
+void events_push_villager(EventQueue *queue, CoreEventType type, int32_t id, int32_t detail, int32_t value,
+                          const char *name)
+{
+    Event event;
+    memset(&event, 0, sizeof(event));
+    event.type = type;
+    event.as.villager.id = id;
+    event.as.villager.detail = detail;
+    event.as.villager.value = value;
+    if (name != NULL) {
+        size_t length = strlen(name);
+        if (length >= sizeof(event.text)) {
+            length = sizeof(event.text) - 1;
+        }
+        memcpy(event.text, name, length);
+    }
+    events_push(queue, &event);
+}
+
+void events_push_count(EventQueue *queue, CoreEventType type, int32_t value)
+{
+    Event event;
+    memset(&event, 0, sizeof(event));
+    event.type = type;
+    event.as.count.value = value;
+    events_push(queue, &event);
+}
+
+void events_push_warning(EventQueue *queue, CoreEventType type, int32_t code, int32_t detail)
+{
+    Event event;
+    memset(&event, 0, sizeof(event));
+    event.type = type;
+    event.as.warning.code = code;
+    event.as.warning.detail = detail;
+    events_push(queue, &event);
+}
+
 void events_to_view(const Event *event, CoreEventView *out)
 {
     memset(out, 0, sizeof(*out));
@@ -128,11 +190,42 @@ void events_to_view(const Event *event, CoreEventView *out)
         out->b = event->as.season.year;
         break;
     case CORE_EVT_WARNING:
+    case CORE_EVT_DEF_WARNING:
         out->a = event->as.warning.code;
         out->b = event->as.warning.detail;
+        break;
+    case CORE_EVT_BUILDING_PLACED:
+    case CORE_EVT_BUILDING_COMPLETED:
+    case CORE_EVT_BUILDING_REMOVED:
+        out->a = event->as.building.id;
+        out->b = event->as.building.type;
+        out->c = event->as.building.x;
+        out->d = event->as.building.y;
+        break;
+    case CORE_EVT_PRODUCED:
+        out->a = event->as.produced.building_id;
+        out->b = event->as.produced.resource;
+        out->c = event->as.produced.amount;
+        break;
+    case CORE_EVT_IMMIGRANT:
+    case CORE_EVT_VILLAGER_LEAVING:
+    case CORE_EVT_VILLAGER_LEFT:
+    case CORE_EVT_VILLAGER_DIED:
+    case CORE_EVT_PATH_BLOCKED:
+    case CORE_EVT_STORY:
+        out->a = event->as.villager.id;
+        out->b = event->as.villager.detail;
+        out->c = event->as.villager.value;
+        break;
+    case CORE_EVT_STORAGE_FULL:
+    case CORE_EVT_WAGES_UNPAID:
+    case CORE_EVT_STARVING:
+        out->a = event->as.count.value;
         break;
     case CORE_EVT_NONE:
     default:
         break;
     }
+    memcpy(out->text, event->text, sizeof(out->text));
+    out->text[sizeof(out->text) - 1] = '\0';
 }

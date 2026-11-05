@@ -5,11 +5,17 @@
 
 #include <string.h>
 
+#include "jobs.h"
 #include "mem.h"
+#include "placement.h"
+#include "population.h"
+#include "text.h"
+#include "villager_ai.h"
 
-World *world_alloc(void)
+World *world_alloc(const Defs *defs)
 {
     World *world = (World *)mem_calloc(1, sizeof(World));
+    int rc;
     if (world == NULL) {
         return NULL;
     }
@@ -17,6 +23,15 @@ World *world_alloc(void)
         mem_free(world);
         return NULL;
     }
+    /* 정의는 복사해서 가집니다: 호출한 쪽이 원본을 해제해도 월드는 안전 */
+    rc = defs != NULL ? defs_copy(&world->defs, defs) : defs_init_builtin(&world->defs);
+    if (rc != CORE_OK) {
+        events_free(&world->events);
+        mem_free(world);
+        return NULL;
+    }
+    world->next_villager_id = 1;
+    world->next_building_id = 1;
     return world;
 }
 
@@ -25,60 +40,16 @@ void world_destroy(World *world)
     if (world == NULL) {
         return;
     }
+    entity_free_all(world);
     grid_free(&world->grid);
     events_free(&world->events);
+    defs_free(&world->defs);
     mem_free(world);
 }
 
-/* UTF-8 바이트열 검사: 잘린 글자, 너무 긴 표현, 서로게이트, 제어 문자를 거부합니다 */
 int world_name_is_valid(const char *name, int32_t max_bytes)
 {
-    const unsigned char *s = (const unsigned char *)name;
-    int32_t length = 0;
-
-    while (length < max_bytes && s[length] != '\0') {
-        length++;
-    }
-    if (length == 0 || length >= max_bytes) {
-        return 0; /* 비어 있거나 '\0' 자리가 없음 */
-    }
-    while (*s != '\0') {
-        unsigned char c = *s;
-        int extra;
-        uint32_t code;
-        int i;
-        if (c < 0x20 || c == 0x7F) {
-            return 0; /* 줄바꿈 등 제어 문자 (저장 파일은 한 줄에 한 값) */
-        }
-        if (c < 0x80) {
-            s++;
-            continue;
-        }
-        if ((c & 0xE0) == 0xC0) {
-            extra = 1;
-            code = c & 0x1F;
-        } else if ((c & 0xF0) == 0xE0) {
-            extra = 2;
-            code = c & 0x0F;
-        } else if ((c & 0xF8) == 0xF0) {
-            extra = 3;
-            code = c & 0x07;
-        } else {
-            return 0;
-        }
-        for (i = 1; i <= extra; i++) {
-            if ((s[i] & 0xC0) != 0x80) {
-                return 0; /* 이어지는 바이트가 아님 ('\0' 도 여기서 걸러짐) */
-            }
-            code = (code << 6) | (s[i] & 0x3F);
-        }
-        if ((extra == 1 && code < 0x80) || (extra == 2 && code < 0x800) || (extra == 3 && code < 0x10000) ||
-            code > 0x10FFFF || (code >= 0xD800 && code <= 0xDFFF)) {
-            return 0;
-        }
-        s += extra + 1;
-    }
-    return 1;
+    return text_is_valid_name(name, max_bytes);
 }
 
 int world_set_name(World *world, const char *name)
@@ -91,10 +62,45 @@ int world_set_name(World *world, const char *name)
     return CORE_OK;
 }
 
-int world_create(const CoreNewGameParams *params, World **out)
+const BuildingDef *world_building_def(const World *world, int32_t type)
+{
+    return defs_building(&world->defs, type);
+}
+
+Building *world_keep(const World *world)
+{
+    return entity_find_building(world, world->keep_id);
+}
+
+/* 성채를 지도 가운데에 세웁니다 (다 지은 상태로) */
+static int place_keep(World *world)
+{
+    const BuildingDef *def = world_building_def(world, CORE_BLD_KEEP);
+    Building *keep = entity_add_building(world, CORE_BLD_KEEP);
+    if (keep == NULL) {
+        return CORE_ERR_OUT_OF_MEMORY;
+    }
+    keep->x = world->keep_x - def->w / 2;
+    keep->y = world->keep_y - def->h / 2;
+    keep->w = def->w;
+    keep->h = def->h;
+    keep->state = CORE_BSTATE_ACTIVE;
+    keep->hp = def->max_hp;
+    keep->auto_assign = 0;
+    /* 성채 문은 아래쪽 가운데 (지형 생성이 성채 둘레를 비워 두었으므로 늘 비어 있음) */
+    keep->door_x = world->keep_x;
+    keep->door_y = keep->y + keep->h;
+    world->keep_id = keep->id;
+    placement_rebuild_layers(world);
+    eco_set_capacity(&world->bank, &world->ledger, def->storage);
+    return CORE_OK;
+}
+
+int world_create(const CoreNewGameParams *params, const Defs *defs, World **out)
 {
     World *world;
     int rc;
+    int32_t i;
 
     *out = NULL;
     if (params->seed < 0 || params->difficulty < 0 || params->difficulty >= CORE_DIFF_COUNT ||
@@ -102,7 +108,7 @@ int world_create(const CoreNewGameParams *params, World **out)
         return CORE_ERR_INVALID_ARG;
     }
 
-    world = world_alloc();
+    world = world_alloc(defs);
     if (world == NULL) {
         return CORE_ERR_OUT_OF_MEMORY;
     }
@@ -115,25 +121,52 @@ int world_create(const CoreNewGameParams *params, World **out)
     eco_bank_init(&world->bank, params->difficulty);
 
     rc = grid_alloc(&world->grid, GRID_DEFAULT_SIZE, GRID_DEFAULT_SIZE);
+    if (rc == CORE_OK) {
+        world->keep_x = world->grid.width / 2;
+        world->keep_y = world->grid.height / 2;
+        rc = grid_generate(&world->grid, (uint32_t)params->seed, &world->rng, world->keep_x, world->keep_y);
+    }
+    if (rc == CORE_OK) {
+        rc = place_keep(world);
+    }
+    if (rc == CORE_OK) {
+        rc = population_spawn_initial(world);
+    }
     if (rc != CORE_OK) {
         world_destroy(world);
         return rc;
     }
-    world->keep_x = world->grid.width / 2;
-    world->keep_y = world->grid.height / 2;
-    rc = grid_generate(&world->grid, (uint32_t)params->seed, &world->rng, world->keep_x, world->keep_y);
-    if (rc != CORE_OK) {
-        world_destroy(world);
-        return rc;
+    /* 망가진 정의 파일이 있었다면 알립니다 (기본값을 쓰는 중) */
+    for (i = 0; i < world->defs.warning_count; i++) {
+        events_push_warning(&world->events, CORE_EVT_DEF_WARNING, world->defs.warnings[i].file_id,
+                            world->defs.warnings[i].line);
     }
     *out = world;
     return CORE_OK;
 }
 
-/* 한 틱(게임 속 10분)을 진행합니다. 마일스톤 2부터 주민 상태 기계, 생산 등이 여기에 더해집니다 */
+/* 매일 06:00: 장부 넘기기, 임금과 세금, 이주민, 배정, 굶주림 알림 */
+static void daily(World *world)
+{
+    int32_t starving = 0;
+    int32_t i;
+    eco_roll_ledger(&world->ledger);
+    jobs_pay_wages_and_taxes(world);
+    population_daily(world);
+    jobs_on_buildings_changed(world);
+    for (i = 0; i < world->villager_count; i++) {
+        starving += world->villagers[i]->needs.hunger == 0;
+    }
+    if (starving > 0) {
+        events_push_count(&world->events, CORE_EVT_STARVING, starving);
+    }
+}
+
+/* 한 틱(게임 속 10분)을 진행합니다 */
 static void world_step(World *world)
 {
     int32_t minute;
+    int32_t i;
 
     world->clock.tick++;
     minute = clock_minute_of_day(&world->clock);
@@ -150,6 +183,21 @@ static void world_step(World *world)
     }
     if (minute == CLOCK_NIGHT_END_MIN) {
         events_push_day(&world->events, CORE_EVT_DAWN, clock_day(&world->clock));
+    }
+
+    placement_tick(world);
+    /* 뒤에서부터 돕니다: 주민이 죽어 목록에서 빠져도(swap-remove) 아직 안 본 주민을 건너뛰지 않음 */
+    for (i = world->villager_count - 1; i >= 0; i--) {
+        if (i < world->villager_count) {
+            vil_tick(world, world->villagers[i]);
+        }
+    }
+    if (minute == WORLD_DAILY_MIN) {
+        daily(world);
+    }
+    /* 슬픔은 4시간마다 1 씩 옅어집니다 */
+    if (world->mourning > 0 && world->clock.tick % 24 == 0) {
+        world->mourning--;
     }
 }
 
@@ -200,29 +248,104 @@ static uint64_t hash_i32(uint64_t hash, int32_t value)
     return hash_u64(hash, (uint64_t)(uint32_t)value);
 }
 
+static uint64_t hash_villager(uint64_t hash, const Villager *v)
+{
+    hash = hash_i32(hash, v->id);
+    hash = hash_bytes(hash, v->name, strlen(v->name));
+    hash = hash_i32(hash, v->age);
+    hash = hash_i32(hash, v->stats.strength);
+    hash = hash_i32(hash, v->stats.intellect);
+    hash = hash_i32(hash, v->stats.dexterity);
+    hash = hash_i32(hash, v->stats.vitality);
+    hash = hash_i32(hash, v->needs.hunger);
+    hash = hash_i32(hash, v->needs.rest);
+    hash = hash_i32(hash, v->needs.safety);
+    hash = hash_i32(hash, v->needs.housing);
+    hash = hash_i32(hash, v->traits[0]);
+    hash = hash_i32(hash, v->traits[1]);
+    hash = hash_i32(hash, v->mood);
+    hash = hash_i32(hash, v->health);
+    hash = hash_i32(hash, v->flags);
+    hash = hash_i32(hash, v->home != NULL ? v->home->id : 0);
+    hash = hash_i32(hash, v->workplace != NULL ? v->workplace->id : 0);
+    hash = hash_i32(hash, v->state);
+    hash = hash_i32(hash, v->intent_rev);
+    hash = hash_i32(hash, v->intent_flags);
+    hash = hash_i32(hash, v->target != NULL ? v->target->id : 0);
+    hash = hash_i32(hash, v->target_x);
+    hash = hash_i32(hash, v->target_y);
+    hash = hash_i32(hash, v->at_target);
+    hash = hash_i32(hash, v->loc_x);
+    hash = hash_i32(hash, v->loc_y);
+    hash = hash_i32(hash, v->state_ticks);
+    hash = hash_i32(hash, v->hold_ticks);
+    hash = hash_i32(hash, v->low_mood_ticks);
+    hash = hash_i32(hash, v->hunger_acc);
+    hash = hash_i32(hash, v->rest_acc);
+    hash = hash_i32(hash, v->story_flags);
+    hash = hash_i32(hash, v->blocked_day);
+    return hash;
+}
+
+static uint64_t hash_building(uint64_t hash, const Building *b)
+{
+    hash = hash_i32(hash, b->id);
+    hash = hash_i32(hash, b->type);
+    hash = hash_i32(hash, b->x);
+    hash = hash_i32(hash, b->y);
+    hash = hash_i32(hash, b->w);
+    hash = hash_i32(hash, b->h);
+    hash = hash_i32(hash, b->state);
+    hash = hash_i32(hash, b->hp);
+    hash = hash_i32(hash, b->build_progress);
+    hash = hash_i32(hash, b->door_x);
+    hash = hash_i32(hash, b->door_y);
+    hash = hash_i32(hash, b->auto_assign);
+    hash = hash_i32(hash, b->work_milli[0]);
+    hash = hash_i32(hash, b->work_milli[1]);
+    return hash;
+}
+
 uint64_t world_state_hash(const World *world)
 {
     uint64_t hash = FNV_OFFSET;
     size_t cells = (size_t)world->grid.width * (size_t)world->grid.height;
     int32_t i;
+    int32_t c;
 
     hash = hash_bytes(hash, world->castle_name, strlen(world->castle_name));
     hash = hash_i32(hash, world->difficulty);
     hash = hash_i32(hash, world->seed);
     hash = hash_i32(hash, world->keep_x);
     hash = hash_i32(hash, world->keep_y);
+    hash = hash_i32(hash, world->keep_id);
+    hash = hash_i32(hash, world->rank);
+    hash = hash_i32(hash, world->next_villager_id);
+    hash = hash_i32(hash, world->next_building_id);
+    hash = hash_i32(hash, world->mourning);
     hash = hash_i32(hash, world->clock.tick);
     hash = hash_u64(hash, world->rng.state);
     hash = hash_u64(hash, world->rng.inc);
     hash = hash_i32(hash, world->bank.capacity);
     for (i = 0; i < CORE_RES_COUNT; i++) {
         hash = hash_i32(hash, world->bank.amount[i]);
+        for (c = 0; c < LEDGER_CAT_COUNT; c++) {
+            hash = hash_i32(hash, world->ledger.today[i][c]);
+            hash = hash_i32(hash, world->ledger.yesterday[i][c]);
+        }
     }
     hash = hash_i32(hash, world->grid.width);
     hash = hash_i32(hash, world->grid.height);
     if (world->grid.terrain != NULL && world->grid.cost != NULL) {
         hash = hash_bytes(hash, world->grid.terrain, cells);
+        hash = hash_bytes(hash, world->grid.road, cells);
         hash = hash_bytes(hash, world->grid.cost, cells);
+    }
+    for (i = 0; i < world->building_count; i++) {
+        hash = hash_building(hash, world->buildings[i]);
+    }
+    for (i = 0; i < world->villager_count; i++) {
+        hash = hash_villager(hash, world->villagers[i]);
     }
     return hash;
 }

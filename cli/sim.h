@@ -9,11 +9,15 @@
 
 #include <stdint.h>
 
+#include "castle_core.h"
+
 /* csv_path 가 NULL 이면 표준 출력에 씁니다. 성공 0, 실패 1 */
-int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_name, const char *csv_path);
+/* print_events 가 1 이면 하루마다 알림 문장을 표준 오류로 출력합니다 (밸런스 조정 때 원인 찾기) */
+int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_name, const char *csv_path,
+                       const CoreDefs *defs, int print_events);
 
 /* 성공(위반 0) 0, 실패 1 */
-int sim_run_soak(int days, int seeds, int32_t first_seed);
+int sim_run_soak(int days, int seeds, int32_t first_seed, const CoreDefs *defs);
 
 /* 봇 이름이 있으면 1 */
 int sim_bot_exists(const char *bot_name);

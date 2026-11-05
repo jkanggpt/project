@@ -39,33 +39,33 @@ void test_world_rejects_bad_params(void)
     strcpy(params.castle_name, "성");
     params.seed = 1;
     params.difficulty = 3;
-    CHECK_EQ(core_create(&params, &world), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_create(&params, NULL, &world), CORE_ERR_INVALID_ARG);
     CHECK(world == NULL);
 
     params.difficulty = -1;
-    CHECK_EQ(core_create(&params, &world), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_create(&params, NULL, &world), CORE_ERR_INVALID_ARG);
     params.difficulty = CORE_DIFF_NORMAL;
     params.seed = -5;
-    CHECK_EQ(core_create(&params, &world), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_create(&params, NULL, &world), CORE_ERR_INVALID_ARG);
     params.seed = 5;
 
     params.castle_name[0] = '\0'; /* 빈 이름 */
-    CHECK_EQ(core_create(&params, &world), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_create(&params, NULL, &world), CORE_ERR_INVALID_ARG);
     memset(params.castle_name, 'A', sizeof(params.castle_name)); /* '\0' 이 없음 */
-    CHECK_EQ(core_create(&params, &world), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_create(&params, NULL, &world), CORE_ERR_INVALID_ARG);
     strcpy(params.castle_name, "bad\nname"); /* 제어 문자 */
-    CHECK_EQ(core_create(&params, &world), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_create(&params, NULL, &world), CORE_ERR_INVALID_ARG);
     strcpy(params.castle_name, "\xEC\x84"); /* 잘린 UTF-8 */
-    CHECK_EQ(core_create(&params, &world), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_create(&params, NULL, &world), CORE_ERR_INVALID_ARG);
     strcpy(params.castle_name, "\xC0\xAF"); /* 너무 긴 표현 */
-    CHECK_EQ(core_create(&params, &world), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_create(&params, NULL, &world), CORE_ERR_INVALID_ARG);
     strcpy(params.castle_name, "\xED\xA0\x80"); /* 서로게이트 */
-    CHECK_EQ(core_create(&params, &world), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_create(&params, NULL, &world), CORE_ERR_INVALID_ARG);
     CHECK(world == NULL);
 
     memset(params.castle_name, 0, sizeof(params.castle_name));
     memset(params.castle_name, 'B', sizeof(params.castle_name) - 1); /* 최대 길이 47바이트는 허용 */
-    CHECK_EQ(core_create(&params, &world), CORE_OK);
+    CHECK_EQ(core_create(&params, NULL, &world), CORE_OK);
     CHECK(world != NULL);
     core_destroy(world);
 }
@@ -161,7 +161,7 @@ void test_world_out_of_memory_is_clean(void)
         CoreWorld *world = (CoreWorld *)&params;
         int32_t rc;
         mem_test_fail_after(fail_after);
-        rc = core_create(&params, &world);
+        rc = core_create(&params, NULL, &world);
         mem_test_fail_after(-1);
         if (rc == CORE_OK) {
             CHECK(world != NULL);

@@ -1,0 +1,71 @@
+# 주민 특성. work: 일 속도 %, food: 배고파지는 속도 %, mood: 기분, bravery: 용기, magic: 연구 속도 %
+
+[trait diligent]
+work = 25
+food = 0
+mood = 0
+bravery = 0
+magic = 0
+
+[trait lazy]
+work = -25
+food = 0
+mood = 3
+bravery = 0
+magic = 0
+
+[trait glutton]
+work = 0
+food = 50
+mood = 2
+bravery = 0
+magic = 0
+
+[trait coward]
+work = 0
+food = 0
+mood = 0
+bravery = -1
+magic = 0
+
+[trait brave]
+work = 0
+food = 0
+mood = 0
+bravery = 1
+magic = 0
+
+[trait mana_affinity]
+work = 0
+food = 0
+mood = 0
+bravery = 0
+magic = 50
+
+[trait optimist]
+work = 0
+food = 0
+mood = 8
+bravery = 0
+magic = 0
+
+[trait grumbler]
+work = 0
+food = 0
+mood = -8
+bravery = 0
+magic = 0
+
+[trait strong]
+work = 10
+food = 20
+mood = 0
+bravery = 0
+magic = 0
+
+[trait frugal]
+work = 0
+food = -25
+mood = -2
+bravery = 0
+magic = 0

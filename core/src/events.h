@@ -29,8 +29,28 @@ typedef struct Event {
         struct {
             int32_t code;
             int32_t detail;
-        } warning; /* WARNING */
+        } warning; /* WARNING, DEF_WARNING */
+        struct {
+            int32_t id;
+            int32_t type;
+            int32_t x;
+            int32_t y;
+        } building; /* BUILDING_PLACED, BUILDING_COMPLETED, BUILDING_REMOVED */
+        struct {
+            int32_t building_id;
+            int32_t resource;
+            int32_t amount;
+        } produced; /* PRODUCED */
+        struct {
+            int32_t id;
+            int32_t detail;
+            int32_t value;
+        } villager; /* IMMIGRANT, VILLAGER_*, PATH_BLOCKED, STORY */
+        struct {
+            int32_t value;
+        } count; /* STORAGE_FULL(자원), WAGES_UNPAID, STARVING */
     } as;
+    char text[CORE_NAME_BYTES]; /* 관련 주민 이름 (없으면 빈 문자열) */
 } Event;
 
 /* 원형 버퍼. 꽉 차면 realloc 으로 두 배씩 늘리고, 최대 크기에서는 가장 오래된 것을 버립니다. */
@@ -51,6 +71,13 @@ int events_pop(EventQueue *queue, Event *out);
 /* 자주 쓰는 이벤트를 만드는 도우미 */
 void events_push_day(EventQueue *queue, CoreEventType type, int32_t day);
 void events_push_season(EventQueue *queue, int32_t season, int32_t year);
+void events_push_building(EventQueue *queue, CoreEventType type, int32_t id, int32_t building_type, int32_t x,
+                          int32_t y);
+void events_push_produced(EventQueue *queue, int32_t building_id, int32_t resource, int32_t amount);
+void events_push_villager(EventQueue *queue, CoreEventType type, int32_t id, int32_t detail, int32_t value,
+                          const char *name);
+void events_push_count(EventQueue *queue, CoreEventType type, int32_t value);
+void events_push_warning(EventQueue *queue, CoreEventType type, int32_t code, int32_t detail);
 
 /* 내부 이벤트(공용체)를 C#에 건넬 평평한 뷰로 바꿉니다. */
 void events_to_view(const Event *event, CoreEventView *out);

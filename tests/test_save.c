@@ -55,13 +55,16 @@ void test_save_roundtrip_same_hash(void)
     remove_save_files(path);
     CHECK_EQ(core_save(world, path), CORE_OK);
     CHECK(!platform_file_exists("roundtrip.sav.tmp"));
-    CHECK_EQ(core_load(path, &loaded, &line), CORE_OK);
+    CHECK_EQ(core_load(path, NULL, &loaded, &line), CORE_OK);
     CHECK(loaded != NULL);
     CHECK_EQ(line, 0);
     CHECK(hash_of(world) == hash_of(loaded));
     CHECK_EQ(core_validate(loaded), 0);
     CHECK_EQ(core_get_summary(world, &a), CORE_OK);
     CHECK_EQ(core_get_summary(loaded, &b), CORE_OK);
+    /* cost_grid_rev 는 "바뀌었는지" 알리는 수정 번호라 저장하지 않습니다 */
+    a.cost_grid_rev = 0;
+    b.cost_grid_rev = 0;
     CHECK(memcmp(&a, &b, sizeof(a)) == 0);
 
     /* 불러온 뒤에도 같은 미래가 나와야 합니다 (난수 상태까지 저장되었는지) */
@@ -93,10 +96,10 @@ void test_save_keeps_backup(void)
     CHECK(platform_file_exists("backup.sav.bak"));
 
     /* .bak 은 이전 상태, 본 파일은 새 상태 */
-    CHECK_EQ(core_load("backup.sav.bak", &loaded, NULL), CORE_OK);
+    CHECK_EQ(core_load("backup.sav.bak", NULL, &loaded, NULL), CORE_OK);
     CHECK(hash_of(loaded) == first_hash);
     core_destroy(loaded);
-    CHECK_EQ(core_load(path, &loaded, NULL), CORE_OK);
+    CHECK_EQ(core_load(path, NULL, &loaded, NULL), CORE_OK);
     CHECK(hash_of(loaded) == hash_of(world));
     core_destroy(loaded);
     core_destroy(world);
@@ -119,7 +122,7 @@ void test_save_korean_path(void)
     CHECK_EQ(core_save(world, path), CORE_OK);
     CHECK_EQ(core_save(world, path), CORE_OK); /* 두 번째 저장: 대상이 있는 상태에서 바꿔치기 + .bak */
     CHECK(platform_file_exists("세이브_폴더/바람언덕 성채.sav.bak"));
-    CHECK_EQ(core_load(path, &loaded, NULL), CORE_OK);
+    CHECK_EQ(core_load(path, NULL, &loaded, NULL), CORE_OK);
     CHECK(hash_of(world) == hash_of(loaded));
     CHECK_EQ(core_get_summary(loaded, &summary), CORE_OK);
     CHECK(strcmp(summary.castle_name, "바람언덕 🏰 성채") == 0);
@@ -147,7 +150,7 @@ void test_load_missing_file(void)
 {
     CoreWorld *loaded = (CoreWorld *)&loaded;
     int32_t line = 99;
-    CHECK_EQ(core_load("definitely_missing.sav", &loaded, &line), CORE_ERR_FILE_OPEN);
+    CHECK_EQ(core_load("definitely_missing.sav", NULL, &loaded, &line), CORE_ERR_FILE_OPEN);
     CHECK(loaded == NULL);
     CHECK_EQ(line, 0);
 }
@@ -183,7 +186,7 @@ static int32_t load_text(const char *text, size_t size, int32_t *out_line)
     if (!test_write_file(path, text, size)) {
         return 12345;
     }
-    rc = core_load(path, &loaded, out_line);
+    rc = core_load(path, NULL, &loaded, out_line);
     if (rc == CORE_OK) {
         /* 망가뜨렸는데도 읽혔다면, 적어도 불변 조건은 지켜야 합니다 */
         if (core_validate(loaded) != 0) {
@@ -229,13 +232,13 @@ void test_load_wrong_version(void)
     CHECK(text != NULL);
     CHECK_EQ(load_text(text, size, &line), CORE_OK);
 
-    changed = replace_once(text, "MAGICCASTLE_SAVE 1", "MAGICCASTLE_SAVE 999");
+    changed = replace_once(text, "MAGICCASTLE_SAVE 2", "MAGICCASTLE_SAVE 999");
     CHECK(changed != NULL);
     CHECK_EQ(load_text(changed, strlen(changed), &line), CORE_ERR_VERSION);
     CHECK_EQ(line, 1);
     free(changed);
 
-    changed = replace_once(text, "MAGICCASTLE_SAVE 1", "SOMETHING_ELSE 1");
+    changed = replace_once(text, "MAGICCASTLE_SAVE 2", "SOMETHING_ELSE 2");
     CHECK(changed != NULL);
     CHECK_EQ(load_text(changed, strlen(changed), &line), CORE_ERR_FORMAT);
     free(changed);
@@ -272,7 +275,7 @@ void test_load_rejects_bad_values(void)
         {"keep=48,48", "keep=0,0"},
         {"keep=48,48", "keep=48"},
         {"tick=", "tick=-"},
-        {"capacity=200", "capacity=0"},
+        {"capacity=300", "capacity=0"},
         {"gold=12345", "gold=-1"},
         {"herbs=7", "herbs=999"}, /* 저장 한도를 넘음 → 불변 조건 검사에서 걸림 */
         {"size=96,96", "size=96,95"},
@@ -374,7 +377,7 @@ void test_load_garbled_files(void)
         char *line = (char *)malloc(big);
         CHECK(line != NULL);
         memset(line, 'A', big);
-        memcpy(line, "MAGICCASTLE_SAVE 1\nrow=", 23);
+        memcpy(line, "MAGICCASTLE_SAVE 2\nrow=", 23);
         CHECK_EQ(load_text(line, big, NULL), CORE_ERR_FORMAT);
         free(line);
     }
@@ -398,7 +401,7 @@ void test_load_out_of_memory_is_clean(void)
         CoreWorld *loaded = NULL;
         int32_t rc;
         mem_test_fail_after(fail_after);
-        rc = core_load(path, &loaded, NULL);
+        rc = core_load(path, NULL, &loaded, NULL);
         mem_test_fail_after(-1);
         if (rc == CORE_OK) {
             CHECK(hash_of(loaded) == hash_of(world));
@@ -418,7 +421,7 @@ void test_load_out_of_memory_is_clean(void)
     mem_test_fail_after(-1);
     {
         CoreWorld *loaded = NULL;
-        CHECK_EQ(core_load(path, &loaded, NULL), CORE_OK);
+        CHECK_EQ(core_load(path, NULL, &loaded, NULL), CORE_OK);
         core_destroy(loaded);
     }
     core_destroy(world);

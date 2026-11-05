@@ -2,14 +2,22 @@
 set(CASTLE_CORE_SOURCES
   src/api.c
   src/clock.c
+  src/defs.c
+  src/defs_builtin.c
   src/economy.c
+  src/entity.c
   src/events.c
   src/grid.c
+  src/jobs.c
   src/mem.c
+  src/placement.c
   src/platform.c
+  src/population.c
   src/rng.c
   src/save.c
+  src/text.c
   src/validate.c
+  src/villager_ai.c
   src/world.c
 )
 
