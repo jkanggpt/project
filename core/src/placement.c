@@ -588,7 +588,7 @@ static int place_road(World *world, int32_t x, int32_t y)
     Grid *grid = &world->grid;
     const BuildingDef *def = world_building_def(world, CORE_BLD_ROAD);
     int32_t index = grid_index(grid, x, y);
-    if (!eco_pay(&world->bank, &world->ledger, def->cost, LEDGER_CONSTRUCTION)) {
+    if (!eco_pay(&world->bank, &world->ledger, def->cost, CORE_LEDGER_CONSTRUCTION)) {
         return CORE_ERR_REJECTED;
     }
     grid->road[index] = 1;
@@ -620,7 +620,7 @@ int placement_place(World *world, int32_t type, int32_t x, int32_t y, int32_t *o
         *out_reason = CORE_PLACE_OK;
         return CORE_ERR_OUT_OF_MEMORY;
     }
-    (void)eco_pay(&world->bank, &world->ledger, def->cost, LEDGER_CONSTRUCTION);
+    (void)eco_pay(&world->bank, &world->ledger, def->cost, CORE_LEDGER_CONSTRUCTION);
     building->x = x;
     building->y = y;
     building->w = def->w;
@@ -703,7 +703,7 @@ static void refund_half(World *world, const BuildingDef *def)
     int32_t i;
     for (i = 0; i < CORE_RES_COUNT; i++) {
         if (def->cost[i] / 2 > 0) {
-            (void)eco_change(&world->bank, &world->ledger, i, def->cost[i] / 2, LEDGER_REFUND);
+            (void)eco_change(&world->bank, &world->ledger, i, def->cost[i] / 2, CORE_LEDGER_REFUND);
         }
     }
 }
@@ -745,6 +745,103 @@ int placement_remove_road(World *world, int32_t x, int32_t y)
     refund_half(world, world_building_def(world, CORE_BLD_ROAD));
     grid_rebuild_costs(grid);
     events_push_building(&world->events, CORE_EVT_BUILDING_REMOVED, 0, CORE_BLD_ROAD, x, y);
+    return CORE_OK;
+}
+
+/* ---- 피해와 수리 ----------------------------------------------------- */
+
+/* 무너진 건물에서는 일도 잠도 못 하므로 일꾼·거주민을 양쪽 모두 떼어 냅니다 (자동 배치가 다른 곳을 찾아 줌) */
+static void ruin_building(World *world, Building *building)
+{
+    building->state = CORE_BSTATE_RUINED;
+    building->hp = 0;
+    building->flags = 0;
+    building->work_milli[0] = 0;
+    building->work_milli[1] = 0;
+    while (building->worker_count > 0) {
+        entity_unlink_worker(building->workers[building->worker_count - 1]);
+    }
+    while (building->resident_count > 0) {
+        entity_unlink_resident(building->residents[building->resident_count - 1]);
+    }
+    events_push_building(&world->events, CORE_EVT_BUILDING_RUINED, building->id, building->type, building->x,
+                         building->y);
+    refresh_capacity(world);
+    jobs_on_buildings_changed(world);
+}
+
+void placement_damage(World *world, Building *building, int32_t damage)
+{
+    if (damage <= 0 || building->state == CORE_BSTATE_RUINED) {
+        return;
+    }
+    if (building->state == CORE_BSTATE_CONSTRUCTING) {
+        /* 짓는 중이면 공사가 뒤로 밀립니다 */
+        building->build_progress = building->build_progress > 6 ? building->build_progress - 6 : 0;
+        events_push_building(&world->events, CORE_EVT_BUILDING_DAMAGED, building->id, building->type, building->x,
+                             building->y);
+        return;
+    }
+    building->hp -= damage;
+    if (building->hp <= 0) {
+        ruin_building(world, building);
+    } else {
+        events_push_building(&world->events, CORE_EVT_BUILDING_DAMAGED, building->id, building->type, building->x,
+                             building->y);
+    }
+}
+
+void placement_repair_cost(const World *world, const Building *building, int32_t out_cost[CORE_RES_COUNT])
+{
+    const BuildingDef *def = world_building_def(world, building->type);
+    int32_t missing = def->max_hp - building->hp;
+    int32_t any = 0;
+    int32_t i;
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        out_cost[i] = 0;
+    }
+    if (building->state == CORE_BSTATE_CONSTRUCTING || missing <= 0 || def->max_hp <= 0) {
+        return;
+    }
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        /* 반올림이 아니라 올림: 조금만 부서져도 1 은 듦 */
+        out_cost[i] = (int32_t)(((int64_t)def->cost[i] * missing + 2LL * def->max_hp - 1) / (2LL * def->max_hp));
+        any += out_cost[i];
+    }
+    if (any == 0) {
+        /* 비용이 없는 건물(성채)은 돌과 나무로 고칩니다 */
+        out_cost[CORE_RES_STONE] = (missing + 19) / 20;
+        out_cost[CORE_RES_WOOD] = (missing + 39) / 40;
+    }
+}
+
+int placement_repair(World *world, Building *building, int32_t *out_reason)
+{
+    const BuildingDef *def = world_building_def(world, building->type);
+    int32_t cost[CORE_RES_COUNT];
+    int was_ruined = building->state == CORE_BSTATE_RUINED;
+    *out_reason = CORE_DENY_NONE;
+    if (building->state == CORE_BSTATE_CONSTRUCTING) {
+        *out_reason = CORE_DENY_UNDER_CONSTRUCTION;
+        return CORE_ERR_REJECTED;
+    }
+    if (building->hp >= def->max_hp) {
+        *out_reason = CORE_DENY_NOT_DAMAGED;
+        return CORE_ERR_REJECTED;
+    }
+    placement_repair_cost(world, building, cost);
+    if (!eco_pay(&world->bank, &world->ledger, cost, CORE_LEDGER_REPAIR)) {
+        *out_reason = CORE_DENY_NO_RESOURCES;
+        return CORE_ERR_REJECTED;
+    }
+    building->hp = def->max_hp;
+    building->state = CORE_BSTATE_ACTIVE;
+    events_push_building(&world->events, CORE_EVT_BUILDING_REPAIRED, building->id, building->type, building->x,
+                         building->y);
+    if (was_ruined) {
+        refresh_capacity(world);
+        jobs_on_buildings_changed(world);
+    }
     return CORE_OK;
 }
 

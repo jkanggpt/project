@@ -26,6 +26,10 @@ const char *fmt_building_name(int32_t type);
 const char *fmt_place_result(int32_t result);
 const char *fmt_villager_state(int32_t state);
 const char *fmt_trait_name(const char *key);
+const char *fmt_weather_name(int32_t weather);
+const char *fmt_nature_name(int32_t event);
+const char *fmt_deny_reason(int32_t reason);
+const char *fmt_ledger_name(int32_t category);
 
 /* "1년 봄 3일 (3일째) 06:00" */
 void fmt_date(const CoreSummaryView *summary, char *out, size_t size);

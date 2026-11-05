@@ -1,8 +1,8 @@
 /*
  * save.c — 저장과 불러오기 (설명은 save.h)
  *
- * 저장 파일 예 (버전 2):
- *   MAGICCASTLE_SAVE 2
+ * 저장 파일 예 (버전 3):
+ *   MAGICCASTLE_SAVE 3
  *   [meta]
  *   name=바람언덕
  *   difficulty=1
@@ -15,10 +15,13 @@
  *   [clock] tick=36
  *   [rng] state=…  inc=…
  *   [resources] capacity=200, gold=200, …
- *   [ledger] today_gold=0,0,…  yesterday_gold=…   (항목 10개씩)
+ *   [ledger] today_gold=0,0,…  yesterday_gold=…   (항목 12개씩)
  *   [map] size=96,96, row=..TT^^~~**…, road=0001100…
- *   [buildings] building=id,종류,x,y,w,h,상태,체력,건설진행,문x,문y,자동배치,생산누적1,생산누적2
- *   [villagers] villager=id,나이,…,특성1,특성2,이름   (이름은 마지막: 쉼표가 들어 있어도 됨)
+ *   [buildings] building=id,종류,x,y,w,h,상태,체력,건설진행,문x,문y,자동배치,생산누적1,생산누적2,플래그
+ *   [villagers] villager=id,나이,…,병,치료,특성1,특성2,이름   (이름은 마지막: 쉼표가 들어 있어도 됨)
+ *   [nature] weather=1, event=0, event_days=0, forecast=0, forecast_days=0, calm_days=3, cold_houses=0
+ *   [market] prices=0,0,800,600,900,1200        (한 묶음 값 × 100)
+ *   [merchant] days_left=0, next_visit=7, deal=내는자원,양,받는자원,양,했음 (제안마다 한 줄)
  *   [end]
  *
  * 포인터는 저장하지 않고 id 를 저장합니다. 불러온 뒤 id 로 찾아 포인터를 다시 잇습니다.
@@ -42,8 +45,8 @@
 #define SAVE_MAX_BUILDINGS 20000
 #define SAVE_MAX_VILLAGERS 5000
 
-#define BUILDING_FIELDS 14
-#define VILLAGER_INT_FIELDS 31
+#define BUILDING_FIELDS 15
+#define VILLAGER_INT_FIELDS 33
 
 /* 자원 키 이름 (순서는 CoreResource) */
 static const char *const RESOURCE_KEYS[CORE_RES_COUNT] = {"gold", "mana", "food", "wood", "stone", "herbs"};
@@ -104,9 +107,9 @@ static void write_economy(FILE *file, const World *world)
     fputs("[ledger]\n", file);
     for (i = 0; i < CORE_RES_COUNT; i++) {
         fprintf(file, "today_%s=", RESOURCE_KEYS[i]);
-        write_int_list(file, world->ledger.today[i], LEDGER_CAT_COUNT);
+        write_int_list(file, world->ledger.today[i], CORE_LEDGER_COUNT);
         fprintf(file, "yesterday_%s=", RESOURCE_KEYS[i]);
-        write_int_list(file, world->ledger.yesterday[i], LEDGER_CAT_COUNT);
+        write_int_list(file, world->ledger.yesterday[i], CORE_LEDGER_COUNT);
     }
 }
 
@@ -154,6 +157,7 @@ static void write_buildings(FILE *file, const World *world)
         values[11] = b->auto_assign;
         values[12] = b->work_milli[0];
         values[13] = b->work_milli[1];
+        values[14] = b->flags;
         fputs("building=", file);
         write_int_list(file, values, BUILDING_FIELDS);
     }
@@ -203,11 +207,40 @@ static void write_villagers(FILE *file, const World *world)
         values[28] = v->rest_acc;
         values[29] = v->story_flags;
         values[30] = v->blocked_day;
+        values[31] = v->sick_ticks;
+        values[32] = v->heal_ticks;
         fputs("villager=", file);
         for (k = 0; k < VILLAGER_INT_FIELDS; k++) {
             fprintf(file, "%d,", (int)values[k]);
         }
         fprintf(file, "%s,%s,%s\n", trait_key(world, v->traits[0]), trait_key(world, v->traits[1]), v->name);
+    }
+}
+
+static void write_pressure(FILE *file, const World *world)
+{
+    const Nature *nature = &world->nature;
+    int32_t i;
+    fputs("[nature]\n", file);
+    fprintf(file, "weather=%d\nevent=%d\nevent_days=%d\n", (int)nature->weather, (int)nature->event,
+            (int)nature->event_days);
+    fprintf(file, "forecast=%d\nforecast_days=%d\ncalm_days=%d\ncold_houses=%d\n", (int)nature->forecast,
+            (int)nature->forecast_days, (int)nature->calm_days, (int)nature->cold_houses);
+    fputs("[market]\nprices=", file);
+    write_int_list(file, world->market.price, CORE_RES_COUNT);
+    fputs("[merchant]\n", file);
+    fprintf(file, "days_left=%d\nnext_visit=%d\n", (int)world->merchant.days_left,
+            (int)world->merchant.next_visit_day);
+    for (i = 0; i < world->merchant.deal_count; i++) {
+        const MerchantDeal *deal = &world->merchant.deals[i];
+        int32_t values[5];
+        values[0] = deal->give_resource;
+        values[1] = deal->give_amount;
+        values[2] = deal->get_resource;
+        values[3] = deal->get_amount;
+        values[4] = deal->taken;
+        fputs("deal=", file);
+        write_int_list(file, values, 5);
     }
 }
 
@@ -220,6 +253,7 @@ static int write_world(FILE *file, const World *world)
     write_map(file, world);
     write_buildings(file, world);
     write_villagers(file, world);
+    write_pressure(file, world);
     fputs("[end]\n", file);
     return ferror(file) ? CORE_ERR_FILE_IO : CORE_OK;
 }
@@ -548,7 +582,7 @@ static int parse_ledger(LoadState *state, const char *key, char *value)
             bit = i * 2 + 1;
         }
         if (target != NULL) {
-            if (!mark_key(state, bit) || parse_int_list(value, target, LEDGER_CAT_COUNT, 1) == NULL) {
+            if (!mark_key(state, bit) || parse_int_list(value, target, CORE_LEDGER_COUNT, 1) == NULL) {
                 return CORE_ERR_FORMAT;
             }
             return CORE_OK;
@@ -627,7 +661,7 @@ static int parse_building(LoadState *state, const char *key, char *value)
         !grid_in_bounds(&world->grid, v[2] + v[4] - 1, v[3] + v[5] - 1) || v[6] < CORE_BSTATE_CONSTRUCTING ||
         v[6] > CORE_BSTATE_RUINED || v[7] < 0 || v[7] > def->max_hp || v[8] < 0 ||
         !in_bounds_or_none(&world->grid, v[9], v[10]) || (v[11] != 0 && v[11] != 1) || v[12] < 0 || v[13] < 0 ||
-        v[12] > 1000000 || v[13] > 1000000) {
+        v[12] > 1000000 || v[13] > 1000000 || v[14] < 0 || v[14] > CORE_BF_COLD) {
         return CORE_ERR_FORMAT;
     }
     building = entity_add_building(world, v[1]);
@@ -648,6 +682,7 @@ static int parse_building(LoadState *state, const char *key, char *value)
     building->auto_assign = v[11];
     building->work_milli[0] = v[12];
     building->work_milli[1] = v[13];
+    building->flags = v[14];
     return CORE_OK;
 }
 
@@ -718,7 +753,8 @@ static int parse_villager(LoadState *state, const char *key, char *value)
         v[13] < 0 || v[14] < 0 || v[15] < 0 || v[15] >= CORE_VS_COUNT || v[16] < 0 || v[17] < 0 || v[17] > 3 ||
         v[18] < 0 || !grid_in_bounds(grid, v[19], v[20]) || (v[21] != 0 && v[21] != 1) ||
         !grid_in_bounds(grid, v[22], v[23]) || v[24] < 0 || v[25] < 0 || v[26] < 0 || v[27] < 0 || v[27] >= 1000 ||
-        v[28] < 0 || v[28] >= 1000 || v[29] < 0 || v[30] < -1) {
+        v[28] < 0 || v[28] >= 1000 || v[29] < 0 || v[30] < -1 || v[31] < 0 || v[31] > NATURE_SICK_TICKS * 2 ||
+        v[32] < 0 || v[32] > NATURE_HEAL_TICKS) {
         return CORE_ERR_FORMAT;
     }
     rc = reserve_links(state, world->villager_count + 1);
@@ -759,6 +795,8 @@ static int parse_villager(LoadState *state, const char *key, char *value)
     villager->rest_acc = v[28];
     villager->story_flags = v[29];
     villager->blocked_day = v[30];
+    villager->sick_ticks = v[31];
+    villager->heal_ticks = v[32];
     villager->traits[0] = trait_from_key(world, rest);
     villager->traits[1] = trait_from_key(world, trait_b);
     /* 연결은 모든 건물을 읽은 뒤 [end] 에서 */
@@ -766,6 +804,68 @@ static int parse_villager(LoadState *state, const char *key, char *value)
     state->links[world->villager_count - 1].workplace = v[14];
     state->links[world->villager_count - 1].target = v[18];
     return CORE_OK;
+}
+
+/* [nature]: 키 7개 */
+static int parse_nature(LoadState *state, const char *key, char *value)
+{
+    static const char *const KEYS[7] = {"weather", "event", "event_days", "forecast", "forecast_days", "calm_days",
+                                        "cold_houses"};
+    static const int32_t MAX[7] = {CORE_WEATHER_COUNT - 1, CORE_NATURE_COUNT - 1, 30, CORE_NATURE_COUNT - 1, 30,
+                                   CLOCK_MAX_DAYS, SAVE_MAX_BUILDINGS};
+    Nature *nature = &state->world->nature;
+    int32_t *fields[7];
+    int i;
+    fields[0] = &nature->weather;
+    fields[1] = &nature->event;
+    fields[2] = &nature->event_days;
+    fields[3] = &nature->forecast;
+    fields[4] = &nature->forecast_days;
+    fields[5] = &nature->calm_days;
+    fields[6] = &nature->cold_houses;
+    for (i = 0; i < 7; i++) {
+        if (strcmp(key, KEYS[i]) == 0 && mark_key(state, i)) {
+            return parse_i32(value, 0, MAX[i], fields[i]) ? CORE_OK : CORE_ERR_FORMAT;
+        }
+    }
+    return CORE_ERR_FORMAT;
+}
+
+static int parse_market(LoadState *state, const char *key, char *value)
+{
+    if (strcmp(key, "prices") == 0 && mark_key(state, 0)) {
+        return parse_int_list(value, state->world->market.price, CORE_RES_COUNT, 1) != NULL ? CORE_OK
+                                                                                          : CORE_ERR_FORMAT;
+    }
+    return CORE_ERR_FORMAT; /* 가격의 범위는 불변 조건 검사기가 확인 */
+}
+
+static int parse_merchant(LoadState *state, const char *key, char *value)
+{
+    Merchant *merchant = &state->world->merchant;
+    if (strcmp(key, "days_left") == 0 && mark_key(state, 0)) {
+        return parse_i32(value, 0, MERCHANT_STAY_DAYS, &merchant->days_left) ? CORE_OK : CORE_ERR_FORMAT;
+    }
+    if (strcmp(key, "next_visit") == 0 && mark_key(state, 1)) {
+        return parse_i32(value, 0, CLOCK_MAX_DAYS, &merchant->next_visit_day) ? CORE_OK : CORE_ERR_FORMAT;
+    }
+    if (strcmp(key, "deal") == 0 && merchant->deal_count < CORE_MERCHANT_MAX_DEALS) {
+        int32_t v[5];
+        MerchantDeal *deal;
+        if (parse_int_list(value, v, 5, 1) == NULL || v[0] < 0 || v[0] >= CORE_RES_COUNT || v[1] < 1 ||
+            v[1] > 100000 || v[2] < 0 || v[2] >= CORE_RES_COUNT || v[3] < 1 || v[3] > 100000 || v[4] < 0 ||
+            v[4] > 1) {
+            return CORE_ERR_FORMAT;
+        }
+        deal = &merchant->deals[merchant->deal_count++];
+        deal->give_resource = v[0];
+        deal->give_amount = v[1];
+        deal->get_resource = v[2];
+        deal->get_amount = v[3];
+        deal->taken = v[4];
+        return CORE_OK;
+    }
+    return CORE_ERR_FORMAT;
 }
 
 #define SEC_META 0
@@ -781,6 +881,9 @@ static const SectionDef SECTIONS[] = {
     {"map", parse_map, 0x1u, 0},                                       /* size (줄 수는 따로 확인) */
     {"buildings", parse_building, 0u, (1u << SEC_META) | (1u << SEC_MAP)},
     {"villagers", parse_villager, 0u, (1u << SEC_META) | (1u << SEC_MAP) | (1u << 6)},
+    {"nature", parse_nature, 0x7Fu, 0},                                /* 키 7개 */
+    {"market", parse_market, 0x1u, 0},                                 /* prices */
+    {"merchant", parse_merchant, 0x3u, 0},                             /* days_left, next_visit (+ deal 줄) */
 };
 #define SECTION_COUNT ((int32_t)(sizeof(SECTIONS) / sizeof(SECTIONS[0])))
 

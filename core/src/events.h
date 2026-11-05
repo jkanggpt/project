@@ -35,7 +35,7 @@ typedef struct Event {
             int32_t type;
             int32_t x;
             int32_t y;
-        } building; /* BUILDING_PLACED, BUILDING_COMPLETED, BUILDING_REMOVED */
+        } building; /* BUILDING_PLACED, BUILDING_COMPLETED, BUILDING_REMOVED, BUILDING_DAMAGED/RUINED/REPAIRED */
         struct {
             int32_t building_id;
             int32_t resource;
@@ -45,10 +45,15 @@ typedef struct Event {
             int32_t id;
             int32_t detail;
             int32_t value;
-        } villager; /* IMMIGRANT, VILLAGER_*, PATH_BLOCKED, STORY */
+        } villager; /* IMMIGRANT, VILLAGER_*, PATH_BLOCKED, STORY, VILLAGER_SICK, VILLAGER_CURED */
         struct {
             int32_t value;
-        } count; /* STORAGE_FULL(자원), WAGES_UNPAID, STARVING */
+        } count; /* STORAGE_FULL(자원), WAGES_UNPAID, STARVING, WEATHER_CHANGED, NATURE_FORECAST, NATURE_ENDED,
+                    MERCHANT_LEFT, HOUSES_COLD */
+        struct {
+            int32_t first;
+            int32_t second;
+        } pair; /* NATURE_STARTED(사건, 날 수), MERCHANT_ARRIVED(날 수, 제안 수), WINTER_WARNING(식량, 목재) */
     } as;
     char text[CORE_NAME_BYTES]; /* 관련 주민 이름 (없으면 빈 문자열) */
 } Event;
@@ -78,6 +83,7 @@ void events_push_villager(EventQueue *queue, CoreEventType type, int32_t id, int
                           const char *name);
 void events_push_count(EventQueue *queue, CoreEventType type, int32_t value);
 void events_push_warning(EventQueue *queue, CoreEventType type, int32_t code, int32_t detail);
+void events_push_pair(EventQueue *queue, CoreEventType type, int32_t first, int32_t second);
 
 /* 내부 이벤트(공용체)를 C#에 건넬 평평한 뷰로 바꿉니다. */
 void events_to_view(const Event *event, CoreEventView *out);

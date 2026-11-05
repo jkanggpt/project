@@ -114,6 +114,15 @@ static int32_t average_mood(const World *world)
     return total / world->villager_count;
 }
 
+/* 이주민이 오려면 있어야 할 식량: 보통은 주민 × 5, 가을에는 한 명 더 늘어도 겨울을 날 만큼 */
+static int32_t immigration_food_need(const World *world)
+{
+    if (clock_season(&world->clock) == CORE_SEASON_AUTUMN) {
+        return (world->villager_count + 1) * NATURE_FOOD_PER_DAY_X10 * CLOCK_DAYS_PER_SEASON / 10;
+    }
+    return world->villager_count * POP_FOOD_DAYS_FOR_IMMIGRANTS;
+}
+
 void population_daily(World *world)
 {
     int32_t free_slots = free_housing(world);
@@ -121,9 +130,11 @@ void population_daily(World *world)
     int32_t arrivals;
     int32_t i;
 
-    /* 빈 집이 있고, 마을 분위기가 좋고, 먹을 것이 넉넉해야 이주민이 옵니다. 겨울에는 길이 험해 오지 않습니다 */
+    /* 빈 집이 있고, 마을 분위기가 좋고, 먹을 것이 넉넉해야 이주민이 옵니다.
+     * 겨울에는 길이 험해서, 역병이 돌 때는 소문이 나서 오지 않습니다 */
     if (free_slots <= 0 || mood < POP_IMMIGRATION_MOOD || clock_season(&world->clock) == CORE_SEASON_WINTER ||
-        world->bank.amount[CORE_RES_FOOD] < world->villager_count * POP_FOOD_DAYS_FOR_IMMIGRANTS) {
+        world->nature.event == CORE_NATURE_PLAGUE ||
+        world->bank.amount[CORE_RES_FOOD] < immigration_food_need(world)) {
         return;
     }
     arrivals = 1 + (mood - POP_IMMIGRATION_MOOD) / 15;

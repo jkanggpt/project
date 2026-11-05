@@ -35,7 +35,7 @@ int vil_unreachable(World *world, Villager *villager, int32_t intent_rev);
 /* 기분 항목별 값을 terms 에 채우고, 목표 기분(0..100)을 돌려줍니다 */
 int32_t vil_mood_terms(const World *world, const Villager *villager, int32_t terms[CORE_MOOD_TERM_COUNT]);
 /* 걷는 속도 (보통 풀밭에서 한 틱에 걷는 칸 × 1000) */
-int32_t vil_walk_speed(const Villager *villager);
+int32_t vil_walk_speed(const World *world, const Villager *villager);
 /* 주민의 의도를 정합니다. 바뀐 것이 있을 때만 intent_rev 가 오릅니다 */
 void vil_set_intent(Villager *villager, int32_t state, Building *target, int32_t x, int32_t y, int32_t flags);
 /* (near_x, near_y) 에서 가장 가까운, 걸어서 나갈 수 있는 지도 가장자리 칸 */

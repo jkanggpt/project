@@ -67,6 +67,8 @@ struct Villager {
     int32_t rest_acc;       /* 피로 누적 (×1000) */
     int32_t story_flags;    /* 이미 보낸 이야기 알림 (비트) */
     int32_t blocked_day;    /* 길 막힘 알림을 마지막으로 보낸 날 */
+    int32_t sick_ticks;     /* 병이 저절로 낫기까지 남은 틱 (0 = 건강) */
+    int32_t heal_ticks;     /* 치료소에서 치료받은 틱 */
 };
 
 struct Building {
@@ -84,6 +86,7 @@ struct Building {
     int32_t auto_assign;
     int32_t work_milli[2]; /* 생산 누적 (주 자원, 두 번째 자원) × 1000 */
     int32_t productivity;  /* 지형에 따른 생산성 % (지도에서 다시 계산하므로 저장하지 않음) */
+    int32_t flags;         /* CORE_BF_* (난방 못 함 등) */
 
     Villager **workers;    /* 일꾼 (id 순으로 정렬) */
     int32_t worker_count;

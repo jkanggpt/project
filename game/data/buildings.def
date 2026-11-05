@@ -234,7 +234,7 @@ placement = any
 min_terrain = 0
 ideal_terrain = 1
 wage = 2
-required_rank = 1
+required_rank = 0
 category = storage
 
 [building barracks]
@@ -364,7 +364,7 @@ placement = any
 min_terrain = 0
 ideal_terrain = 1
 wage = 2
-required_rank = 1
+required_rank = 0
 category = service
 
 [building mage_tower]

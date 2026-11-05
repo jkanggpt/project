@@ -9,7 +9,9 @@ set(CASTLE_CORE_SOURCES
   src/events.c
   src/grid.c
   src/jobs.c
+  src/market.c
   src/mem.c
+  src/nature.c
   src/placement.c
   src/platform.c
   src/population.c

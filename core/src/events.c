@@ -155,6 +155,16 @@ void events_push_villager(EventQueue *queue, CoreEventType type, int32_t id, int
     events_push(queue, &event);
 }
 
+void events_push_pair(EventQueue *queue, CoreEventType type, int32_t first, int32_t second)
+{
+    Event event;
+    memset(&event, 0, sizeof(event));
+    event.type = type;
+    event.as.pair.first = first;
+    event.as.pair.second = second;
+    events_push(queue, &event);
+}
+
 void events_push_count(EventQueue *queue, CoreEventType type, int32_t value)
 {
     Event event;
@@ -197,6 +207,9 @@ void events_to_view(const Event *event, CoreEventView *out)
     case CORE_EVT_BUILDING_PLACED:
     case CORE_EVT_BUILDING_COMPLETED:
     case CORE_EVT_BUILDING_REMOVED:
+    case CORE_EVT_BUILDING_DAMAGED:
+    case CORE_EVT_BUILDING_RUINED:
+    case CORE_EVT_BUILDING_REPAIRED:
         out->a = event->as.building.id;
         out->b = event->as.building.type;
         out->c = event->as.building.x;
@@ -213,6 +226,8 @@ void events_to_view(const Event *event, CoreEventView *out)
     case CORE_EVT_VILLAGER_DIED:
     case CORE_EVT_PATH_BLOCKED:
     case CORE_EVT_STORY:
+    case CORE_EVT_VILLAGER_SICK:
+    case CORE_EVT_VILLAGER_CURED:
         out->a = event->as.villager.id;
         out->b = event->as.villager.detail;
         out->c = event->as.villager.value;
@@ -220,7 +235,18 @@ void events_to_view(const Event *event, CoreEventView *out)
     case CORE_EVT_STORAGE_FULL:
     case CORE_EVT_WAGES_UNPAID:
     case CORE_EVT_STARVING:
+    case CORE_EVT_WEATHER_CHANGED:
+    case CORE_EVT_NATURE_FORECAST:
+    case CORE_EVT_NATURE_ENDED:
+    case CORE_EVT_MERCHANT_LEFT:
+    case CORE_EVT_HOUSES_COLD:
         out->a = event->as.count.value;
+        break;
+    case CORE_EVT_NATURE_STARTED:
+    case CORE_EVT_MERCHANT_ARRIVED:
+    case CORE_EVT_WINTER_WARNING:
+        out->a = event->as.pair.first;
+        out->b = event->as.pair.second;
         break;
     case CORE_EVT_NONE:
     default:

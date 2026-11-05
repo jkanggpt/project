@@ -107,6 +107,25 @@ static int cmd_status(CliContext *context)
         }
         printf(i + 1 < CORE_RES_COUNT ? "," : "\n");
     }
+    printf("날씨   : %s, 농장 %d%%", fmt_weather_name(summary.weather), (int)summary.farm_percent);
+    if (summary.nature_event != CORE_NATURE_NONE) {
+        printf(", %s (%d일 남음)", fmt_nature_name(summary.nature_event), (int)summary.nature_days_left);
+    }
+    if (summary.forecast_event != CORE_NATURE_NONE) {
+        printf(", 내일 %s 예보", fmt_nature_name(summary.forecast_event));
+    }
+    printf("\n");
+    if (summary.winter_food_need > 0 || summary.winter_wood_need > 0) {
+        printf("겨울   : 봄까지 식량 %d / %d, 목재 %d / %d (집 한 채 하룻밤 난방 %d)\n",
+               (int)summary.resources[CORE_RES_FOOD], (int)summary.winter_food_need,
+               (int)summary.resources[CORE_RES_WOOD], (int)summary.winter_wood_need, (int)summary.heating_per_house);
+    }
+    if (summary.sick_count > 0 || summary.cold_houses > 0) {
+        printf("걱정   : 아픈 주민 %d명, 추운 집 %d채\n", (int)summary.sick_count, (int)summary.cold_houses);
+    }
+    if (summary.merchant_days_left > 0) {
+        printf("상인   : 떠돌이 상인이 %d일 더 머뭅니다 (메뉴 17)\n", (int)summary.merchant_days_left);
+    }
     return 1;
 }
 
@@ -412,6 +431,137 @@ static int cmd_unassign(CliContext *context)
     return 1;
 }
 
+static int cmd_ledger(CliContext *context)
+{
+    CoreLedgerView ledger;
+    int32_t r;
+    int32_t c;
+    if (core_get_ledger(context->world, &ledger) != CORE_OK) {
+        printf("장부를 읽을 수 없습니다.\n");
+        return 1;
+    }
+    printf("어제 하루 장부 (0 인 항목은 생략)\n");
+    for (r = 0; r < CORE_RES_COUNT; r++) {
+        int32_t net = 0;
+        printf("  %-6s:", fmt_resource_name(r));
+        for (c = 0; c < CORE_LEDGER_COUNT; c++) {
+            if (ledger.yesterday[r][c] != 0) {
+                printf(" %s %+d", fmt_ledger_name(c), (int)ledger.yesterday[r][c]);
+                net += ledger.yesterday[r][c];
+            }
+        }
+        printf("  = %+d\n", (int)net);
+    }
+    return 1;
+}
+
+static int cmd_market(CliContext *context)
+{
+    CoreMarketView market;
+    int resource = 0;
+    int lots = 0;
+    int32_t gold = 0;
+    int32_t reason = 0;
+    int32_t r;
+    int32_t rc;
+    (void)core_get_market(context->world, &market);
+    printf("시장 가격 (한 묶음 = %d개)%s\n", CORE_MARKET_LOT, market.open ? "" : " — 지금은 거래할 수 없음");
+    if (!market.open) {
+        printf("  이유: %s\n", fmt_deny_reason(market.closed_reason));
+    }
+    for (r = 0; r < CORE_RES_COUNT; r++) {
+        if (market.base_price[r] > 0) {
+            printf("  %d) %-6s 살 때 %3d  팔 때 %3d  (기준 %d, 지금 %d%%)\n", (int)r, fmt_resource_name(r),
+                   (int)market.buy_price[r], (int)market.sell_price[r], (int)market.base_price[r],
+                   (int)market.trend[r]);
+        }
+    }
+    if (!market.open) {
+        return 1;
+    }
+    if (!read_int("자원 번호", 0, CORE_RES_COUNT - 1, &resource) ||
+        !read_int("묶음 수 (사면 +, 팔면 -)", -CORE_MARKET_MAX_LOTS, CORE_MARKET_MAX_LOTS, &lots)) {
+        return 0;
+    }
+    if (lots == 0) {
+        return 1;
+    }
+    rc = core_trade(context->world, resource, lots, &gold, &reason);
+    if (rc == CORE_OK) {
+        printf("거래했습니다: 금화 %+d\n", (int)gold);
+    } else if (rc == CORE_ERR_REJECTED) {
+        printf("거래할 수 없습니다: %s\n", fmt_deny_reason(reason));
+    } else {
+        print_result("거래", rc);
+    }
+    return 1;
+}
+
+static int cmd_merchant(CliContext *context)
+{
+    CoreMerchantView merchant;
+    int choice = 0;
+    int32_t reason = 0;
+    int32_t i;
+    int32_t rc;
+    (void)core_get_merchant(context->world, &merchant);
+    if (merchant.days_left <= 0) {
+        printf("지금은 떠돌이 상인이 없습니다.\n");
+        return 1;
+    }
+    printf("떠돌이 상인 (%d일 더 머묾)\n", (int)merchant.days_left);
+    for (i = 0; i < merchant.deal_count; i++) {
+        const CoreDealView *deal = &merchant.deals[i];
+        printf("  %d) %s %d 내고 → %s %d 받기%s\n", (int)(i + 1), fmt_resource_name(deal->give_resource),
+               (int)deal->give_amount, fmt_resource_name(deal->get_resource), (int)deal->get_amount,
+               deal->taken ? " (함)" : "");
+    }
+    if (!read_int("받아들일 제안 (0 = 그만)", 0, merchant.deal_count, &choice)) {
+        return 0;
+    }
+    if (choice == 0) {
+        return 1;
+    }
+    rc = core_merchant_accept(context->world, choice - 1, &reason);
+    if (rc == CORE_OK) {
+        printf("거래했습니다.\n");
+    } else if (rc == CORE_ERR_REJECTED) {
+        printf("거래할 수 없습니다: %s\n", fmt_deny_reason(reason));
+    } else {
+        print_result("거래", rc);
+    }
+    return 1;
+}
+
+static int cmd_repair(CliContext *context)
+{
+    int id = 0;
+    int32_t cost[CORE_RES_COUNT];
+    int32_t reason = 0;
+    int32_t rc;
+    int32_t i;
+    if (!read_int("고칠 건물 번호", 1, 2147483647, &id)) {
+        return 0;
+    }
+    if (core_get_repair_cost(context->world, id, cost, CORE_RES_COUNT) == CORE_OK) {
+        printf("수리 비용:");
+        for (i = 0; i < CORE_RES_COUNT; i++) {
+            if (cost[i] > 0) {
+                printf(" %s %d", fmt_resource_name(i), (int)cost[i]);
+            }
+        }
+        printf("\n");
+    }
+    rc = core_repair(context->world, id, &reason);
+    if (rc == CORE_ERR_REJECTED) {
+        printf("고칠 수 없습니다: %s\n", fmt_deny_reason(reason));
+    } else {
+        print_result("수리", rc);
+    }
+    cli_print_events(context->world);
+    return 1;
+}
+
 static int cmd_save(CliContext *context)
 {
     char path[CLI_PATH_BYTES];
@@ -520,6 +670,10 @@ static const CliCommand COMMANDS[] = {
     {"저장하기", cmd_save, 1},
     {"불러오기", cmd_load, 0},
     {"새 게임", cmd_new_game, 0},
+    {"장부 보기 (어제 하루)", cmd_ledger, 1},
+    {"시장 거래", cmd_market, 1},
+    {"떠돌이 상인과 거래", cmd_merchant, 1},
+    {"건물 수리", cmd_repair, 1},
 };
 #define COMMAND_COUNT ((int)(sizeof(COMMANDS) / sizeof(COMMANDS[0])))
 

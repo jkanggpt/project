@@ -3,7 +3,7 @@
  *
  * 금화와 마정석은 화폐라서 저장 한도가 없습니다.
  * 식량·목재·석재·약초는 물건이라 성채와 창고가 정하는 저장 한도(capacity)를 넘지 못합니다.
- * (생산, 소비, 임금, 장부, 시장은 마일스톤 2~3에서 이 파일에 더해집니다)
+ * 모든 자원 변화는 eco_change 를 거쳐 장부(Ledger)에 항목별로 적힙니다. 시장과 상인은 market.c.
  */
 #ifndef CASTLE_ECONOMY_H
 #define CASTLE_ECONOMY_H
@@ -19,25 +19,12 @@ typedef struct ResourceBank {
     int32_t capacity; /* 물건 하나당 저장 한도 */
 } ResourceBank;
 
-/* 장부 항목: 자원이 어디서 들어오고 어디로 나갔는지 */
-typedef enum LedgerCategory {
-    LEDGER_PRODUCTION = 0,   /* 생산 */
-    LEDGER_CONSUMPTION = 1,  /* 식사 */
-    LEDGER_WAGES = 2,        /* 임금 */
-    LEDGER_TAXES = 3,        /* 세금 */
-    LEDGER_CONSTRUCTION = 4, /* 건설 */
-    LEDGER_REFUND = 5,       /* 철거 환불 */
-    LEDGER_TRADE = 6,        /* 거래 (마일스톤 3) */
-    LEDGER_UPKEEP = 7,       /* 난방 등 유지비 (마일스톤 3) */
-    LEDGER_RAID = 8,         /* 약탈·전리품 (마일스톤 4) */
-    LEDGER_OTHER = 9,        /* 저장 한도 초과로 버림 등 */
-    LEDGER_CAT_COUNT = 10
-} LedgerCategory;
+/* 장부 항목은 공개 헤더의 CoreLedgerCategory (Godot 툴팁도 같은 번호를 씀) */
 
 /* 하루치 장부 두 장: 오늘 쌓는 것과 어제 끝난 것 */
 typedef struct Ledger {
-    int32_t today[CORE_RES_COUNT][LEDGER_CAT_COUNT];
-    int32_t yesterday[CORE_RES_COUNT][LEDGER_CAT_COUNT];
+    int32_t today[CORE_RES_COUNT][CORE_LEDGER_COUNT];
+    int32_t yesterday[CORE_RES_COUNT][CORE_LEDGER_COUNT];
 } Ledger;
 
 /* 난이도별 시작 자원으로 채웁니다. */

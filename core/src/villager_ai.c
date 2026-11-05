@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "jobs.h"
+#include "nature.h"
 #include "population.h"
 
 /* 할 일 계획: 어떤 상태로 어디에 갈지 */
@@ -26,13 +27,13 @@ static int32_t clamp100(int32_t value)
     return value < 0 ? 0 : (value > 100 ? 100 : value);
 }
 
-int32_t vil_walk_speed(const Villager *villager)
+int32_t vil_walk_speed(const World *world, const Villager *villager)
 {
     int32_t speed = VIL_BASE_WALK_MILLI * (90 + villager->stats.vitality * 2) / 100;
-    if (villager->needs.hunger == 0) {
-        speed = speed * 70 / 100; /* 굶으면 느려짐 */
+    if (villager->needs.hunger == 0 || villager->sick_ticks > 0) {
+        speed = speed * 70 / 100; /* 굶거나 아프면 느려짐 */
     }
-    return speed;
+    return speed * nature_walk_percent(world) / 100; /* 눈·폭풍 */
 }
 
 void vil_set_intent(Villager *villager, int32_t state, Building *target, int32_t x, int32_t y, int32_t flags)
@@ -164,7 +165,33 @@ static int is_work_time(const World *world)
     return minute >= WORLD_WORK_START_MIN && minute < WORLD_WORK_END_MIN;
 }
 
-/* 지금 무엇을 해야 하는지 고릅니다 (우선순위: 떠남 > 기다림 > 식사 > 잠 > 일 > 쉼) */
+/* 아픈 주민: 치료소가 열려 있으면 그리 가고, 아니면 밤엔 자고 낮엔 집(없으면 광장)에서 쉽니다 */
+static int decide_sick(const World *world, const Villager *villager, Plan *plan)
+{
+    Building *healer;
+    int32_t x;
+    int32_t y;
+    if (villager->sick_ticks <= 0) {
+        return 0;
+    }
+    healer = is_work_time(world) ? nature_open_healer(world, villager) : NULL;
+    if (healer != NULL) {
+        plan_at(plan, CORE_VS_SEEK_HEALING, healer, healer->door_x, healer->door_y, 0);
+        return 1;
+    }
+    if (clock_is_night(&world->clock)) {
+        return 0; /* 잠은 보통 때와 같음 */
+    }
+    if (villager->home != NULL && villager->home->state == CORE_BSTATE_ACTIVE) {
+        plan_at(plan, CORE_VS_IDLE, villager->home, villager->home->door_x, villager->home->door_y, 0);
+    } else {
+        square_tile(world, villager, &x, &y);
+        plan_at(plan, CORE_VS_IDLE, NULL, x, y, 0);
+    }
+    return 1;
+}
+
+/* 지금 무엇을 해야 하는지 고릅니다 (우선순위: 떠남 > 기다림 > 식사 > 병 > 잠 > 일 > 쉼) */
 static void decide(const World *world, const Villager *villager, Plan *plan)
 {
     Building *workplace = villager->workplace;
@@ -185,6 +212,9 @@ static void decide(const World *world, const Villager *villager, Plan *plan)
             plan_at(plan, CORE_VS_EAT, storage, storage->door_x, storage->door_y, 0);
             return;
         }
+    }
+    if (decide_sick(world, villager, plan)) {
+        return;
     }
     if (clock_is_night(&world->clock)) {
         if (villager->home != NULL && villager->home->state == CORE_BSTATE_ACTIVE) {
@@ -248,10 +278,31 @@ static void on_eat(World *world, Villager *villager)
     (void)villager; /* 먹는 일은 도착했을 때 (vil_arrived) */
 }
 
+/* 치료소에 지금 일하는 일꾼(치료사)이 있는가 */
+static int healer_on_duty(const Building *healer)
+{
+    int32_t i;
+    for (i = 0; i < healer->worker_count; i++) {
+        const Villager *worker = healer->workers[i];
+        if (worker->state == CORE_VS_WORKING && worker->at_target) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* 치료소 문 앞에 도착한 환자: 치료사가 일하는 중이면 한 시간 뒤 약초 하나로 낫습니다 */
 static void on_seek_healing(World *world, Villager *villager)
 {
-    /* 치료소와 병은 마일스톤 3: 그때까지는 이 상태를 고르지 않으므로 쉬기와 같습니다 */
-    on_idle(world, villager);
+    Building *healer = villager->target;
+    if (!villager->at_target || healer == NULL || healer->type != CORE_BLD_HEALER || !healer_on_duty(healer) ||
+        world->bank.amount[CORE_RES_HERBS] <= 0) {
+        return;
+    }
+    if (++villager->heal_ticks >= NATURE_HEAL_TICKS) {
+        (void)eco_change(&world->bank, &world->ledger, CORE_RES_HERBS, -1, CORE_LEDGER_HEALING);
+        nature_cure(world, villager, 1);
+    }
 }
 
 static void on_flee(World *world, Villager *villager)
@@ -334,9 +385,10 @@ static void update_needs(World *world, Villager *villager)
         if (world->clock.tick % 6 == 0) {
             villager->health--;
         }
-    } else if (villager->health < 100 && clock_minute_of_day(&world->clock) % 60 == 0) {
+    } else if (villager->health < 100 && villager->sick_ticks <= 0 && clock_minute_of_day(&world->clock) % 60 == 0) {
         villager->health++;
     }
+    nature_sick_tick(world, villager);
 }
 
 int32_t vil_mood_terms(const World *world, const Villager *villager, int32_t terms[CORE_MOOD_TERM_COUNT])
@@ -363,6 +415,14 @@ int32_t vil_mood_terms(const World *world, const Villager *villager, int32_t ter
         terms[CORE_MOOD_WAGES] = (villager->flags & CORE_VF_UNPAID) ? -15 : 5;
     }
     terms[CORE_MOOD_MOURNING] = -world->mourning;
+    if (villager->home != NULL && (villager->home->flags & CORE_BF_COLD)) {
+        terms[CORE_MOOD_COLD] = -15; /* 난방을 못 한 집 */
+    } else if (villager->home == NULL && clock_season(&world->clock) == CORE_SEASON_WINTER) {
+        terms[CORE_MOOD_COLD] = -10; /* 겨울에 한데서 잠 */
+    }
+    if (villager->sick_ticks > 0) {
+        terms[CORE_MOOD_SICKNESS] = -10;
+    }
     for (i = 0; i < CORE_MOOD_TERM_COUNT; i++) {
         total += terms[i];
     }
@@ -425,7 +485,7 @@ void vil_tick(World *world, Villager *villager)
 
     update_needs(world, villager);
     if (villager->health <= 0) {
-        population_kill(world, villager, CORE_DEATH_STARVATION);
+        population_kill(world, villager, villager->sick_ticks > 0 ? CORE_DEATH_ILLNESS : CORE_DEATH_STARVATION);
         return;
     }
     if (villager->needs.hunger == 0 && villager->health <= VIL_STARVING_LEAVE_HEALTH &&
@@ -464,7 +524,7 @@ int vil_arrived(World *world, Villager *villager, int32_t intent_rev)
     villager->intent_flags &= ~CORE_INTENT_SPAWN_EDGE;
     switch (villager->state) {
     case CORE_VS_EAT:
-        if (eco_change(&world->bank, &world->ledger, CORE_RES_FOOD, -1, LEDGER_CONSUMPTION) < 0) {
+        if (eco_change(&world->bank, &world->ledger, CORE_RES_FOOD, -1, CORE_LEDGER_CONSUMPTION) < 0) {
             villager->needs.hunger = clamp100(villager->needs.hunger + VIL_MEAL_HUNGER);
         }
         break;

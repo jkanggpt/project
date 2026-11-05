@@ -35,7 +35,7 @@ extern "C" {
 #endif
 
 /* C#의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
-#define CORE_ABI_VERSION 2
+#define CORE_ABI_VERSION 3
 
 /* 성채·주민 이름 버퍼 크기 (UTF-8 바이트, 끝의 '\0' 포함) */
 #define CORE_NAME_BYTES 48
@@ -118,8 +118,11 @@ typedef enum CoreBuildingType {
 typedef enum CoreBuildingState {
     CORE_BSTATE_CONSTRUCTING = 0, /* 짓는 중 */
     CORE_BSTATE_ACTIVE = 1,       /* 다 지음 */
-    CORE_BSTATE_RUINED = 2        /* 무너짐 (수리 가능, 마일스톤 4) */
+    CORE_BSTATE_RUINED = 2        /* 무너짐: 일도 잠도 못 함. core_repair 로 고침 */
 } CoreBuildingState;
+
+/* 건물 상태 플래그 (CoreBuildingView.flags) */
+#define CORE_BF_COLD 1 /* 지난밤 난방을 못 한 집 (나무 부족) */
 
 /* 건설 막대의 분류 */
 typedef enum CoreBuildCategory {
@@ -170,7 +173,7 @@ typedef enum CoreVillagerState {
     CORE_VS_GO_WORK = 2,      /* 일터로 가는 중 */
     CORE_VS_WORKING = 3,      /* 일하는 중 (이때만 생산) */
     CORE_VS_EAT = 4,          /* 저장소로 가서 먹음 */
-    CORE_VS_SEEK_HEALING = 5, /* 치료소로 감 (마일스톤 3) */
+    CORE_VS_SEEK_HEALING = 5, /* 아픈 주민이 치료소로 감 */
     CORE_VS_FLEE = 6,         /* 습격 중 성채로 피신 (마일스톤 4) */
     CORE_VS_GUARD_POST = 7,   /* 경비병 위치 (마일스톤 4) */
     CORE_VS_LEAVING = 8,      /* 마을을 떠나 지도 가장자리로 감 */
@@ -187,7 +190,7 @@ typedef enum CoreVillagerState {
 #define CORE_VF_STARVING 4   /* 배고픔이 0 */
 #define CORE_VF_HOMELESS 8   /* 집이 없음 */
 #define CORE_VF_UNHAPPY 16   /* 기분이 낮아 떠날 위기 */
-#define CORE_VF_SICK 32      /* 병 (마일스톤 3) */
+#define CORE_VF_SICK 32      /* 병 (일하지 못하고, 치료소에서 약초로 낫거나 며칠 뒤 저절로 나음) */
 
 /* 기분 항목 (기분 툴팁의 줄) */
 typedef enum CoreMoodTerm {
@@ -199,13 +202,15 @@ typedef enum CoreMoodTerm {
     CORE_MOOD_TRAITS = 5,
     CORE_MOOD_WAGES = 6,
     CORE_MOOD_MOURNING = 7,
-    CORE_MOOD_TERM_COUNT = 8
+    CORE_MOOD_COLD = 8,      /* 난방 못 한 집, 겨울에 집 없음 */
+    CORE_MOOD_SICKNESS = 9,  /* 병 */
+    CORE_MOOD_TERM_COUNT = 10
 } CoreMoodTerm;
 
 /* 죽음의 원인 */
 typedef enum CoreDeathCause {
     CORE_DEATH_STARVATION = 1,
-    CORE_DEATH_ILLNESS = 2, /* 마일스톤 3 */
+    CORE_DEATH_ILLNESS = 2,
     CORE_DEATH_RAID = 3     /* 마일스톤 4 */
 } CoreDeathCause;
 
@@ -245,13 +250,85 @@ typedef enum CoreEventType {
     CORE_EVT_WAGES_UNPAID = 16,      /* a = 임금을 못 받은 사람 수 */
     CORE_EVT_STORY = 17,             /* a = 주민 id, b = CoreStory, c = 값, text = 이름 */
     CORE_EVT_STARVING = 18,          /* a = 배고픔이 0 인 주민 수 */
-    CORE_EVT_DEF_WARNING = 19        /* a = 정의 파일 번호(CoreDataFile), b = 줄 번호 (기본값을 씀) */
+    CORE_EVT_DEF_WARNING = 19,       /* a = 정의 파일 번호(CoreDataFile), b = 줄 번호 (기본값을 씀) */
+    CORE_EVT_WEATHER_CHANGED = 20,   /* a = 날씨(CoreWeather) */
+    CORE_EVT_NATURE_FORECAST = 21,   /* a = 내일 시작할 자연 사건(CoreNatureEvent) */
+    CORE_EVT_NATURE_STARTED = 22,    /* a = 사건, b = 이어지는 날 수 */
+    CORE_EVT_NATURE_ENDED = 23,      /* a = 사건 */
+    CORE_EVT_BUILDING_DAMAGED = 24,  /* a = 건물 id, b = 종류, c = x, d = y */
+    CORE_EVT_BUILDING_RUINED = 25,   /* a = 건물 id, b = 종류, c = x, d = y */
+    CORE_EVT_BUILDING_REPAIRED = 26, /* a = 건물 id, b = 종류, c = x, d = y */
+    CORE_EVT_VILLAGER_SICK = 27,     /* a = 주민 id, text = 이름 */
+    CORE_EVT_VILLAGER_CURED = 28,    /* a = 주민 id, b = 1 이면 치료소에서, 0 이면 저절로, text = 이름 */
+    CORE_EVT_MERCHANT_ARRIVED = 29,  /* a = 머무는 날 수, b = 거래 제안 수 */
+    CORE_EVT_MERCHANT_LEFT = 30,
+    CORE_EVT_WINTER_WARNING = 31,    /* a = 겨울에 필요한 식량, b = 필요한 목재 (가을에, 모자랄 때) */
+    CORE_EVT_HOUSES_COLD = 32        /* a = 지난밤 난방을 못 한 집 수 */
 } CoreEventType;
 
 typedef enum CoreWarning {
     CORE_WARN_NONE = 0,
     CORE_WARN_EVENTS_DROPPED = 1 /* 이벤트 큐가 가득 차서 오래된 이벤트를 버림. b = 버린 개수 */
 } CoreWarning;
+
+/* 날씨 (하루 단위, C 가 정하고 저장함) */
+typedef enum CoreWeather {
+    CORE_WEATHER_CLEAR = 0, /* 맑음 */
+    CORE_WEATHER_RAIN = 1,  /* 비: 농장 +10% */
+    CORE_WEATHER_SNOW = 2,  /* 눈: 걷기 느려짐 */
+    CORE_WEATHER_STORM = 3, /* 폭풍 (폭풍 사건 날) */
+    CORE_WEATHER_COUNT = 4
+} CoreWeather;
+
+/* 자연 사건 (처리 함수는 nature.c 의 NATURE_EVENTS 표) */
+typedef enum CoreNatureEvent {
+    CORE_NATURE_NONE = 0,
+    CORE_NATURE_DROUGHT = 1,   /* 가뭄 (여름): 농장 −50% */
+    CORE_NATURE_PLAGUE = 2,    /* 역병: 주민이 앓고 옮음 */
+    CORE_NATURE_STORM = 3,     /* 폭풍: 건물 피해 */
+    CORE_NATURE_COLD_SNAP = 4, /* 혹한 (겨울): 난방 나무가 더 듦 */
+    CORE_NATURE_BUMPER = 5,    /* 풍년: 농장 +50% */
+    CORE_NATURE_COUNT = 6
+} CoreNatureEvent;
+
+/* 장부 항목: 자원이 어디서 들어오고 어디로 나갔는지 (core_get_ledger) */
+typedef enum CoreLedgerCategory {
+    CORE_LEDGER_PRODUCTION = 0,   /* 생산 */
+    CORE_LEDGER_CONSUMPTION = 1,  /* 식사 */
+    CORE_LEDGER_WAGES = 2,        /* 임금 */
+    CORE_LEDGER_TAXES = 3,        /* 세금 */
+    CORE_LEDGER_CONSTRUCTION = 4, /* 건설 */
+    CORE_LEDGER_REFUND = 5,       /* 철거 환불 */
+    CORE_LEDGER_TRADE = 6,        /* 시장·상인 거래 */
+    CORE_LEDGER_HEATING = 7,      /* 난방 */
+    CORE_LEDGER_RAID = 8,         /* 약탈·전리품 (마일스톤 4) */
+    CORE_LEDGER_OTHER = 9,        /* 저장 한도 초과로 버림 등 */
+    CORE_LEDGER_HEALING = 10,     /* 치료에 쓴 약초 */
+    CORE_LEDGER_REPAIR = 11,      /* 수리 */
+    CORE_LEDGER_COUNT = 12
+} CoreLedgerCategory;
+
+/* 거래·수리 명령을 거절한 이유 (out_reason) */
+typedef enum CoreDenyReason {
+    CORE_DENY_NONE = 0,
+    CORE_DENY_NO_MARKET = 1,          /* 다 지은 시장이 없음 */
+    CORE_DENY_NO_TRADER = 2,          /* 시장에 일꾼이 없음 */
+    CORE_DENY_NOT_TRADABLE = 3,       /* 시장에서 다루지 않는 자원 (금화, 마정석) */
+    CORE_DENY_NO_GOLD = 4,            /* 금화가 모자람 */
+    CORE_DENY_NO_GOODS = 5,           /* 팔 물건이 모자람 */
+    CORE_DENY_STORAGE_FULL = 6,       /* 저장 한도에 자리가 없음 */
+    CORE_DENY_NO_MERCHANT = 7,        /* 상인이 없음 */
+    CORE_DENY_DEAL_TAKEN = 8,         /* 이미 한 거래 */
+    CORE_DENY_NOT_DAMAGED = 9,        /* 고칠 곳이 없음 */
+    CORE_DENY_UNDER_CONSTRUCTION = 10,/* 아직 짓는 중 */
+    CORE_DENY_BAD_AMOUNT = 11,        /* 수량이 범위 밖 */
+    CORE_DENY_NO_RESOURCES = 12,      /* 수리 비용이 모자람 */
+    CORE_DENY_COUNT = 13
+} CoreDenyReason;
+
+#define CORE_MARKET_LOT 10        /* 시장에서 한 번에 사고파는 양 */
+#define CORE_MARKET_MAX_LOTS 10   /* core_trade 한 번에 최대 묶음 수 */
+#define CORE_MERCHANT_MAX_DEALS 4
 
 /* 이동 비용 격자의 특별한 값 (core_copy_cost_grid) */
 #define CORE_COST_BLOCKED 0  /* 지나갈 수 없음 (물, 건물) */
@@ -316,6 +393,18 @@ typedef struct CoreSummaryView {
     int32_t villager_count_hint; /* core_copy_villagers 에 필요한 버퍼 크기 */
     int32_t building_count_hint; /* core_copy_buildings 에 필요한 버퍼 크기 */
     int32_t rank;             /* 등급 (마일스톤 5) */
+    int32_t weather;          /* CoreWeather */
+    int32_t nature_event;     /* 진행 중인 자연 사건 (CoreNatureEvent, 0 = 없음) */
+    int32_t nature_days_left; /* 그 사건이 남은 날 (오늘 포함) */
+    int32_t forecast_event;   /* 내일 시작할 사건 (0 = 없음) */
+    int32_t merchant_days_left; /* 떠돌이 상인이 머무는 남은 날 (0 = 없음) */
+    int32_t market_open;      /* 1 = 시장에서 거래할 수 있음 */
+    int32_t sick_count;       /* 아픈 주민 수 */
+    int32_t cold_houses;      /* 지난밤 난방을 못 한 집 수 */
+    int32_t heating_per_house;/* 지금 집 한 채가 하룻밤에 쓰는 목재 */
+    int32_t farm_percent;     /* 지금 농장 생산 % (계절 × 날씨 × 사건) */
+    int32_t winter_food_need; /* 가을·겨울: 봄까지 버티는 데 필요한 식량 (다른 계절은 0) */
+    int32_t winter_wood_need; /* 가을·겨울: 봄까지 필요한 난방 목재 */
     int32_t resources[CORE_RES_COUNT];
     int32_t resource_capacity[CORE_RES_COUNT]; /* 자원별 저장 한도. 0 이면 한도 없음 (금화, 마정석) */
     int32_t resource_delta[CORE_RES_COUNT];    /* 어제 하루 동안의 순변화 */
@@ -445,6 +534,37 @@ typedef struct CoreMoodTermView {
     int32_t value; /* 기분에 더해지는 값 */
 } CoreMoodTermView;
 
+/* 장부: 자원 × 항목 (오늘 쌓는 중인 것과 어제 하루) */
+typedef struct CoreLedgerView {
+    int32_t today[CORE_RES_COUNT][CORE_LEDGER_COUNT];
+    int32_t yesterday[CORE_RES_COUNT][CORE_LEDGER_COUNT];
+} CoreLedgerView;
+
+/* 시장 가격 (한 묶음 = CORE_MARKET_LOT 개의 값, 금화) */
+typedef struct CoreMarketView {
+    int32_t open;                        /* 1 = 거래할 수 있음 */
+    int32_t closed_reason;               /* open 이 0 이면 CoreDenyReason */
+    int32_t buy_price[CORE_RES_COUNT];   /* 한 묶음 살 때 (0 = 다루지 않음) */
+    int32_t sell_price[CORE_RES_COUNT];  /* 한 묶음 팔 때 */
+    int32_t base_price[CORE_RES_COUNT];  /* 기준 가격 */
+    int32_t trend[CORE_RES_COUNT];       /* 지금 가격 ÷ 기준 가격 × 100 */
+} CoreMarketView;
+
+/* 떠돌이 상인의 거래 제안 하나: give 를 내고 get 을 받음 */
+typedef struct CoreDealView {
+    int32_t give_resource;
+    int32_t give_amount;
+    int32_t get_resource;
+    int32_t get_amount;
+    int32_t taken; /* 1 = 이미 함 */
+} CoreDealView;
+
+typedef struct CoreMerchantView {
+    int32_t days_left;  /* 0 = 상인 없음 */
+    int32_t deal_count;
+    CoreDealView deals[CORE_MERCHANT_MAX_DEALS];
+} CoreMerchantView;
+
 /* ABI 검사용: C가 아는 구조체 크기. C#이 Marshal.SizeOf 와 비교합니다. */
 typedef struct CoreStructSizes {
     int32_t new_game_params;
@@ -457,6 +577,9 @@ typedef struct CoreStructSizes {
     int32_t trait_def_view;
     int32_t placement_view;
     int32_t mood_term_view;
+    int32_t ledger_view;
+    int32_t market_view;
+    int32_t merchant_view;
 } CoreStructSizes;
 
 /* 불투명 핸들 */
@@ -515,6 +638,12 @@ CORE_API int32_t core_get_trait_def(const CoreWorld *world, int32_t index, CoreT
 /* 주민 기분의 항목별 값 (툴팁). 항목 수는 CORE_MOOD_TERM_COUNT 이하 */
 CORE_API int32_t core_get_mood_terms(const CoreWorld *world, int32_t villager_id, CoreMoodTermView *out,
                                      int32_t capacity, int32_t *out_count);
+CORE_API int32_t core_get_ledger(const CoreWorld *world, CoreLedgerView *out);
+CORE_API int32_t core_get_market(const CoreWorld *world, CoreMarketView *out);
+CORE_API int32_t core_get_merchant(const CoreWorld *world, CoreMerchantView *out);
+/* 건물 수리 비용 (자원 6개). 고칠 곳이 없으면 모두 0 */
+CORE_API int32_t core_get_repair_cost(const CoreWorld *world, int32_t building_id, int32_t *out_cost,
+                                      int32_t count);
 
 /* ---- 배치와 명령 ------------------------------------------------------ */
 /* (x, y) 는 건물의 왼쪽 위 칸. 함수는 인자가 맞으면 CORE_OK, 결과는 out->result */
@@ -538,6 +667,15 @@ CORE_API int32_t core_unassign_worker(CoreWorld *world, int32_t villager_id);
 /* 직접 배치 표시를 지워 자동 배치에 다시 맡깁니다 */
 CORE_API int32_t core_release_worker(CoreWorld *world, int32_t villager_id);
 CORE_API int32_t core_set_auto_assign(CoreWorld *world, int32_t building_id, int32_t enabled);
+/* 시장 거래. lots > 0 이면 사고, < 0 이면 팝니다 (한 묶음 = CORE_MARKET_LOT 개, 1..CORE_MARKET_MAX_LOTS 묶음).
+ * 전부 할 수 있을 때만 하고, 안 되면 CORE_ERR_REJECTED 와 *out_reason(CoreDenyReason).
+ * *out_gold = 금화 변화 (산 경우 음수) */
+CORE_API int32_t core_trade(CoreWorld *world, int32_t resource, int32_t lots, int32_t *out_gold,
+                            int32_t *out_reason);
+/* 떠돌이 상인의 거래 제안 index 를 받아들입니다 */
+CORE_API int32_t core_merchant_accept(CoreWorld *world, int32_t index, int32_t *out_reason);
+/* 부서지거나 무너진 건물을 고칩니다 (비용: core_get_repair_cost) */
+CORE_API int32_t core_repair(CoreWorld *world, int32_t building_id, int32_t *out_reason);
 
 /* ---- 보고 (Godot → C) ------------------------------------------------ */
 /* 주민이 의도의 목표에 도착함. intent_rev 가 지금 것과 다르면 CORE_IGNORED */

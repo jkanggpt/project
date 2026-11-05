@@ -89,7 +89,7 @@ int32_t eco_change(ResourceBank *bank, Ledger *ledger, int32_t resource, int32_t
 {
     int32_t changed = eco_bank_add(bank, resource, amount);
     if (ledger != NULL && resource >= 0 && resource < CORE_RES_COUNT && category >= 0 &&
-        category < LEDGER_CAT_COUNT) {
+        category < CORE_LEDGER_COUNT) {
         ledger->today[resource][category] += changed;
     }
     return changed;
@@ -122,7 +122,7 @@ int32_t eco_ledger_net(const Ledger *ledger, int32_t resource)
     if (resource < 0 || resource >= CORE_RES_COUNT) {
         return 0;
     }
-    for (category = 0; category < LEDGER_CAT_COUNT; category++) {
+    for (category = 0; category < CORE_LEDGER_COUNT; category++) {
         total += ledger->yesterday[resource][category];
     }
     return total;
@@ -134,7 +134,7 @@ void eco_set_capacity(ResourceBank *bank, Ledger *ledger, int32_t capacity)
     bank->capacity = capacity > 0 ? capacity : 1;
     for (i = 0; i < CORE_RES_COUNT; i++) {
         if (eco_is_stored_good(i) && bank->amount[i] > bank->capacity) {
-            (void)eco_change(bank, ledger, i, bank->capacity - bank->amount[i], LEDGER_OTHER);
+            (void)eco_change(bank, ledger, i, bank->capacity - bank->amount[i], CORE_LEDGER_OTHER);
         }
     }
 }

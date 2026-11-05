@@ -9,7 +9,9 @@
 
 #include "castle_core.h"
 #include "jobs.h"
+#include "market.h"
 #include "mem.h"
+#include "nature.h"
 #include "placement.h"
 #include "platform.h"
 #include "save.h"
@@ -21,7 +23,9 @@
 _Static_assert(CORE_RES_COUNT == 6, "resource count changed: update save keys and C# views");
 _Static_assert(sizeof(CoreSummaryView) % 4 == 0, "views must stay 4-byte aligned for C#");
 _Static_assert(sizeof(CoreNewGameParams) == CORE_NAME_BYTES + 8, "unexpected padding in CoreNewGameParams");
-_Static_assert(CORE_MOOD_TERM_COUNT == 8, "mood terms changed: update C# strings");
+_Static_assert(CORE_MOOD_TERM_COUNT == 10, "mood terms changed: update C# strings");
+_Static_assert(CORE_LEDGER_COUNT == 12, "ledger categories changed: update save format and C# strings");
+_Static_assert(CORE_NATURE_COUNT == 6, "nature events changed: update C# strings");
 
 #define DEFS_MAX_FILE_BYTES (1024 * 1024) /* 정의 파일 하나의 최대 크기 */
 
@@ -48,6 +52,9 @@ CORE_API int32_t core_get_struct_sizes(CoreStructSizes *out, int32_t out_size)
     out->trait_def_view = (int32_t)sizeof(CoreTraitDefView);
     out->placement_view = (int32_t)sizeof(CorePlacementView);
     out->mood_term_view = (int32_t)sizeof(CoreMoodTermView);
+    out->ledger_view = (int32_t)sizeof(CoreLedgerView);
+    out->market_view = (int32_t)sizeof(CoreMarketView);
+    out->merchant_view = (int32_t)sizeof(CoreMerchantView);
     return CORE_OK;
 }
 
@@ -288,6 +295,19 @@ CORE_API int32_t core_get_summary(const CoreWorld *world, CoreSummaryView *out)
         out->employed += v->workplace != NULL;
     }
     out->average_mood = world->villager_count > 0 ? mood_total / world->villager_count : 0;
+    out->weather = world->nature.weather;
+    out->nature_event = world->nature.event;
+    out->nature_days_left = world->nature.event_days;
+    out->forecast_event = world->nature.forecast;
+    out->merchant_days_left = world->merchant.days_left;
+    out->market_open = market_is_open(world, &i);
+    for (i = 0; i < world->villager_count; i++) {
+        out->sick_count += world->villagers[i]->sick_ticks > 0;
+    }
+    out->cold_houses = world->nature.cold_houses;
+    out->heating_per_house = nature_heating_per_house(world);
+    out->farm_percent = nature_farm_percent(world);
+    nature_winter_needs(world, &out->winter_food_need, &out->winter_wood_need);
     for (i = 0; i < CORE_RES_COUNT; i++) {
         out->resources[i] = world->bank.amount[i];
         out->resource_capacity[i] = eco_is_stored_good(i) ? world->bank.capacity : 0;
@@ -377,7 +397,7 @@ static void villager_to_view(const World *world, const Villager *v, CoreVillager
     out->trait_b = v->traits[1];
     out->age = v->age;
     out->flags = v->flags;
-    out->walk_speed = vil_walk_speed(v);
+    out->walk_speed = vil_walk_speed(world, v);
     memcpy(out->name, v->name, CORE_NAME_BYTES);
     out->name[CORE_NAME_BYTES - 1] = '\0';
 }
@@ -430,6 +450,7 @@ static void building_to_view(const World *world, const Building *b, CoreBuilding
     out->door_x = b->door_x;
     out->door_y = b->door_y;
     out->productivity = b->productivity;
+    out->flags = b->flags;
 }
 
 CORE_API int32_t core_copy_buildings(const CoreWorld *world, CoreBuildingView *out, int32_t capacity,
@@ -537,6 +558,77 @@ CORE_API int32_t core_get_mood_terms(const CoreWorld *world, int32_t villager_id
         out[i].term = i;
         out[i].value = terms[i];
     }
+    return CORE_OK;
+}
+
+CORE_API int32_t core_get_ledger(const CoreWorld *world, CoreLedgerView *out)
+{
+    if (world == NULL || out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    /* 내부 장부와 뷰가 같은 [자원][항목] 모양이므로 통째로 복사합니다 */
+    _Static_assert(sizeof(out->today) == sizeof(world->ledger.today), "ledger view shape");
+    memcpy(out->today, world->ledger.today, sizeof(out->today));
+    memcpy(out->yesterday, world->ledger.yesterday, sizeof(out->yesterday));
+    return CORE_OK;
+}
+
+CORE_API int32_t core_get_market(const CoreWorld *world, CoreMarketView *out)
+{
+    int32_t reason;
+    int32_t i;
+    if (world == NULL || out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    memset(out, 0, sizeof(*out));
+    out->open = market_is_open(world, &reason);
+    out->closed_reason = reason;
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        if (!market_is_tradable(i)) {
+            continue;
+        }
+        out->buy_price[i] = market_buy_price(&world->market, i);
+        out->sell_price[i] = market_sell_price(&world->market, i);
+        out->base_price[i] = market_base_price(i);
+        out->trend[i] = world->market.price[i] / market_base_price(i);
+    }
+    return CORE_OK;
+}
+
+CORE_API int32_t core_get_merchant(const CoreWorld *world, CoreMerchantView *out)
+{
+    int32_t i;
+    if (world == NULL || out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    memset(out, 0, sizeof(*out));
+    out->days_left = world->merchant.days_left;
+    out->deal_count = world->merchant.deal_count;
+    for (i = 0; i < world->merchant.deal_count; i++) {
+        const MerchantDeal *deal = &world->merchant.deals[i];
+        out->deals[i].give_resource = deal->give_resource;
+        out->deals[i].give_amount = deal->give_amount;
+        out->deals[i].get_resource = deal->get_resource;
+        out->deals[i].get_amount = deal->get_amount;
+        out->deals[i].taken = deal->taken;
+    }
+    return CORE_OK;
+}
+
+CORE_API int32_t core_get_repair_cost(const CoreWorld *world, int32_t building_id, int32_t *out_cost, int32_t count)
+{
+    const Building *building;
+    if (world == NULL || out_cost == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    if (count != CORE_RES_COUNT) {
+        return CORE_ERR_INVALID_ARG;
+    }
+    building = entity_find_building(world, building_id);
+    if (building == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    placement_repair_cost(world, building, out_cost);
     return CORE_OK;
 }
 
@@ -671,6 +763,78 @@ CORE_API int32_t core_set_auto_assign(CoreWorld *world, int32_t building_id, int
         jobs_auto_assign(world);
     }
     return CORE_OK;
+}
+
+CORE_API int32_t core_trade(CoreWorld *world, int32_t resource, int32_t lots, int32_t *out_gold,
+                            int32_t *out_reason)
+{
+    int32_t gold;
+    int32_t reason;
+    if (out_gold != NULL) {
+        *out_gold = 0;
+    }
+    if (out_reason != NULL) {
+        *out_reason = CORE_DENY_NONE;
+    }
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    if (resource < 0 || resource >= CORE_RES_COUNT || lots == 0 || lots < -CORE_MARKET_MAX_LOTS ||
+        lots > CORE_MARKET_MAX_LOTS) {
+        return CORE_ERR_INVALID_ARG;
+    }
+    {
+        int rc = market_trade(world, resource, lots, &gold, &reason);
+        if (out_gold != NULL) {
+            *out_gold = gold;
+        }
+        if (out_reason != NULL) {
+            *out_reason = reason;
+        }
+        return rc;
+    }
+}
+
+CORE_API int32_t core_merchant_accept(CoreWorld *world, int32_t index, int32_t *out_reason)
+{
+    int32_t reason;
+    int rc;
+    if (out_reason != NULL) {
+        *out_reason = CORE_DENY_NONE;
+    }
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    if (index < 0 || index >= CORE_MERCHANT_MAX_DEALS) {
+        return CORE_ERR_INVALID_ARG;
+    }
+    rc = merchant_accept(world, index, &reason);
+    if (out_reason != NULL) {
+        *out_reason = reason;
+    }
+    return rc;
+}
+
+CORE_API int32_t core_repair(CoreWorld *world, int32_t building_id, int32_t *out_reason)
+{
+    Building *building;
+    int32_t reason;
+    int rc;
+    if (out_reason != NULL) {
+        *out_reason = CORE_DENY_NONE;
+    }
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    building = entity_find_building(world, building_id);
+    if (building == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    rc = placement_repair(world, building, &reason);
+    if (out_reason != NULL) {
+        *out_reason = reason;
+    }
+    return rc;
 }
 
 /* ---- 보고 ------------------------------------------------------------ */

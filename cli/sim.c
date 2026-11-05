@@ -135,6 +135,81 @@ static void bot_idle(BotContext *bot)
 }
 
 /* "적당히 하는 플레이어": 먹을 것, 집, 목재, 석재, 약초, 창고 순으로 부족한 것을 채웁니다 */
+/* 부서진 건물은 바로 고칩니다 (돈이 되는 만큼) */
+static void bot_repair(BotContext *bot)
+{
+    int32_t reason;
+    int32_t i;
+    for (i = 0; i < bot->building_count; i++) {
+        const CoreBuildingView *b = &bot->buildings[i];
+        if (b->state != CORE_BSTATE_CONSTRUCTING && b->hp < b->max_hp) {
+            (void)core_repair(bot->world, b->id, &reason);
+        }
+    }
+}
+
+/* 모자란 만큼 사 봅니다: 큰 묶음부터 시도해 돈이 되는 만큼 */
+static void bot_buy_up_to(BotContext *bot, int32_t resource, int32_t target)
+{
+    int32_t have = bot->summary.resources[resource];
+    int32_t lots;
+    int32_t gold;
+    int32_t reason;
+    if (have >= target || bot->summary.resources[CORE_RES_GOLD] < 60) {
+        return;
+    }
+    lots = (target - have) / CORE_MARKET_LOT + 1;
+    if (lots > CORE_MARKET_MAX_LOTS) {
+        lots = CORE_MARKET_MAX_LOTS;
+    }
+    for (; lots > 0; lots--) {
+        if (core_trade(bot->world, resource, lots, &gold, &reason) == CORE_OK) {
+            return;
+        }
+    }
+}
+
+/* 시장: 겨울 준비가 모자라거나 식량이 바닥나면 사고, 창고가 넘칠 것 같은 물건은 팝니다 */
+static void bot_trade(BotContext *bot)
+{
+    const CoreSummaryView *s = &bot->summary;
+    int32_t gold;
+    int32_t reason;
+    int32_t r;
+    if (!s->market_open) {
+        return;
+    }
+    bot_buy_up_to(bot, CORE_RES_FOOD, s->winter_food_need > 0 ? s->winter_food_need : s->population * 3);
+    (void)core_get_summary(bot->world, &bot->summary);
+    bot_buy_up_to(bot, CORE_RES_WOOD, s->winter_wood_need > 0 ? s->winter_wood_need : s->housing_capacity / 2);
+    (void)core_get_summary(bot->world, &bot->summary);
+    for (r = CORE_RES_STONE; r < CORE_RES_COUNT; r++) {
+        if (s->resource_capacity[r] > 0 && s->resources[r] * 100 >= s->resource_capacity[r] * 90) {
+            (void)core_trade(bot->world, r, -3, &gold, &reason);
+        }
+    }
+}
+
+/* 상인: 남는 돈으로 마정석을 사고, 겨울 전에 식량 제안이 있으면 받습니다 */
+static void bot_merchant(BotContext *bot)
+{
+    CoreMerchantView merchant;
+    int32_t reason;
+    int32_t i;
+    if (core_get_merchant(bot->world, &merchant) != CORE_OK || merchant.days_left <= 0) {
+        return;
+    }
+    for (i = 0; i < merchant.deal_count; i++) {
+        const CoreDealView *deal = &merchant.deals[i];
+        int wanted = deal->get_resource == CORE_RES_MANA ||
+                     (deal->get_resource == CORE_RES_FOOD && bot->summary.winter_food_need > 0);
+        if (!deal->taken && wanted && deal->give_resource == CORE_RES_GOLD &&
+            bot->summary.resources[CORE_RES_GOLD] > deal->give_amount + 100) {
+            (void)core_merchant_accept(bot->world, i, &reason);
+        }
+    }
+}
+
 static void bot_reasonable(BotContext *bot)
 {
     const CoreSummaryView *s;
@@ -174,6 +249,11 @@ static void bot_reasonable(BotContext *bot)
     if (built < 2 && count_type(bot, CORE_BLD_LUMBER) < 1 + s->population / 8) {
         built += build_best(bot, CORE_BLD_LUMBER, 14);
     }
+    /* 3-1) 겨울 대비: 여름·가을에 난방 목재가 모자랄 것 같으면 벌목장을 더 */
+    if (built < 2 && (s->season == CORE_SEASON_SUMMER || s->season == CORE_SEASON_AUTUMN) &&
+        s->resources[CORE_RES_WOOD] < s->housing_capacity && count_type(bot, CORE_BLD_LUMBER) < 2 + s->population / 6) {
+        built += build_best(bot, CORE_BLD_LUMBER, 14);
+    }
     /* 4) 석재와 약초 */
     if (built < 2 && houses >= 2 && count_type(bot, CORE_BLD_QUARRY) < 1 + s->population / 12) {
         built += build_best(bot, CORE_BLD_QUARRY, 16);
@@ -181,6 +261,16 @@ static void bot_reasonable(BotContext *bot)
     if (built < 2 && s->population >= 8 && count_type(bot, CORE_BLD_GATHERER) < 1 + s->population / 15) {
         built += build_best(bot, CORE_BLD_GATHERER, 14);
     }
+    /* 5) 치료소와 시장 */
+    if (built < 2 && (s->population >= 10 || s->sick_count > 0) && count_type(bot, CORE_BLD_HEALER) == 0) {
+        built += build_best(bot, CORE_BLD_HEALER, 18);
+    }
+    if (built < 2 && s->population >= 14 && count_type(bot, CORE_BLD_MARKET) == 0) {
+        built += build_best(bot, CORE_BLD_MARKET, 20);
+    }
+    bot_repair(bot);
+    bot_trade(bot);
+    bot_merchant(bot);
 }
 
 static const Bot BOTS[] = {
@@ -231,9 +321,11 @@ static void write_csv_row(FILE *out, const CoreSummaryView *summary)
         fprintf(out, ",%d", (int)summary->resources[i]);
     }
     /* 위협은 마일스톤 4 에서 채워집니다 */
-    fprintf(out, ",%d,%d,%d,%d,%d,%d,%d,0\n", (int)summary->resource_capacity[CORE_RES_FOOD],
+    fprintf(out, ",%d,%d,%d,%d,%d,%d,%d,0", (int)summary->resource_capacity[CORE_RES_FOOD],
             (int)summary->population, (int)summary->average_mood, (int)summary->homeless, (int)summary->employed,
             (int)summary->building_count, (int)summary->rank);
+    fprintf(out, ",%d,%d,%d,%d,%d\n", (int)summary->weather, (int)summary->nature_event, (int)summary->sick_count,
+            (int)summary->cold_houses, (int)summary->merchant_days_left);
 }
 
 int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_name, const char *csv_path,
@@ -269,7 +361,7 @@ int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_n
     }
     walker_init(&walker);
     fprintf(out, "day,year,season,gold,mana,food,wood,stone,herbs,capacity,population,mood,homeless,employed,"
-                 "buildings,rank,threats\n");
+                 "buildings,rank,threats,weather,nature_event,sick,cold_houses,merchant\n");
     (void)core_get_summary(context.world, &summary);
     write_csv_row(out, &summary);
     for (day = 0; day < days && status == 0; day++) {
@@ -399,6 +491,12 @@ static void random_commands(BotContext *bot, uint32_t *random_state)
         villager_count > 0 && bot->building_count > 0) {
         const CoreVillagerView *v = &views[soak_pick(random_state, 0, villager_count - 1)];
         int32_t target = bot->buildings[soak_pick(random_state, 0, bot->building_count - 1)].id;
+        int32_t gold;
+        (void)core_trade(bot->world, soak_pick(random_state, 0, CORE_RES_COUNT - 1),
+                         soak_pick(random_state, 0, 1) ? soak_pick(random_state, 1, 4) : -soak_pick(random_state, 1, 4),
+                         &gold, &reason);
+        (void)core_merchant_accept(bot->world, soak_pick(random_state, 0, CORE_MERCHANT_MAX_DEALS - 1), &reason);
+        (void)core_repair(bot->world, target, &reason);
         switch (soak_pick(random_state, 0, 4)) {
         case 0:
             (void)core_assign_worker(bot->world, v->id, target);

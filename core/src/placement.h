@@ -40,4 +40,11 @@ void placement_refresh_productivity(World *world);
 /* 한 틱: 짓는 중인 건물을 한 틱씩 진행하고, 다 지으면 알립니다 */
 void placement_tick(World *world);
 
+/* 건물에 피해를 줍니다. 체력이 0 이 되면 무너집니다 (일꾼·거주민 연결을 양쪽 모두 끊음) */
+void placement_damage(World *world, Building *building, int32_t damage);
+/* 수리 비용: 건설 비용의 절반 × 잃은 체력 비율 (올림). 고칠 곳이 없으면 모두 0 */
+void placement_repair_cost(const World *world, const Building *building, int32_t out_cost[CORE_RES_COUNT]);
+/* 수리: CORE_OK, 또는 CORE_ERR_REJECTED 와 *out_reason (CoreDenyReason) */
+int placement_repair(World *world, Building *building, int32_t *out_reason);
+
 #endif

@@ -32,6 +32,9 @@ World *world_alloc(const Defs *defs)
     }
     world->next_villager_id = 1;
     world->next_building_id = 1;
+    nature_init(&world->nature);
+    market_init(&world->market);
+    merchant_init(&world->merchant);
     return world;
 }
 
@@ -145,13 +148,15 @@ int world_create(const CoreNewGameParams *params, const Defs *defs, World **out)
     return CORE_OK;
 }
 
-/* 매일 06:00: 장부 넘기기, 임금과 세금, 이주민, 배정, 굶주림 알림 */
+/* 매일 06:00: 장부 넘기기, 날씨·자연 사건·난방, 임금과 세금, 이주민, 시장·상인, 배정, 굶주림 알림 */
 static void daily(World *world)
 {
     int32_t starving = 0;
     int32_t i;
     eco_roll_ledger(&world->ledger);
+    nature_daily(world);
     jobs_pay_wages_and_taxes(world);
+    market_daily(world);
     population_daily(world);
     jobs_on_buildings_changed(world);
     for (i = 0; i < world->villager_count; i++) {
@@ -284,6 +289,8 @@ static uint64_t hash_villager(uint64_t hash, const Villager *v)
     hash = hash_i32(hash, v->rest_acc);
     hash = hash_i32(hash, v->story_flags);
     hash = hash_i32(hash, v->blocked_day);
+    hash = hash_i32(hash, v->sick_ticks);
+    hash = hash_i32(hash, v->heal_ticks);
     return hash;
 }
 
@@ -303,6 +310,7 @@ static uint64_t hash_building(uint64_t hash, const Building *b)
     hash = hash_i32(hash, b->auto_assign);
     hash = hash_i32(hash, b->work_milli[0]);
     hash = hash_i32(hash, b->work_milli[1]);
+    hash = hash_i32(hash, b->flags);
     return hash;
 }
 
@@ -327,9 +335,28 @@ uint64_t world_state_hash(const World *world)
     hash = hash_u64(hash, world->rng.state);
     hash = hash_u64(hash, world->rng.inc);
     hash = hash_i32(hash, world->bank.capacity);
+    hash = hash_i32(hash, world->nature.weather);
+    hash = hash_i32(hash, world->nature.event);
+    hash = hash_i32(hash, world->nature.event_days);
+    hash = hash_i32(hash, world->nature.forecast);
+    hash = hash_i32(hash, world->nature.forecast_days);
+    hash = hash_i32(hash, world->nature.calm_days);
+    hash = hash_i32(hash, world->nature.cold_houses);
+    hash = hash_i32(hash, world->merchant.days_left);
+    hash = hash_i32(hash, world->merchant.next_visit_day);
+    hash = hash_i32(hash, world->merchant.deal_count);
+    for (i = 0; i < world->merchant.deal_count; i++) {
+        const MerchantDeal *deal = &world->merchant.deals[i];
+        hash = hash_i32(hash, deal->give_resource);
+        hash = hash_i32(hash, deal->give_amount);
+        hash = hash_i32(hash, deal->get_resource);
+        hash = hash_i32(hash, deal->get_amount);
+        hash = hash_i32(hash, deal->taken);
+    }
     for (i = 0; i < CORE_RES_COUNT; i++) {
         hash = hash_i32(hash, world->bank.amount[i]);
-        for (c = 0; c < LEDGER_CAT_COUNT; c++) {
+        hash = hash_i32(hash, world->market.price[i]);
+        for (c = 0; c < CORE_LEDGER_COUNT; c++) {
             hash = hash_i32(hash, world->ledger.today[i][c]);
             hash = hash_i32(hash, world->ledger.yesterday[i][c]);
         }

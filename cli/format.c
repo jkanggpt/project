@@ -10,6 +10,25 @@ static const char *const SEASON_NAMES[CORE_SEASON_COUNT] = {"봄", "여름", "�
 static const char *const DIFFICULTY_NAMES[CORE_DIFF_COUNT] = {"평화", "보통", "혹독"};
 static const char *const RESOURCE_NAMES[CORE_RES_COUNT] = {"금화", "마정석", "식량", "목재", "석재", "약초"};
 static const char *const TERRAIN_NAMES[CORE_TERRAIN_COUNT] = {"풀밭", "숲", "바위", "물", "마정석 광맥"};
+static const char *const WEATHER_NAMES[CORE_WEATHER_COUNT] = {"맑음", "비", "눈", "폭풍"};
+static const char *const NATURE_NAMES[CORE_NATURE_COUNT] = {"없음", "가뭄", "역병", "폭풍", "혹한", "풍년"};
+static const char *const DENY_REASONS[CORE_DENY_COUNT] = {
+    "",
+    "다 지은 시장이 없습니다",
+    "시장에 일꾼이 없습니다",
+    "시장에서 다루지 않는 자원입니다",
+    "금화가 모자랍니다",
+    "팔 물건이 모자랍니다",
+    "창고에 자리가 없습니다",
+    "상인이 없습니다",
+    "이미 한 거래입니다",
+    "고칠 곳이 없습니다",
+    "아직 짓는 중입니다",
+    "수량이 범위 밖입니다",
+    "수리 비용이 모자랍니다",
+};
+static const char *const LEDGER_NAMES[CORE_LEDGER_COUNT] = {"생산", "식사", "임금", "세금", "건설", "철거 환불",
+                                                            "거래", "난방", "약탈",  "기타", "치료", "수리"};
 
 static const char *const BUILDING_NAMES[CORE_BLD_COUNT] = {
     "성채", "주택", "농장", "채집 오두막", "벌목장", "채석장", "마정석 광산", "창고",
@@ -82,6 +101,26 @@ const char *fmt_trait_name(const char *key)
         }
     }
     return key;
+}
+
+const char *fmt_weather_name(int32_t weather)
+{
+    return (weather >= 0 && weather < CORE_WEATHER_COUNT) ? WEATHER_NAMES[weather] : "?";
+}
+
+const char *fmt_nature_name(int32_t event)
+{
+    return (event >= 0 && event < CORE_NATURE_COUNT) ? NATURE_NAMES[event] : "?";
+}
+
+const char *fmt_deny_reason(int32_t reason)
+{
+    return (reason >= 0 && reason < CORE_DENY_COUNT) ? DENY_REASONS[reason] : "?";
+}
+
+const char *fmt_ledger_name(int32_t category)
+{
+    return (category >= 0 && category < CORE_LEDGER_COUNT) ? LEDGER_NAMES[category] : "?";
 }
 
 const char *fmt_season_name(int32_t season)
@@ -176,6 +215,9 @@ static void format_building_event(const CoreEventView *event, char *out, size_t 
 {
     const char *verb = event->type == CORE_EVT_BUILDING_PLACED      ? "짓기 시작했습니다"
                        : event->type == CORE_EVT_BUILDING_COMPLETED ? "다 지었습니다"
+                       : event->type == CORE_EVT_BUILDING_DAMAGED   ? "폭풍이 부쉈습니다"
+                       : event->type == CORE_EVT_BUILDING_RUINED    ? "폭풍이 무너뜨렸습니다"
+                       : event->type == CORE_EVT_BUILDING_REPAIRED  ? "고쳤습니다"
                                                                     : "철거했습니다";
     const char *name = fmt_building_name(event->b);
     snprintf(out, size, "%s(%d, %d)%s %s.", name, (int)event->c, (int)event->d, fmt_josa(name, "을", "를"), verb);
@@ -201,10 +243,16 @@ static void format_villager_event(const CoreEventView *event, char *out, size_t 
         break;
     case CORE_EVT_VILLAGER_DIED:
         snprintf(out, size, "%s%s %s세상을 떠났습니다.", event->text, ga,
-                 event->b == CORE_DEATH_STARVATION ? "굶주림으로 " : "");
+                 event->b == CORE_DEATH_STARVATION ? "굶주림으로 " : event->b == CORE_DEATH_ILLNESS ? "병으로 " : "");
         break;
     case CORE_EVT_PATH_BLOCKED:
         snprintf(out, size, "%s: 길이 막혔습니다.", event->text);
+        break;
+    case CORE_EVT_VILLAGER_SICK:
+        snprintf(out, size, "%s%s 병에 걸렸습니다.", event->text, ga);
+        break;
+    case CORE_EVT_VILLAGER_CURED:
+        snprintf(out, size, "%s%s %s", event->text, ga, event->b ? "치료소에서 나았습니다." : "병이 저절로 나았습니다.");
         break;
     default:
         snprintf(out, size, "%s", event->text);
@@ -245,8 +293,48 @@ static void format_count(const CoreEventView *event, char *out, size_t size)
     case CORE_EVT_STARVING:
         snprintf(out, size, "주민 %d명이 굶고 있습니다!", (int)event->a);
         break;
+    case CORE_EVT_WEATHER_CHANGED:
+        snprintf(out, size, "날씨: %s", fmt_weather_name(event->a));
+        break;
+    case CORE_EVT_NATURE_FORECAST: {
+        const char *name = fmt_nature_name(event->a);
+        snprintf(out, size, "예보: 내일 %s%s 옵니다.", name, fmt_josa(name, "이", "가"));
+        break;
+    }
+    case CORE_EVT_NATURE_ENDED: {
+        const char *name = fmt_nature_name(event->a);
+        snprintf(out, size, "%s%s 끝났습니다.", name, fmt_josa(name, "이", "가"));
+        break;
+    }
+    case CORE_EVT_MERCHANT_LEFT:
+        snprintf(out, size, "떠돌이 상인이 떠났습니다.");
+        break;
+    case CORE_EVT_HOUSES_COLD:
+        snprintf(out, size, "목재가 모자라 집 %d채가 지난밤 난방을 못 했습니다.", (int)event->a);
+        break;
     default:
         snprintf(out, size, "(%d)", (int)event->a);
+        break;
+    }
+}
+
+static void format_pair(const CoreEventView *event, char *out, size_t size)
+{
+    switch (event->type) {
+    case CORE_EVT_NATURE_STARTED: {
+        const char *name = fmt_nature_name(event->a);
+        snprintf(out, size, "%s%s 시작되었습니다 (%d일).", name, fmt_josa(name, "이", "가"), (int)event->b);
+        break;
+    }
+    case CORE_EVT_MERCHANT_ARRIVED:
+        snprintf(out, size, "떠돌이 상인이 왔습니다! %d일 머물며 거래 %d개를 제안합니다.", (int)event->a,
+                 (int)event->b);
+        break;
+    case CORE_EVT_WINTER_WARNING:
+        snprintf(out, size, "겨울 준비가 모자랍니다: 겨울을 나려면 식량 %d, 목재 %d 정도가 있어야 합니다.", (int)event->a, (int)event->b);
+        break;
+    default:
+        snprintf(out, size, "(%d, %d)", (int)event->a, (int)event->b);
         break;
     }
 }
@@ -280,8 +368,23 @@ static const EventFormatter EVENT_FORMATTERS[] = {
     format_story,          /* CORE_EVT_STORY */
     format_count,          /* CORE_EVT_STARVING */
     format_def_warning,    /* CORE_EVT_DEF_WARNING */
+    format_count,          /* CORE_EVT_WEATHER_CHANGED */
+    format_count,          /* CORE_EVT_NATURE_FORECAST */
+    format_pair,           /* CORE_EVT_NATURE_STARTED */
+    format_count,          /* CORE_EVT_NATURE_ENDED */
+    format_building_event, /* CORE_EVT_BUILDING_DAMAGED */
+    format_building_event, /* CORE_EVT_BUILDING_RUINED */
+    format_building_event, /* CORE_EVT_BUILDING_REPAIRED */
+    format_villager_event, /* CORE_EVT_VILLAGER_SICK */
+    format_villager_event, /* CORE_EVT_VILLAGER_CURED */
+    format_pair,           /* CORE_EVT_MERCHANT_ARRIVED */
+    format_count,          /* CORE_EVT_MERCHANT_LEFT */
+    format_pair,           /* CORE_EVT_WINTER_WARNING */
+    format_count,          /* CORE_EVT_HOUSES_COLD */
 };
 #define EVENT_FORMATTER_COUNT ((int32_t)(sizeof(EVENT_FORMATTERS) / sizeof(EVENT_FORMATTERS[0])))
+_Static_assert(sizeof(EVENT_FORMATTERS) / sizeof(EVENT_FORMATTERS[0]) == CORE_EVT_HOUSES_COLD + 1,
+               "every event type needs a formatter");
 
 void fmt_event(const CoreEventView *event, char *out, size_t size)
 {

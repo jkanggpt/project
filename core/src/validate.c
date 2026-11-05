@@ -169,6 +169,15 @@ static void check_building(Checker *checker, const World *world, const Building 
         expect(checker, b->residents[i]->home == b, "resident does not point back to home");
     }
     expect(checker, b->work_milli[0] >= 0 && b->work_milli[1] >= 0, "work progress negative");
+    expect(checker, (b->flags & ~CORE_BF_COLD) == 0, "building flags invalid");
+    expect(checker, b->flags == 0 || (b->type == CORE_BLD_HOUSE && b->state == CORE_BSTATE_ACTIVE),
+           "only lived-in houses can be cold");
+    if (b->state == CORE_BSTATE_RUINED) {
+        expect(checker, b->hp == 0 && b->worker_count == 0 && b->resident_count == 0,
+               "ruined building still has hp or people");
+    } else if (b->state == CORE_BSTATE_ACTIVE) {
+        expect(checker, b->hp > 0, "active building has no hp");
+    }
     if (b->state == CORE_BSTATE_ACTIVE) {
         *storage_total += def->storage;
     }
@@ -205,6 +214,48 @@ static void check_villager(Checker *checker, const World *world, const Villager 
     }
     if (v->target != NULL) {
         expect(checker, building_listed(world, v->target), "villager target is not a building");
+    }
+    expect(checker, v->sick_ticks >= 0 && v->sick_ticks <= NATURE_SICK_TICKS * 2, "sickness out of range");
+    expect(checker, ((v->flags & CORE_VF_SICK) != 0) == (v->sick_ticks > 0), "sick flag does not match sickness");
+    expect(checker, v->heal_ticks >= 0 && v->heal_ticks <= NATURE_HEAL_TICKS, "healing progress out of range");
+}
+
+/* 날씨·자연 사건·시장·상인 */
+static void check_pressure(Checker *checker, const World *world)
+{
+    const Nature *nature = &world->nature;
+    const Merchant *merchant = &world->merchant;
+    int32_t i;
+    expect(checker, nature->weather >= 0 && nature->weather < CORE_WEATHER_COUNT, "weather invalid");
+    expect(checker, nature->event >= 0 && nature->event < CORE_NATURE_COUNT, "nature event invalid");
+    expect(checker, (nature->event == CORE_NATURE_NONE) == (nature->event_days == 0), "event days mismatch");
+    expect(checker, nature->forecast >= 0 && nature->forecast < CORE_NATURE_COUNT, "forecast invalid");
+    expect(checker, (nature->forecast == CORE_NATURE_NONE) == (nature->forecast_days == 0), "forecast days mismatch");
+    expect(checker, nature->event_days >= 0 && nature->event_days <= 30 && nature->forecast_days <= 30 &&
+                        nature->calm_days >= 0 && nature->cold_houses >= 0,
+           "nature counters out of range");
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        int32_t base = market_base_price(i) * 100;
+        if (base == 0) {
+            expect(checker, world->market.price[i] == 0, "untradable resource has a price");
+        } else {
+            expect(checker,
+                   world->market.price[i] >= base * MARKET_MIN_PCT / 100 &&
+                       world->market.price[i] <= base * MARKET_MAX_PCT / 100,
+                   "market price out of range");
+        }
+    }
+    expect(checker, merchant->days_left >= 0 && merchant->days_left <= MERCHANT_STAY_DAYS, "merchant days invalid");
+    expect(checker, merchant->deal_count >= 0 && merchant->deal_count <= CORE_MERCHANT_MAX_DEALS,
+           "merchant deal count invalid");
+    expect(checker, merchant->days_left > 0 || merchant->deal_count == 0, "merchant left but deals remain");
+    for (i = 0; i < merchant->deal_count && i < CORE_MERCHANT_MAX_DEALS; i++) {
+        const MerchantDeal *deal = &merchant->deals[i];
+        expect(checker,
+               deal->give_resource >= 0 && deal->give_resource < CORE_RES_COUNT && deal->get_resource >= 0 &&
+                   deal->get_resource < CORE_RES_COUNT && deal->give_amount > 0 && deal->get_amount > 0 &&
+                   (deal->taken == 0 || deal->taken == 1),
+               "merchant deal invalid");
     }
 }
 
@@ -244,6 +295,7 @@ int32_t validate_world(const World *world, ValidateReportFn report, void *contex
     check_bank(&checker, &world->bank);
     check_grid(&checker, world);
     check_events(&checker, &world->events);
+    check_pressure(&checker, world);
     if (world->grid.occupant != NULL) {
         check_entities(&checker, world);
     }

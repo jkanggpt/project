@@ -5,12 +5,10 @@
 
 #include <stdlib.h>
 
+#include "nature.h"
+
 #define STORY_FIRST_PRODUCE_BIT 1
 #define STORY_MOVED_IN_BIT 2
-
-/* 계절별 농장 생산 % (봄, 여름, 가을, 겨울). 겨울에는 절반만 거둡니다.
- * (겨울에 농장이 완전히 멈추는 것은 마일스톤 3 "계절의 압박"에서 경고·비축 안내와 함께 들어옵니다) */
-static const int32_t FARM_SEASON_PERCENT[CORE_SEASON_COUNT] = {100, 120, 110, 50};
 
 int32_t jobs_relevant_stat(const Villager *villager, int32_t building_type)
 {
@@ -55,7 +53,7 @@ int32_t jobs_work_percent(const World *world, const Villager *villager, int32_t 
 static void deliver(World *world, Building *building, Villager *villager, int32_t resource)
 {
     int32_t day = clock_day(&world->clock);
-    if (eco_change(&world->bank, &world->ledger, resource, 1, LEDGER_PRODUCTION) > 0) {
+    if (eco_change(&world->bank, &world->ledger, resource, 1, CORE_LEDGER_PRODUCTION) > 0) {
         events_push_produced(&world->events, building->id, resource, 1);
         if (!(villager->story_flags & STORY_FIRST_PRODUCE_BIT)) {
             villager->story_flags |= STORY_FIRST_PRODUCE_BIT;
@@ -90,12 +88,11 @@ static void produce(World *world, Building *building, Villager *villager, int32_
 
 typedef void (*JobWorkFn)(World *world, Building *building, Villager *villager);
 
-/* 농장: 계절을 탑니다 (겨울에는 0) */
+/* 농장: 계절·날씨·자연 사건을 탑니다 (겨울에는 0, 가뭄 −50%, 풍년 +50% — nature.c) */
 static void work_farm(World *world, Building *building, Villager *villager)
 {
     const BuildingDef *def = world_building_def(world, building->type);
-    int32_t season = clock_season(&world->clock);
-    produce(world, building, villager, 0, def->produces, def->rate, FARM_SEASON_PERCENT[season]);
+    produce(world, building, villager, 0, def->produces, def->rate, nature_farm_percent(world));
 }
 
 /* 채집 오두막: 약초와 식량을 함께 */
@@ -114,7 +111,7 @@ static void work_extract(World *world, Building *building, Villager *villager)
 }
 
 /* 건물 종류 → 작업 함수. NULL 이면 일꾼이 있어도 만드는 것이 없음
- * (시장·병영·치료소·마탑의 일은 마일스톤 3~5 에서 더해집니다) */
+ * (시장 일꾼은 거래를 열어 두고, 치료소 일꾼은 찾아온 환자를 고칩니다 — 매 틱 만드는 것은 없음. 병영·마탑은 마일스톤 4~5) */
 static const JobWorkFn JOB_TABLE[CORE_BLD_COUNT] = {
     NULL,          /* 성채 */
     NULL,          /* 주택 */
@@ -307,7 +304,7 @@ void jobs_pay_wages_and_taxes(World *world)
     /* 세금을 먼저 걷어야 그 돈으로 임금을 줄 수 있습니다 */
     for (i = 0; i < world->villager_count; i++) {
         if (world->villagers[i]->home != NULL) {
-            (void)eco_change(&world->bank, &world->ledger, CORE_RES_GOLD, JOBS_TAX_PER_HOUSED, LEDGER_TAXES);
+            (void)eco_change(&world->bank, &world->ledger, CORE_RES_GOLD, JOBS_TAX_PER_HOUSED, CORE_LEDGER_TAXES);
         }
     }
     for (i = 0; i < world->villager_count; i++) {
@@ -319,7 +316,7 @@ void jobs_pay_wages_and_taxes(World *world)
         }
         wage = world_building_def(world, villager->workplace->type)->wage;
         if (world->bank.amount[CORE_RES_GOLD] >= wage) {
-            (void)eco_change(&world->bank, &world->ledger, CORE_RES_GOLD, -wage, LEDGER_WAGES);
+            (void)eco_change(&world->bank, &world->ledger, CORE_RES_GOLD, -wage, CORE_LEDGER_WAGES);
             villager->flags &= ~CORE_VF_UNPAID;
         } else {
             villager->flags |= CORE_VF_UNPAID;

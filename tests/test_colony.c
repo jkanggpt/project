@@ -12,72 +12,10 @@
 #include "placement.h"
 #include "platform.h"
 #include "population.h"
+#include "test_town.h"
 #include "test_util.h"
 #include "villager_ai.h"
 #include "world.h"
-
-/* 주민이 목표로 바로 걸어간 것으로 치고 도착을 보고합니다 (Godot 대신) */
-static void arrive_all(CoreWorld *world)
-{
-    int32_t i;
-    for (i = world->villager_count - 1; i >= 0; i--) {
-        Villager *v = world->villagers[i];
-        if (!v->at_target && !(v->intent_flags & CORE_INTENT_HOLD)) {
-            (void)core_villager_arrived(world, v->id, v->intent_rev);
-        }
-    }
-}
-
-/* ticks 만큼 진행하며 매 틱 모두 도착시킵니다 */
-static int run(CoreWorld *world, int32_t ticks)
-{
-    int32_t i;
-    for (i = 0; i < ticks; i++) {
-        if (core_tick(world, 1) != CORE_OK) {
-            return 0;
-        }
-        arrive_all(world);
-    }
-    return 1;
-}
-
-/* 건물을 짓고 다 지어질 때까지 진행합니다. 성공하면 건물 */
-static Building *build_now(CoreWorld *world, int32_t type, int32_t x, int32_t y)
-{
-    int32_t id = 0;
-    int32_t reason = 0;
-    Building *building;
-    if (core_place_building(world, type, x, y, &id, &reason) != CORE_OK) {
-        fprintf(stderr, "    place %d at (%d,%d) failed: reason %d\n", (int)type, (int)x, (int)y, (int)reason);
-        return NULL;
-    }
-    building = entity_find_building(world, id);
-    while (building != NULL && building->state == CORE_BSTATE_CONSTRUCTING) {
-        (void)core_tick(world, 1);
-    }
-    return building;
-}
-
-/* 지형을 풀밭으로 바꿔 시험용 빈터를 만듭니다 (x..x+w, y..y+h) */
-static void flatten(CoreWorld *world, int32_t x, int32_t y, int32_t w, int32_t h)
-{
-    int32_t cx;
-    int32_t cy;
-    for (cy = y; cy < y + h; cy++) {
-        for (cx = x; cx < x + w; cx++) {
-            world->grid.terrain[grid_index(&world->grid, cx, cy)] = CORE_TERRAIN_GRASS;
-        }
-    }
-    grid_rebuild_costs(&world->grid);
-}
-
-static void give(CoreWorld *world, int32_t amount)
-{
-    int32_t i;
-    for (i = 0; i < CORE_RES_COUNT; i++) {
-        world->bank.amount[i] = eco_is_stored_good(i) && amount > world->bank.capacity ? world->bank.capacity : amount;
-    }
-}
 
 /* ---- 정의 파일 -------------------------------------------------------- */
 
@@ -229,8 +167,8 @@ void test_placement_rules(void)
     CHECK(world != NULL);
     kx = world->keep_x;
     ky = world->keep_y;
-    give(world, 5000);
-    flatten(world, kx + 4, ky - 6, 12, 12);
+    test_give(world, 5000);
+    test_flatten(world, kx + 4, ky - 6, 12, 12);
 
     CHECK_EQ(core_can_place(world, CORE_BLD_KEEP, kx + 5, ky, &view), CORE_OK);
     CHECK_EQ(view.result, CORE_PLACE_BAD_TYPE);
@@ -247,7 +185,7 @@ void test_placement_rules(void)
     grid_rebuild_costs(&world->grid);
     (void)core_can_place(world, CORE_BLD_HOUSE, kx + 5, ky - 1, &view);
     CHECK_EQ(view.result, CORE_PLACE_BAD_TERRAIN);
-    flatten(world, kx + 6, ky, 1, 1);
+    test_flatten(world, kx + 6, ky, 1, 1);
     /* 성채 문 앞을 막는 자리 */
     (void)core_can_place(world, CORE_BLD_HOUSE, kx - 1, ky + 2, &view);
     CHECK_EQ(view.result, CORE_PLACE_BLOCKS_DOOR);
@@ -294,10 +232,10 @@ void test_placement_rules(void)
     CHECK_EQ(core_tick(world, 1), CORE_OK);
     CHECK_EQ(entity_find_building(world, id)->state, CORE_BSTATE_ACTIVE);
     /* 창고를 다 지으면 저장 한도가 늘어남 */
-    give(world, 5000);
+    test_give(world, 5000);
     {
         int32_t before = world->bank.capacity;
-        CHECK(build_now(world, CORE_BLD_WAREHOUSE, kx + 11, ky + 1) != NULL);
+        CHECK(test_build_now(world, CORE_BLD_WAREHOUSE, kx + 11, ky + 1) != NULL);
         CHECK_EQ(world->bank.capacity, before + BUILTIN_BUILDINGS[CORE_BLD_WAREHOUSE].storage);
     }
     CHECK_EQ(test_validate_verbose(world), 0);
@@ -316,8 +254,8 @@ void test_placement_roads_and_paths(void)
     CHECK(world != NULL);
     kx = world->keep_x;
     ky = world->keep_y;
-    give(world, 5000);
-    flatten(world, kx - 12, ky + 3, 25, 10);
+    test_give(world, 5000);
+    test_flatten(world, kx - 12, ky + 3, 25, 10);
     rev = world->grid.cost_rev;
     /* 도로 줄: 비용 격자가 바뀌고 걷기 비용이 낮아짐 */
     CHECK_EQ(core_place_line(world, CORE_BLD_ROAD, kx - 10, ky + 6, kx + 10, ky + 6, &placed, &reason), CORE_OK);
@@ -363,8 +301,8 @@ void test_demolish_refunds_and_unlinks(void)
     int32_t wood_before;
     int32_t i;
     CHECK(world != NULL);
-    flatten(world, world->keep_x + 4, world->keep_y - 2, 4, 4);
-    house = build_now(world, CORE_BLD_HOUSE, world->keep_x + 5, world->keep_y - 1);
+    test_flatten(world, world->keep_x + 4, world->keep_y - 2, 4, 4);
+    house = test_build_now(world, CORE_BLD_HOUSE, world->keep_x + 5, world->keep_y - 1);
     CHECK(house != NULL);
     residents = house->resident_count;
     CHECK(residents > 0); /* 다 지으면 집 없는 주민이 들어감 */
@@ -436,8 +374,8 @@ void test_production_only_while_working(void)
     int32_t food_before;
     int32_t i;
     CHECK(world != NULL);
-    flatten(world, world->keep_x + 4, world->keep_y - 2, 5, 5);
-    farm = build_now(world, CORE_BLD_FARM, world->keep_x + 5, world->keep_y - 1);
+    test_flatten(world, world->keep_x + 4, world->keep_y - 2, 5, 5);
+    farm = test_build_now(world, CORE_BLD_FARM, world->keep_x + 5, world->keep_y - 1);
     CHECK(farm != NULL);
     CHECK_EQ(farm->worker_count, 2); /* 자동 배치 */
     /* 낮 근무 시간까지 진행하되 아무도 도착시키지 않으면 생산 없음 */
@@ -452,9 +390,9 @@ void test_production_only_while_working(void)
     CHECK_EQ(farm->work_milli[0], 0);
     CHECK(world->bank.amount[CORE_RES_FOOD] <= food_before);
     /* 도착시키면 WORKING 이 되고 식량이 쌓임 (13:00 → 16:20, 아직 근무 시간) */
-    CHECK(run(world, 20));
-    CHECK(farm->work_milli[0] > 0 || world->ledger.today[CORE_RES_FOOD][LEDGER_PRODUCTION] > 0);
-    CHECK(world->ledger.today[CORE_RES_FOOD][LEDGER_PRODUCTION] > 0);
+    CHECK(test_run(world, 20));
+    CHECK(farm->work_milli[0] > 0 || world->ledger.today[CORE_RES_FOOD][CORE_LEDGER_PRODUCTION] > 0);
+    CHECK(world->ledger.today[CORE_RES_FOOD][CORE_LEDGER_PRODUCTION] > 0);
     CHECK(farm->workers[0]->state == CORE_VS_WORKING);
     CHECK_EQ(test_validate_verbose(world), 0);
     core_destroy(world);
@@ -471,13 +409,13 @@ void test_consumption_and_starvation(void)
     CHECK(world != NULL);
     population = world->villager_count;
     world->villagers[0]->needs.hunger = 10;
-    CHECK(run(world, 3));
-    ate = world->ledger.today[CORE_RES_FOOD][LEDGER_CONSUMPTION] < 0;
+    CHECK(test_run(world, 3));
+    ate = world->ledger.today[CORE_RES_FOOD][CORE_LEDGER_CONSUMPTION] < 0;
     CHECK(ate);
     CHECK(world->villagers[0]->needs.hunger >= 70 || world->villager_count != population);
     /* 식량이 없으면 굶다가, 건강이 절반이 되면 죽기 전에 마을을 떠남 (굶어 죽는 주민은 없음) */
     world->bank.amount[CORE_RES_FOOD] = 0;
-    CHECK(run(world, 144 * 6));
+    CHECK(test_run(world, 144 * 6));
     while (core_poll_event(world, &event) == 1) {
         died += event.type == CORE_EVT_VILLAGER_DIED;
         left += event.type == CORE_EVT_VILLAGER_LEFT;
@@ -498,10 +436,10 @@ void test_wages_and_taxes(void)
     int32_t expected;
     int32_t i;
     CHECK(world != NULL);
-    give(world, 2000);
-    flatten(world, world->keep_x + 4, world->keep_y - 3, 8, 8);
-    farm = build_now(world, CORE_BLD_FARM, world->keep_x + 5, world->keep_y - 2);
-    house = build_now(world, CORE_BLD_HOUSE, world->keep_x + 9, world->keep_y - 2);
+    test_give(world, 2000);
+    test_flatten(world, world->keep_x + 4, world->keep_y - 3, 8, 8);
+    farm = test_build_now(world, CORE_BLD_FARM, world->keep_x + 5, world->keep_y - 2);
+    house = test_build_now(world, CORE_BLD_HOUSE, world->keep_x + 9, world->keep_y - 2);
     CHECK(farm != NULL && house != NULL);
     while (clock_minute_of_day(&world->clock) != WORLD_DAILY_MIN - CLOCK_MINUTES_PER_TICK) {
         CHECK_EQ(core_tick(world, 1), CORE_OK);
@@ -510,8 +448,8 @@ void test_wages_and_taxes(void)
     expected = house->resident_count * JOBS_TAX_PER_HOUSED - farm->worker_count * BUILTIN_BUILDINGS[CORE_BLD_FARM].wage;
     CHECK_EQ(core_tick(world, 1), CORE_OK); /* 06:00 결산 */
     CHECK_EQ(world->bank.amount[CORE_RES_GOLD], gold_before + expected);
-    CHECK_EQ(world->ledger.yesterday[CORE_RES_GOLD][LEDGER_WAGES], 0); /* 장부가 막 넘어감 */
-    CHECK_EQ(world->ledger.today[CORE_RES_GOLD][LEDGER_WAGES], -farm->worker_count);
+    CHECK_EQ(world->ledger.yesterday[CORE_RES_GOLD][CORE_LEDGER_WAGES], 0); /* 장부가 막 넘어감 */
+    CHECK_EQ(world->ledger.today[CORE_RES_GOLD][CORE_LEDGER_WAGES], -farm->worker_count);
     /* 금화가 없으면 임금을 못 받고 기분이 떨어짐 */
     for (i = 0; i < world->villager_count; i++) {
         world->villagers[i]->home = NULL;
@@ -548,7 +486,7 @@ void test_departure_after_low_mood(void)
         int32_t hour;
         for (hour = 0; hour < 72; hour++) {
             world->mourning = 30;
-            CHECK(run(world, 6));
+            CHECK(test_run(world, 6));
         }
     }
     while (core_poll_event(world, &event) == 1) {
@@ -570,19 +508,19 @@ void test_immigration_needs_housing_and_food(void)
     CHECK(world != NULL);
     population = world->villager_count;
     /* 집이 없으면 이주민도 없음 */
-    CHECK(run(world, 144));
+    CHECK(test_run(world, 144));
     CHECK_EQ(world->villager_count, population);
-    give(world, 3000);
-    flatten(world, world->keep_x + 4, world->keep_y - 4, 10, 10);
+    test_give(world, 3000);
+    test_flatten(world, world->keep_x + 4, world->keep_y - 4, 10, 10);
     for (i = 0; i < 3; i++) {
-        CHECK(build_now(world, CORE_BLD_HOUSE, world->keep_x + 5 + (i % 2) * 3, world->keep_y - 3 + (i / 2) * 3) !=
+        CHECK(test_build_now(world, CORE_BLD_HOUSE, world->keep_x + 5 + (i % 2) * 3, world->keep_y - 3 + (i / 2) * 3) !=
               NULL);
     }
     for (i = 0; i < world->villager_count; i++) {
         world->villagers[i]->mood = 90;
     }
     world->bank.amount[CORE_RES_FOOD] = world->bank.capacity;
-    CHECK(run(world, 144 * 2));
+    CHECK(test_run(world, 144 * 2));
     CHECK(world->villager_count > population);
     CHECK_EQ(test_validate_verbose(world), 0);
     core_destroy(world);
@@ -595,8 +533,8 @@ void test_auto_and_manual_assignment(void)
     Villager *outsider = NULL;
     int32_t i;
     CHECK(world != NULL);
-    flatten(world, world->keep_x + 4, world->keep_y - 2, 5, 5);
-    farm = build_now(world, CORE_BLD_FARM, world->keep_x + 5, world->keep_y - 1);
+    test_flatten(world, world->keep_x + 4, world->keep_y - 2, 5, 5);
+    farm = test_build_now(world, CORE_BLD_FARM, world->keep_x + 5, world->keep_y - 1);
     CHECK(farm != NULL);
     CHECK_EQ(farm->worker_count, 2);
     for (i = 0; i < world->villager_count; i++) {
@@ -638,14 +576,14 @@ void test_save_roundtrip_colony(void)
     int32_t reason;
     int32_t i;
     CHECK(world != NULL);
-    give(world, 5000);
-    flatten(world, world->keep_x + 4, world->keep_y - 4, 10, 10);
-    CHECK(build_now(world, CORE_BLD_FARM, world->keep_x + 5, world->keep_y - 3) != NULL);
-    CHECK(build_now(world, CORE_BLD_HOUSE, world->keep_x + 9, world->keep_y - 3) != NULL);
+    test_give(world, 5000);
+    test_flatten(world, world->keep_x + 4, world->keep_y - 4, 10, 10);
+    CHECK(test_build_now(world, CORE_BLD_FARM, world->keep_x + 5, world->keep_y - 3) != NULL);
+    CHECK(test_build_now(world, CORE_BLD_HOUSE, world->keep_x + 9, world->keep_y - 3) != NULL);
     CHECK_EQ(core_place_line(world, CORE_BLD_ROAD, world->keep_x, world->keep_y + 3, world->keep_x + 10,
                              world->keep_y + 3, &placed, &reason),
              CORE_OK);
-    CHECK(run(world, 200));
+    CHECK(test_run(world, 200));
     /* 일부는 걷는 도중(도착 안 함)인 상태로 저장 */
     CHECK_EQ(core_tick(world, 7), CORE_OK);
     CHECK_EQ(core_save(world, path), CORE_OK);
@@ -661,8 +599,8 @@ void test_save_roundtrip_colony(void)
         CHECK(v->home == NULL || v->home->id == world->villagers[i]->home->id);
     }
     /* 같은 보고를 하면 같은 미래 */
-    CHECK(run(world, 300));
-    CHECK(run(loaded, 300));
+    CHECK(test_run(world, 300));
+    CHECK(test_run(loaded, 300));
     (void)core_state_hash(world, &a);
     (void)core_state_hash(loaded, &b);
     CHECK(a == b);
