@@ -5,11 +5,11 @@
 
 #include <string.h>
 
+#include "difficulty.h"
 #include "jobs.h"
 #include "villager_ai.h"
 
 /* 난이도별 첫 주민 수 (평화, 보통, 혹독) */
-static const int32_t INITIAL_VILLAGERS[CORE_DIFF_COUNT] = {7, 6, 5};
 
 /* 지금 살아 있는 주민 중에 같은 이름이 있으면 1 */
 static int name_in_use(const World *world, const char *name)
@@ -74,7 +74,7 @@ Villager *population_create(World *world, int32_t x, int32_t y)
 int population_spawn_initial(World *world)
 {
     const Building *keep = world_keep(world);
-    int32_t count = INITIAL_VILLAGERS[world->difficulty];
+    int32_t count = difficulty_preset(world->difficulty)->start_villagers;
     int32_t i;
     if (keep == NULL) {
         return CORE_ERR_INVALID_ARG;
@@ -181,12 +181,14 @@ void population_begin_leaving(World *world, Villager *villager)
 void population_remove_departed(World *world, Villager *villager)
 {
     events_push_villager(&world->events, CORE_EVT_VILLAGER_LEFT, villager->id, 0, 0, villager->name);
+    world->stats.villagers_left++;
     entity_remove_villager(world, villager);
 }
 
 void population_kill(World *world, Villager *villager, int32_t cause)
 {
     events_push_villager(&world->events, CORE_EVT_VILLAGER_DIED, villager->id, cause, 0, villager->name);
+    world->stats.villagers_died++;
     world->mourning += POP_MOURNING_PER_DEATH;
     if (world->mourning > POP_MOURNING_MAX) {
         world->mourning = POP_MOURNING_MAX;

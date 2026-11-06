@@ -97,6 +97,15 @@ static int cmd_status(CliContext *context)
     printf("\n=== %s ===\n", summary.castle_name);
     printf("날짜   : %s\n", date);
     printf("난이도 : %s   시드: %d\n", fmt_difficulty_name(summary.difficulty), (int)summary.seed);
+    printf("등급   : %s%s (방어 점수 %d, 끝낸 연구 %d)\n", fmt_rank_name(summary.rank),
+           summary.rank_ready ? " — 지금 승급할 수 있습니다 (메뉴 20)" : "", (int)summary.defense,
+           (int)summary.research_done);
+    if (summary.outcome == CORE_OUTCOME_WON) {
+        printf("결과   : 승리! 왕성이 되었습니다. 계속 다스릴 수 있습니다.\n");
+    } else if (summary.outcome == CORE_OUTCOME_LOST) {
+        printf("결과   : 패배 — %s. 시간이 더는 흐르지 않습니다. (새 게임: 메뉴 14)\n",
+               fmt_lose_reason(summary.lose_reason));
+    }
     printf("주민   : %d명 (집 없음 %d, 일하는 사람 %d / 일자리 %d, 집 자리 %d), 평균 기분 %d\n",
            (int)summary.population, (int)summary.homeless, (int)summary.employed, (int)summary.job_slots,
            (int)summary.housing_capacity, (int)summary.average_mood);
@@ -137,6 +146,20 @@ static int cmd_status(CliContext *context)
     }
     if (summary.merchant_days_left > 0) {
         printf("상인   : 떠돌이 상인이 %d일 더 머뭅니다 (메뉴 17)\n", (int)summary.merchant_days_left);
+    }
+    if (summary.research_active >= 0) {
+        CoreResearchView research;
+        if (core_get_research(context->world, summary.research_active, &research) == CORE_OK) {
+            printf("연구   : %s %d/%d점 (일하는 마법사 %d명)\n", fmt_research_name(research.key),
+                   (int)summary.research_progress, (int)summary.research_points, (int)summary.research_mages);
+        }
+    }
+    if (summary.tutorial_done != (1 << CORE_TUTORIAL_COUNT) - 1) {
+        printf("목표   :");
+        for (i = 0; i < CORE_TUTORIAL_COUNT; i++) {
+            printf(" [%s] %s", (summary.tutorial_done >> i) & 1 ? "v" : " ", fmt_tutorial_name(i));
+        }
+        printf("\n");
     }
     return 1;
 }
@@ -574,6 +597,94 @@ static int cmd_repair(CliContext *context)
     return 1;
 }
 
+/* 연구 나무를 보여 주고, 고른 연구를 시작합니다 */
+static int cmd_research(CliContext *context)
+{
+    CoreResearchView view;
+    char effect[96];
+    int32_t count = 0;
+    int32_t reason = 0;
+    int32_t rc;
+    int index = 0;
+    printf("\n번호 | 갈래 | 연구 | 효과 | 비용 | 점수 | 필요 등급 | 상태\n");
+    while (core_get_research(context->world, count, &view) == CORE_OK) {
+        fmt_effect(view.effect, view.value, effect, sizeof(effect));
+        printf("%2d | %s | %s | %s | 금화 %d, 마정석 %d | %d | %s | %s", (int)count, fmt_branch_name(view.branch),
+               fmt_research_name(view.key), effect, (int)view.cost_gold, (int)view.cost_mana, (int)view.points,
+               fmt_rank_name(view.required_rank), fmt_research_state(view.state));
+        if (view.state == CORE_RSTATE_ACTIVE) {
+            printf(" (%d/%d)", (int)view.progress, (int)view.points);
+        }
+        printf("\n");
+        count++;
+    }
+    printf("연구는 마탑에서 일하는 마법사가 점수를 모아 끝냅니다. 한 번에 하나만 할 수 있습니다.\n");
+    if (!read_int("시작할 연구 번호 (취소: -1)", -1, count - 1, &index) || index < 0) {
+        return 1;
+    }
+    rc = core_start_research(context->world, index, &reason);
+    if (rc == CORE_ERR_REJECTED) {
+        printf("시작할 수 없습니다: %s\n", fmt_deny_reason(reason));
+    } else {
+        print_result("연구 시작", rc);
+    }
+    cli_print_events(context->world);
+    return 1;
+}
+
+/* 다음 등급의 조건을 보여 주고, 채웠으면 공물을 바쳐 승급합니다 */
+static int cmd_rank_up(CliContext *context)
+{
+    CoreRankView rank;
+    int32_t reason = 0;
+    int32_t rc;
+    int32_t type;
+    int answer = 0;
+    if (core_get_rank(context->world, &rank) != CORE_OK) {
+        return 1;
+    }
+    printf("\n지금 등급: %s\n", fmt_rank_name(rank.rank));
+    if (rank.next_rank < 0) {
+        printf("이미 가장 높은 등급(왕성)입니다.\n");
+        return 1;
+    }
+    printf("다음 등급: %s\n", fmt_rank_name(rank.next_rank));
+    printf("  [%s] 인구 %d / %d\n", rank.have_population >= rank.need_population ? "v" : " ",
+           (int)rank.have_population, (int)rank.need_population);
+    printf("  [%s] 평균 기분 %d / %d\n", rank.have_mood >= rank.need_mood ? "v" : " ", (int)rank.have_mood,
+           (int)rank.need_mood);
+    printf("  [%s] 방어 점수 %d / %d (감시탑·병영·성문, 경비병)\n", rank.have_defense >= rank.need_defense ? "v" : " ",
+           (int)rank.have_defense, (int)rank.need_defense);
+    printf("  [%s] 끝낸 연구 %d / %d\n", rank.have_research >= rank.need_research ? "v" : " ",
+           (int)rank.have_research, (int)rank.need_research);
+    printf("  공물: 금화 %d, 마정석 %d\n", (int)rank.tribute_gold, (int)rank.tribute_mana);
+    printf("  오르면: 저장 한도 +%d", (int)rank.storage_bonus);
+    for (type = 0; type < CORE_BLD_COUNT; type++) {
+        if (rank.unlocks & (1 << type)) {
+            printf(", %s", fmt_building_name(type));
+        }
+    }
+    if (rank.research_unlocks > 0) {
+        printf(", 연구 %d개", (int)rank.research_unlocks);
+    }
+    printf("\n");
+    if (!rank.ready) {
+        printf("아직 승급할 수 없습니다.\n");
+        return 1;
+    }
+    if (!read_int("공물을 바치고 승급할까요? (1 = 예, 0 = 아니요)", 0, 1, &answer) || answer == 0) {
+        return 1;
+    }
+    rc = core_rank_up(context->world, &reason);
+    if (rc == CORE_ERR_REJECTED) {
+        printf("승급할 수 없습니다: %s\n", fmt_deny_reason(reason));
+    } else {
+        print_result("승급", rc);
+    }
+    cli_print_events(context->world);
+    return 1;
+}
+
 static int cmd_save(CliContext *context)
 {
     char path[CLI_PATH_BYTES];
@@ -690,6 +801,8 @@ static const CliCommand COMMANDS[] = {
     {"시장 거래", cmd_market, 1},
     {"떠돌이 상인과 거래", cmd_merchant, 1},
     {"건물 수리", cmd_repair, 1},
+    {"연구", cmd_research, 1},
+    {"승급", cmd_rank_up, 1},
 };
 #define COMMAND_COUNT ((int)(sizeof(COMMANDS) / sizeof(COMMANDS[0])))
 

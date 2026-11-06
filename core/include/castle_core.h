@@ -35,7 +35,7 @@ extern "C" {
 #endif
 
 /* C#의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
-#define CORE_ABI_VERSION 4
+#define CORE_ABI_VERSION 5
 
 /* 성채·주민 이름 버퍼 크기 (UTF-8 바이트, 끝의 '\0' 포함) */
 #define CORE_NAME_BYTES 48
@@ -227,7 +227,9 @@ typedef enum CoreDataFile {
     CORE_DATA_TRAITS = 1,    /* data/traits.def    : [trait 키] */
     CORE_DATA_NAMES = 2,     /* data/names.txt     : 한 줄에 이름 하나 */
     CORE_DATA_ENEMIES = 3,   /* data/enemies.def   : [enemy 키] */
-    CORE_DATA_COUNT = 4
+    CORE_DATA_RESEARCH = 4,  /* data/research.def  : [research 키] (파일이 목록 전체를 정함) */
+    CORE_DATA_RANKS = 5,     /* data/ranks.def     : [rank 키] (등급 5개의 조건) */
+    CORE_DATA_COUNT = 6
 } CoreDataFile;
 
 /* 피드백 이벤트 종류. 문장은 Godot/CLI가 이 코드로 만듭니다. (코어는 언어를 모릅니다) */
@@ -270,7 +272,15 @@ typedef enum CoreEventType {
     CORE_EVT_RAID_ENDED = 35,        /* a = 쓰러뜨린 적, b = 전체 적, c = 빼앗긴 금화, d = 쓰러진 주민 */
     CORE_EVT_ENEMY_KILLED = 36,      /* a = 적 id, b = 적 종류, c = 떨어뜨린 마정석 */
     CORE_EVT_LOOT_STOLEN = 37,       /* a = 자원, b = 양, c = 건물 id */
-    CORE_EVT_THREAT_NEAR = 38        /* a = 위협 종류, b = 방향 (도착 반나절 전, 경보) */
+    CORE_EVT_THREAT_NEAR = 38,       /* a = 위협 종류, b = 방향 (도착 반나절 전, 경보) */
+    CORE_EVT_RESEARCH_STARTED = 39,  /* a = 연구 번호 */
+    CORE_EVT_RESEARCH_DONE = 40,     /* a = 연구 번호, b = 끝낸 연구 수 */
+    CORE_EVT_RANK_READY = 41,        /* a = 오를 수 있게 된 등급 (조건을 처음 채웠을 때 한 번) */
+    CORE_EVT_RANK_UP = 42,           /* a = 새 등급 (CoreRank) */
+    CORE_EVT_VICTORY = 43,           /* a = 날짜 (왕성이 됨. 계속할 수 있음) */
+    CORE_EVT_DEFEAT = 44,            /* a = 원인 (CoreLoseReason), b = 날짜 */
+    CORE_EVT_TUTORIAL_STEP = 45,     /* a = 목표 (CoreTutorialStep), b = 끝낸 목표 수, c = 전체 */
+    CORE_EVT_TUTORIAL_DONE = 46      /* a = 보상 금화, b = 보상 마정석 */
 } CoreEventType;
 
 typedef enum CoreWarning {
@@ -312,7 +322,9 @@ typedef enum CoreLedgerCategory {
     CORE_LEDGER_OTHER = 9,        /* 저장 한도 초과로 버림 등 */
     CORE_LEDGER_HEALING = 10,     /* 치료에 쓴 약초 */
     CORE_LEDGER_REPAIR = 11,      /* 수리 */
-    CORE_LEDGER_COUNT = 12
+    CORE_LEDGER_TRIBUTE = 12,     /* 승급 공물 */
+    CORE_LEDGER_RESEARCH = 13,    /* 연구 비용 */
+    CORE_LEDGER_COUNT = 14
 } CoreLedgerCategory;
 
 /* 거래·수리 명령을 거절한 이유 (out_reason) */
@@ -331,7 +343,14 @@ typedef enum CoreDenyReason {
     CORE_DENY_BAD_AMOUNT = 11,        /* 수량이 범위 밖 */
     CORE_DENY_NO_RESOURCES = 12,      /* 수리 비용이 모자람 */
     CORE_DENY_RAID = 13,              /* 습격 중 (싸우는 동안에는 고칠 수 없음) */
-    CORE_DENY_COUNT = 14
+    CORE_DENY_MAX_RANK = 14,          /* 이미 가장 높은 등급 */
+    CORE_DENY_REQUIREMENTS = 15,      /* 승급 조건(인구·기분·방어·연구)이 모자람 (core_get_rank 로 무엇이) */
+    CORE_DENY_NO_MANA = 16,           /* 마정석이 모자람 */
+    CORE_DENY_RESEARCH_BUSY = 17,     /* 이미 다른 연구를 하는 중 */
+    CORE_DENY_RESEARCH_DONE = 18,     /* 이미 끝낸 연구 */
+    CORE_DENY_RESEARCH_LOCKED = 19,   /* 앞선 연구나 등급이 모자람 */
+    CORE_DENY_GAME_OVER = 20,         /* 게임이 끝남 (패배) */
+    CORE_DENY_COUNT = 21
 } CoreDenyReason;
 
 /* 위협 종류 (습격 구성 함수는 threat.c 의 THREAT_KINDS 표) */
@@ -367,6 +386,74 @@ typedef enum CoreEnemyState {
 } CoreEnemyState;
 
 #define CORE_MAX_THREATS 4        /* 예고된 위협은 최대 4개 */
+
+/* 등급: 촌락 → 마을 → 요새 → 성 → 왕성. 왕성이 되면 승리 (계속할 수 있음) */
+typedef enum CoreRank {
+    CORE_RANK_HAMLET = 0,   /* 촌락 (시작) */
+    CORE_RANK_VILLAGE = 1,  /* 마을 */
+    CORE_RANK_FORTRESS = 2, /* 요새 */
+    CORE_RANK_CASTLE = 3,   /* 성 */
+    CORE_RANK_ROYAL = 4,    /* 왕성 (승리) */
+    CORE_RANK_COUNT = 5
+} CoreRank;
+
+/* 연구 갈래 */
+typedef enum CoreResearchBranch {
+    CORE_BRANCH_ECONOMY = 0, /* 경제 */
+    CORE_BRANCH_DEFENSE = 1, /* 방어 */
+    CORE_BRANCH_MAGIC = 2,   /* 마법 */
+    CORE_BRANCH_COUNT = 3
+} CoreResearchBranch;
+
+/* 연구 효과 (research.c 의 효과 함수 표 RESEARCH_EFFECTS 의 번호, 정의 파일의 effect 키) */
+typedef enum CoreResearchEffect {
+    CORE_EFFECT_FARM_YIELD = 0,    /* 농장 생산 +value% */
+    CORE_EFFECT_EXTRACT_YIELD = 1, /* 벌목장·채석장 생산 +value% */
+    CORE_EFFECT_STORAGE = 2,       /* 성채·창고 저장 한도 +value% */
+    CORE_EFFECT_MARKET = 3,        /* 시장의 사고팔 때 차이 −value%p */
+    CORE_EFFECT_TOWER_DAMAGE = 4,  /* 감시탑 화살 피해 +value */
+    CORE_EFFECT_WALL_HP = 5,       /* 성벽·성문 최대 체력 +value% */
+    CORE_EFFECT_GUARD_DAMAGE = 6,  /* 경비병 피해 +value */
+    CORE_EFFECT_KEEP_DAMAGE = 7,   /* 성채 망루 피해 +value */
+    CORE_EFFECT_MANA_YIELD = 8,    /* 마정석 광산 생산 +value% */
+    CORE_EFFECT_HEALING = 9,       /* 병을 앓는 시간 −value% */
+    CORE_EFFECT_HEATING = 10,      /* 집 한 채의 하룻밤 난방 목재 −value */
+    CORE_EFFECT_WARD = 11,         /* 습격 때 건물이 받는 피해 −value% */
+    CORE_EFFECT_COUNT = 12
+} CoreResearchEffect;
+
+/* 연구 하나의 상태 */
+typedef enum CoreResearchState {
+    CORE_RSTATE_LOCKED = 0,    /* 앞선 연구나 등급이 모자람 */
+    CORE_RSTATE_AVAILABLE = 1, /* 시작할 수 있음 (비용을 내면) */
+    CORE_RSTATE_ACTIVE = 2,    /* 마탑에서 연구 중 */
+    CORE_RSTATE_DONE = 3       /* 끝남 (효과가 적용됨) */
+} CoreResearchState;
+
+/* 게임 결과 */
+typedef enum CoreOutcome {
+    CORE_OUTCOME_NONE = 0, /* 진행 중 */
+    CORE_OUTCOME_WON = 1,  /* 왕성이 됨 (계속할 수 있음) */
+    CORE_OUTCOME_LOST = 2  /* 패배 (시간이 더는 흐르지 않음) */
+} CoreOutcome;
+
+typedef enum CoreLoseReason {
+    CORE_LOSE_NONE = 0,
+    CORE_LOSE_KEEP = 1,       /* 성채가 무너짐 */
+    CORE_LOSE_POPULATION = 2  /* 주민이 한 명도 남지 않음 */
+} CoreLoseReason;
+
+/* 튜토리얼 목표 (처음 10분쯤의 체크리스트) */
+typedef enum CoreTutorialStep {
+    CORE_TUTORIAL_FARM = 0,   /* 농장을 짓기 */
+    CORE_TUTORIAL_HOUSE = 1,  /* 주택을 짓기 */
+    CORE_TUTORIAL_ASSIGN = 2, /* 주민을 일터에 직접 배치하기 */
+    CORE_TUTORIAL_WALL = 3,   /* 성벽을 짓기 */
+    CORE_TUTORIAL_RAID = 4,   /* 첫 도적 습격을 버티기 */
+    CORE_TUTORIAL_COUNT = 5
+} CoreTutorialStep;
+
+#define CORE_MAX_RESEARCH 32      /* 연구 정의는 최대 32개 */
 
 #define CORE_MARKET_LOT 10        /* 시장에서 한 번에 사고파는 양 */
 #define CORE_MARKET_MAX_LOTS 10   /* core_trade 한 번에 최대 묶음 수 */
@@ -455,6 +542,16 @@ typedef struct CoreSummaryView {
     int32_t raid_type;
     int32_t raid_enemies_left;/* 아직 남은 적 */
     int32_t guards;           /* 지금 경비병(병영 일꾼) 수 */
+    int32_t defense;          /* 방어 점수 (승급 조건: 다 지은 감시탑·병영·성문 + 경비병) */
+    int32_t rank_ready;       /* 1 = 지금 승급할 수 있음 (조건과 공물 모두) */
+    int32_t research_active;  /* 연구 중인 번호 (-1 = 없음) */
+    int32_t research_progress;/* 모은 연구 점수 */
+    int32_t research_points;  /* 그 연구에 필요한 점수 */
+    int32_t research_mages;   /* 지금 마탑에서 일하는 마법사 수 */
+    int32_t research_done;    /* 끝낸 연구 수 */
+    int32_t outcome;          /* CoreOutcome */
+    int32_t lose_reason;      /* CoreLoseReason */
+    int32_t tutorial_done;    /* 끝낸 튜토리얼 목표 비트 (1 << CoreTutorialStep) */
     int32_t resources[CORE_RES_COUNT];
     int32_t resource_capacity[CORE_RES_COUNT]; /* 자원별 저장 한도. 0 이면 한도 없음 (금화, 마정석) */
     int32_t resource_delta[CORE_RES_COUNT];    /* 어제 하루 동안의 순변화 */
@@ -557,6 +654,7 @@ typedef struct CoreBuildingDefView {
     int32_t attack;           /* 감시탑: 화살 한 발의 피해, 병영: 경비병 한 명의 피해 (0 = 싸우지 않음) */
     int32_t attack_range;     /* 공격 거리 (칸) */
     int32_t attack_cooldown;  /* 공격 사이 시간 (게임 속 분) */
+    int32_t defense;          /* 방어 점수 (승급 조건) */
     char key[CORE_KEY_BYTES];
 } CoreBuildingDefView;
 
@@ -662,6 +760,70 @@ typedef struct CoreMerchantView {
     CoreDealView deals[CORE_MERCHANT_MAX_DEALS];
 } CoreMerchantView;
 
+/* 연구 하나 (core_get_research). 효과는 연구가 끝나는 순간 적용되고, 건물 정의(공격·체력·생산률·저장)에 반영됩니다 */
+typedef struct CoreResearchView {
+    int32_t index;
+    int32_t branch;          /* CoreResearchBranch */
+    int32_t requires;        /* 먼저 끝내야 하는 연구 번호 (-1 = 없음) */
+    int32_t required_rank;   /* 시작하려면 필요한 등급 */
+    int32_t cost_gold;       /* 시작할 때 내는 금화 */
+    int32_t cost_mana;       /* 시작할 때 내는 마정석 */
+    int32_t points;          /* 마탑에서 모아야 하는 연구 점수 */
+    int32_t effect;          /* CoreResearchEffect */
+    int32_t value;           /* 효과의 크기 */
+    int32_t state;           /* CoreResearchState */
+    int32_t progress;        /* 모은 점수 (연구 중일 때) */
+    char key[CORE_KEY_BYTES];
+} CoreResearchView;
+
+/* 승급: 지금 등급과 다음 등급의 조건 (core_get_rank) */
+typedef struct CoreRankView {
+    int32_t rank;            /* 지금 등급 (CoreRank) */
+    int32_t next_rank;       /* 다음 등급 (-1 = 이미 왕성) */
+    int32_t need_population;
+    int32_t have_population;
+    int32_t need_mood;       /* 평균 기분 */
+    int32_t have_mood;
+    int32_t need_defense;    /* 방어 점수 */
+    int32_t have_defense;
+    int32_t need_research;   /* 끝낸 연구 수 */
+    int32_t have_research;
+    int32_t tribute_gold;    /* 오를 때 바치는 금화 */
+    int32_t tribute_mana;    /* 오를 때 바치는 마정석 */
+    int32_t ready;           /* 1 = 조건을 모두 채웠고 공물을 낼 수 있음 */
+    int32_t unlocks;         /* 다음 등급에서 풀리는 건물 비트 (1 << CoreBuildingType) */
+    int32_t storage_bonus;   /* 다음 등급에서 늘어나는 저장 한도 */
+    int32_t research_unlocks;/* 다음 등급에서 시작할 수 있게 되는 연구 수 */
+} CoreRankView;
+
+/* 한 판의 기록 (승리·패배 화면) */
+typedef struct CoreRunStatsView {
+    int32_t days;            /* 지난 날 수 */
+    int32_t peak_population; /* 가장 많았던 주민 수 */
+    int32_t raids_survived;  /* 끝난 습격 수 */
+    int32_t enemies_killed;  /* 쓰러뜨린 적 */
+    int32_t villagers_died;  /* 죽은 주민 */
+    int32_t villagers_left;  /* 떠난 주민 */
+    int32_t buildings_built; /* 다 지은 건물 (도로·성벽 칸 제외) */
+    int32_t research_done;
+    int32_t rank;
+    int32_t outcome;         /* CoreOutcome */
+    int32_t lose_reason;     /* CoreLoseReason */
+    int32_t victory_day;     /* 왕성이 된 날 (0 = 아직) */
+} CoreRunStatsView;
+
+/* 난이도 하나의 설정 (새 게임 화면의 설명용, core_get_difficulty) */
+typedef struct CoreDifficultyView {
+    int32_t difficulty;      /* CoreDifficulty */
+    int32_t start_villagers;
+    int32_t start_resources[CORE_RES_COUNT];
+    int32_t base_mood;       /* 기분의 기본값 */
+    int32_t raid_strength_pct; /* 습격 세기 % */
+    int32_t raid_interval_pct; /* 습격 사이 간격 % (클수록 드묾) */
+    int32_t nature_pct;      /* 자연 사건의 확률·피해 % */
+    int32_t tribute_pct;     /* 승급 공물 % */
+} CoreDifficultyView;
+
 /* ABI 검사용: C가 아는 구조체 크기. C#이 Marshal.SizeOf 와 비교합니다. */
 typedef struct CoreStructSizes {
     int32_t new_game_params;
@@ -681,6 +843,10 @@ typedef struct CoreStructSizes {
     int32_t threat_view;
     int32_t raid_view;
     int32_t enemy_view;
+    int32_t research_view;
+    int32_t rank_view;
+    int32_t run_stats_view;
+    int32_t difficulty_view;
 } CoreStructSizes;
 
 /* 불투명 핸들 */
@@ -715,7 +881,7 @@ CORE_API int32_t core_create(const CoreNewGameParams *params, const CoreDefs *de
 CORE_API void core_destroy(CoreWorld *world);
 
 /* ---- 시간 ------------------------------------------------------------ */
-/* ticks: 1..max_ticks_per_call */
+/* ticks: 1..max_ticks_per_call. 패배한 뒤에는 CORE_ERR_REJECTED (시간이 더는 흐르지 않음) */
 CORE_API int32_t core_tick(CoreWorld *world, int32_t ticks);
 
 /* ---- 읽기 ------------------------------------------------------------ */
@@ -751,6 +917,14 @@ CORE_API int32_t core_copy_enemies(const CoreWorld *world, CoreEnemyView *out, i
 CORE_API int32_t core_get_market(const CoreWorld *world, CoreMarketView *out);
 CORE_API int32_t core_get_merchant(const CoreWorld *world, CoreMerchantView *out);
 /* 건물 수리 비용 (자원 6개). 고칠 곳이 없으면 모두 0 */
+/* 연구 하나. index 가 범위 밖이면 CORE_ERR_NOT_FOUND (0 부터 차례로 읽으면 개수를 알 수 있음) */
+CORE_API int32_t core_get_research(const CoreWorld *world, int32_t index, CoreResearchView *out);
+/* 지금 등급과 다음 등급의 조건 */
+CORE_API int32_t core_get_rank(const CoreWorld *world, CoreRankView *out);
+/* 한 판의 기록 (승리·패배 화면) */
+CORE_API int32_t core_get_run_stats(const CoreWorld *world, CoreRunStatsView *out);
+/* 난이도 설정 (월드가 없어도 읽을 수 있음). 범위 밖이면 CORE_ERR_INVALID_ARG */
+CORE_API int32_t core_get_difficulty(int32_t difficulty, CoreDifficultyView *out);
 CORE_API int32_t core_get_repair_cost(const CoreWorld *world, int32_t building_id, int32_t *out_cost,
                                       int32_t count);
 
@@ -785,6 +959,12 @@ CORE_API int32_t core_trade(CoreWorld *world, int32_t resource, int32_t lots, in
 CORE_API int32_t core_merchant_accept(CoreWorld *world, int32_t index, int32_t *out_reason);
 /* 부서지거나 무너진 건물을 고칩니다 (비용: core_get_repair_cost) */
 CORE_API int32_t core_repair(CoreWorld *world, int32_t building_id, int32_t *out_reason);
+/* 연구를 시작합니다: 비용(금화·마정석)을 내고, 마탑의 마법사가 점수를 모읍니다. 한 번에 하나만.
+ * 안 되면 CORE_ERR_REJECTED 와 *out_reason (CORE_DENY_RESEARCH_*, NO_GOLD, NO_MANA) */
+CORE_API int32_t core_start_research(CoreWorld *world, int32_t index, int32_t *out_reason);
+/* 다음 등급으로 오릅니다: 조건(인구·기분·방어·연구)을 채우고 공물(금화·마정석)을 냅니다.
+ * 안 되면 CORE_ERR_REJECTED 와 *out_reason (CORE_DENY_REQUIREMENTS, NO_GOLD, NO_MANA, MAX_RANK, RAID) */
+CORE_API int32_t core_rank_up(CoreWorld *world, int32_t *out_reason);
 
 /* ---- 보고 (Godot → C) ------------------------------------------------ */
 /* 주민이 의도의 목표에 도착함. intent_rev 가 지금 것과 다르면 CORE_IGNORED */

@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 
+#include "difficulty.h"
 #include "jobs.h"
 #include "nature.h"
 #include "population.h"
@@ -426,14 +427,13 @@ static void update_needs(World *world, Villager *villager)
 
 int32_t vil_mood_terms(const World *world, const Villager *villager, int32_t terms[CORE_MOOD_TERM_COUNT])
 {
-    static const int32_t BASE_BY_DIFFICULTY[CORE_DIFF_COUNT] = {55, 50, 45};
     int32_t total = 0;
     int32_t i;
 
     for (i = 0; i < CORE_MOOD_TERM_COUNT; i++) {
         terms[i] = 0;
     }
-    terms[CORE_MOOD_BASE] = BASE_BY_DIFFICULTY[world->difficulty];
+    terms[CORE_MOOD_BASE] = difficulty_preset(world->difficulty)->base_mood;
     terms[CORE_MOOD_HUNGER] = (villager->needs.hunger - 50) / 4 - (villager->needs.hunger == 0 ? 10 : 0);
     terms[CORE_MOOD_REST] = (villager->needs.rest - 50) / 5;
     terms[CORE_MOOD_SAFETY] = (villager->needs.safety - 50) / 5;

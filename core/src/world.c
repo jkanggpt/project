@@ -9,7 +9,9 @@
 #include "mem.h"
 #include "placement.h"
 #include "population.h"
+#include "rank.h"
 #include "text.h"
+#include "tutorial.h"
 #include "villager_ai.h"
 
 World *world_alloc(const Defs *defs)
@@ -32,6 +34,8 @@ World *world_alloc(const Defs *defs)
     }
     world->next_villager_id = 1;
     world->next_building_id = 1;
+    memcpy(world->base_buildings, world->defs.buildings, sizeof(world->base_buildings));
+    research_init(&world->research);
     nature_init(&world->nature);
     market_init(&world->market);
     merchant_init(&world->merchant);
@@ -139,6 +143,7 @@ int world_create(const CoreNewGameParams *params, const Defs *defs, World **out)
     }
     if (rc == CORE_OK) {
         threat_start_game(world);
+        world->stats.peak_population = world->villager_count;
     }
     if (rc != CORE_OK) {
         world_destroy(world);
@@ -206,6 +211,16 @@ static void world_step(World *world)
     if (minute == WORLD_DAILY_MIN) {
         daily(world);
     }
+    if (world->villager_count > world->stats.peak_population) {
+        world->stats.peak_population = world->villager_count;
+    }
+    if (world->villager_count == 0) {
+        rank_lose(world, CORE_LOSE_POPULATION); /* 주민이 한 명도 없으면 패배 */
+    }
+    if (minute % 60 == 0) {
+        tutorial_hourly(world);
+        rank_hourly(world);
+    }
     /* 슬픔은 4시간마다 1 씩 옅어집니다 */
     if (world->mourning > 0 && world->clock.tick % 24 == 0) {
         world->mourning--;
@@ -218,10 +233,13 @@ int world_tick(World *world, int32_t ticks)
     if (ticks < 1) {
         return CORE_ERR_INVALID_ARG;
     }
+    if (world->outcome == CORE_OUTCOME_LOST) {
+        return CORE_ERR_REJECTED; /* 패배한 뒤에는 시간이 흐르지 않습니다 */
+    }
     if (world->clock.tick > CLOCK_MAX_TICK - ticks) {
         return CORE_ERR_INVALID_ARG; /* 시계가 int32 를 넘지 않게 막습니다 */
     }
-    for (i = 0; i < ticks; i++) {
+    for (i = 0; i < ticks && world->outcome != CORE_OUTCOME_LOST; i++) {
         world_step(world);
     }
     return CORE_OK;
@@ -334,6 +352,20 @@ uint64_t world_state_hash(const World *world)
     hash = hash_i32(hash, world->keep_y);
     hash = hash_i32(hash, world->keep_id);
     hash = hash_i32(hash, world->rank);
+    hash = hash_i32(hash, world->rank_ready_announced);
+    hash = hash_i32(hash, world->outcome);
+    hash = hash_i32(hash, world->lose_reason);
+    hash = hash_i32(hash, world->tutorial_done);
+    hash = hash_i32(hash, world->tutorial_flags);
+    hash = hash_u64(hash, world->research.done);
+    hash = hash_i32(hash, world->research.active);
+    hash = hash_i32(hash, world->research.progress_milli);
+    hash = hash_i32(hash, world->stats.peak_population);
+    hash = hash_i32(hash, world->stats.enemies_killed);
+    hash = hash_i32(hash, world->stats.villagers_died);
+    hash = hash_i32(hash, world->stats.villagers_left);
+    hash = hash_i32(hash, world->stats.buildings_built);
+    hash = hash_i32(hash, world->stats.victory_day);
     hash = hash_i32(hash, world->next_villager_id);
     hash = hash_i32(hash, world->next_building_id);
     hash = hash_i32(hash, world->mourning);

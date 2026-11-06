@@ -26,6 +26,9 @@ static int run_until_raid(CoreWorld *world)
 {
     int32_t guard = 0;
     while (world->threat.raid.id == 0 && guard++ < 40 * CLOCK_TICKS_PER_DAY) {
+        if (guard % CLOCK_TICKS_PER_DAY == 1) {
+            test_keep_alive(world); /* 습격을 기다리는 동안 굶어서 모두 떠나지 않게 */
+        }
         if (!test_run(world, 1)) {
             return 0;
         }
@@ -165,13 +168,13 @@ void test_raid_reports_apply(void)
     CHECK_EQ(world->threat.raid.enemy_count, 4);
     (void)count_events(world, CORE_EVT_NONE);
 
-    /* 건물 피해: 집은 무너지고, 성채는 체력 1 에서 버팀 */
+    /* 건물 피해: 집은 무너지고, 성채도 체력이 줄어듦 (0 이 되면 패배: keep_falls_defeat) */
     CHECK_EQ(core_report_building_damage(world, raid_id, house->id, 30), CORE_OK);
     CHECK_EQ(house->hp, 200 - 30);
     CHECK_EQ(core_report_building_damage(world, raid_id, house->id, 9999), CORE_OK);
     CHECK_EQ(house->state, CORE_BSTATE_RUINED);
-    CHECK_EQ(core_report_building_damage(world, raid_id, keep->id, 99999), CORE_OK);
-    CHECK_EQ(keep->hp, 1);
+    CHECK_EQ(core_report_building_damage(world, raid_id, keep->id, 500), CORE_OK);
+    CHECK_EQ(keep->hp, world_building_def(world, CORE_BLD_KEEP)->max_hp - 500);
     CHECK_EQ(keep->state, CORE_BSTATE_ACTIVE);
     CHECK_EQ(core_report_building_damage(world, raid_id, 77777, 5), CORE_ERR_NOT_FOUND);
     CHECK_EQ(core_report_building_damage(world, raid_id, keep->id, -1), CORE_ERR_INVALID_ARG);

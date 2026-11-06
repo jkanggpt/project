@@ -73,6 +73,8 @@ void threat_start_game(World *world);
 /* 한 틱: 경보, 도착하면 습격 시작, 습격 시간 초과 */
 void threat_tick(World *world);
 int threat_raid_active(const World *world);
+/* 진행 중인 습격을 바로 끝냅니다 (패배했을 때). 습격이 없으면 아무것도 안 함 */
+void threat_abort_raid(World *world);
 /* 경비병인가 (다 지은 병영의 일꾼) */
 int threat_is_guard(const World *world, const Villager *villager);
 

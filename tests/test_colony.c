@@ -40,6 +40,10 @@ void test_defs_builtin_roundtrip(void)
     CHECK_EQ(defs->defs.trait_count, reloaded->defs.trait_count);
     CHECK(memcmp(defs->defs.traits, reloaded->defs.traits, (size_t)defs->defs.trait_count * sizeof(TraitDef)) == 0);
     CHECK_EQ(defs->defs.name_count, reloaded->defs.name_count);
+    CHECK_EQ(defs->defs.research_count, reloaded->defs.research_count);
+    CHECK(memcmp(defs->defs.research, reloaded->defs.research,
+                 (size_t)defs->defs.research_count * sizeof(ResearchDef)) == 0);
+    CHECK(memcmp(defs->defs.ranks, reloaded->defs.ranks, sizeof(defs->defs.ranks)) == 0);
     CHECK_EQ(reloaded->defs.warning_count, 0);
     core_defs_destroy(defs);
     core_defs_destroy(reloaded);
@@ -415,7 +419,9 @@ void test_consumption_and_starvation(void)
     CHECK(world->villagers[0]->needs.hunger >= 70 || world->villager_count != population);
     /* 식량이 없으면 굶다가, 건강이 절반이 되면 죽기 전에 마을을 떠남 (굶어 죽는 주민은 없음) */
     world->bank.amount[CORE_RES_FOOD] = 0;
-    CHECK(test_run(world, 144 * 6));
+    /* 모두 떠나면 패배하고 시간이 멈춤 (그 뒤 core_tick 은 거절) */
+    CHECK(test_run(world, 144 * 6) || (world->villager_count == 0 && world->outcome == CORE_OUTCOME_LOST &&
+                                       world->lose_reason == CORE_LOSE_POPULATION));
     while (core_poll_event(world, &event) == 1) {
         died += event.type == CORE_EVT_VILLAGER_DIED;
         left += event.type == CORE_EVT_VILLAGER_LEFT;

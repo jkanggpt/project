@@ -123,7 +123,8 @@ static int parse_options(int argc, char **argv, Options *options)
 }
 
 /* 정의 파일 이름 (순서는 CoreDataFile) */
-static const char *const DATA_FILES[CORE_DATA_COUNT] = {"buildings.def", "traits.def", "names.txt", "enemies.def"};
+static const char *const DATA_FILES[CORE_DATA_COUNT] = {"buildings.def", "traits.def",   "names.txt",
+                                                        "enemies.def",   "research.def", "ranks.def"};
 
 static void join_path(char *out, size_t size, const char *dir, const char *file)
 {

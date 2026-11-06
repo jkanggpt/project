@@ -34,7 +34,7 @@ static int32_t count_events(CoreWorld *world, int32_t type)
 static int run_to_next_daily(CoreWorld *world)
 {
     do {
-        if (core_tick(world, 1) != CORE_OK) {
+        if (!test_run(world, 1)) {
             return 0;
         }
     } while (clock_minute_of_day(&world->clock) != WORLD_DAILY_MIN);
@@ -166,6 +166,7 @@ void test_nature_events_follow_seasons(void)
         CHECK(world != NULL);
         for (day = 0; day < 64; day++) {
             CoreEventView event;
+            test_keep_alive(world); /* 이 시험은 사건 일정만 봄 (아무것도 짓지 않아도 64일을 버티게) */
             CHECK(run_to_next_daily(world));
             while (core_poll_event(world, &event) == 1) {
                 int32_t season = clock_season(&world->clock);

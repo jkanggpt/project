@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 
+#include "difficulty.h"
 #include "placement.h"
 #include "population.h"
 #include "world.h"
@@ -19,7 +20,6 @@ static const int32_t HEATING_BY_SEASON[CORE_SEASON_COUNT] = {1, 0, 1, 2};
 /* 계절별 비(겨울은 눈)가 올 확률 (천분율) */
 static const int32_t WET_CHANCE[CORE_SEASON_COUNT] = {350, 150, 400, 550};
 /* 난이도별 사건 확률·피해 배율 (%) — 평화, 보통, 혹독 */
-static const int32_t SEVERITY_PCT[CORE_DIFF_COUNT] = {60, 100, 140};
 
 /* ---- 사건 처리 함수 (NATURE_EVENTS 표) ---------------------------------- */
 
@@ -52,7 +52,7 @@ static void plague_start(World *world)
 /* 역병이 도는 동안: 아픈 주민마다 하루에 한 번, 다른 주민에게 옮길 수 있습니다 */
 static void plague_day(World *world)
 {
-    int32_t chance = 300 * SEVERITY_PCT[world->difficulty] / 100;
+    int32_t chance = 300 * difficulty_preset(world->difficulty)->nature_pct / 100;
     int32_t sick = 0;
     int32_t i;
     for (i = 0; i < world->villager_count; i++) {
@@ -82,7 +82,7 @@ static void storm_start(World *world)
             building->state != CORE_BSTATE_ACTIVE) {
             continue;
         }
-        damage = def->max_hp * rng_range(&world->rng, 25, 60) / 100 * SEVERITY_PCT[world->difficulty] / 100;
+        damage = def->max_hp * rng_range(&world->rng, 25, 60) / 100 * difficulty_preset(world->difficulty)->nature_pct / 100;
         placement_damage(world, building, damage);
         hits--;
     }
@@ -143,7 +143,8 @@ int32_t nature_heating_per_house(const World *world)
     if (world->nature.event == CORE_NATURE_COLD_SNAP) {
         wood += 1;
     }
-    return wood;
+    wood -= world->research.heating_minus; /* 연구 "따뜻한 불씨" */
+    return wood > 0 ? wood : 0;
 }
 
 /* 난방이 필요한 집 (다 지었고 누가 사는 집) */
@@ -285,7 +286,7 @@ static void forecast_tomorrow(World *world)
         if (!(def->season_mask & SEASON_BIT(tomorrow_season))) {
             continue;
         }
-        total += def->chance * SEVERITY_PCT[world->difficulty] / 100;
+        total += def->chance * difficulty_preset(world->difficulty)->nature_pct / 100;
         if (roll < total) {
             nature->forecast = event;
             nature->forecast_days = rng_range(&world->rng, def->min_days, def->max_days);
@@ -328,6 +329,10 @@ int nature_make_sick(World *world, Villager *villager)
     }
     /* 체력이 좋을수록 빨리 낫습니다: 체력 1 → 1.4배, 5 → 1배, 10 → 0.5배 */
     villager->sick_ticks = NATURE_SICK_TICKS * (15 - villager->stats.vitality) / 10;
+    villager->sick_ticks = villager->sick_ticks * (100 - world->research.healing_pct) / 100; /* 연구 "약초 마법" */
+    if (villager->sick_ticks < 1) {
+        villager->sick_ticks = 1;
+    }
     villager->heal_ticks = 0;
     villager->flags |= CORE_VF_SICK;
     events_push_villager(&world->events, CORE_EVT_VILLAGER_SICK, villager->id, 0, 0, villager->name);

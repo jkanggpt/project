@@ -5,15 +5,15 @@
 
 #include <string.h>
 
+#include "difficulty.h"
 #include "mem.h"
 #include "placement.h"
+#include "rank.h"
 #include "population.h"
 #include "villager_ai.h"
 #include "world.h"
 
 /* 난이도별 세기(%)와 위협 사이 간격(%) — 평화, 보통, 혹독 */
-static const int32_t STRENGTH_PCT[CORE_DIFF_COUNT] = {60, 100, 140};
-static const int32_t INTERVAL_PCT[CORE_DIFF_COUNT] = {150, 100, 75};
 
 /* ---- 위협 종류 표 (THREAT_KINDS): 세기 계산과 습격 구성 함수 ------------- */
 
@@ -29,7 +29,7 @@ typedef struct ThreatKind {
 
 static int32_t scaled(const World *world, int32_t base, int32_t cap)
 {
-    int32_t count = base * STRENGTH_PCT[world->difficulty] / 100;
+    int32_t count = base * difficulty_preset(world->difficulty)->raid_strength_pct / 100;
     if (count < 1) {
         count = 1;
     }
@@ -197,7 +197,7 @@ static void schedule_next(World *world)
     }
     /* 첫해에는 숨 돌릴 틈을 더 줍니다. 군대는 크고 멀리서 오므로 더 오래 전에 예고합니다 (간격도 김) */
     days = (today <= CLOCK_DAYS_PER_YEAR ? rng_range(&world->rng, 8, 11) : rng_range(&world->rng, 6, 9)) *
-           INTERVAL_PCT[world->difficulty] / 100;
+           difficulty_preset(world->difficulty)->raid_interval_pct / 100;
     if (type == CORE_THREAT_ARMY) {
         days += 3;
     }
@@ -263,6 +263,13 @@ static void end_raid(World *world)
 }
 
 /* 모두 쓰러졌거나 달아났으면 끝 */
+void threat_abort_raid(World *world)
+{
+    if (world->threat.raid.id != 0) {
+        end_raid(world);
+    }
+}
+
 static void end_if_done(World *world)
 {
     const Raid *raid = &world->threat.raid;
@@ -341,14 +348,12 @@ int threat_report_building_damage(World *world, int32_t raid_id, int32_t buildin
     if (building == NULL) {
         return CORE_ERR_NOT_FOUND;
     }
-    if (building->type == CORE_BLD_KEEP) {
-        /* 성채는 무너지지 않고 체력 1 에서 버팀 (성채가 무너지면 지는 규칙은 마일스톤 5) */
-        building->hp = building->hp - damage < 1 ? 1 : building->hp - damage;
-        events_push_building(&world->events, CORE_EVT_BUILDING_DAMAGED, building->id, building->type, building->x,
-                             building->y);
-        return CORE_OK;
-    }
+    /* 연구 "마법 결계": 건물이 받는 피해가 줄어듦 */
+    damage = (int32_t)((int64_t)damage * (100 - world->research.ward_pct) / 100);
     placement_damage(world, building, damage);
+    if (building->type == CORE_BLD_KEEP && building->state == CORE_BSTATE_RUINED) {
+        rank_lose(world, CORE_LOSE_KEEP); /* 성채가 무너지면 패배 (습격도 여기서 끝남) */
+    }
     return CORE_OK;
 }
 
@@ -387,6 +392,7 @@ int threat_report_enemy_killed(World *world, int32_t raid_id, int32_t enemy_id)
     def = defs_enemy(&world->defs, enemy->type);
     enemy->state = CORE_ENEMY_KILLED;
     world->threat.raid.killed++;
+    world->stats.enemies_killed++;
     if (def->mana_reward > 0) {
         (void)eco_change(&world->bank, &world->ledger, CORE_RES_MANA, def->mana_reward, CORE_LEDGER_RAID);
     }

@@ -4,6 +4,7 @@ set(CASTLE_CORE_SOURCES
   src/clock.c
   src/defs.c
   src/defs_builtin.c
+  src/difficulty.c
   src/economy.c
   src/entity.c
   src/events.c
@@ -13,12 +14,15 @@ set(CASTLE_CORE_SOURCES
   src/mem.c
   src/nature.c
   src/placement.c
+  src/rank.c
+  src/research.c
   src/platform.c
   src/population.c
   src/rng.c
   src/save.c
   src/text.c
   src/threat.c
+  src/tutorial.c
   src/validate.c
   src/villager_ai.c
   src/world.c

@@ -5,6 +5,8 @@
 
 #include "test_town.h"
 
+#include "placement.h"
+
 /* 주민이 목표로 바로 걸어간 것으로 치고 도착을 보고합니다 (Godot 대신) */
 void test_arrive_all(CoreWorld *world)
 {
@@ -30,12 +32,32 @@ int test_run(CoreWorld *world, int32_t ticks)
     return 1;
 }
 
+void test_keep_alive(CoreWorld *world)
+{
+    int32_t i;
+    world->bank.amount[CORE_RES_FOOD] = world->bank.capacity;
+    world->bank.amount[CORE_RES_WOOD] = world->bank.capacity;
+    for (i = 0; i < world->villager_count; i++) {
+        Villager *villager = world->villagers[i];
+        villager->needs.hunger = 100;
+        villager->mood = villager->mood < 60 ? 60 : villager->mood;
+        villager->low_mood_ticks = 0;
+        villager->health = villager->health < 80 ? 80 : villager->health;
+    }
+}
+
 /* 건물을 짓고 다 지어질 때까지 진행합니다. 성공하면 건물 */
 Building *test_build_now(CoreWorld *world, int32_t type, int32_t x, int32_t y)
 {
     int32_t id = 0;
     int32_t reason = 0;
     Building *building;
+    /* 시험에서는 등급 잠금을 건너뜁니다 (그 건물이 필요한 등급으로 올려 둠) */
+    if (world_building_def(world, type)->required_rank > world->rank) {
+        world->rank = world_building_def(world, type)->required_rank;
+        world->rank_ready_announced = world->rank;
+        placement_refresh_capacity(world);
+    }
     if (core_place_building(world, type, x, y, &id, &reason) != CORE_OK) {
         fprintf(stderr, "    place %d at (%d,%d) failed: reason %d\n", (int)type, (int)x, (int)y, (int)reason);
         return NULL;

@@ -1,8 +1,8 @@
 /*
  * save.c — 저장과 불러오기 (설명은 save.h)
  *
- * 저장 파일 예 (버전 4):
- *   MAGICCASTLE_SAVE 4
+ * 저장 파일 예 (버전 5):
+ *   MAGICCASTLE_SAVE 5
  *   [meta]
  *   name=바람언덕
  *   difficulty=1
@@ -17,6 +17,9 @@
  *   [resources] capacity=200, gold=200, …
  *   [ledger] today_gold=0,0,…  yesterday_gold=…   (항목 12개씩)
  *   [map] size=96,96, row=..TT^^~~**…, road=0001100…
+ *   [research] done=crop_rotation,sharp_arrows (또는 none), active=better_tools (또는 none), progress=12345
+ *              (번호가 아니라 키로 저장: 정의 파일의 순서가 바뀌어도 같은 연구. 건물보다 먼저 읽어야
+ *               연구로 늘어난 성벽 체력이 범위 검사를 통과함)
  *   [buildings] building=id,종류,x,y,w,h,상태,체력,건설진행,문x,문y,자동배치,생산누적1,생산누적2,플래그
  *   [villagers] villager=id,나이,…,병,치료,특성1,특성2,이름   (이름은 마지막: 쉼표가 들어 있어도 됨)
  *   [nature] weather=1, event=0, event_days=0, forecast=0, forecast_days=0, calm_days=3, cold_houses=0
@@ -24,6 +27,8 @@
  *   [merchant] days_left=0, next_visit=7, deal=내는자원,양,받는자원,양,했음 (제안마다 한 줄)
  *   [threat] next_raid=3, raids_done=2, threat=종류,방향,도착틱,세기,경보함 (예고된 위협마다 한 줄)
  *   (진행 중인 습격은 저장하지 않습니다: 습격 중에는 저장을 거부합니다)
+ *   [progress] rank_ready=1, outcome=0, lose_reason=0, tutorial=끝낸비트,플래그,
+ *              stats=최다인구,처치,죽음,떠남,지은건물,승리한날
  *   [end]
  *
  * 포인터는 저장하지 않고 id 를 저장합니다. 불러온 뒤 id 로 찾아 포인터를 다시 잇습니다.
@@ -38,6 +43,7 @@
 
 #include "mem.h"
 #include "placement.h"
+#include "research.h"
 #include "platform.h"
 #include "text.h"
 #include "validate.h"
@@ -259,6 +265,44 @@ static void write_pressure(FILE *file, const World *world)
     }
 }
 
+static void write_research(FILE *file, const World *world)
+{
+    const ResearchState *research = &world->research;
+    int32_t written = 0;
+    int32_t i;
+    fputs("[research]\ndone=", file);
+    for (i = 0; i < world->defs.research_count && i < 32; i++) {
+        if (research->done & (1u << i)) {
+            fprintf(file, written == 0 ? "%s" : ",%s", world->defs.research[i].key);
+            written++;
+        }
+    }
+    fputs(written == 0 ? "none\n" : "\n", file);
+    fprintf(file, "active=%s\n", research->active >= 0 ? world->defs.research[research->active].key : "none");
+    fprintf(file, "progress=%d\n", (int)research->progress_milli);
+}
+
+static void write_progress(FILE *file, const World *world)
+{
+    int32_t stats[6];
+    int32_t tutorial[2];
+    fputs("[progress]\n", file);
+    fprintf(file, "rank_ready=%d\noutcome=%d\nlose_reason=%d\n", (int)world->rank_ready_announced,
+            (int)world->outcome, (int)world->lose_reason);
+    tutorial[0] = world->tutorial_done;
+    tutorial[1] = world->tutorial_flags;
+    fputs("tutorial=", file);
+    write_int_list(file, tutorial, 2);
+    stats[0] = world->stats.peak_population;
+    stats[1] = world->stats.enemies_killed;
+    stats[2] = world->stats.villagers_died;
+    stats[3] = world->stats.villagers_left;
+    stats[4] = world->stats.buildings_built;
+    stats[5] = world->stats.victory_day;
+    fputs("stats=", file);
+    write_int_list(file, stats, 6);
+}
+
 static int write_world(FILE *file, const World *world)
 {
     fprintf(file, "%s %d\n", SAVE_MAGIC, SAVE_VERSION);
@@ -266,9 +310,11 @@ static int write_world(FILE *file, const World *world)
     write_meta(file, world);
     write_economy(file, world);
     write_map(file, world);
+    write_research(file, world);
     write_buildings(file, world);
     write_villagers(file, world);
     write_pressure(file, world);
+    write_progress(file, world);
     fputs("[end]\n", file);
     return ferror(file) ? CORE_ERR_FILE_IO : CORE_OK;
 }
@@ -911,8 +957,92 @@ static int parse_threat(LoadState *state, const char *key, char *value)
     return CORE_ERR_FORMAT;
 }
 
+/* done=키,키,… : 아는 키만 끝낸 것으로 표시하고(정의 파일에서 빠진 연구는 건너뜀) 효과를 바로 다시 계산합니다 */
+static int parse_research_done(World *world, char *value)
+{
+    char *cursor = value;
+    if (strcmp(value, "none") != 0) {
+        while (cursor != NULL && *cursor != '\0') {
+            char *comma = strchr(cursor, ',');
+            int32_t index;
+            if (comma != NULL) {
+                *comma = '\0';
+            }
+            index = defs_find_research(&world->defs, cursor);
+            if (index >= 0 && index < 32) {
+                world->research.done |= 1u << index;
+            }
+            cursor = comma != NULL ? comma + 1 : NULL;
+        }
+    }
+    research_reapply(world);
+    return CORE_OK;
+}
+
+static int parse_research(LoadState *state, const char *key, char *value)
+{
+    World *world = state->world;
+    if (strcmp(key, "done") == 0 && mark_key(state, 0)) {
+        return parse_research_done(world, value);
+    }
+    if (strcmp(key, "active") == 0 && mark_key(state, 1)) {
+        world->research.active = strcmp(value, "none") == 0 ? -1 : defs_find_research(&world->defs, value);
+        return CORE_OK; /* 정의 파일에서 빠진 연구였다면 연구 중인 것이 없는 것으로 */
+    }
+    if (strcmp(key, "progress") == 0 && mark_key(state, 2)) {
+        return parse_i32(value, 0, INT32_MAX - 1, &world->research.progress_milli) ? CORE_OK : CORE_ERR_FORMAT;
+    }
+    return CORE_ERR_FORMAT;
+}
+
+static int parse_progress(LoadState *state, const char *key, char *value)
+{
+    World *world = state->world;
+    if (strcmp(key, "rank_ready") == 0 && mark_key(state, 0)) {
+        return parse_i32(value, 0, CORE_RANK_COUNT, &world->rank_ready_announced) ? CORE_OK : CORE_ERR_FORMAT;
+    }
+    if (strcmp(key, "outcome") == 0 && mark_key(state, 1)) {
+        return parse_i32(value, CORE_OUTCOME_NONE, CORE_OUTCOME_LOST, &world->outcome) ? CORE_OK : CORE_ERR_FORMAT;
+    }
+    if (strcmp(key, "lose_reason") == 0 && mark_key(state, 2)) {
+        return parse_i32(value, CORE_LOSE_NONE, CORE_LOSE_POPULATION, &world->lose_reason) ? CORE_OK
+                                                                                            : CORE_ERR_FORMAT;
+    }
+    if (strcmp(key, "tutorial") == 0 && mark_key(state, 3)) {
+        int32_t v[2];
+        if (parse_int_list(value, v, 2, 1) == NULL || v[0] < 0 || v[0] >= (1 << CORE_TUTORIAL_COUNT) || v[1] < 0 ||
+            v[1] > 1) {
+            return CORE_ERR_FORMAT;
+        }
+        world->tutorial_done = v[0];
+        world->tutorial_flags = v[1];
+        return CORE_OK;
+    }
+    if (strcmp(key, "stats") == 0 && mark_key(state, 4)) {
+        int32_t v[6];
+        int32_t i;
+        if (parse_int_list(value, v, 6, 1) == NULL) {
+            return CORE_ERR_FORMAT;
+        }
+        for (i = 0; i < 6; i++) {
+            if (v[i] < 0) {
+                return CORE_ERR_FORMAT;
+            }
+        }
+        world->stats.peak_population = v[0];
+        world->stats.enemies_killed = v[1];
+        world->stats.villagers_died = v[2];
+        world->stats.villagers_left = v[3];
+        world->stats.buildings_built = v[4];
+        world->stats.victory_day = v[5];
+        return CORE_OK;
+    }
+    return CORE_ERR_FORMAT;
+}
+
 #define SEC_META 0
 #define SEC_MAP 5
+#define SEC_RESEARCH 12
 
 /* 섹션 이름 → 해석 함수 표 */
 static const SectionDef SECTIONS[] = {
@@ -922,12 +1052,14 @@ static const SectionDef SECTIONS[] = {
     {"resources", parse_resources, 0x7Fu, 0},                          /* capacity + 자원 6개 */
     {"ledger", parse_ledger, 0xFFFu, 0},                               /* 오늘·어제 × 자원 6개 */
     {"map", parse_map, 0x1u, 0},                                       /* size (줄 수는 따로 확인) */
-    {"buildings", parse_building, 0u, (1u << SEC_META) | (1u << SEC_MAP)},
+    {"buildings", parse_building, 0u, (1u << SEC_META) | (1u << SEC_MAP) | (1u << SEC_RESEARCH)},
     {"villagers", parse_villager, 0u, (1u << SEC_META) | (1u << SEC_MAP) | (1u << 6)},
     {"nature", parse_nature, 0x7Fu, 0},                                /* 키 7개 */
     {"market", parse_market, 0x1u, 0},                                 /* prices */
     {"merchant", parse_merchant, 0x3u, 0},                             /* days_left, next_visit (+ deal 줄) */
     {"threat", parse_threat, 0x3u, 0},                                 /* next_raid, raids_done (+ threat 줄) */
+    {"research", parse_research, 0x7u, 0},                             /* done, active, progress (건물보다 먼저) */
+    {"progress", parse_progress, 0x1Fu, 0},                            /* rank_ready, outcome, lose_reason, … */
 };
 #define SECTION_COUNT ((int32_t)(sizeof(SECTIONS) / sizeof(SECTIONS[0])))
 

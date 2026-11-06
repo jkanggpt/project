@@ -10,6 +10,7 @@ add_executable(castle_tests
   test_town.c
   test_pressure.c
   test_threat.c
+  test_progress.c
 )
 target_link_libraries(castle_tests PRIVATE castle_core_testing castle_warnings)
 

@@ -189,6 +189,20 @@ void events_push_raid(EventQueue *queue, CoreEventType type, int32_t a, int32_t 
     events_push(queue, &event);
 }
 
+void events_push_progress(EventQueue *queue, CoreEventType type, int32_t a, int32_t b, int32_t c, const char *text)
+{
+    Event event;
+    memset(&event, 0, sizeof(event));
+    event.type = type;
+    event.as.progress.a = a;
+    event.as.progress.b = b;
+    event.as.progress.c = c;
+    if (text != NULL) {
+        strncpy(event.text, text, sizeof(event.text) - 1);
+    }
+    events_push(queue, &event);
+}
+
 void events_push_count(EventQueue *queue, CoreEventType type, int32_t value)
 {
     Event event;
@@ -287,6 +301,18 @@ void events_to_view(const Event *event, CoreEventView *out)
         out->b = event->as.raid.b;
         out->c = event->as.raid.c;
         out->d = event->as.raid.d;
+        break;
+    case CORE_EVT_RESEARCH_STARTED:
+    case CORE_EVT_RESEARCH_DONE:
+    case CORE_EVT_RANK_READY:
+    case CORE_EVT_RANK_UP:
+    case CORE_EVT_VICTORY:
+    case CORE_EVT_DEFEAT:
+    case CORE_EVT_TUTORIAL_STEP:
+    case CORE_EVT_TUTORIAL_DONE:
+        out->a = event->as.progress.a;
+        out->b = event->as.progress.b;
+        out->c = event->as.progress.c;
         break;
     case CORE_EVT_NONE:
     default:

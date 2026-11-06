@@ -15,7 +15,11 @@
 #include "placement.h"
 #include "platform.h"
 #include "save.h"
+#include "difficulty.h"
+#include "rank.h"
+#include "research.h"
 #include "threat.h"
+#include "tutorial.h"
 #include "validate.h"
 #include "villager_ai.h"
 #include "world.h"
@@ -25,7 +29,9 @@ _Static_assert(CORE_RES_COUNT == 6, "resource count changed: update save keys an
 _Static_assert(sizeof(CoreSummaryView) % 4 == 0, "views must stay 4-byte aligned for C#");
 _Static_assert(sizeof(CoreNewGameParams) == CORE_NAME_BYTES + 8, "unexpected padding in CoreNewGameParams");
 _Static_assert(CORE_MOOD_TERM_COUNT == 10, "mood terms changed: update C# strings");
-_Static_assert(CORE_LEDGER_COUNT == 12, "ledger categories changed: update save format and C# strings");
+_Static_assert(CORE_LEDGER_COUNT == 14, "ledger categories changed: update save format and C# strings");
+_Static_assert(CORE_MAX_RESEARCH <= 32, "research done flags are a 32-bit mask");
+_Static_assert(CORE_TUTORIAL_COUNT <= 31, "tutorial flags are a bit mask");
 _Static_assert(CORE_NATURE_COUNT == 6, "nature events changed: update C# strings");
 _Static_assert(CORE_THREAT_COUNT == 4, "threat types changed: update C# strings");
 
@@ -61,6 +67,10 @@ CORE_API int32_t core_get_struct_sizes(CoreStructSizes *out, int32_t out_size)
     out->threat_view = (int32_t)sizeof(CoreThreatView);
     out->raid_view = (int32_t)sizeof(CoreRaidView);
     out->enemy_view = (int32_t)sizeof(CoreEnemyView);
+    out->research_view = (int32_t)sizeof(CoreResearchView);
+    out->rank_view = (int32_t)sizeof(CoreRankView);
+    out->run_stats_view = (int32_t)sizeof(CoreRunStatsView);
+    out->difficulty_view = (int32_t)sizeof(CoreDifficultyView);
     return CORE_OK;
 }
 
@@ -329,6 +339,18 @@ CORE_API int32_t core_get_summary(const CoreWorld *world, CoreSummaryView *out)
     for (i = 0; i < world->villager_count; i++) {
         out->guards += threat_is_guard(world, world->villagers[i]);
     }
+    out->defense = rank_defense(world);
+    out->rank_ready = rank_is_ready(world);
+    out->research_active = world->research.active;
+    if (world->research.active >= 0) {
+        out->research_progress = world->research.progress_milli / 1000;
+        out->research_points = defs_research(&world->defs, world->research.active)->points;
+    }
+    out->research_mages = research_mages(world);
+    out->research_done = world->research.done_count;
+    out->outcome = world->outcome;
+    out->lose_reason = world->lose_reason;
+    out->tutorial_done = world->tutorial_done;
     for (i = 0; i < CORE_RES_COUNT; i++) {
         out->resources[i] = world->bank.amount[i];
         out->resource_capacity[i] = eco_is_stored_good(i) ? world->bank.capacity : 0;
@@ -533,6 +555,7 @@ CORE_API int32_t core_get_building_def(const CoreWorld *world, int32_t type, Cor
     out->attack = def->attack;
     out->attack_range = def->attack_range;
     out->attack_cooldown = def->attack_cooldown;
+    out->defense = def->defense;
     memcpy(out->key, def->key, CORE_KEY_BYTES);
     out->key[CORE_KEY_BYTES - 1] = '\0';
     return CORE_OK;
@@ -734,6 +757,88 @@ CORE_API int32_t core_get_merchant(const CoreWorld *world, CoreMerchantView *out
     return CORE_OK;
 }
 
+CORE_API int32_t core_get_research(const CoreWorld *world, int32_t index, CoreResearchView *out)
+{
+    const ResearchDef *def;
+    if (world == NULL || out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    def = defs_research(&world->defs, index);
+    if (def == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    memset(out, 0, sizeof(*out));
+    out->index = index;
+    out->branch = def->branch;
+    out->requires = def->requires;
+    out->required_rank = def->required_rank;
+    out->cost_gold = def->cost_gold;
+    out->cost_mana = def->cost_mana;
+    out->points = def->points;
+    out->effect = def->effect;
+    out->value = def->value;
+    out->state = research_state_of(world, index);
+    out->progress = world->research.active == index ? world->research.progress_milli / 1000 : 0;
+    memcpy(out->key, def->key, CORE_KEY_BYTES);
+    out->key[CORE_KEY_BYTES - 1] = '\0';
+    return CORE_OK;
+}
+
+CORE_API int32_t core_get_rank(const CoreWorld *world, CoreRankView *out)
+{
+    if (world == NULL || out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    rank_fill_view(world, out);
+    return CORE_OK;
+}
+
+CORE_API int32_t core_get_run_stats(const CoreWorld *world, CoreRunStatsView *out)
+{
+    if (world == NULL || out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    memset(out, 0, sizeof(*out));
+    out->days = clock_day(&world->clock);
+    out->peak_population = world->stats.peak_population;
+    out->raids_survived = world->threat.raids_done;
+    out->enemies_killed = world->stats.enemies_killed;
+    out->villagers_died = world->stats.villagers_died;
+    out->villagers_left = world->stats.villagers_left;
+    out->buildings_built = world->stats.buildings_built;
+    out->research_done = world->research.done_count;
+    out->rank = world->rank;
+    out->outcome = world->outcome;
+    out->lose_reason = world->lose_reason;
+    out->victory_day = world->stats.victory_day;
+    return CORE_OK;
+}
+
+CORE_API int32_t core_get_difficulty(int32_t difficulty, CoreDifficultyView *out)
+{
+    const DifficultyPreset *preset;
+    int32_t i;
+    if (out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    if (difficulty < 0 || difficulty >= CORE_DIFF_COUNT) {
+        return CORE_ERR_INVALID_ARG;
+    }
+    preset = difficulty_preset(difficulty);
+    memset(out, 0, sizeof(*out));
+    out->difficulty = difficulty;
+    out->start_villagers = preset->start_villagers;
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        out->start_resources[i] = preset->start_resources[i];
+    }
+    out->base_mood = preset->base_mood;
+    out->raid_strength_pct = preset->raid_strength_pct;
+    out->raid_interval_pct = preset->raid_interval_pct;
+    out->nature_pct = preset->nature_pct;
+    out->tribute_pct = preset->tribute_pct;
+    return CORE_OK;
+}
+
 CORE_API int32_t core_get_repair_cost(const CoreWorld *world, int32_t building_id, int32_t *out_cost, int32_t count)
 {
     const Building *building;
@@ -825,6 +930,7 @@ CORE_API int32_t core_assign_worker(CoreWorld *world, int32_t villager_id, int32
 {
     Villager *villager;
     Building *building;
+    int rc;
     if (world == NULL) {
         return CORE_ERR_NULL_ARG;
     }
@@ -833,7 +939,11 @@ CORE_API int32_t core_assign_worker(CoreWorld *world, int32_t villager_id, int32
     if (villager == NULL || building == NULL) {
         return CORE_ERR_NOT_FOUND;
     }
-    return jobs_assign_manual(world, villager, building);
+    rc = jobs_assign_manual(world, villager, building);
+    if (rc == CORE_OK) {
+        tutorial_note_assign(world); /* 튜토리얼 목표 "주민을 직접 배치하기" */
+    }
+    return rc;
 }
 
 CORE_API int32_t core_unassign_worker(CoreWorld *world, int32_t villager_id)
@@ -950,6 +1060,43 @@ CORE_API int32_t core_repair(CoreWorld *world, int32_t building_id, int32_t *out
         return CORE_ERR_NOT_FOUND;
     }
     rc = placement_repair(world, building, &reason);
+    if (out_reason != NULL) {
+        *out_reason = reason;
+    }
+    return rc;
+}
+
+CORE_API int32_t core_start_research(CoreWorld *world, int32_t index, int32_t *out_reason)
+{
+    int32_t reason;
+    int rc;
+    if (out_reason != NULL) {
+        *out_reason = CORE_DENY_NONE;
+    }
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    if (defs_research(&world->defs, index) == NULL) {
+        return CORE_ERR_NOT_FOUND;
+    }
+    rc = research_start(world, index, &reason);
+    if (out_reason != NULL) {
+        *out_reason = reason;
+    }
+    return rc;
+}
+
+CORE_API int32_t core_rank_up(CoreWorld *world, int32_t *out_reason)
+{
+    int32_t reason;
+    int rc;
+    if (out_reason != NULL) {
+        *out_reason = CORE_DENY_NONE;
+    }
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    rc = rank_up(world, &reason);
     if (out_reason != NULL) {
         *out_reason = reason;
     }

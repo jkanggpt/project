@@ -31,6 +31,15 @@ const char *fmt_nature_name(int32_t event);
 const char *fmt_deny_reason(int32_t reason);
 const char *fmt_ledger_name(int32_t category);
 const char *fmt_threat_name(int32_t type);
+const char *fmt_rank_name(int32_t rank);
+const char *fmt_branch_name(int32_t branch);
+const char *fmt_research_state(int32_t state);
+/* 연구 키 → 한국어 이름 (모르는 키는 그대로) */
+const char *fmt_research_name(const char *key);
+/* 연구 효과 설명 (예: "농장 생산 +25%") */
+void fmt_effect(int32_t effect, int32_t value, char *out, size_t size);
+const char *fmt_tutorial_name(int32_t step);
+const char *fmt_lose_reason(int32_t reason);
 const char *fmt_direction_name(int32_t direction);
 
 /* "1년 봄 3일 (3일째) 06:00" */

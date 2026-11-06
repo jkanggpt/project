@@ -29,6 +29,11 @@ static const char *const PLACEMENT_KEYS[] = {"any", "near_forest", "adjacent_roc
 static const char *const CATEGORY_KEYS[CORE_CAT_COUNT] = {"special", "housing", "resource", "storage",
                                                           "defense", "service", "road"};
 static const char *const BEHAVIOR_KEYS[CORE_BEHAVIOR_COUNT] = {"thief", "raider", "monster"};
+static const char *const BRANCH_KEYS[CORE_BRANCH_COUNT] = {"economy", "defense", "magic"};
+/* 연구 효과 키 (순서는 CoreResearchEffect, 효과 함수는 research.c 의 RESEARCH_EFFECTS) */
+static const char *const EFFECT_KEYS[CORE_EFFECT_COUNT] = {
+    "farm_yield", "extract_yield", "storage", "market", "tower_damage", "wall_hp",
+    "guard_damage", "keep_damage", "mana_yield", "healing", "heating", "ward"};
 
 /* ---- 기본 함수 -------------------------------------------------------- */
 
@@ -67,6 +72,25 @@ const BuildingDef *defs_building(const Defs *defs, int32_t type)
     return &defs->buildings[type];
 }
 
+const ResearchDef *defs_research(const Defs *defs, int32_t index)
+{
+    if (index < 0 || index >= defs->research_count) {
+        return NULL;
+    }
+    return &defs->research[index];
+}
+
+int32_t defs_find_research(const Defs *defs, const char *key)
+{
+    int32_t i;
+    for (i = 0; i < defs->research_count; i++) {
+        if (strcmp(defs->research[i].key, key) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 int32_t defs_find_trait(const Defs *defs, const char *key)
 {
     int32_t i;
@@ -82,6 +106,7 @@ void defs_free(Defs *defs)
 {
     mem_free(defs->traits);
     mem_free(defs->names);
+    mem_free(defs->research);
     memset(defs, 0, sizeof(*defs));
 }
 
@@ -118,6 +143,22 @@ static int add_trait(Defs *defs, const TraitDef *trait)
     return CORE_OK;
 }
 
+static int add_research(Defs *defs, const ResearchDef *research)
+{
+    void *array = defs->research;
+    int rc;
+    if (defs->research_count >= CORE_MAX_RESEARCH) {
+        return CORE_ERR_FORMAT; /* 연구 창에 다 보여 줄 수 있는 만큼만 */
+    }
+    rc = grow_array(&array, &defs->research_capacity, defs->research_count + 1, sizeof(ResearchDef));
+    defs->research = (ResearchDef *)array;
+    if (rc != CORE_OK) {
+        return rc;
+    }
+    defs->research[defs->research_count++] = *research;
+    return CORE_OK;
+}
+
 static int add_name(Defs *defs, const char *name)
 {
     void *array = defs->names;
@@ -139,6 +180,13 @@ int defs_init_builtin(Defs *defs)
     memset(defs, 0, sizeof(*defs));
     memcpy(defs->buildings, BUILTIN_BUILDINGS, sizeof(defs->buildings));
     memcpy(defs->enemies, BUILTIN_ENEMIES, sizeof(defs->enemies));
+    memcpy(defs->ranks, BUILTIN_RANKS, sizeof(defs->ranks));
+    for (i = 0; i < BUILTIN_RESEARCH_COUNT; i++) {
+        if (add_research(defs, &BUILTIN_RESEARCH[i]) != CORE_OK) {
+            defs_free(defs);
+            return CORE_ERR_OUT_OF_MEMORY;
+        }
+    }
     for (i = 0; i < BUILTIN_TRAIT_COUNT; i++) {
         if (add_trait(defs, &BUILTIN_TRAITS[i]) != CORE_OK) {
             defs_free(defs);
@@ -159,7 +207,18 @@ int defs_copy(Defs *dst, const Defs *src)
     memset(dst, 0, sizeof(*dst));
     memcpy(dst->buildings, src->buildings, sizeof(dst->buildings));
     memcpy(dst->enemies, src->enemies, sizeof(dst->enemies));
+    memcpy(dst->ranks, src->ranks, sizeof(dst->ranks));
     memcpy(dst->warnings, src->warnings, sizeof(dst->warnings));
+    if (src->research_count > 0) {
+        dst->research = (ResearchDef *)mem_malloc((size_t)src->research_count * sizeof(ResearchDef));
+        if (dst->research == NULL) {
+            defs_free(dst);
+            return CORE_ERR_OUT_OF_MEMORY;
+        }
+        memcpy(dst->research, src->research, (size_t)src->research_count * sizeof(ResearchDef));
+        dst->research_count = src->research_count;
+        dst->research_capacity = src->research_count;
+    }
     dst->warning_count = src->warning_count;
     if (src->trait_count > 0) {
         dst->traits = (TraitDef *)mem_malloc((size_t)src->trait_count * sizeof(TraitDef));
@@ -191,7 +250,9 @@ typedef enum FieldKind {
     FIELD_RESOURCE,  /* 자원 키 (food, wood, …, none) */
     FIELD_PLACEMENT, /* 배치 규칙 키 */
     FIELD_CATEGORY,  /* 분류 키 */
-    FIELD_BEHAVIOR   /* 적 행동 키 (thief, raider, monster) */
+    FIELD_BEHAVIOR,  /* 적 행동 키 (thief, raider, monster) */
+    FIELD_BRANCH,    /* 연구 갈래 키 (economy, defense, magic) */
+    FIELD_EFFECT     /* 연구 효과 키 (farm_yield, …) */
 } FieldKind;
 
 /* 필드 이름 → 구조체 안에서의 위치(바이트)와 허용 범위 */
@@ -233,6 +294,7 @@ static const FieldDef BUILDING_FIELDS[] = {
     {"attack", offsetof(BuildingDef, attack), FIELD_INT, 0, 1000},
     {"attack_range", offsetof(BuildingDef, attack_range), FIELD_INT, 0, 12},
     {"attack_cooldown", offsetof(BuildingDef, attack_cooldown), FIELD_INT, 0, 1440},
+    {"defense", offsetof(BuildingDef, defense), FIELD_INT, 0, 100},
 };
 
 static const FieldDef ENEMY_FIELDS[] = {
@@ -245,6 +307,27 @@ static const FieldDef ENEMY_FIELDS[] = {
     {"loot", offsetof(EnemyDef, loot_resource), FIELD_RESOURCE, -1, CORE_RES_COUNT - 1},
     {"loot_amount", offsetof(EnemyDef, loot_amount), FIELD_INT, 0, 100000},
     {"mana_reward", offsetof(EnemyDef, mana_reward), FIELD_INT, 0, 1000},
+};
+
+/* requires(앞선 연구)는 키를 번호로 바꿔야 해서 field_research 가 따로 처리합니다 */
+static const FieldDef RESEARCH_FIELDS[] = {
+    {"branch", offsetof(ResearchDef, branch), FIELD_BRANCH, 0, CORE_BRANCH_COUNT - 1},
+    {"required_rank", offsetof(ResearchDef, required_rank), FIELD_INT, 0, CORE_RANK_COUNT - 1},
+    {"cost_gold", offsetof(ResearchDef, cost_gold), FIELD_INT, 0, 100000},
+    {"cost_mana", offsetof(ResearchDef, cost_mana), FIELD_INT, 0, 100000},
+    {"points", offsetof(ResearchDef, points), FIELD_INT, 1, 100000},
+    {"effect", offsetof(ResearchDef, effect), FIELD_EFFECT, 0, CORE_EFFECT_COUNT - 1},
+    {"value", offsetof(ResearchDef, value), FIELD_INT, 0, 1000},
+};
+
+static const FieldDef RANK_FIELDS[] = {
+    {"population", offsetof(RankDef, population), FIELD_INT, 0, 10000},
+    {"mood", offsetof(RankDef, mood), FIELD_INT, 0, 100},
+    {"defense", offsetof(RankDef, defense), FIELD_INT, 0, 10000},
+    {"research", offsetof(RankDef, research), FIELD_INT, 0, CORE_MAX_RESEARCH},
+    {"tribute_gold", offsetof(RankDef, tribute_gold), FIELD_INT, 0, 1000000},
+    {"tribute_mana", offsetof(RankDef, tribute_mana), FIELD_INT, 0, 100000},
+    {"storage", offsetof(RankDef, storage), FIELD_INT, 0, 100000},
 };
 
 static const FieldDef TRAIT_FIELDS[] = {
@@ -308,6 +391,12 @@ static int apply_field(void *entry, const FieldDef *fields, int32_t field_count,
         case FIELD_BEHAVIOR:
             parsed = key_index(BEHAVIOR_KEYS, CORE_BEHAVIOR_COUNT, value);
             break;
+        case FIELD_BRANCH:
+            parsed = key_index(BRANCH_KEYS, CORE_BRANCH_COUNT, value);
+            break;
+        case FIELD_EFFECT:
+            parsed = key_index(EFFECT_KEYS, CORE_EFFECT_COUNT, value);
+            break;
         case FIELD_INT:
         default:
             if (!parse_int(value, &parsed)) {
@@ -329,7 +418,7 @@ static int apply_field(void *entry, const FieldDef *fields, int32_t field_count,
 
 typedef struct ParseState {
     Defs *defs;      /* 고치고 있는 임시 사본 */
-    void *entry;     /* 지금 섹션의 구조체 (BuildingDef*, TraitDef*, EnemyDef*) */
+    void *entry;     /* 지금 섹션의 구조체 (BuildingDef*, TraitDef*, EnemyDef*, ResearchDef*, RankDef*) */
     int32_t section; /* SECTION_PARSERS 번호, -1 = 없음 */
 } ParseState;
 
@@ -403,11 +492,72 @@ static int field_enemy(ParseState *state, const char *key, const char *value)
     return apply_field(state->entry, ENEMY_FIELDS, COUNT_OF(ENEMY_FIELDS), key, value);
 }
 
+/* 연구: 파일이 목록 전체를 정하므로(읽기 전에 비움) 섹션마다 끝에 새로 붙입니다 */
+static int begin_research(ParseState *state, const char *id)
+{
+    ResearchDef fresh;
+    int rc;
+    if (defs_find_research(state->defs, id) >= 0) {
+        return CORE_ERR_FORMAT; /* 같은 키가 두 번 */
+    }
+    memset(&fresh, 0, sizeof(fresh));
+    if (!text_copy(fresh.key, sizeof(fresh.key), id)) {
+        return CORE_ERR_FORMAT;
+    }
+    fresh.requires = -1;
+    fresh.points = 1;
+    rc = add_research(state->defs, &fresh);
+    if (rc != CORE_OK) {
+        return rc;
+    }
+    state->entry = &state->defs->research[state->defs->research_count - 1];
+    return CORE_OK;
+}
+
+static int field_research(ParseState *state, const char *key, const char *value)
+{
+    ResearchDef *research = (ResearchDef *)state->entry;
+    if (strcmp(key, "requires") == 0) {
+        int32_t index;
+        if (strcmp(value, "none") == 0) {
+            research->requires = -1;
+            return CORE_OK;
+        }
+        /* 앞선 연구는 파일에서 이 연구보다 먼저 나와야 합니다 (그래서 순환이 생길 수 없음) */
+        index = defs_find_research(state->defs, value);
+        if (index < 0 || index >= (int32_t)(research - state->defs->research)) {
+            return CORE_ERR_FORMAT;
+        }
+        research->requires = index;
+        return CORE_OK;
+    }
+    return apply_field(state->entry, RESEARCH_FIELDS, COUNT_OF(RESEARCH_FIELDS), key, value);
+}
+
+static int begin_rank(ParseState *state, const char *id)
+{
+    int32_t rank;
+    for (rank = 0; rank < CORE_RANK_COUNT; rank++) {
+        if (strcmp(state->defs->ranks[rank].key, id) == 0) {
+            state->entry = &state->defs->ranks[rank];
+            return CORE_OK;
+        }
+    }
+    return CORE_ERR_FORMAT; /* 등급은 다섯 개로 정해져 있음 */
+}
+
+static int field_rank(ParseState *state, const char *key, const char *value)
+{
+    return apply_field(state->entry, RANK_FIELDS, COUNT_OF(RANK_FIELDS), key, value);
+}
+
 /* 섹션 종류 이름 → 처리 함수 */
 static const SectionParser SECTION_PARSERS[] = {
     {"building", CORE_DATA_BUILDINGS, begin_building, field_building},
     {"trait", CORE_DATA_TRAITS, begin_trait, field_trait},
     {"enemy", CORE_DATA_ENEMIES, begin_enemy, field_enemy},
+    {"research", CORE_DATA_RESEARCH, begin_research, field_research},
+    {"rank", CORE_DATA_RANKS, begin_rank, field_rank},
 };
 
 /* "[keyword id]" 줄 */
@@ -556,6 +706,11 @@ static int check_consistency(const Defs *defs)
             return CORE_ERR_FORMAT;
         }
     }
+    if (defs->research_count < 1) {
+        return CORE_ERR_FORMAT; /* 연구가 하나도 없으면 연구 창과 승급 조건이 의미가 없음 */
+    }
+    /* 등급이 요구하는 연구 수가 있는 연구보다 많아도 거절하지 않습니다: 파일을 읽는 순서(연구 → 등급)와
+     * 상관없이 고칠 수 있게, 승급할 때 "있는 연구 수"까지만 요구합니다 (rank.c) */
     return CORE_OK;
 }
 
@@ -585,6 +740,9 @@ int defs_load_text(Defs *defs, int32_t file_id, const char *text, size_t length,
     if (file_id == CORE_DATA_NAMES) {
         rc = parse_names(&scratch, text, length, out_line);
     } else {
+        if (file_id == CORE_DATA_RESEARCH) {
+            scratch.research_count = 0; /* 연구 파일은 목록 전체를 정합니다 */
+        }
         rc = parse_sections(&scratch, file_id, text, length, out_line);
     }
     if (rc == CORE_OK) {
@@ -622,6 +780,12 @@ static void write_fields(FILE *file, const void *entry, const FieldDef *fields, 
             break;
         case FIELD_BEHAVIOR:
             fprintf(file, "%s = %s\n", field->name, BEHAVIOR_KEYS[value]);
+            break;
+        case FIELD_BRANCH:
+            fprintf(file, "%s = %s\n", field->name, BRANCH_KEYS[value]);
+            break;
+        case FIELD_EFFECT:
+            fprintf(file, "%s = %s\n", field->name, EFFECT_KEYS[value]);
             break;
         case FIELD_INT:
         default:
@@ -664,6 +828,32 @@ int defs_write_file(const Defs *defs, int32_t file_id, const char *path)
         for (i = 0; i < DEFS_ENEMY_COUNT; i++) {
             fprintf(file, "\n[enemy %s]\n", defs->enemies[i].key);
             write_fields(file, &defs->enemies[i], ENEMY_FIELDS, COUNT_OF(ENEMY_FIELDS));
+        }
+    } else if (file_id == CORE_DATA_RESEARCH) {
+        fputs("# 연구 나무. 이 파일이 목록 전체를 정합니다 (최대 32개). 문법이 틀리면 게임이 기본값을 쓰고 경고합니다.\n"
+              "# branch: economy(경제) defense(방어) magic(마법)\n"
+              "# requires: 먼저 끝내야 하는 연구의 키 (이 파일에서 더 앞에 있어야 함) 또는 none\n"
+              "# required_rank: 시작하려면 필요한 등급 (0 촌락, 1 마을, 2 요새, 3 성, 4 왕성)\n"
+              "# cost_gold/cost_mana: 시작할 때 내는 값, points: 마탑의 마법사가 모아야 하는 연구 점수\n"
+              "# effect: farm_yield(농장 +%) extract_yield(벌목장·채석장 +%) storage(저장 한도 +%) market(시장 차이 -%p)\n"
+              "#         tower_damage(감시탑 +) wall_hp(성벽·성문 체력 +%) guard_damage(경비병 +) keep_damage(성채 망루 +)\n"
+              "#         mana_yield(마정석 광산 +%) healing(앓는 시간 -%) heating(난방 목재 -) ward(습격 건물 피해 -%)\n",
+              file);
+        for (i = 0; i < defs->research_count; i++) {
+            const ResearchDef *research = &defs->research[i];
+            fprintf(file, "\n[research %s]\n", research->key);
+            fprintf(file, "requires = %s\n", research->requires >= 0 ? defs->research[research->requires].key : "none");
+            write_fields(file, research, RESEARCH_FIELDS, COUNT_OF(RESEARCH_FIELDS));
+        }
+    } else if (file_id == CORE_DATA_RANKS) {
+        fputs("# 등급 (촌락 → 마을 → 요새 → 성 → 왕성). 왕성이 되면 승리입니다.\n"
+              "# 다음 등급으로 오르려면: population(인구), mood(평균 기분), defense(방어 점수), research(끝낸 연구 수)를\n"
+              "# 모두 채우고 공물 tribute_gold, tribute_mana 를 냅니다 (난이도에 따라 공물 %가 다름).\n"
+              "# storage: 그 등급이 되면 늘어나는 저장 한도. 촌락은 시작 등급이라 조건을 쓰지 않습니다.\n",
+              file);
+        for (i = 0; i < CORE_RANK_COUNT; i++) {
+            fprintf(file, "\n[rank %s]\n", defs->ranks[i].key);
+            write_fields(file, &defs->ranks[i], RANK_FIELDS, COUNT_OF(RANK_FIELDS));
         }
     } else if (file_id == CORE_DATA_NAMES) {
         fputs("# 주민 이름. 한 줄에 하나 (UTF-8). 10개 이상이어야 합니다.\n", file);

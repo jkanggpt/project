@@ -18,6 +18,7 @@
 typedef struct CoreWorld World;
 
 #define MARKET_SPREAD_PCT 25      /* 사는 값과 파는 값의 차이 (기준의 25%) */
+#define MARKET_MIN_SPREAD_PCT 5   /* 연구로 줄여도 이만큼은 남음 */
 #define MARKET_IMPACT_PCT 4       /* 한 묶음 거래가 움직이는 값 */
 #define MARKET_RECOVER_PCT 15     /* 하루에 목표 가격 쪽으로 돌아가는 비율 */
 #define MARKET_MIN_PCT 40         /* 기준 가격의 40%~300% 안에서만 움직임 */
@@ -29,6 +30,7 @@ typedef struct CoreWorld World;
 
 typedef struct Market {
     int32_t price[CORE_RES_COUNT]; /* 한 묶음의 값 × 100 (금화). 다루지 않는 자원은 0 */
+    int32_t spread_pct;            /* 사는 값과 파는 값의 차이 % (연구 "상인 조합"이 줄임. 저장하지 않고 다시 계산) */
 } Market;
 
 typedef struct MerchantDeal {

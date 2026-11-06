@@ -26,12 +26,38 @@ static const char *const DENY_REASONS[CORE_DENY_COUNT] = {
     "아직 짓는 중입니다",
     "수량이 범위 밖입니다",
     "수리 비용이 모자랍니다",
-    "습격 중에는 고칠 수 없습니다",
+    "습격 중입니다",
+    "이미 가장 높은 등급입니다",
+    "승급 조건(인구·기분·방어·연구)이 모자랍니다",
+    "마정석이 모자랍니다",
+    "이미 다른 연구를 하는 중입니다",
+    "이미 끝낸 연구입니다",
+    "앞선 연구나 등급이 모자랍니다",
+    "게임이 끝났습니다",
 };
 static const char *const THREAT_NAMES[CORE_THREAT_COUNT] = {"없음", "도적", "마물", "적대 영주 군대"};
 static const char *const DIRECTION_NAMES[CORE_DIR_COUNT] = {"북", "동", "남", "서"};
-static const char *const LEDGER_NAMES[CORE_LEDGER_COUNT] = {"생산", "식사", "임금", "세금", "건설", "철거 환불",
-                                                            "거래", "난방", "약탈",  "기타", "치료", "수리"};
+static const char *const LEDGER_NAMES[CORE_LEDGER_COUNT] = {"생산", "식사", "임금", "세금", "건설", "철거 환불", "거래",
+                                                            "난방", "약탈", "기타", "치료", "수리", "공물", "연구"};
+static const char *const RANK_NAMES[CORE_RANK_COUNT] = {"촌락", "마을", "요새", "성", "왕성"};
+static const char *const BRANCH_NAMES[CORE_BRANCH_COUNT] = {"경제", "방어", "마법"};
+static const char *const RESEARCH_STATES[] = {"잠김", "시작할 수 있음", "연구 중", "끝남"};
+static const char *const TUTORIAL_NAMES[CORE_TUTORIAL_COUNT] = {"농장 짓기", "주택 짓기", "주민을 일터에 직접 배치하기",
+                                                                "성벽 짓기", "첫 도적 습격 버티기"};
+static const char *const LOSE_REASONS[] = {"", "성채가 무너졌습니다", "주민이 한 명도 남지 않았습니다"};
+
+/* 연구 키 → 한국어 (정의 파일에서 새 연구를 더하면 키가 그대로 보입니다) */
+static const char *const RESEARCH_KEYS[] = {"crop_rotation", "better_tools",  "trade_guild",  "granary",
+                                            "sharp_arrows",  "stone_walls",   "drill",        "keep_ballista",
+                                            "mana_sense",    "herbal_magic",  "warm_hearth",  "ward"};
+static const char *const RESEARCH_NAMES[] = {"윤작", "좋은 연장", "상인 조합", "큰 곳간", "날카로운 화살", "돌 성벽",
+                                             "경비 훈련", "성채 쇠뇌", "마력 감지", "약초 마법", "따뜻한 불씨", "마법 결계"};
+/* 효과 설명: 앞 글, 부호, 단위 (예: "농장 생산" "+" "%") */
+static const char *const EFFECT_TEXTS[CORE_EFFECT_COUNT][3] = {
+    {"농장 생산", "+", "%"},          {"벌목장·채석장 생산", "+", "%"}, {"저장 한도", "+", "%"},
+    {"시장의 사고팔 때 차이", "-", "%p"}, {"감시탑 화살 피해", "+", ""},   {"성벽·성문 체력", "+", "%"},
+    {"경비병 피해", "+", ""},          {"성채 망루 피해", "+", ""},       {"마정석 광산 생산", "+", "%"},
+    {"앓는 시간", "-", "%"},           {"집 한 채의 난방 목재", "-", ""}, {"습격 때 건물 피해", "-", "%"}};
 
 static const char *const BUILDING_NAMES[CORE_BLD_COUNT] = {
     "성채", "주택", "농장", "채집 오두막", "벌목장", "채석장", "마정석 광산", "창고",
@@ -124,6 +150,55 @@ const char *fmt_deny_reason(int32_t reason)
 const char *fmt_ledger_name(int32_t category)
 {
     return (category >= 0 && category < CORE_LEDGER_COUNT) ? LEDGER_NAMES[category] : "?";
+}
+
+const char *fmt_rank_name(int32_t rank)
+{
+    return (rank >= 0 && rank < CORE_RANK_COUNT) ? RANK_NAMES[rank] : "?";
+}
+
+const char *fmt_branch_name(int32_t branch)
+{
+    return (branch >= 0 && branch < CORE_BRANCH_COUNT) ? BRANCH_NAMES[branch] : "?";
+}
+
+const char *fmt_research_state(int32_t state)
+{
+    return (state >= 0 && state < (int32_t)(sizeof(RESEARCH_STATES) / sizeof(RESEARCH_STATES[0])))
+               ? RESEARCH_STATES[state]
+               : "?";
+}
+
+const char *fmt_research_name(const char *key)
+{
+    size_t i;
+    for (i = 0; i < sizeof(RESEARCH_KEYS) / sizeof(RESEARCH_KEYS[0]); i++) {
+        if (strcmp(RESEARCH_KEYS[i], key) == 0) {
+            return RESEARCH_NAMES[i];
+        }
+    }
+    return key;
+}
+
+void fmt_effect(int32_t effect, int32_t value, char *out, size_t size)
+{
+    if (effect < 0 || effect >= CORE_EFFECT_COUNT) {
+        snprintf(out, size, "?");
+        return;
+    }
+    snprintf(out, size, "%s %s%d%s", EFFECT_TEXTS[effect][0], EFFECT_TEXTS[effect][1], (int)value,
+             EFFECT_TEXTS[effect][2]);
+}
+
+const char *fmt_tutorial_name(int32_t step)
+{
+    return (step >= 0 && step < CORE_TUTORIAL_COUNT) ? TUTORIAL_NAMES[step] : "?";
+}
+
+const char *fmt_lose_reason(int32_t reason)
+{
+    return (reason > 0 && reason < (int32_t)(sizeof(LOSE_REASONS) / sizeof(LOSE_REASONS[0]))) ? LOSE_REASONS[reason]
+                                                                                              : "?";
 }
 
 const char *fmt_threat_name(int32_t type)
@@ -390,9 +465,44 @@ static void format_threat(const CoreEventView *event, char *out, size_t size)
     }
 }
 
+static void format_progress(const CoreEventView *event, char *out, size_t size)
+{
+    switch (event->type) {
+    case CORE_EVT_RESEARCH_STARTED:
+        snprintf(out, size, "연구 시작: %s. 마탑의 마법사들이 연구합니다.", fmt_research_name(event->text));
+        break;
+    case CORE_EVT_RESEARCH_DONE:
+        snprintf(out, size, "연구 끝: %s! (끝낸 연구 %d개)", fmt_research_name(event->text), (int)event->b);
+        break;
+    case CORE_EVT_RANK_READY:
+        snprintf(out, size, "%s%s 될 조건을 채웠습니다. 공물을 바치면 승급합니다.", fmt_rank_name(event->a),
+                 fmt_josa(fmt_rank_name(event->a), "이", "가"));
+        break;
+    case CORE_EVT_RANK_UP:
+        snprintf(out, size, "승급! 이제 %s입니다.", fmt_rank_name(event->a));
+        break;
+    case CORE_EVT_VICTORY:
+        snprintf(out, size, "승리! %d일째에 왕성이 되었습니다. 계속 다스릴 수 있습니다.", (int)event->a);
+        break;
+    case CORE_EVT_DEFEAT:
+        snprintf(out, size, "패배: %s. (%d일째)", fmt_lose_reason(event->a), (int)event->b);
+        break;
+    case CORE_EVT_TUTORIAL_STEP:
+        snprintf(out, size, "목표 달성: %s (%d/%d)", fmt_tutorial_name(event->a), (int)event->b, (int)event->c);
+        break;
+    case CORE_EVT_TUTORIAL_DONE:
+        snprintf(out, size, "처음 목표를 모두 이루었습니다! 보상: 금화 +%d, 마정석 +%d", (int)event->a, (int)event->b);
+        break;
+    default:
+        snprintf(out, size, "(%d)", (int)event->a);
+        break;
+    }
+}
+
 static void format_def_warning(const CoreEventView *event, char *out, size_t size)
 {
-    static const char *const FILES[CORE_DATA_COUNT] = {"buildings.def", "traits.def", "names.txt", "enemies.def"};
+    static const char *const FILES[CORE_DATA_COUNT] = {"buildings.def", "traits.def",   "names.txt",
+                                                       "enemies.def",   "research.def", "ranks.def"};
     const char *file = (event->a >= 0 && event->a < CORE_DATA_COUNT) ? FILES[event->a] : "?";
     snprintf(out, size, "정의 파일 %s 의 %d번째 줄이 잘못되어 기본값을 씁니다.", file, (int)event->b);
 }
@@ -438,9 +548,17 @@ static const EventFormatter EVENT_FORMATTERS[] = {
     format_threat,         /* CORE_EVT_ENEMY_KILLED */
     format_threat,         /* CORE_EVT_LOOT_STOLEN */
     format_threat,         /* CORE_EVT_THREAT_NEAR */
+    format_progress,       /* CORE_EVT_RESEARCH_STARTED */
+    format_progress,       /* CORE_EVT_RESEARCH_DONE */
+    format_progress,       /* CORE_EVT_RANK_READY */
+    format_progress,       /* CORE_EVT_RANK_UP */
+    format_progress,       /* CORE_EVT_VICTORY */
+    format_progress,       /* CORE_EVT_DEFEAT */
+    format_progress,       /* CORE_EVT_TUTORIAL_STEP */
+    format_progress,       /* CORE_EVT_TUTORIAL_DONE */
 };
 #define EVENT_FORMATTER_COUNT ((int32_t)(sizeof(EVENT_FORMATTERS) / sizeof(EVENT_FORMATTERS[0])))
-_Static_assert(sizeof(EVENT_FORMATTERS) / sizeof(EVENT_FORMATTERS[0]) == CORE_EVT_THREAT_NEAR + 1,
+_Static_assert(sizeof(EVENT_FORMATTERS) / sizeof(EVENT_FORMATTERS[0]) == CORE_EVT_TUTORIAL_DONE + 1,
                "every event type needs a formatter");
 
 void fmt_event(const CoreEventView *event, char *out, size_t size)

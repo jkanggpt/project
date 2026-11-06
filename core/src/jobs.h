@@ -11,7 +11,7 @@
 
 #include "world.h"
 
-#define JOBS_TAX_PER_HOUSED 2 /* 집이 있는 주민 한 명이 하루에 내는 세금 (금화) */
+#define JOBS_TAX_PER_HOUSED 3 /* 집이 있는 주민 한 명이 하루에 내는 세금 (금화) */
 
 /* 한 틱 일하기 (villager 는 일터에 도착해 WORKING 상태여야 함) */
 void jobs_work(World *world, Villager *villager);

@@ -102,8 +102,8 @@ static int build_best(BotContext *bot, int32_t type, int32_t radius)
         return 0;
     }
     (void)core_can_place(bot->world, type, best_x, best_y, &preview);
-    /* 새 건물의 문에서 성채 문까지 도로 (모자라면 놓을 수 있는 만큼만) */
-    {
+    /* 새 건물의 문에서 성채 문까지 도로 (금화가 넉넉할 때만: 초반에는 도로보다 집이 급함) */
+    if (bot->summary.resources[CORE_RES_GOLD] >= 60) {
         int32_t i;
         if (refresh_buildings(bot)) {
             for (i = 0; i < bot->building_count; i++) {
@@ -186,6 +186,55 @@ static int bot_defend(BotContext *bot)
     return 0;
 }
 
+/* 가을·겨울에 봄까지 버틸 식량·목재가 모자란가 */
+static int winter_short(const CoreSummaryView *s)
+{
+    return s->resources[CORE_RES_FOOD] < s->winter_food_need || s->resources[CORE_RES_WOOD] < s->winter_wood_need;
+}
+
+static void bot_staff(BotContext *bot, int32_t type, int32_t want);
+
+/* 성장: 조건을 채우면 승급, 등급이 풀어 주는 마정석 광산·마탑을 짓고, 마탑에서 늘 연구 하나를 돌림 */
+static int bot_progress(BotContext *bot)
+{
+    const CoreSummaryView *s = &bot->summary;
+    int32_t reason;
+    int32_t built = 0;
+    if (s->rank_ready && core_rank_up(bot->world, &reason) == CORE_OK) {
+        (void)refresh_buildings(bot);
+    }
+    if (built == 0 && s->rank >= CORE_RANK_VILLAGE &&
+        count_type(bot, CORE_BLD_MANA_MINE) < (s->resources[CORE_RES_MANA] < 30 ? 2 : 1) + s->population / 20) {
+        built += build_best(bot, CORE_BLD_MANA_MINE, 18);
+    }
+    if (built == 0 && s->rank >= CORE_RANK_FORTRESS &&
+        count_type(bot, CORE_BLD_MAGE_TOWER) < (s->population >= 30 ? 2 : 1)) {
+        built += build_best(bot, CORE_BLD_MAGE_TOWER, 14);
+    }
+    /* 마법사가 없으면 연구가 안 됨 (식량이 넉넉할 때만 농부를 데려옴) */
+    if (s->resources[CORE_RES_FOOD] > s->population * 8 && s->season != CORE_SEASON_WINTER) {
+        bot_staff(bot, CORE_BLD_MAGE_TOWER, 2);
+    }
+    /* 연구: 시작할 수 있는 것 중 점수가 가장 적은 것 (같으면 번호 순) — 금화를 조금 남겨 둠 */
+    if (s->research_active < 0 && count_type(bot, CORE_BLD_MAGE_TOWER) > 0 && !winter_short(s)) {
+        CoreResearchView view;
+        int32_t best = -1;
+        int32_t best_points = 0;
+        int32_t i;
+        for (i = 0; core_get_research(bot->world, i, &view) == CORE_OK; i++) {
+            if (view.state == CORE_RSTATE_AVAILABLE && s->resources[CORE_RES_GOLD] >= view.cost_gold + 80 &&
+                s->resources[CORE_RES_MANA] >= view.cost_mana && (best < 0 || view.points < best_points)) {
+                best = i;
+                best_points = view.points;
+            }
+        }
+        if (best >= 0) {
+            (void)core_start_research(bot->world, best, &reason);
+        }
+    }
+    return built;
+}
+
 /* 부서진 건물은 바로 고칩니다 (돈이 되는 만큼) */
 static void bot_repair(BotContext *bot)
 {
@@ -221,15 +270,17 @@ static void bot_buy_up_to(BotContext *bot, int32_t resource, int32_t target)
 }
 
 /* 시장에 일꾼이 없으면 농부 한 명을 보냅니다 (겨울에는 농장이 놀므로) */
-static void bot_staff_market(BotContext *bot)
+/* type 건물 가운데 일꾼이 want 명보다 적은 것에 농부(없으면 아무 일꾼) 한 명을 옮깁니다.
+ * 모두 일하고 있으면 자동 배치가 놀고 있는 주민을 보낼 수 없기 때문 (시장, 마탑) */
+static void bot_staff(BotContext *bot, int32_t type, int32_t want)
 {
     CoreVillagerView *views;
     int32_t count = 0;
     int32_t market = 0;
     int32_t i;
     for (i = 0; i < bot->building_count; i++) {
-        if (bot->buildings[i].type == CORE_BLD_MARKET && bot->buildings[i].state == CORE_BSTATE_ACTIVE &&
-            bot->buildings[i].workers == 0) {
+        if (bot->buildings[i].type == type && bot->buildings[i].state == CORE_BSTATE_ACTIVE &&
+            bot->buildings[i].workers < want) {
             market = bot->buildings[i].id;
         }
     }
@@ -240,7 +291,7 @@ static void bot_staff_market(BotContext *bot)
     if (views != NULL &&
         core_copy_villagers(bot->world, views, bot->summary.villager_count_hint + 1, &count) == CORE_OK) {
         for (i = 0; i < count; i++) {
-            if (views[i].job == CORE_BLD_FARM || (i == count - 1 && views[i].job >= 0)) {
+            if ((views[i].job == CORE_BLD_FARM || (i == count - 1 && views[i].job >= 0)) && views[i].job != type) {
                 (void)core_assign_worker(bot->world, views[i].id, market);
                 break;
             }
@@ -257,7 +308,7 @@ static void bot_trade(BotContext *bot)
     int32_t reason;
     int32_t r;
     if (!s->market_open) {
-        bot_staff_market(bot);
+        bot_staff(bot, CORE_BLD_MARKET, 1);
         (void)core_get_summary(bot->world, &bot->summary);
         if (!s->market_open) {
             return;
@@ -294,6 +345,70 @@ static void bot_merchant(BotContext *bot)
     }
 }
 
+/* 짓거나, 금화만 모자라서 못 지었으면 2(금화를 모음)를 돌려줍니다. toward >= 0 이면 그 방향에 (감시탑) */
+static int build_or_save(BotContext *bot, int32_t type, int32_t radius, int32_t toward, int32_t *built)
+{
+    CoreBuildingDefView def;
+    int32_t i;
+    if (toward >= 0 ? build_toward(bot, type, toward, radius) : build_best(bot, type, radius)) {
+        (*built)++;
+        return 0;
+    }
+    if (core_get_building_def(bot->world, type, &def) != CORE_OK) {
+        return 0;
+    }
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        if (i != CORE_RES_GOLD && bot->summary.resources[i] < def.cost[i]) {
+            return 0; /* 다른 자원이 모자람: 모으지 않고 그 자원을 만드는 건물을 지음 */
+        }
+    }
+    return bot->summary.resources[CORE_RES_GOLD] < def.cost[CORE_RES_GOLD] ? 2 : 0;
+}
+
+/* 다음 등급에 모자란 것을 채웁니다. 금화를 모아야 하면 2, 마정석만 모자라면 1 */
+static int bot_goal(BotContext *bot, int32_t *built)
+{
+    const CoreSummaryView *s = &bot->summary;
+    CoreRankView rank;
+    if (core_get_rank(bot->world, &rank) != CORE_OK || rank.next_rank < 0) {
+        return 0;
+    }
+    /* 먹을 것과 목재가 먼저: 농장·벌목장이 없으면 승급 목표는 미룸 */
+    if (count_type(bot, CORE_BLD_FARM) == 0 || count_type(bot, CORE_BLD_LUMBER) == 0) {
+        return 0;
+    }
+    if (rank.have_defense < rank.need_defense) {
+        int32_t direction = s->threat_type != CORE_THREAT_NONE ? s->threat_direction : 0;
+        return build_or_save(bot, CORE_BLD_TOWER, 5, direction, built);
+    }
+    if (s->rank >= CORE_RANK_VILLAGE && count_type(bot, CORE_BLD_MANA_MINE) == 0) {
+        int saving = build_or_save(bot, CORE_BLD_MANA_MINE, 18, -1, built);
+        if (saving || *built > 0) {
+            return saving;
+        }
+    }
+    if (rank.have_research < rank.need_research || s->rank >= CORE_RANK_FORTRESS) {
+        if (count_type(bot, CORE_BLD_MAGE_TOWER) == 0) {
+            return build_or_save(bot, CORE_BLD_MAGE_TOWER, 14, -1, built);
+        }
+        if (s->research_active < 0 && rank.have_research < rank.need_research) {
+            (void)bot_progress(bot); /* 연구 시작 (금화가 모자라면 모음) */
+            (void)core_get_summary(bot->world, &bot->summary);
+            return bot->summary.research_active < 0 ? 2 : 0;
+        }
+    }
+    if (rank.have_population >= rank.need_population && rank.have_mood >= rank.need_mood &&
+        rank.have_defense >= rank.need_defense && rank.have_research >= rank.need_research) {
+        if (s->resources[CORE_RES_GOLD] < rank.tribute_gold) {
+            return 2;
+        }
+        if (s->resources[CORE_RES_MANA] < rank.tribute_mana) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void bot_reasonable(BotContext *bot)
 {
     const CoreSummaryView *s;
@@ -301,10 +416,18 @@ static void bot_reasonable(BotContext *bot)
     int32_t houses;
     int32_t built = 0;
     int32_t i;
+    int saving = 0;
     if (!refresh_buildings(bot)) {
         return;
     }
     s = &bot->summary;
+    {
+        int32_t reason;
+        if (s->rank_ready && core_rank_up(bot->world, &reason) == CORE_OK) {
+            (void)refresh_buildings(bot);
+            s = &bot->summary;
+        }
+    }
     if (count_constructing(bot) >= 3) {
         return; /* 한꺼번에 너무 많이 짓지 않음 */
     }
@@ -325,9 +448,26 @@ static void bot_reasonable(BotContext *bot)
                        s->resources[CORE_RES_FOOD] < s->population * 12)) {
         built += build_best(bot, CORE_BLD_FARM, 10);
     }
+    /* 1-1) 첫 벌목장과 첫 채석장은 집보다 먼저 (목재·석재가 없으면 아무것도 못 지음). 목재가 바닥이면 벌목장을 더 */
+    if (built < 2 && (count_type(bot, CORE_BLD_LUMBER) == 0 ||
+                      (s->resources[CORE_RES_WOOD] < 30 && count_type(bot, CORE_BLD_LUMBER) < 1 + s->population / 8))) {
+        built += build_best(bot, CORE_BLD_LUMBER, 14);
+    }
+    if (built < 2 && houses >= 1 && count_type(bot, CORE_BLD_QUARRY) == 0 && s->resources[CORE_RES_STONE] < 15) {
+        built += build_best(bot, CORE_BLD_QUARRY, 16);
+    }
     /* 2) 집: 집 없는 주민이 있거나 빈자리가 2 보다 적으면 */
     if (built < 2 && (s->homeless > 0 || s->housing_capacity - (s->population - s->homeless) < 2)) {
         built += build_best(bot, CORE_BLD_HOUSE, 8);
+    }
+    /* 2-1) 주민이 열 명이 되면 시장 (겨울 식량·목재를 살 곳) */
+    if (built < 2 && s->population >= 10 && count_type(bot, CORE_BLD_MARKET) == 0) {
+        built += build_best(bot, CORE_BLD_MARKET, 20);
+    }
+    /* 먹을 것과 집 다음에는 승급 목표부터 (방어 → 마정석 광산 → 마탑과 연구 → 공물).
+     * 겨울 준비가 모자라면 목표는 미루고 금화를 식량·목재에 씀 */
+    if (!winter_short(s) && s->resources[CORE_RES_FOOD] >= s->population * 6 && s->resources[CORE_RES_WOOD] >= 30) {
+        saving = bot_goal(bot, &built);
     }
     /* 3) 목재: 벌목장은 주민 8명당 하나 */
     if (built < 2 && count_type(bot, CORE_BLD_LUMBER) < 1 + s->population / 8) {
@@ -339,8 +479,18 @@ static void bot_reasonable(BotContext *bot)
         built += build_best(bot, CORE_BLD_LUMBER, 14);
     }
     /* 4) 석재와 약초 */
-    if (built < 2 && houses >= 2 && count_type(bot, CORE_BLD_QUARRY) < 1 + s->population / 12) {
+    if (built < 2 && houses >= 1 && count_type(bot, CORE_BLD_QUARRY) < 1 + s->population / 12) {
         built += build_best(bot, CORE_BLD_QUARRY, 16);
+    }
+    if (saving) {
+        /* 공물을 모으는 중: 금화가 넉넉하고 마정석만 모자라면 광산은 계속 지음 (마정석을 버는 길) */
+        if (saving == 1) {
+            (void)bot_progress(bot);
+        }
+        bot_repair(bot);
+        bot_trade(bot);
+        bot_merchant(bot);
+        return;
     }
     if (built < 2 && s->population >= 8 && count_type(bot, CORE_BLD_GATHERER) < 1 + s->population / 15) {
         built += build_best(bot, CORE_BLD_GATHERER, 14);
@@ -354,6 +504,9 @@ static void bot_reasonable(BotContext *bot)
     }
     if (built < 2) {
         built += bot_defend(bot);
+    }
+    if (built < 2) {
+        built += bot_progress(bot);
     }
     bot_repair(bot);
     bot_trade(bot);
@@ -410,9 +563,10 @@ static void write_csv_row(FILE *out, const CoreSummaryView *summary)
     fprintf(out, ",%d,%d,%d,%d,%d,%d,%d,%d", (int)summary->resource_capacity[CORE_RES_FOOD],
             (int)summary->population, (int)summary->average_mood, (int)summary->homeless, (int)summary->employed,
             (int)summary->building_count, (int)summary->rank, (int)summary->threat_strength);
-    fprintf(out, ",%d,%d,%d,%d,%d,%d,%d\n", (int)summary->weather, (int)summary->nature_event, (int)summary->sick_count,
+    fprintf(out, ",%d,%d,%d,%d,%d,%d,%d", (int)summary->weather, (int)summary->nature_event, (int)summary->sick_count,
             (int)summary->cold_houses, (int)summary->merchant_days_left, (int)summary->threat_type,
             (int)summary->guards);
+    fprintf(out, ",%d,%d,%d\n", (int)summary->defense, (int)summary->research_done, (int)summary->outcome);
 }
 
 int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_name, const char *csv_path,
@@ -450,15 +604,19 @@ int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_n
     walker_init(&walker);
     battle_init(&battle);
     fprintf(out, "day,year,season,gold,mana,food,wood,stone,herbs,capacity,population,mood,homeless,employed,"
-                 "buildings,rank,threat_strength,weather,nature_event,sick,cold_houses,merchant,threat_type,guards\n");
+                 "buildings,rank,threat_strength,weather,nature_event,sick,cold_houses,merchant,threat_type,guards,"
+                 "defense,research_done,outcome\n");
     (void)core_get_summary(context.world, &summary);
     write_csv_row(out, &summary);
     for (day = 0; day < days && status == 0; day++) {
         CoreEventView event;
         bot->on_new_day(&context);
         for (tick = 0; tick < config.ticks_per_day; tick++) {
-            if (walker_tick(&walker, context.world) != CORE_OK || battle_tick(&battle, context.world) != CORE_OK ||
-                core_validate(context.world) != 0) {
+            int32_t rc = walker_tick(&walker, context.world);
+            if (rc == CORE_ERR_REJECTED) {
+                break; /* 패배: 시간이 더는 흐르지 않음 (아래에서 기록하고 끝냄) */
+            }
+            if (rc != CORE_OK || battle_tick(&battle, context.world) != CORE_OK || core_validate(context.world) != 0) {
                 fprintf(stderr, "시뮬레이션 %d일째에 문제가 생겼습니다\n", day + 1);
                 status = 1;
                 break;
@@ -473,6 +631,10 @@ int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_n
         }
         (void)core_get_summary(context.world, &summary);
         write_csv_row(out, &summary);
+        if (summary.outcome == CORE_OUTCOME_LOST) {
+            fprintf(stderr, "패배: %s (%d일째)\n", fmt_lose_reason(summary.lose_reason), (int)summary.day);
+            break;
+        }
     }
     if (out != stdout && fclose(out) != 0) {
         status = 1;
@@ -481,8 +643,10 @@ int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_n
     free(context.buildings);
     core_destroy(context.world);
     if (status == 0 && csv_path != NULL) {
-        printf("시뮬레이션 완료: %d일, 시드 %d, 봇 %s → %s (주민 %d명, 기분 %d)\n", days, (int)seed, bot_name,
-               csv_path, (int)summary.population, (int)summary.average_mood);
+        printf("시뮬레이션 완료: %d일, 시드 %d, 봇 %s → %s (주민 %d명, 기분 %d, 등급 %s, 연구 %d%s)\n", days, (int)seed,
+               bot_name, csv_path, (int)summary.population, (int)summary.average_mood, fmt_rank_name(summary.rank),
+               (int)summary.research_done,
+               summary.outcome == CORE_OUTCOME_WON ? ", 승리" : summary.outcome == CORE_OUTCOME_LOST ? ", 패배" : "");
     }
     return status;
 }
@@ -595,6 +759,8 @@ static void random_commands(BotContext *bot, uint32_t *random_state)
                          &gold, &reason);
         (void)core_merchant_accept(bot->world, soak_pick(random_state, 0, CORE_MERCHANT_MAX_DEALS - 1), &reason);
         (void)core_repair(bot->world, target, &reason);
+        (void)core_start_research(bot->world, soak_pick(random_state, -2, CORE_MAX_RESEARCH + 2), &reason);
+        (void)core_rank_up(bot->world, &reason);
         switch (soak_pick(random_state, 0, 4)) {
         case 0:
             (void)core_assign_worker(bot->world, v->id, target);
@@ -662,8 +828,10 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
     char path[64];
     char backup[72];
     uint32_t random_state = (uint32_t)seed * 2654435761u + 1u;
-    int32_t end_day;
+    long budget = (long)days * 144; /* 이 시드에서 돌릴 틱 수 (패배하면 새 월드로 나머지를 돌림) */
+    long done = 0;
     int32_t last_day;
+    int32_t restarts = 0;
     int failures = 0;
 
     memset(&bot, 0, sizeof(bot));
@@ -677,20 +845,45 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
     snprintf(path, sizeof(path), "soak_%d.sav", (int)seed);
     snprintf(backup, sizeof(backup), "%s.bak", path);
     (void)core_get_summary(bot.world, &summary);
-    end_day = summary.day + days;
     last_day = summary.day;
 
-    while (summary.day < end_day && failures == 0) {
+    while (done < budget && failures == 0) {
         CoreEventView event;
         uint32_t roll = soak_random(&random_state);
         int32_t violations;
+        int32_t rc;
 
         /* 매 틱 진행 후 불변 조건 검사 */
-        if (walker_tick(&walker, bot.world) != CORE_OK) {
+        rc = walker_tick(&walker, bot.world);
+        if (rc == CORE_ERR_REJECTED && summary.outcome == CORE_OUTCOME_LOST) {
+            /* 패배한 월드도 저장·불러오기·검사가 맞아야 함. 그다음 새 월드로 남은 틱을 돌림 */
+            if (!save_load_roundtrip(&bot.world, path, defs) || core_validate(bot.world) != 0) {
+                fprintf(stderr, "  시드 %d: 패배한 월드의 저장/불러오기가 어긋났습니다\n", (int)seed);
+                failures++;
+                break;
+            }
+            core_destroy(bot.world);
+            bot.world = NULL;
+            restarts++;
+            if (create_world(seed + 100000 * restarts, seed % CORE_DIFF_COUNT, "Soak", defs, &bot.world) != CORE_OK) {
+                fprintf(stderr, "  시드 %d: 새 월드를 만들 수 없습니다\n", (int)seed);
+                failures++;
+                break;
+            }
+            walker_free(&walker);
+            walker_init(&walker);
+            walker.instant = (seed % 2) == 0;
+            battle_init(&battle);
+            (void)core_get_summary(bot.world, &summary);
+            last_day = summary.day;
+            continue;
+        }
+        if (rc != CORE_OK) {
             fprintf(stderr, "  시드 %d: core_tick 실패\n", (int)seed);
             failures++;
             break;
         }
+        done++;
         /* 습격: 시드 셋 중 둘은 숫자 전투, 하나는 아무렇게나 보낸 보고 (끝은 C 의 시간 초과에 맡김) */
         if (seed % 3 != 0) {
             if (battle_tick(&battle, bot.world) != CORE_OK) {
@@ -736,6 +929,9 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
     core_destroy(bot.world);
     remove(path);
     remove(backup);
+    if (restarts > 0 && failures == 0) {
+        printf("  시드 %d: 패배 %d번 (새 월드로 계속)\n", (int)seed, (int)restarts);
+    }
     return failures;
 }
 

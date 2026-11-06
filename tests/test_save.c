@@ -9,6 +9,7 @@
 #include "platform.h"
 #include "rng.h"
 #include "save.h"
+#include "test_town.h"
 #include "test_util.h"
 #include "world.h"
 
@@ -26,7 +27,10 @@ static CoreWorld *make_played_world(int32_t seed)
     if (world == NULL) {
         return NULL;
     }
-    (void)core_tick(world, 1000);
+    /* 걷기 도착을 알려 주며 진행 (알리지 않으면 아무도 밥을 먹지 못해 모두 떠나고 패배함) */
+    test_keep_alive(world);
+    (void)test_run(world, 1000);
+    test_keep_alive(world);
     world->bank.amount[CORE_RES_GOLD] = 12345;
     world->bank.amount[CORE_RES_HERBS] = 7;
     return world;
@@ -68,8 +72,8 @@ void test_save_roundtrip_same_hash(void)
     CHECK(memcmp(&a, &b, sizeof(a)) == 0);
 
     /* 불러온 뒤에도 같은 미래가 나와야 합니다 (난수 상태까지 저장되었는지) */
-    CHECK_EQ(core_tick(world, 500), CORE_OK);
-    CHECK_EQ(core_tick(loaded, 500), CORE_OK);
+    CHECK(test_run(world, 500));
+    CHECK(test_run(loaded, 500));
     CHECK(hash_of(world) == hash_of(loaded));
     CHECK(rng_next(&world->rng) == rng_next(&loaded->rng));
 
@@ -232,13 +236,13 @@ void test_load_wrong_version(void)
     CHECK(text != NULL);
     CHECK_EQ(load_text(text, size, &line), CORE_OK);
 
-    changed = replace_once(text, "MAGICCASTLE_SAVE 4", "MAGICCASTLE_SAVE 999");
+    changed = replace_once(text, "MAGICCASTLE_SAVE 5", "MAGICCASTLE_SAVE 999");
     CHECK(changed != NULL);
     CHECK_EQ(load_text(changed, strlen(changed), &line), CORE_ERR_VERSION);
     CHECK_EQ(line, 1);
     free(changed);
 
-    changed = replace_once(text, "MAGICCASTLE_SAVE 4", "SOMETHING_ELSE 2");
+    changed = replace_once(text, "MAGICCASTLE_SAVE 5", "SOMETHING_ELSE 2");
     CHECK(changed != NULL);
     CHECK_EQ(load_text(changed, strlen(changed), &line), CORE_ERR_FORMAT);
     free(changed);
@@ -377,7 +381,7 @@ void test_load_garbled_files(void)
         char *line = (char *)malloc(big);
         CHECK(line != NULL);
         memset(line, 'A', big);
-        memcpy(line, "MAGICCASTLE_SAVE 4\nrow=", 23);
+        memcpy(line, "MAGICCASTLE_SAVE 5\nrow=", 23);
         CHECK_EQ(load_text(line, big, NULL), CORE_ERR_FORMAT);
         free(line);
     }

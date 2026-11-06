@@ -8,12 +8,8 @@
 
 #include <string.h>
 
-/* 난이도별 시작 자원. 순서는 CoreResource (금화, 마정석, 식량, 목재, 석재, 약초) */
-static const int32_t START_RESOURCES[CORE_DIFF_COUNT][CORE_RES_COUNT] = {
-    {300, 10, 80, 80, 40, 10}, /* 평화 */
-    {200, 5, 60, 60, 30, 5},   /* 보통 */
-    {150, 3, 40, 40, 20, 3},   /* 혹독 */
-};
+#include "difficulty.h"
+
 
 void eco_bank_init(ResourceBank *bank, int32_t difficulty)
 {
@@ -23,7 +19,7 @@ void eco_bank_init(ResourceBank *bank, int32_t difficulty)
     }
     bank->capacity = ECO_KEEP_CAPACITY;
     for (i = 0; i < CORE_RES_COUNT; i++) {
-        bank->amount[i] = START_RESOURCES[difficulty][i];
+        bank->amount[i] = difficulty_preset(difficulty)->start_resources[i];
     }
 }
 

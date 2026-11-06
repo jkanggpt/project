@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "mem.h"
+#include "test_town.h"
 #include "test_util.h"
 #include "validate.h"
 #include "world.h"
@@ -107,7 +108,7 @@ void test_world_tick_emits_events(void)
 
     /* 7일을 더 가면 9일째 = 여름 */
     for (days = 0; days < 7; days++) {
-        CHECK_EQ(core_tick(world, 144), CORE_OK);
+        CHECK(test_run(world, 144)); /* 도착을 알려 주며 (아무도 못 먹어 모두 떠나면 패배해서 시간이 멈춤) */
     }
     while (core_poll_event(world, &event) == 1) {
         if (event.type == CORE_EVT_SEASON_CHANGED) {

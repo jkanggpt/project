@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "nature.h"
+#include "research.h"
 
 #define STORY_FIRST_PRODUCE_BIT 1
 #define STORY_MOVED_IN_BIT 2
@@ -110,8 +111,14 @@ static void work_extract(World *world, Building *building, Villager *villager)
     produce(world, building, villager, 0, def->produces, def->rate, 100);
 }
 
-/* 건물 종류 → 작업 함수. NULL 이면 일꾼이 있어도 만드는 것이 없음
- * (시장 일꾼은 거래를 열어 두고, 치료소 일꾼은 찾아온 환자를 고칩니다 — 매 틱 만드는 것은 없음. 병영·마탑은 마일스톤 4~5) */
+/* 마탑: 자원이 아니라 연구 점수를 모읍니다 (research.c) */
+static void work_research(World *world, Building *building, Villager *villager)
+{
+    research_work(world, building, villager);
+}
+
+/* 건물 종류 → 작업 함수. NULL 이면 일꾼이 있어도 매 틱 만드는 것이 없음
+ * (시장 일꾼은 거래를 열어 두고, 치료소 일꾼은 찾아온 환자를 고치고, 병영 일꾼은 습격 때 경비병이 됩니다) */
 static const JobWorkFn JOB_TABLE[CORE_BLD_COUNT] = {
     NULL,          /* 성채 */
     NULL,          /* 주택 */
@@ -127,7 +134,7 @@ static const JobWorkFn JOB_TABLE[CORE_BLD_COUNT] = {
     NULL,          /* 성벽 */
     NULL,          /* 성문 */
     NULL,          /* 치료소 */
-    NULL,          /* 마탑 */
+    work_research, /* 마탑 */
     NULL,          /* 도로 */
 };
 

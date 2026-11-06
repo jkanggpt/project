@@ -5,7 +5,8 @@
  * game/data/ 의 .def 파일이 있으면 그 값으로 덮어씁니다. 파일이 없거나 망가졌으면 기본값을 쓰고 경고를 남깁니다.
  *
  * - 건물 종류는 고정(열거형)이고, 수치만 파일로 바꿀 수 있습니다.
- * - 특성과 이름은 개수를 미리 모르므로 동적 배열(realloc 으로 키움)입니다.
+ * - 특성, 이름, 연구는 개수를 미리 모르므로 동적 배열(realloc 으로 키움)입니다.
+ * - 등급은 다섯 개로 정해져 있고(촌락 … 왕성), 조건 수치만 파일로 바꿉니다.
  * - 월드는 정의를 "복사"해서 가집니다. 그래서 Godot 이 정의 묶음을 해제해도 월드는 안전합니다.
  */
 #ifndef CASTLE_DEFS_H
@@ -55,6 +56,7 @@ typedef struct BuildingDef {
     int32_t attack;         /* 감시탑 화살 / 경비병 한 명의 피해 (0 = 싸우지 않음) */
     int32_t attack_range;   /* 칸 */
     int32_t attack_cooldown;/* 게임 속 분 */
+    int32_t defense;        /* 방어 점수 (승급 조건). 다 지은 건물만 셈 */
 } BuildingDef;
 
 typedef struct EnemyDef {
@@ -79,6 +81,31 @@ typedef struct TraitDef {
     int32_t magic_pct;
 } TraitDef;
 
+/* 연구 하나 (data/research.def). 파일이 목록 전체를 정합니다 (개수를 미리 모름 → 동적 배열) */
+typedef struct ResearchDef {
+    char key[CORE_KEY_BYTES];
+    int32_t branch;        /* CoreResearchBranch */
+    int32_t requires;      /* 먼저 끝내야 하는 연구 번호 (-1 = 없음). 파일에는 앞에 나온 연구의 키로 적음 */
+    int32_t required_rank; /* 시작하려면 필요한 등급 */
+    int32_t cost_gold;
+    int32_t cost_mana;
+    int32_t points;        /* 마탑에서 모아야 하는 연구 점수 */
+    int32_t effect;        /* CoreResearchEffect (research.c 의 효과 함수 표 번호) */
+    int32_t value;         /* 효과의 크기 */
+} ResearchDef;
+
+/* 등급 하나 (data/ranks.def): 이 등급으로 오르는 조건과 공물, 오르면 늘어나는 저장 한도 */
+typedef struct RankDef {
+    char key[CORE_KEY_BYTES];
+    int32_t population;
+    int32_t mood;          /* 평균 기분 */
+    int32_t defense;       /* 방어 점수 */
+    int32_t research;      /* 끝낸 연구 수 */
+    int32_t tribute_gold;
+    int32_t tribute_mana;
+    int32_t storage;       /* 오르면 늘어나는 저장 한도 */
+} RankDef;
+
 typedef struct NameEntry {
     char text[CORE_NAME_BYTES];
 } NameEntry;
@@ -98,6 +125,10 @@ typedef struct Defs {
     NameEntry *names;   /* 동적 배열 */
     int32_t name_count;
     int32_t name_capacity;
+    ResearchDef *research; /* 동적 배열 */
+    int32_t research_count;
+    int32_t research_capacity;
+    RankDef ranks[CORE_RANK_COUNT];
     DefWarning warnings[DEFS_MAX_WARNINGS];
     int32_t warning_count;
 } Defs;
@@ -114,6 +145,9 @@ extern const TraitDef BUILTIN_TRAITS[];
 extern const int32_t BUILTIN_TRAIT_COUNT;
 extern const char *const BUILTIN_NAMES[];
 extern const int32_t BUILTIN_NAME_COUNT;
+extern const ResearchDef BUILTIN_RESEARCH[];
+extern const int32_t BUILTIN_RESEARCH_COUNT;
+extern const RankDef BUILTIN_RANKS[CORE_RANK_COUNT];
 
 /* 기본값으로 채웁니다. CORE_OK 또는 CORE_ERR_OUT_OF_MEMORY (실패하면 아무것도 남기지 않음) */
 int defs_init_builtin(Defs *defs);
@@ -128,6 +162,9 @@ int defs_write_file(const Defs *defs, int32_t file_id, const char *path);
 
 const BuildingDef *defs_building(const Defs *defs, int32_t type);
 const EnemyDef *defs_enemy(const Defs *defs, int32_t type);
+const ResearchDef *defs_research(const Defs *defs, int32_t index);
+/* 연구 키 → 번호, 없으면 -1 */
+int32_t defs_find_research(const Defs *defs, const char *key);
 /* 특성 키 → 번호, 없으면 -1 */
 int32_t defs_find_trait(const Defs *defs, const char *key);
 /* 자원 키("food") → 번호, "none" → -1, 모르면 -2 */

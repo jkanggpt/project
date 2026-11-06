@@ -22,6 +22,7 @@ void market_init(Market *market)
     for (i = 0; i < CORE_RES_COUNT; i++) {
         market->price[i] = BASE_PRICE[i] * 100;
     }
+    market->spread_pct = MARKET_SPREAD_PCT;
 }
 
 void merchant_init(Merchant *merchant)
@@ -49,17 +50,17 @@ static int32_t clamp_price(int32_t resource, int32_t price)
 }
 
 /* 가격(× 100) → 살 때 금화: 차이의 절반만큼 비싸게, 올림 */
-static int32_t buy_from(int32_t price)
+static int32_t buy_from(const Market *market, int32_t price)
 {
-    int32_t gold = (price * (200 + MARKET_SPREAD_PCT) / 200 + 99) / 100;
+    int32_t gold = (price * (200 + market->spread_pct) / 200 + 99) / 100;
     return gold < 1 ? 1 : gold;
 }
 
 /* 가격(× 100) → 팔 때 금화: 차이의 절반만큼 싸게, 내림. 사는 값보다 언제나 작게 */
-static int32_t sell_from(int32_t price)
+static int32_t sell_from(const Market *market, int32_t price)
 {
-    int32_t gold = price * (200 - MARKET_SPREAD_PCT) / 200 / 100;
-    int32_t buy = buy_from(price);
+    int32_t gold = price * (200 - market->spread_pct) / 200 / 100;
+    int32_t buy = buy_from(market, price);
     if (gold >= buy) {
         gold = buy - 1;
     }
@@ -68,12 +69,12 @@ static int32_t sell_from(int32_t price)
 
 int32_t market_buy_price(const Market *market, int32_t resource)
 {
-    return market_is_tradable(resource) ? buy_from(market->price[resource]) : 0;
+    return market_is_tradable(resource) ? buy_from(market, market->price[resource]) : 0;
 }
 
 int32_t market_sell_price(const Market *market, int32_t resource)
 {
-    return market_is_tradable(resource) ? sell_from(market->price[resource]) : 0;
+    return market_is_tradable(resource) ? sell_from(market, market->price[resource]) : 0;
 }
 
 int market_is_open(const World *world, int32_t *out_reason)
@@ -124,10 +125,10 @@ int market_trade(World *world, int32_t resource, int32_t lots, int32_t *out_gold
     price = world->market.price[resource];
     for (i = 0; i < count; i++) {
         if (lots > 0) {
-            gold += buy_from(price);
+            gold += buy_from(&world->market, price);
             price = clamp_price(resource, price + price * MARKET_IMPACT_PCT / 100);
         } else {
-            gold += sell_from(price);
+            gold += sell_from(&world->market, price);
             price = clamp_price(resource, price - price * MARKET_IMPACT_PCT / 100);
         }
     }

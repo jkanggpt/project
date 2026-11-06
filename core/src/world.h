@@ -4,7 +4,7 @@
  * 게임의 모든 상태는 CoreWorld 하나 안에 있습니다. (전역 변수 없음)
  * 월드는 다른 구조체들을 "포함"합니다: 시계(Clock), 난수(Rng), 자원 은행(ResourceBank), 장부(Ledger),
  * 지도(Grid), 이벤트 큐(EventQueue), 정의(Defs), 날씨·자연 사건(Nature), 시장(Market), 떠돌이 상인(Merchant),
- * 위협과 습격(ThreatState: 습격의 적 목록은 동적 배열).
+ * 위협과 습격(ThreatState: 습격의 적 목록은 동적 배열), 연구(ResearchState), 한 판의 기록(RunStats).
  * 주민과 건물은 하나씩 따로 할당하고, 월드는 그 포인터들의 배열을 realloc 으로 키워 가며 가집니다.
  */
 #ifndef CASTLE_WORLD_H
@@ -21,6 +21,7 @@
 #include "grid.h"
 #include "market.h"
 #include "nature.h"
+#include "research.h"
 #include "rng.h"
 #include "threat.h"
 
@@ -29,6 +30,16 @@
 #define WORLD_WORK_END_MIN (18 * 60)   /* 18:00 일 끝 */
 #define WORLD_DAILY_MIN (6 * 60)       /* 06:00 하루 결산 (임금, 세금, 이주) */
 
+/* 한 판의 기록 (승리·패배 화면). 저장함 */
+typedef struct RunStats {
+    int32_t peak_population;
+    int32_t enemies_killed;
+    int32_t villagers_died;
+    int32_t villagers_left;
+    int32_t buildings_built;  /* 다 지은 건물 (성벽 칸 제외) */
+    int32_t victory_day;      /* 왕성이 된 날 (0 = 아직) */
+} RunStats;
+
 struct CoreWorld {
     char castle_name[CORE_NAME_BYTES]; /* UTF-8 */
     int32_t difficulty;                /* CoreDifficulty */
@@ -36,7 +47,12 @@ struct CoreWorld {
     int32_t keep_x;                    /* 성채 중심 타일 */
     int32_t keep_y;
     int32_t keep_id;                   /* 성채 건물 id */
-    int32_t rank;                      /* 등급 (마일스톤 5) */
+    int32_t rank;                      /* 등급 (CoreRank) */
+    int32_t rank_ready_announced;      /* 승급 조건을 채웠다고 알린 등급 (같은 알림을 두 번 하지 않음) */
+    int32_t outcome;                   /* CoreOutcome: 진행 중 / 승리 / 패배 */
+    int32_t lose_reason;               /* CoreLoseReason */
+    int32_t tutorial_done;             /* 이룬 튜토리얼 목표 비트 */
+    int32_t tutorial_flags;            /* 튜토리얼이 기억하는 일 (주민을 직접 배치했음) */
     int32_t next_villager_id;          /* 다음 주민 id (다시 쓰지 않음, 저장함) */
     int32_t next_building_id;          /* 다음 건물 id */
     int32_t mourning;                  /* 최근 죽음으로 인한 슬픔 0..30 */
@@ -51,6 +67,10 @@ struct CoreWorld {
     Market market;                     /* 시장 가격 */
     Merchant merchant;                 /* 떠돌이 상인 */
     ThreatState threat;                /* 예고된 위협과 진행 중인 습격 */
+    ResearchState research;            /* 끝낸 연구, 연구 중인 것 */
+    RunStats stats;                    /* 한 판의 기록 */
+    /* 연구 효과를 적용하기 전의 건물 정의. 효과는 늘 여기서 시작해 다시 계산합니다 (research_reapply) */
+    BuildingDef base_buildings[CORE_BLD_COUNT];
 
     Villager **villagers;              /* 주민 포인터 배열 */
     int32_t villager_count;

@@ -5,7 +5,9 @@
 
 #include <stddef.h>
 
+#include "market.h"
 #include "placement.h"
+#include "rank.h"
 
 #include "text.h"
 
@@ -293,6 +295,47 @@ static void check_pressure(Checker *checker, const World *world)
     }
 }
 
+/* 연구, 등급, 승패, 튜토리얼, 기록 */
+static void check_progress(Checker *checker, const World *world)
+{
+    const ResearchState *research = &world->research;
+    int32_t count = world->defs.research_count < 32 ? world->defs.research_count : 32;
+    uint32_t known = count >= 32 ? 0xFFFFFFFFu : ((1u << count) - 1u);
+    int32_t done = 0;
+    int32_t i;
+    expect(checker, (research->done & ~known) == 0, "research done flag beyond definitions");
+    for (i = 0; i < count; i++) {
+        done += (research->done >> i) & 1u;
+    }
+    expect(checker, research->done_count == done, "research done count mismatch");
+    if (research->active < 0) {
+        expect(checker, research->active == -1 && research->progress_milli == 0, "idle research has progress");
+    } else {
+        const ResearchDef *def = defs_research(&world->defs, research->active);
+        expect(checker, def != NULL && !((research->done >> research->active) & 1u), "active research invalid");
+        expect(checker,
+               def != NULL && research->progress_milli >= 0 &&
+                   (int64_t)research->progress_milli < (int64_t)def->points * 1000,
+               "research progress out of range");
+    }
+    expect(checker, world->market.spread_pct >= MARKET_MIN_SPREAD_PCT && world->market.spread_pct <= MARKET_SPREAD_PCT,
+           "market spread out of range");
+    expect(checker, world->rank >= 0 && world->rank < CORE_RANK_COUNT, "rank out of range");
+    expect(checker, world->rank_ready_announced >= 0 && world->rank_ready_announced <= CORE_RANK_COUNT,
+           "rank announcement out of range");
+    expect(checker, world->outcome >= CORE_OUTCOME_NONE && world->outcome <= CORE_OUTCOME_LOST, "outcome invalid");
+    expect(checker, (world->outcome == CORE_OUTCOME_LOST) == (world->lose_reason != CORE_LOSE_NONE),
+           "lose reason does not match outcome");
+    expect(checker, world->outcome != CORE_OUTCOME_WON || world->rank == CORE_RANK_ROYAL,
+           "victory without the top rank");
+    expect(checker, world->tutorial_done >= 0 && world->tutorial_done < (1 << CORE_TUTORIAL_COUNT),
+           "tutorial flags out of range");
+    expect(checker, world->stats.peak_population >= 0 && world->stats.enemies_killed >= 0 &&
+                        world->stats.villagers_died >= 0 && world->stats.villagers_left >= 0 &&
+                        world->stats.buildings_built >= 0 && world->stats.victory_day >= 0,
+           "run stats invalid");
+}
+
 static void check_entities(Checker *checker, const World *world)
 {
     const Building *keep = world_keep(world);
@@ -305,6 +348,7 @@ static void check_entities(Checker *checker, const World *world)
     for (i = 0; i < world->villager_count; i++) {
         check_villager(checker, world, world->villagers[i]);
     }
+    storage_total += rank_storage_bonus(world);
     expect(checker, world->bank.capacity == (storage_total > 0 ? storage_total : 1),
            "storage capacity does not match buildings");
     expect(checker, world->mourning >= 0 && world->mourning <= 30, "mourning out of range");
@@ -331,6 +375,7 @@ int32_t validate_world(const World *world, ValidateReportFn report, void *contex
     check_events(&checker, &world->events);
     check_pressure(&checker, world);
     check_threats(&checker, world);
+    check_progress(&checker, world);
     if (world->grid.occupant != NULL) {
         check_entities(&checker, world);
     }

@@ -68,6 +68,12 @@ typedef struct Event {
             int32_t d;
         } raid; /* RAID_STARTED(id, 종류, 적 수, 방향), RAID_ENDED(쓰러뜨림, 전체, 빼앗김, 쓰러진 주민),
                    ENEMY_KILLED(적 id, 종류, 마정석), LOOT_STOLEN(자원, 양, 건물 id) */
+        struct {
+            int32_t a;
+            int32_t b;
+            int32_t c;
+        } progress; /* RESEARCH_STARTED(번호), RESEARCH_DONE(번호, 끝낸 수), RANK_READY(등급), RANK_UP(등급),
+                       VICTORY(날짜), DEFEAT(원인, 날짜), TUTORIAL_STEP(목표, 끝낸 수, 전체), TUTORIAL_DONE(금화, 마정석) */
     } as;
     char text[CORE_NAME_BYTES]; /* 관련 주민 이름 (없으면 빈 문자열) */
 } Event;
@@ -100,6 +106,8 @@ void events_push_warning(EventQueue *queue, CoreEventType type, int32_t code, in
 void events_push_pair(EventQueue *queue, CoreEventType type, int32_t first, int32_t second);
 void events_push_threat(EventQueue *queue, int32_t threat_type, int32_t direction, int32_t ticks_left, int32_t strength);
 void events_push_raid(EventQueue *queue, CoreEventType type, int32_t a, int32_t b, int32_t c, int32_t d);
+/* text: 연구 키 등 (NULL 이면 빈 문자열) */
+void events_push_progress(EventQueue *queue, CoreEventType type, int32_t a, int32_t b, int32_t c, const char *text);
 
 /* 내부 이벤트(공용체)를 C#에 건넬 평평한 뷰로 바꿉니다. */
 void events_to_view(const Event *event, CoreEventView *out);

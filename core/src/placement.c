@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "jobs.h"
+#include "rank.h"
 #include "threat.h"
 
 int placement_needs_door(const BuildingDef *def, int32_t type)
@@ -560,9 +561,9 @@ static void relocate_villagers(World *world, const Building *building)
 }
 
 /* 다 지어진 건물의 저장 한도를 합쳐 은행 한도를 다시 정합니다 */
-static void refresh_capacity(World *world)
+void placement_refresh_capacity(World *world)
 {
-    int32_t total = 0;
+    int32_t total = rank_storage_bonus(world); /* 승급할 때마다 늘어난 저장 한도 */
     int32_t i;
     for (i = 0; i < world->building_count; i++) {
         const Building *building = world->buildings[i];
@@ -578,9 +579,12 @@ static void complete_building(World *world, Building *building)
 {
     building->state = CORE_BSTATE_ACTIVE;
     building->hp = world_building_def(world, building->type)->max_hp;
+    if (building->type != CORE_BLD_WALL) {
+        world->stats.buildings_built++;
+    }
     events_push_building(&world->events, CORE_EVT_BUILDING_COMPLETED, building->id, building->type, building->x,
                          building->y);
-    refresh_capacity(world);
+    placement_refresh_capacity(world);
     jobs_on_buildings_changed(world);
 }
 
@@ -725,7 +729,7 @@ int placement_demolish(World *world, Building *building)
     entity_remove_building(world, building); /* 일꾼·거주민 연결을 양쪽 모두 끊고 해제 */
     grid_rebuild_costs(&world->grid);
     placement_refresh_productivity(world);
-    refresh_capacity(world);
+    placement_refresh_capacity(world);
     events_push_building(&world->events, CORE_EVT_BUILDING_REMOVED, id, type, x, y);
     jobs_on_buildings_changed(world);
     return CORE_OK;
@@ -770,7 +774,7 @@ static void ruin_building(World *world, Building *building)
     if (building->type == CORE_BLD_WALL || building->type == CORE_BLD_GATE) {
         placement_rebuild_layers(world); /* 무너진 성벽·성문은 지나갈 수 있음 → 비용 격자가 바뀜 */
     }
-    refresh_capacity(world);
+    placement_refresh_capacity(world);
     jobs_on_buildings_changed(world);
 }
 
@@ -851,7 +855,7 @@ int placement_repair(World *world, Building *building, int32_t *out_reason)
         if (building->type == CORE_BLD_WALL || building->type == CORE_BLD_GATE) {
             placement_rebuild_layers(world); /* 다시 막힘 */
         }
-        refresh_capacity(world);
+        placement_refresh_capacity(world);
         jobs_on_buildings_changed(world);
     }
     return CORE_OK;

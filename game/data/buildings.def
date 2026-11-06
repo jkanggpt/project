@@ -31,6 +31,7 @@ category = special
 attack = 6
 attack_range = 4
 attack_cooldown = 10
+defense = 0
 
 [building house]
 width = 2
@@ -60,6 +61,7 @@ category = housing
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 0
 
 [building farm]
 width = 3
@@ -89,6 +91,7 @@ category = resource
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 0
 
 [building gatherer]
 width = 2
@@ -118,14 +121,15 @@ category = resource
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 0
 
 [building lumber]
 width = 2
 height = 2
-cost_gold = 20
+cost_gold = 25
 cost_mana = 0
 cost_food = 0
-cost_wood = 10
+cost_wood = 0
 cost_stone = 0
 cost_herbs = 0
 build_ticks = 36
@@ -134,7 +138,7 @@ workers = 2
 residents = 0
 storage = 0
 produces = wood
-rate = 90
+rate = 120
 secondary = none
 secondary_rate = 0
 work_radius = 4
@@ -147,6 +151,7 @@ category = resource
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 0
 
 [building quarry]
 width = 2
@@ -176,15 +181,16 @@ category = resource
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 0
 
 [building mana_mine]
 width = 2
 height = 2
-cost_gold = 60
+cost_gold = 40
 cost_mana = 0
 cost_food = 0
-cost_wood = 30
-cost_stone = 30
+cost_wood = 20
+cost_stone = 10
 cost_herbs = 0
 build_ticks = 72
 max_hp = 250
@@ -192,19 +198,20 @@ workers = 2
 residents = 0
 storage = 0
 produces = mana
-rate = 12
+rate = 60
 secondary = none
 secondary_rate = 0
 work_radius = 2
 placement = on_mana
 min_terrain = 1
-ideal_terrain = 6
+ideal_terrain = 4
 wage = 2
 required_rank = 1
 category = resource
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 0
 
 [building warehouse]
 width = 3
@@ -234,6 +241,7 @@ category = storage
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 0
 
 [building market]
 width = 3
@@ -263,6 +271,7 @@ category = storage
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 0
 
 [building barracks]
 width = 3
@@ -287,11 +296,12 @@ placement = any
 min_terrain = 0
 ideal_terrain = 1
 wage = 2
-required_rank = 0
+required_rank = 1
 category = defense
 attack = 7
 attack_range = 1
 attack_cooldown = 10
+defense = 2
 
 [building tower]
 width = 1
@@ -299,8 +309,8 @@ height = 1
 cost_gold = 40
 cost_mana = 0
 cost_food = 0
-cost_wood = 10
-cost_stone = 30
+cost_wood = 15
+cost_stone = 15
 cost_herbs = 0
 build_ticks = 48
 max_hp = 300
@@ -321,6 +331,7 @@ category = defense
 attack = 9
 attack_range = 5
 attack_cooldown = 10
+defense = 3
 
 [building wall]
 width = 1
@@ -350,6 +361,7 @@ category = defense
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 0
 
 [building gate]
 width = 1
@@ -379,6 +391,7 @@ category = defense
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 1
 
 [building healer]
 width = 2
@@ -408,6 +421,7 @@ category = service
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 0
 
 [building mage_tower]
 width = 2
@@ -415,8 +429,8 @@ height = 2
 cost_gold = 80
 cost_mana = 10
 cost_food = 0
-cost_wood = 0
-cost_stone = 50
+cost_wood = 20
+cost_stone = 30
 cost_herbs = 0
 build_ticks = 96
 max_hp = 300
@@ -424,7 +438,7 @@ workers = 2
 residents = 0
 storage = 0
 produces = none
-rate = 0
+rate = 120
 secondary = none
 secondary_rate = 0
 work_radius = 0
@@ -437,6 +451,7 @@ category = service
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 0
 
 [building road]
 width = 1
@@ -466,3 +481,4 @@ category = road
 attack = 0
 attack_range = 0
 attack_cooldown = 0
+defense = 0
