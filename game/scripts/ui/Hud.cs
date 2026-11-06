@@ -35,6 +35,8 @@ public partial class Hud : CanvasLayer
     private double _bannerTime;
     private Button _merchantButton = null!;
     private Button _marketButton = null!;
+    private Button _rankButton = null!;
+    private Button _researchButton = null!;
     private PanelContainer _hint = null!;
     private Label _hintLabel = null!;
     private Control _fatal = null!;
@@ -47,6 +49,10 @@ public partial class Hud : CanvasLayer
     public VillagerList Villagers { get; private set; } = null!;
     public MarketPanel Market { get; private set; } = null!;
     public MerchantPanel Merchant { get; private set; } = null!;
+    public ResearchPanel Research { get; private set; } = null!;
+    public RankPanel Ranks { get; private set; } = null!;
+    public TutorialPanel Tutorial { get; private set; } = null!;
+    public OutcomePanel Outcome { get; private set; } = null!;
 
     public override void _Ready()
     {
@@ -160,6 +166,15 @@ public partial class Hud : CanvasLayer
         _marketButton.Pressed += () => Market.Toggle();
         status.AddChild(_merchantButton);
         status.AddChild(_marketButton);
+        // 등급과 연구 (날짜 바로 오른쪽: 늘 보임)
+        _rankButton = new Button { FocusMode = Control.FocusModeEnum.None, TooltipText = Strings.RankButtonTooltip };
+        _rankButton.Pressed += () => Ranks.Toggle();
+        _researchButton = new Button { Text = Strings.ResearchButton, FocusMode = Control.FocusModeEnum.None, TooltipText = Strings.ResearchButtonTooltip };
+        _researchButton.Pressed += () => Research.Toggle();
+        status.AddChild(_rankButton);
+        status.MoveChild(_rankButton, 1);
+        status.AddChild(_researchButton);
+        status.MoveChild(_researchButton, 2);
     }
 
     /// <summary>습격 중 화면 위 가운데의 붉은 띠 (남은 적 수)</summary>
@@ -215,6 +230,11 @@ public partial class Hud : CanvasLayer
 
     private void BuildPanels()
     {
+        // 튜토리얼 목록은 왼쪽 위에 늘 떠 있으므로, 가운데 창들이 그 위에 그려지도록 먼저 넣습니다
+        Tutorial = new TutorialPanel { Name = "Tutorial", Visible = false };
+        _root.AddChild(Tutorial);
+        Tutorial.SetAnchorsPreset(Control.LayoutPreset.TopLeft);
+
         Bar = new BuildBar { Name = "BuildBar", Visible = false };
         _root.AddChild(Bar);
         Bar.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomWide, Control.LayoutPresetMode.KeepHeight);
@@ -246,6 +266,18 @@ public partial class Hud : CanvasLayer
         _hint.AddChild(_hintLabel);
         _root.AddChild(_hint);
         _hint.Modulate = new Color(1, 1, 1, 0.92f);
+
+        Research = new ResearchPanel { Name = "Research" };
+        _root.AddChild(Research);
+        CenterPanel(Research);
+        Research.Message += ShowToast;
+        Ranks = new RankPanel { Name = "Ranks" };
+        _root.AddChild(Ranks);
+        CenterPanel(Ranks);
+        Ranks.Message += ShowToast;
+        Outcome = new OutcomePanel { Name = "Outcome" };
+        _root.AddChild(Outcome);
+        CenterPanel(Outcome);
 
         // 패널이 위쪽 막대(툴팁 포함)보다 아래에 그려지도록 순서를 맞춥니다
         _root.MoveChild(_fatal, _root.GetChildCount() - 1);
@@ -326,6 +358,14 @@ public partial class Hud : CanvasLayer
         _marketButton.Visible = HasMarket();
         Market.Refresh();
         Merchant.Refresh();
+        _rankButton.Text = Strings.RankLabel(summary.Rank, summary.RankReady != 0);
+        _rankButton.Modulate = summary.RankReady != 0 ? new Color(1f, 0.92f, 0.5f) : Colors.White;
+        _researchButton.Text = summary.ResearchActive >= 0 && CoreBridge.Instance.TryGetResearch(summary.ResearchActive, out CoreResearchView active)
+            ? Strings.ResearchShort(active.GetKey(), summary.ResearchProgress, summary.ResearchPoints)
+            : Strings.ResearchButton;
+        Research.Refresh();
+        Ranks.Refresh();
+        Tutorial.Refresh(summary);
     }
 
     private void UpdateThreat(in CoreSummaryView summary)
@@ -393,6 +433,8 @@ public partial class Hud : CanvasLayer
         float bottom = Bar.Visible ? Bar.Size.Y : 0;
         Toasts.OffsetTop = top + 4 * scale;
         _raidBanner.OffsetTop = top + 4 * scale;
+        Tutorial.OffsetLeft = 4 * scale;
+        Tutorial.OffsetTop = top + 4 * scale;
         _raidBanner.OffsetBottom = _raidBanner.OffsetTop;
         _paused.OffsetTop = top + 4 * scale + (_raidBanner.Visible ? _raidBanner.Size.Y + 2 * scale : 0);
         if (_raidBanner.Visible)
@@ -440,6 +482,10 @@ public partial class Hud : CanvasLayer
         Villagers.ApplyScale(scale);
         Market.ApplyScale(scale);
         Merchant.ApplyScale(scale);
+        Research.ApplyScale(scale);
+        Ranks.ApplyScale(scale);
+        Tutorial.ApplyScale(scale);
+        Outcome.ApplyScale(scale);
     }
 
     public void ShowFatal(string message, string detail)

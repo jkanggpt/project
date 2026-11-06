@@ -40,10 +40,11 @@ public enum CoreStatus
 public partial class CoreBridge : Node
 {
     /// <summary>C 의 CORE_ABI_VERSION 과 같아야 합니다.</summary>
-    public const int ExpectedAbiVersion = 4;
+    public const int ExpectedAbiVersion = 5;
 
     /// <summary>정의 파일 (순서는 DataFile)</summary>
-    private static readonly string[] DataFiles = { "res://data/buildings.def", "res://data/traits.def", "res://data/names.txt", "res://data/enemies.def" };
+    private static readonly string[] DataFiles = { "res://data/buildings.def", "res://data/traits.def", "res://data/names.txt", "res://data/enemies.def",
+        "res://data/research.def", "res://data/ranks.def" };
 
     private static bool _resolverInstalled;
     private static string _loadError = "";
@@ -214,6 +215,10 @@ public partial class CoreBridge : Node
         Compare("CoreThreatView", sizes.ThreatView, Marshal.SizeOf<CoreThreatView>(), problems);
         Compare("CoreRaidView", sizes.RaidView, Marshal.SizeOf<CoreRaidView>(), problems);
         Compare("CoreEnemyView", sizes.EnemyView, Marshal.SizeOf<CoreEnemyView>(), problems);
+        Compare("CoreResearchView", sizes.ResearchView, Marshal.SizeOf<CoreResearchView>(), problems);
+        Compare("CoreRankView", sizes.RankView, Marshal.SizeOf<CoreRankView>(), problems);
+        Compare("CoreRunStatsView", sizes.RunStatsView, Marshal.SizeOf<CoreRunStatsView>(), problems);
+        Compare("CoreDifficultyView", sizes.DifficultyView, Marshal.SizeOf<CoreDifficultyView>(), problems);
         detail = string.Join("; ", problems);
         return problems.Count == 0;
     }
@@ -354,7 +359,8 @@ public partial class CoreBridge : Node
             return new CoreResult(CoreResultCode.NullArg);
         }
         CoreResult result = CoreResult.FromCode(Native.core_tick(_world, ticks));
-        if (!result.Ok)
+        // 패배한 뒤에는 C 가 시간을 멈춥니다(REJECTED): 오류가 아니라 게임이 끝난 것이므로 알리지 않음
+        if (!result.Ok && result.Code != CoreResultCode.Rejected)
         {
             Report("core_tick", result);
         }
@@ -551,6 +557,32 @@ public partial class CoreBridge : Node
         return count;
     }
 
+    /// <summary>연구 하나. 범위 밖이면 false (0 부터 차례로 읽으면 개수를 알 수 있음)</summary>
+    public bool TryGetResearch(int index, out CoreResearchView research)
+    {
+        research = default;
+        return HasWorld && index >= 0 && Native.core_get_research(_world, index, out research) == 0;
+    }
+
+    public bool TryGetRank(out CoreRankView rank)
+    {
+        rank = default;
+        return HasWorld && Native.core_get_rank(_world, out rank) == 0;
+    }
+
+    public bool TryGetRunStats(out CoreRunStatsView stats)
+    {
+        stats = default;
+        return HasWorld && Native.core_get_run_stats(_world, out stats) == 0;
+    }
+
+    /// <summary>난이도 설정 (월드가 없어도 됨)</summary>
+    public bool TryGetDifficulty(Difficulty difficulty, out CoreDifficultyView view)
+    {
+        view = default;
+        return Status == CoreStatus.Ready && Native.core_get_difficulty((int)difficulty, out view) == 0;
+    }
+
     /// <summary>수리 비용 (자원 6개, 고칠 곳이 없으면 모두 0). 호출할 때마다 새 배열을 만들지 않게 버퍼를 돌려 씁니다</summary>
     public int[] GetRepairCost(int buildingId)
     {
@@ -664,6 +696,32 @@ public partial class CoreBridge : Node
         int rc = Native.core_repair(_world, buildingId, out int why);
         reason = (DenyReason)why;
         return Checked("core_repair", rc);
+    }
+
+    /// <summary>연구 시작 (금화·마정석을 냄)</summary>
+    public CoreResult StartResearch(int index, out DenyReason reason)
+    {
+        reason = DenyReason.None;
+        if (!HasWorld)
+        {
+            return new CoreResult(CoreResultCode.NullArg);
+        }
+        int rc = Native.core_start_research(_world, index, out int why);
+        reason = (DenyReason)why;
+        return Checked("core_start_research", rc);
+    }
+
+    /// <summary>승급 (조건을 채우고 공물을 냄)</summary>
+    public CoreResult RankUp(out DenyReason reason)
+    {
+        reason = DenyReason.None;
+        if (!HasWorld)
+        {
+            return new CoreResult(CoreResultCode.NullArg);
+        }
+        int rc = Native.core_rank_up(_world, out int why);
+        reason = (DenyReason)why;
+        return Checked("core_rank_up", rc);
     }
 
     // ---- 보고 (Godot 이 본 물리적 사실 → C) -----------------------------------

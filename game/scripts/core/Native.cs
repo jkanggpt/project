@@ -78,18 +78,38 @@ public enum NatureEvent { None = 0, Drought = 1, Plague = 2, Storm = 3, ColdSnap
 public enum LedgerCategory
 {
     Production = 0, Consumption = 1, Wages = 2, Taxes = 3, Construction = 4, Refund = 5, Trade = 6, Heating = 7,
-    Raid = 8, Other = 9, Healing = 10, Repair = 11, Count = 12,
+    Raid = 8, Other = 9, Healing = 10, Repair = 11, Tribute = 12, Research = 13, Count = 14,
 }
 
 public enum DenyReason
 {
     None = 0, NoMarket = 1, NoTrader = 2, NotTradable = 3, NoGold = 4, NoGoods = 5, StorageFull = 6, NoMerchant = 7,
-    DealTaken = 8, NotDamaged = 9, UnderConstruction = 10, BadAmount = 11, NoResources = 12, Raid = 13, Count = 14,
+    DealTaken = 8, NotDamaged = 9, UnderConstruction = 10, BadAmount = 11, NoResources = 12, Raid = 13,
+    MaxRank = 14, Requirements = 15, NoMana = 16, ResearchBusy = 17, ResearchDone = 18, ResearchLocked = 19,
+    GameOver = 20, Count = 21,
 }
 
 public enum DeathCause { Starvation = 1, Illness = 2, Raid = 3 }
 
-public enum DataFile { Buildings = 0, Traits = 1, Names = 2, Enemies = 3, Count = 4 }
+public enum DataFile { Buildings = 0, Traits = 1, Names = 2, Enemies = 3, Research = 4, Ranks = 5, Count = 6 }
+
+public enum Rank { Hamlet = 0, Village = 1, Fortress = 2, Castle = 3, Royal = 4, Count = 5 }
+
+public enum ResearchBranch { Economy = 0, Defense = 1, Magic = 2, Count = 3 }
+
+public enum ResearchEffect
+{
+    FarmYield = 0, ExtractYield = 1, Storage = 2, Market = 3, TowerDamage = 4, WallHp = 5, GuardDamage = 6,
+    KeepDamage = 7, ManaYield = 8, Healing = 9, Heating = 10, Ward = 11, Count = 12,
+}
+
+public enum ResearchState { Locked = 0, Available = 1, Active = 2, Done = 3 }
+
+public enum Outcome { None = 0, Won = 1, Lost = 2 }
+
+public enum LoseReason { None = 0, Keep = 1, Population = 2 }
+
+public enum TutorialStep { Farm = 0, House = 1, Assign = 2, Wall = 3, Raid = 4, Count = 5 }
 
 public enum ThreatType { None = 0, Bandits = 1, Monsters = 2, Army = 3, Count = 4 }
 
@@ -107,7 +127,8 @@ public enum CoreEventType
     Starving = 18, DefWarning = 19, WeatherChanged = 20, NatureForecast = 21, NatureStarted = 22, NatureEnded = 23,
     BuildingDamaged = 24, BuildingRuined = 25, BuildingRepaired = 26, VillagerSick = 27, VillagerCured = 28,
     MerchantArrived = 29, MerchantLeft = 30, WinterWarning = 31, HousesCold = 32, ThreatScheduled = 33,
-    RaidStarted = 34, RaidEnded = 35, EnemyKilled = 36, LootStolen = 37, ThreatNear = 38,
+    RaidStarted = 34, RaidEnded = 35, EnemyKilled = 36, LootStolen = 37, ThreatNear = 38, ResearchStarted = 39,
+    ResearchDone = 40, RankReady = 41, RankUp = 42, Victory = 43, Defeat = 44, TutorialStep = 45, TutorialDone = 46,
 }
 
 public enum CoreWarning { None = 0, EventsDropped = 1 }
@@ -213,6 +234,19 @@ public unsafe struct CoreSummaryView
     public int RaidType;
     public int RaidEnemiesLeft;
     public int Guards;
+    /// <summary>방어 점수 (승급 조건)</summary>
+    public int Defense;
+    public int RankReady;
+    /// <summary>연구 중인 번호 (-1 = 없음)</summary>
+    public int ResearchActive;
+    public int ResearchProgress;
+    public int ResearchPoints;
+    public int ResearchMages;
+    public int ResearchDone;
+    public int Outcome;
+    public int LoseReason;
+    /// <summary>끝낸 튜토리얼 목표 비트 (1 &lt;&lt; TutorialStep)</summary>
+    public int TutorialDone;
     public fixed int Resources[ResourceCount];
     /// <summary>자원별 저장 한도. 0 이면 한도 없음</summary>
     public fixed int ResourceCapacity[ResourceCount];
@@ -370,6 +404,8 @@ public unsafe struct CoreBuildingDefView
     public int AttackRange;
     /// <summary>공격 사이 (게임 속 분)</summary>
     public int AttackCooldown;
+    /// <summary>방어 점수 (승급 조건)</summary>
+    public int Defense;
     public fixed byte Key[KeyBytes];
 
     public readonly int GetCost(ResourceKind resource)
@@ -445,6 +481,10 @@ public struct CoreStructSizes
     public int ThreatView;
     public int RaidView;
     public int EnemyView;
+    public int ResearchView;
+    public int RankView;
+    public int RunStatsView;
+    public int DifficultyView;
 }
 
 /// <summary>적 정의 (data/enemies.def)</summary>
@@ -504,6 +544,97 @@ public struct CoreEnemyView
     public int Id;
     public int Type;
     public int State;
+}
+
+/// <summary>연구 하나 (core_get_research)</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct CoreResearchView
+{
+    public int Index;
+    public int Branch;
+    /// <summary>먼저 끝내야 하는 연구 번호 (-1 = 없음)</summary>
+    public int Requires;
+    public int RequiredRank;
+    public int CostGold;
+    public int CostMana;
+    public int Points;
+    public int Effect;
+    public int Value;
+    public int State;
+    public int Progress;
+    public fixed byte Key[CoreBuildingDefView.KeyBytes];
+
+    public readonly string GetKey()
+    {
+        fixed (byte* buffer = Key)
+        {
+            return Utf8Text.Read(new ReadOnlySpan<byte>(buffer, CoreBuildingDefView.KeyBytes));
+        }
+    }
+}
+
+/// <summary>지금 등급과 다음 등급의 조건 (core_get_rank)</summary>
+[StructLayout(LayoutKind.Sequential)]
+public struct CoreRankView
+{
+    public int Rank;
+    /// <summary>다음 등급 (-1 = 이미 왕성)</summary>
+    public int NextRank;
+    public int NeedPopulation;
+    public int HavePopulation;
+    public int NeedMood;
+    public int HaveMood;
+    public int NeedDefense;
+    public int HaveDefense;
+    public int NeedResearch;
+    public int HaveResearch;
+    public int TributeGold;
+    public int TributeMana;
+    public int Ready;
+    /// <summary>다음 등급에서 풀리는 건물 비트 (1 &lt;&lt; BuildingType)</summary>
+    public int Unlocks;
+    public int StorageBonus;
+    public int ResearchUnlocks;
+}
+
+/// <summary>한 판의 기록 (승리·패배 화면)</summary>
+[StructLayout(LayoutKind.Sequential)]
+public struct CoreRunStatsView
+{
+    public int Days;
+    public int PeakPopulation;
+    public int RaidsSurvived;
+    public int EnemiesKilled;
+    public int VillagersDied;
+    public int VillagersLeft;
+    public int BuildingsBuilt;
+    public int ResearchDone;
+    public int Rank;
+    public int Outcome;
+    public int LoseReason;
+    public int VictoryDay;
+}
+
+/// <summary>난이도 하나의 설정 (core_get_difficulty)</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct CoreDifficultyView
+{
+    public int Difficulty;
+    public int StartVillagers;
+    public fixed int StartResources[CoreSummaryView.ResourceCount];
+    public int BaseMood;
+    public int RaidStrengthPct;
+    public int RaidIntervalPct;
+    public int NaturePct;
+    public int TributePct;
+
+    public readonly int GetStart(ResourceKind resource)
+    {
+        fixed (int* values = StartResources)
+        {
+            return values[(int)resource];
+        }
+    }
 }
 
 /// <summary>장부: [자원 × 항목] (오늘 쌓는 중, 어제 하루)</summary>
@@ -651,6 +782,10 @@ internal static class Native
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_market(IntPtr world, out CoreMarketView market);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_merchant(IntPtr world, out CoreMerchantView merchant);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_repair_cost(IntPtr world, int buildingId, [Out] int[] cost, int count);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_research(IntPtr world, int index, out CoreResearchView research);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_rank(IntPtr world, out CoreRankView rank);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_run_stats(IntPtr world, out CoreRunStatsView stats);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_get_difficulty(int difficulty, out CoreDifficultyView view);
 
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_can_place(IntPtr world, int type, int x, int y, out CorePlacementView view);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_place_building(IntPtr world, int type, int x, int y, out int id, out int reason);
@@ -664,6 +799,8 @@ internal static class Native
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_trade(IntPtr world, int resource, int lots, out int gold, out int reason);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_merchant_accept(IntPtr world, int index, out int reason);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_repair(IntPtr world, int buildingId, out int reason);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_start_research(IntPtr world, int index, out int reason);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_rank_up(IntPtr world, out int reason);
 
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_villager_arrived(IntPtr world, int villagerId, int intentRev);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_villager_unreachable(IntPtr world, int villagerId, int intentRev);

@@ -2,6 +2,7 @@
 //   --smoke-test [--days N]    화면 없이 N일 진행하며 오류를 검사하고 종료 (실패하면 종료 코드 1)
 //   --screenshots <폴더>       주요 장면을 PNG 로 저장하고 종료 (Xvfb 에서 사용)
 //   --seed N                   지도 시드 고정
+//   --difficulty peaceful|normal|harsh (또는 0|1|2)   난이도 (새 게임 화면은 마일스톤 6)
 using System;
 using System.Globalization;
 
@@ -15,6 +16,7 @@ public sealed class LaunchOptions
     public int SmokeDays { get; private set; } = 20;
     public string? ScreenshotDir { get; private set; }
     public int? Seed { get; private set; }
+    public Core.Difficulty Difficulty { get; private set; } = Core.Difficulty.Normal;
 
     /// <summary>오류 기록기를 붙여야 하는 모드인지</summary>
     public bool CountErrors => SmokeTest || ScreenshotDir != null;
@@ -45,8 +47,31 @@ public sealed class LaunchOptions
                     options.Seed = seed;
                     i++;
                     break;
+                case "--difficulty" when ParseDifficulty(next, out Core.Difficulty difficulty):
+                    options.Difficulty = difficulty;
+                    i++;
+                    break;
             }
         }
         Current = options;
+    }
+
+    private static bool ParseDifficulty(string text, out Core.Difficulty difficulty)
+    {
+        switch (text)
+        {
+            case "peaceful" or "0":
+                difficulty = Core.Difficulty.Peaceful;
+                return true;
+            case "normal" or "1":
+                difficulty = Core.Difficulty.Normal;
+                return true;
+            case "harsh" or "2":
+                difficulty = Core.Difficulty.Harsh;
+                return true;
+            default:
+                difficulty = Core.Difficulty.Normal;
+                return false;
+        }
     }
 }

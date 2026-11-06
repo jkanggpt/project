@@ -40,16 +40,29 @@ public partial class Toasts : VBoxContainer
 
     public void Show(string text, Vector2? worldPosition)
     {
-        // 가장 오래된 칸을 다시 씁니다
-        PanelContainer panel = _pool[_next];
-        _next = (_next + 1) % _pool.Count;
+        // 같은 문장이 이미 떠 있으면 그 칸을 다시 띄우고(같은 경고가 줄줄이 쌓이지 않게), 아니면 가장 오래된 칸을 다시 씁니다
+        string shown = worldPosition.HasValue ? text + "  ▸" : text;
+        PanelContainer? panel = null;
+        foreach (PanelContainer candidate in _pool)
+        {
+            if (candidate.Visible && candidate.GetChild<Label>(0).Text == shown)
+            {
+                panel = candidate;
+                break;
+            }
+        }
+        if (panel == null)
+        {
+            panel = _pool[_next];
+            _next = (_next + 1) % _pool.Count;
+        }
         if (_tweens.TryGetValue(panel, out Tween? old) && old.IsValid())
         {
             old.Kill();
         }
         _targets[panel] = worldPosition;
         var label = panel.GetChild<Label>(0);
-        label.Text = worldPosition.HasValue ? text + "  ▸" : text;
+        label.Text = shown;
         panel.TooltipText = worldPosition.HasValue ? Strings.ToastJumpTooltip : "";
         panel.MouseFilter = worldPosition.HasValue ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
         panel.MouseDefaultCursorShape = worldPosition.HasValue ? CursorShape.PointingHand : CursorShape.Arrow;

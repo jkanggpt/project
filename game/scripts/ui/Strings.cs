@@ -25,7 +25,10 @@ public static class Strings
 
     public static string DataFileMissing(string path) => $"정의 파일이 없어 기본값을 씁니다: {path}";
 
-    private static readonly string[] DataFileNames = { "buildings.def", "traits.def", "names.txt", "enemies.def" };
+    private static readonly string[] DataFileNames =
+    {
+        "buildings.def", "traits.def", "names.txt", "enemies.def", "research.def", "ranks.def",
+    };
 
     // ---- 조사 ----
     /// <summary>마지막 글자에 받침이 있으면 withFinal("이", "을"), 없으면 withoutFinal("가", "를")</summary>
@@ -144,14 +147,17 @@ public static class Strings
 
     private static readonly string[] LedgerNames =
     {
-        "생산", "식사", "임금", "세금", "건설", "철거 환불", "거래", "난방", "약탈", "기타(넘쳐 버림)", "치료", "수리",
+        "생산", "식사", "임금", "세금", "건설", "철거 환불", "거래", "난방", "약탈", "기타", "치료", "수리", "승급 공물",
+        "연구",
     };
 
     private static readonly string[] DenyReasons =
     {
         "", "다 지은 시장이 없습니다", "시장에 일꾼이 없습니다", "시장에서 다루지 않는 자원입니다", "금화가 모자랍니다",
         "팔 물건이 모자랍니다", "창고에 자리가 없습니다", "상인이 없습니다", "이미 한 거래입니다", "고칠 곳이 없습니다",
-        "아직 짓는 중입니다", "수량이 범위 밖입니다", "수리 비용이 모자랍니다", "습격 중에는 고칠 수 없습니다",
+        "아직 짓는 중입니다", "수량이 범위 밖입니다", "수리 비용이 모자랍니다", "습격 중입니다",
+        "이미 가장 높은 등급입니다", "승급 조건(인구·기분·방어·연구)이 모자랍니다", "마정석이 모자랍니다",
+        "이미 다른 연구를 하는 중입니다", "이미 끝낸 연구입니다", "앞선 연구나 등급이 모자랍니다", "게임이 끝났습니다",
     };
 
     public static string SeasonName(int season) => Pick(SeasonNames, season);
@@ -248,7 +254,8 @@ public static class Strings
 
     public static string DateTooltip(in CoreSummaryView summary, in CoreConfigView config) =>
         $"{summary.Year}년 {SeasonName(summary.Season)} {summary.DayOfSeason}일, 게임을 시작하고 {summary.Day}일째입니다.\n" +
-        $"한 계절은 {config.DaysPerSeason}일, 한 해는 {config.DaysPerSeason * config.SeasonsPerYear}일입니다.";
+        $"한 계절은 {config.DaysPerSeason}일, 한 해는 {config.DaysPerSeason * config.SeasonsPerYear}일입니다.\n" +
+        $"난이도: {DifficultyName(summary.Difficulty)} (시드 {summary.Seed})";
 
     public static string ClockTooltip(in CoreConfigView config) =>
         $"게임 속 시각입니다. 1배속에서 게임 속 {config.MinutesPerTick}분이 실제 {config.RealMsPerTick / 1000.0:0.#}초입니다.\n" +
@@ -366,7 +373,7 @@ public static class Strings
         return text;
     }
 
-    public static string RankRequired(int rank) => $"등급 {rank} 이 필요합니다 (승급은 마일스톤 5 에서 생깁니다)";
+    public static string RankRequired(int rank) => $"{RankName(rank)} 등급부터 지을 수 있습니다 (위쪽 막대의 등급 단추로 승급)";
 
     public static string PlacementHint(in CorePlacementView view, BuildingType type)
     {
@@ -592,10 +599,155 @@ public static class Strings
                 return coreEvent.C > 0 ? $"{Object(EnemyName(coreEvent.B))} 쓰러뜨렸습니다. 마정석 +{coreEvent.C}" : null;
             case CoreEventType.LootStolen:
                 return coreEvent.B > 0 ? $"적이 {ResourceName(coreEvent.A)} {coreEvent.B}개를 훔쳐 갔습니다!" : null;
+            case CoreEventType.ResearchStarted:
+                return $"연구 시작: {ResearchName(name)}. 마탑의 마법사들이 연구합니다.";
+            case CoreEventType.ResearchDone:
+                return $"연구 끝: {ResearchName(name)}! ({coreEvent.B}번째 연구)";
+            case CoreEventType.RankReady:
+                return $"{Subject(RankName(coreEvent.A))} 될 조건을 채웠습니다. 위쪽 막대의 등급 단추에서 공물을 바치고 승급하세요.";
+            case CoreEventType.RankUp:
+                return $"승급! 이제 {RankName(coreEvent.A)}입니다.";
+            case CoreEventType.Victory:
+                return $"승리! {coreEvent.A}일째에 왕성이 되었습니다.";
+            case CoreEventType.Defeat:
+                return $"패배: {LoseReasonText(coreEvent.A)}";
+            case CoreEventType.TutorialStep:
+                return $"목표 달성: {TutorialName(coreEvent.A)} ({coreEvent.B}/{coreEvent.C})";
+            case CoreEventType.TutorialDone:
+                return $"처음 목표를 모두 이루었습니다! 보상: 금화 +{coreEvent.A}, 마정석 +{coreEvent.B}";
             default:
                 return null;
         }
     }
+
+    // ---- 등급, 연구, 승패, 튜토리얼 ----
+    private static readonly string[] RankNames = { "촌락", "마을", "요새", "성", "왕성" };
+    private static readonly string[] BranchNames = { "경제", "방어", "마법" };
+    private static readonly string[] ResearchKeys =
+    {
+        "crop_rotation", "better_tools", "trade_guild", "granary", "sharp_arrows", "stone_walls", "drill",
+        "keep_ballista", "mana_sense", "herbal_magic", "warm_hearth", "ward",
+    };
+    private static readonly string[] ResearchNames =
+    {
+        "윤작", "좋은 연장", "상인 조합", "큰 곳간", "날카로운 화살", "돌 성벽", "경비 훈련", "성채 쇠뇌", "마력 감지",
+        "약초 마법", "따뜻한 불씨", "마법 결계",
+    };
+    // 효과: 앞 글, 부호, 단위
+    private static readonly (string Text, string Sign, string Unit)[] EffectTexts =
+    {
+        ("농장 생산", "+", "%"), ("벌목장·채석장 생산", "+", "%"), ("저장 한도", "+", "%"), ("시장의 사고팔 때 차이", "-", "%p"),
+        ("감시탑 화살 피해", "+", ""), ("성벽·성문 체력", "+", "%"), ("경비병 피해", "+", ""), ("성채 망루 피해", "+", ""),
+        ("마정석 광산 생산", "+", "%"), ("병을 앓는 시간", "-", "%"), ("집 한 채의 하룻밤 난방 목재", "-", ""),
+        ("습격 때 건물이 받는 피해", "-", "%"),
+    };
+    private static readonly string[] ResearchStateNames = { "잠김", "시작할 수 있음", "연구 중", "끝남" };
+    private static readonly string[] TutorialNames =
+    {
+        "농장 짓기", "주택 짓기", "주민을 일터에 직접 배치하기", "성벽 짓기", "첫 도적 습격 버티기",
+    };
+    private static readonly string[] TutorialHints =
+    {
+        "아래 건설 막대의 '자원' 탭 → 농장. 성채 가까이 지으면 걷는 시간이 줄어듭니다.",
+        "'주거' 탭 → 주택. 빈 집이 있어야 이주민이 옵니다.",
+        "주민을 고르고(왼쪽 클릭 또는 V 목록) 건물 검사창의 '일꾼 넣기'로 보냅니다.",
+        "'방어' 탭 → 성벽을 끌어서 줄로 놓습니다. 주민이 드나들 성문도 함께.",
+        "위쪽 막대의 '위협:' 카운트다운을 보고, 그쪽에 감시탑을 지어 두세요.",
+    };
+    private static readonly string[] LoseReasonTexts = { "", "성채가 무너졌습니다", "주민이 한 명도 남지 않았습니다" };
+
+    public static string RankName(int rank) => Pick(RankNames, rank);
+    public static string BranchName(int branch) => Pick(BranchNames, branch);
+    public static string ResearchStateName(int state) => Pick(ResearchStateNames, state);
+    public static string TutorialName(int step) => Pick(TutorialNames, step);
+    public static string TutorialHint(int step) => Pick(TutorialHints, step);
+    public static string LoseReasonText(int reason) => Pick(LoseReasonTexts, reason);
+
+    /// <summary>연구 키 → 한국어 이름 (정의 파일에서 새로 만든 연구는 키 그대로)</summary>
+    public static string ResearchName(string key)
+    {
+        int index = System.Array.IndexOf(ResearchKeys, key);
+        return index >= 0 ? ResearchNames[index] : key;
+    }
+
+    public static string EffectText(int effect, int value)
+    {
+        if (effect < 0 || effect >= EffectTexts.Length)
+        {
+            return "?";
+        }
+        var (text, sign, unit) = EffectTexts[effect];
+        return $"{text} {sign}{value}{unit}";
+    }
+
+    public const string RankButtonTooltip = "등급: 인구·기분·방어·연구 조건을 채우고 공물을 바치면 올라갑니다. 왕성이 되면 승리!";
+    public static string RankLabel(int rank, bool ready) => ready ? $"{RankName(rank)} (승급 가능!)" : RankName(rank);
+
+    public const string ResearchButton = "연구";
+    public const string MageTowerIdle = "연구 중인 것이 없습니다 (위쪽 막대의 연구 단추)";
+    public const string ResearchButtonTooltip = "연구 창: 마탑의 마법사가 점수를 모아 연구를 끝냅니다 (요새부터 마탑을 지을 수 있음).";
+    public static string ResearchShort(string key, int progress, int points) => $"연구: {ResearchName(key)} {progress}/{points}";
+
+    // 연구 창
+    public const string ResearchTitle = "연구";
+    public const string ResearchHelp = "연구는 시작할 때 금화·마정석을 내고, 마탑에서 일하는 마법사가 점수를 모아 끝냅니다. 한 번에 하나만 할 수 있습니다. 갈래 안에서는 위의 연구를 먼저 끝내야 합니다.";
+    public static string ResearchStatus(in CoreSummaryView summary) =>
+        summary.ResearchActive >= 0
+            ? $"일하는 마법사 {summary.ResearchMages}명 · 끝낸 연구 {summary.ResearchDone}개"
+            : summary.ResearchMages > 0 ? $"마법사 {summary.ResearchMages}명이 연구를 기다립니다 · 끝낸 연구 {summary.ResearchDone}개"
+            : $"마탑에서 일하는 마법사가 없습니다 (요새부터 마탑을 지을 수 있음) · 끝낸 연구 {summary.ResearchDone}개";
+    public static string ResearchNodeText(in CoreResearchView view) =>
+        view.State == (int)ResearchState.Active
+            ? $"{ResearchName(view.GetKey())}\n{view.Progress}/{view.Points}점"
+            : $"{ResearchName(view.GetKey())}\n{(view.State == (int)ResearchState.Done ? "끝남" : $"금화 {view.CostGold} · 마정석 {view.CostMana}")}";
+    public static string ResearchTooltip(in CoreResearchView view, string? requiresKey)
+    {
+        string text = $"{ResearchName(view.GetKey())} ({BranchName(view.Branch)})\n효과: {EffectText(view.Effect, view.Value)}\n" +
+                      $"비용: 금화 {view.CostGold}, 마정석 {view.CostMana} · 연구 점수 {view.Points}\n" +
+                      $"필요 등급: {RankName(view.RequiredRank)}";
+        if (requiresKey != null)
+        {
+            text += $"\n먼저 끝낼 연구: {ResearchName(requiresKey)}";
+        }
+        return text + $"\n상태: {ResearchStateName(view.State)}";
+    }
+    public static string ResearchRejected(DenyReason reason) => $"연구를 시작할 수 없습니다: {DenyText(reason)}";
+
+    // 승급 창
+    public const string RankTitle = "등급과 승급";
+    public static string RankCurrent(int rank) => $"지금 등급: {RankName(rank)}";
+    public const string RankMax = "이미 가장 높은 등급(왕성)입니다.";
+    public static string RankNext(int rank) => $"다음 등급: {RankName(rank)}";
+    public static string Requirement(string what, int have, int need) => $"{(have >= need ? "충족" : "부족")}  {what} {have} / {need}";
+    public const string ReqPopulation = "인구";
+    public const string ReqMood = "평균 기분";
+    public const string ReqDefense = "방어 점수";
+    public const string ReqResearch = "끝낸 연구";
+    public const string DefenseHelp = "방어 점수 = 다 지은 감시탑 3, 병영 2, 성문 1 + 경비병 한 명당 1";
+    public static string Tribute(int gold, int mana) => $"공물: 금화 {gold}, 마정석 {mana}";
+    public static string RankRewards(int storage, string buildings, int research) =>
+        $"오르면: 저장 한도 +{storage}" + (buildings.Length > 0 ? $", 새 건물 {buildings}" : "") +
+        (research > 0 ? $", 새 연구 {research}개" : "");
+    public const string RankUpButton = "공물을 바치고 승급";
+    public static string RankUpRejected(DenyReason reason) => $"승급할 수 없습니다: {DenyText(reason)}";
+
+    // 튜토리얼
+    public const string TutorialTitle = "처음 목표";
+    public const string TutorialHide = "숨기기";
+    public static string TutorialProgress(int done, int total) => $"처음 목표 {done}/{total}";
+
+    // 승리·패배
+    public const string VictoryTitle = "승리! 왕성이 되었습니다";
+    public const string DefeatTitle = "패배";
+    public const string ContinueButton = "계속 다스리기";
+    public const string NewGameButton = "새 게임";
+    public static string RunStatsText(in CoreRunStatsView stats) =>
+        $"지난 날: {stats.Days}일 · 등급: {RankName(stats.Rank)}\n" +
+        $"가장 많았던 주민: {stats.PeakPopulation}명\n" +
+        $"버틴 습격: {stats.RaidsSurvived}번 · 쓰러뜨린 적: {stats.EnemiesKilled}\n" +
+        $"세상을 떠난 주민: {stats.VillagersDied}명 · 마을을 떠난 주민: {stats.VillagersLeft}명\n" +
+        $"지은 건물: {stats.BuildingsBuilt}채 · 끝낸 연구: {stats.ResearchDone}개";
+    public static string VictoryText(in CoreRunStatsView stats) => $"{stats.VictoryDay}일째에 왕성이 되었습니다. 계속 다스릴 수도 있습니다.";
 
     // ---- 위협, 습격 ----
     private static readonly string[] ThreatNames = { "없음", "도적", "마물", "적대 영주 군대" };

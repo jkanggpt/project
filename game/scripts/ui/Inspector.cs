@@ -187,6 +187,12 @@ public partial class Inspector : PanelContainer
         {
             lines.Add(Strings.HealerLine(sync.Summary.GetResource(ResourceKind.Herbs)));
         }
+        if (b.Type == (int)BuildingType.MageTower)
+        {
+            lines.Add(sync.Summary.ResearchActive >= 0 && CoreBridge.Instance.TryGetResearch(sync.Summary.ResearchActive, out CoreResearchView research)
+                ? Strings.ResearchShort(research.GetKey(), sync.Summary.ResearchProgress, sync.Summary.ResearchPoints)
+                : Strings.MageTowerIdle);
+        }
         if (b.WorkerSlots > 0)
         {
             lines.Add(Strings.Workers(b.Workers, b.WorkerSlots));

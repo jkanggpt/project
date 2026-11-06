@@ -18,6 +18,7 @@ namespace MagicCastle;
 public partial class Main : Node2D
 {
     private bool _reconcileQueued;
+    private int _shownOutcome; // 이미 보여 준 결과 (같은 화면을 두 번 띄우지 않음)
 
     public MapView Map { get; private set; } = null!;
     public CameraRig Camera { get; private set; } = null!;
@@ -71,7 +72,7 @@ public partial class Main : Node2D
         }
 
         int seed = options.Seed ?? (int)(GD.Randi() & 0x7FFFFFFF);
-        CoreResult result = core.NewGame(Strings.DefaultCastleName, seed, Difficulty.Normal);
+        CoreResult result = core.NewGame(Strings.DefaultCastleName, seed, options.Difficulty);
         if (!result.Ok)
         {
             Hud.ShowFatal(Strings.NewGameFailed, result.Name);
@@ -93,6 +94,8 @@ public partial class Main : Node2D
         Tools.HintChanged += Hud.SetHint;
         Hud.Villagers.VillagerChosen += OnVillagerChosen;
         Hud.Toasts.JumpRequested += position => Camera.CenterOn(position);
+        Hud.Outcome.NewGameRequested += StartNewGame;
+        Hud.Outcome.ContinueRequested += () => GameClock.Instance.SetSpeed(1);
         RebuildWorldView();
         foreach (string warning in core.DataWarnings)
         {
@@ -183,11 +186,48 @@ public partial class Main : Node2D
     {
         CoreSummaryView summary = Sync.Summary;
         Combat.OnRefreshed();
+        CheckOutcome(summary);
         Map.SetLook(summary.Season, summary.Weather, summary.NatureEvent);
         Weather.SetWeather(summary.Weather);
         Hud.UpdateSummary(summary);
         Hud.Inspector.Refresh();
         Hud.Villagers.Refresh();
+    }
+
+    /// <summary>
+    /// 승리·패배를 처음 보면 시간을 멈추고 결과 화면을 띄웁니다. 진 뒤에는 C 가 시간을 멈추므로 새 게임만 할 수 있고,
+    /// 이긴 뒤에는 "계속 다스리기"로 이어 갈 수 있습니다.
+    /// </summary>
+    private void CheckOutcome(in CoreSummaryView summary)
+    {
+        if (summary.Outcome == (int)Outcome.None || summary.Outcome == _shownOutcome)
+        {
+            return;
+        }
+        _shownOutcome = summary.Outcome;
+        if (!LaunchOptions.Current.Automated)
+        {
+            GameClock.Instance.SetSpeed(0);
+        }
+        Hud.Outcome.ShowOutcome();
+    }
+
+    /// <summary>결과 화면의 "새 게임": 같은 난이도, 새 시드 (제목·새 게임 화면은 마일스톤 6)</summary>
+    public void StartNewGame()
+    {
+        CoreBridge core = CoreBridge.Instance;
+        int difficulty = CoreBridge.Instance.HasWorld ? Sync.Summary.Difficulty : (int)LaunchOptions.Current.Difficulty;
+        int seed = (int)(GD.Randi() & 0x7FFFFFFF);
+        CoreResult result = core.NewGame(Strings.DefaultCastleName, seed, (Difficulty)difficulty);
+        if (!result.Ok)
+        {
+            Hud.ShowToast(Strings.NewGameFailed);
+            return;
+        }
+        _shownOutcome = (int)Outcome.None;
+        Hud.Tutorial.Reset();
+        RebuildWorldView();
+        GameClock.Instance.SetSpeed(1);
     }
 
     private void OnVillagerChosen(int villagerId)

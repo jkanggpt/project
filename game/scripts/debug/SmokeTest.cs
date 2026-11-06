@@ -8,6 +8,9 @@
 // 마일스톤 4부터는 위협이 오는 쪽에 감시탑을 짓고 병영을 세웁니다. 습격이 오면 한 프레임에 한 틱씩 진행하며
 // CombatDirector 를 직접 돌려(같은 규칙, 빠르게) 적·화살·경비병·보고가 모두 실제로 돌아가는지 봅니다.
 // 습격 중에는 저장이 거절되는지도 확인합니다. 20일이면 첫 습격(5일째 도적)이 반드시 옵니다.
+// 마일스톤 5부터는 조건이 차면 승급하고, 요새가 되면 마탑을 지어 가장 싼 연구를 시작합니다.
+// 등급이 모자랄 때 연구가 거절되는지, 튜토리얼 목표가 차례로 채워지는지도 확인하고, 연구·등급 창을 열어 봅니다.
+// 패배(성채 함락·주민 0명)하면 실패로 봅니다.
 using System;
 using System.Collections.Generic;
 using Godot;
@@ -47,6 +50,11 @@ public partial class SmokeTest : Node
     private int _totalKills;
     private bool _saveBlockChecked;
     private readonly HashSet<int> _walledDirections = new();
+    private bool _lockedChecked;
+    private int _ranksGained;
+    private int _researchStarted;
+    private int _researchDone;
+    private int _tutorialSteps;
 
     public override void _Ready()
     {
@@ -85,7 +93,7 @@ public partial class SmokeTest : Node
         // 1/8일씩 진행 (렌더링·UI 갱신·도착 보고가 여러 번 돌도록 프레임을 나눔)
         else if (!GameClock.Instance.Advance(config.TicksPerDay / 8))
         {
-            Finish(false, "core_tick failed");
+            Finish(false, TickFailure());
             return;
         }
         int violations = CoreBridge.Instance.Validate();
@@ -100,11 +108,16 @@ public partial class SmokeTest : Node
             return;
         }
         Autopilot();
+        if (_finished)
+        {
+            return;
+        }
         Exercise(_frames);
 
         if (_main.Sync.Summary.Tick >= _targetTick && _main.Sync.Summary.RaidId == 0)
         {
-            Finish(CheckColony(out string colony) && CheckRaids(out colony) && CheckSaveLoad(out colony), colony);
+            Finish(CheckColony(out string colony) && CheckRaids(out colony) && CheckProgress(out colony) &&
+                   CheckSaveLoad(out colony), colony);
         }
     }
 
@@ -129,7 +142,7 @@ public partial class SmokeTest : Node
         _main.Combat.Step(config.MinutesPerTick);
         if (!GameClock.Instance.Advance(1))
         {
-            Finish(false, "core_tick failed");
+            Finish(false, TickFailure());
             return false;
         }
         if (_raidFrames > config.TicksPerDay * 2)
@@ -156,6 +169,28 @@ public partial class SmokeTest : Node
                 _raidsEnded++;
                 _totalKills += coreEvent.A;
                 GD.Print($"raid ended after {_raidFrames} ticks: killed {coreEvent.A}/{coreEvent.B}, stolen {coreEvent.C}, fallen {coreEvent.D}");
+                break;
+            case CoreEventType.RankUp:
+                _ranksGained++;
+                GD.Print($"rank up: {(Rank)coreEvent.A} (day {_main.Sync.Summary.Day})");
+                break;
+            case CoreEventType.ResearchStarted:
+                _researchStarted++;
+                GD.Print($"research started: {coreEvent.GetText()} (day {_main.Sync.Summary.Day})");
+                break;
+            case CoreEventType.ResearchDone:
+                _researchDone++;
+                GD.Print($"research done: {coreEvent.GetText()} (day {_main.Sync.Summary.Day})");
+                break;
+            case CoreEventType.TutorialStep:
+                _tutorialSteps++;
+                GD.Print($"tutorial: {(TutorialStep)coreEvent.A} done ({coreEvent.B}/{coreEvent.C}, day {_main.Sync.Summary.Day})");
+                break;
+            case CoreEventType.TutorialDone:
+                GD.Print($"tutorial: all objectives done, reward {coreEvent.A} gold {coreEvent.B} mana");
+                break;
+            case CoreEventType.Defeat:
+                GD.Print($"defeat: {(LoseReason)coreEvent.A} on day {coreEvent.B}");
                 break;
         }
     }
@@ -221,6 +256,14 @@ public partial class SmokeTest : Node
         if (_frames % 4 == 2)
         {
             Defend(summary);
+        }
+        if (_frames % 8 == 4)
+        {
+            Progress(summary);
+        }
+        if (_planIndex >= 6 && _frames % 16 == 6)
+        {
+            Grow(summary);
         }
         if (_planIndex >= Plan.Length || _frames % 2 != 0)
         {
@@ -348,6 +391,163 @@ public partial class SmokeTest : Node
         GD.Print($"autopilot: wall {left}+{right} cells, gate {gate} at {bestMiddle} toward {(Direction)summary.ThreatDirection} (day {summary.Day})");
     }
 
+    /// <summary>
+    /// 기본 계획(농장·집·벌목장·채집·채석)을 지은 뒤 이틀에 한 번: 겨울(농장이 쉬는 철)이 오기 전에 먹을 것이 모자라면 농장, 집이 꽉 차면 집,
+    /// 나무가 바닥이면 벌목장, 마을이 되면 마정석 광산 하나. 오래 돌리는 스모크 테스트(60일 등)가 겨울을 넘기게 합니다.
+    /// </summary>
+    private void Grow(in CoreSummaryView summary)
+    {
+        if (summary.RaidId != 0)
+        {
+            return;
+        }
+        int farms = CountOf(BuildingType.Farm);
+        int lumbers = CountOf(BuildingType.Lumber);
+        int population = summary.Population;
+        bool winter = summary.Season == CoreBridge.Instance.Config.SeasonsPerYear - 1;
+        BuildingType type;
+        if (!winter && summary.GetResource(ResourceKind.Food) < summary.WinterFoodNeed + population * 2 && farms < 2 + population / 3)
+        {
+            type = BuildingType.Farm;
+        }
+        else if (summary.GetResource(ResourceKind.Wood) < 20 && lumbers < 1 + population / 6)
+        {
+            type = BuildingType.Lumber;
+        }
+        else if (summary.Rank >= (int)Rank.Village && CountOf(BuildingType.ManaMine) == 0)
+        {
+            type = BuildingType.ManaMine;
+        }
+        else if (summary.Homeless > 0 || summary.HousingCapacity <= population)
+        {
+            type = BuildingType.House;
+        }
+        else
+        {
+            return;
+        }
+        Vector2I keep = new(summary.KeepX + summary.KeepSize / 2, summary.KeepY + summary.KeepSize / 2);
+        if (TryFindSpot(type, keep, out Vector2I spot) &&
+            CoreBridge.Instance.PlaceBuilding(type, spot, out int id, out PlaceResult placed).Ok && placed == PlaceResult.Ok)
+        {
+            _placed.Add(id);
+            GD.Print($"autopilot: {type} at {spot} (day {summary.Day}, grow)");
+        }
+    }
+
+    private void StaffMageTower()
+    {
+        foreach (CoreBuildingView tower in _main.Sync.Buildings)
+        {
+            if (tower.Type != (int)BuildingType.MageTower || tower.State != (int)BuildingState.Active || tower.Workers >= 1)
+            {
+                continue;
+            }
+            foreach (CoreVillagerView villager in _main.Sync.Villagers)
+            {
+                if (villager.Job == (int)BuildingType.Farm)
+                {
+                    CoreBridge.Instance.AssignWorker(villager.Id, tower.Id);
+                    GD.Print($"autopilot: villager {villager.Id} moved from a farm to the mage tower (day {_main.Sync.Summary.Day})");
+                    return;
+                }
+            }
+        }
+    }
+
+    private int CountOf(BuildingType type)
+    {
+        int count = 0;
+        foreach (CoreBuildingView building in _main.Sync.Buildings)
+        {
+            count += building.Type == (int)type ? 1 : 0;
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// 승급과 연구 (CLI 봇의 bot_progress 와 같은 생각): 조건이 차면 승급, 요새가 되면 마탑을 짓고
+    /// 가장 싼 연구를 시작합니다. 요새가 되기 전에는 연구가 "잠김"으로 거절되는지 한 번 확인합니다.
+    /// </summary>
+    private void Progress(in CoreSummaryView summary)
+    {
+        if (summary.RaidId != 0 || summary.Outcome != (int)Outcome.None)
+        {
+            return;
+        }
+        if (summary.RankReady != 0)
+        {
+            CoreResult result = CoreBridge.Instance.RankUp(out DenyReason why);
+            if (!result.Ok)
+            {
+                GD.Print($"autopilot: rank up refused ({why})");
+            }
+        }
+        CoreBridge core = CoreBridge.Instance;
+        if (!_lockedChecked && summary.Rank < (int)Rank.Fortress && core.TryGetResearch(0, out CoreResearchView first) &&
+            first.RequiredRank > summary.Rank && summary.ResearchActive < 0)
+        {
+            _lockedChecked = true;
+            core.StartResearch(0, out DenyReason locked);
+            GD.Print($"autopilot: research before the fortress -> {locked}");
+            if (locked != DenyReason.ResearchLocked)
+            {
+                Finish(false, $"research below its rank should be refused as locked, got {locked}");
+            }
+            return;
+        }
+        if (summary.Rank < (int)Rank.Fortress)
+        {
+            return;
+        }
+        if (CountOf(BuildingType.MageTower) == 0)
+        {
+            Vector2I keep = new(summary.KeepX + summary.KeepSize / 2, summary.KeepY + summary.KeepSize / 2);
+            if (TryFindSpot(BuildingType.MageTower, keep, out Vector2I spot) &&
+                core.PlaceBuilding(BuildingType.MageTower, spot, out int id, out PlaceResult placed).Ok && placed == PlaceResult.Ok)
+            {
+                _placed.Add(id);
+                GD.Print($"autopilot: MageTower at {spot} (day {summary.Day})");
+            }
+            return;
+        }
+        // 놀고 있는 주민만 저절로 일자리를 얻으므로, 먹을 것이 넉넉하면 농부 한 명을 마탑으로 옮깁니다 (CLI 봇의 bot_staff)
+        bool winter = summary.Season == core.Config.SeasonsPerYear - 1;
+        if (!winter && summary.GetResource(ResourceKind.Food) > summary.Population * 8)
+        {
+            StaffMageTower();
+        }
+        if (summary.ResearchActive >= 0)
+        {
+            return;
+        }
+        int cheapest = -1;
+        int cheapestCost = int.MaxValue;
+        for (int index = 0; core.TryGetResearch(index, out CoreResearchView research); index++)
+        {
+            int cost = research.CostGold + research.CostMana * 4;
+            if (research.State == (int)ResearchState.Available && cost < cheapestCost)
+            {
+                cheapest = index;
+                cheapestCost = cost;
+            }
+        }
+        if (cheapest >= 0 && core.TryGetResearch(cheapest, out CoreResearchView pick) &&
+            summary.GetResource(ResourceKind.Gold) >= pick.CostGold + 60 && summary.GetResource(ResourceKind.Mana) >= pick.CostMana)
+        {
+            core.StartResearch(cheapest, out _);
+        }
+    }
+
+    /// <summary>진행이 멈춘 까닭: 패배면 그 이유를, 아니면 core_tick 실패</summary>
+    private string TickFailure()
+    {
+        CoreBridge.Instance.TryGetSummary(out CoreSummaryView summary);
+        return summary.Outcome == (int)Outcome.Lost
+            ? $"the colony was defeated on day {summary.Day} ({(LoseReason)summary.LoseReason})"
+            : "core_tick failed";
+    }
+
     /// <summary>하루에 한 번: 부서진 건물 고치기, 겨울 준비가 모자라면 시장에서 사기, 넘치는 석재 팔기, 상인의 마정석 사기</summary>
     private void KeepUp(in CoreSummaryView summary)
     {
@@ -465,6 +665,17 @@ public partial class SmokeTest : Node
                 _main.Hud.Market.Toggle();
                 _main.Hud.Merchant.Toggle();
                 break;
+            case 15:
+                _main.Hud.Research.Toggle();
+                _main.Hud.Ranks.Toggle();
+                break;
+            case 0:
+                if (_main.Hud.Research.Visible)
+                {
+                    _main.Hud.Research.Toggle();
+                    _main.Hud.Ranks.Toggle();
+                }
+                break;
         }
     }
 
@@ -542,6 +753,45 @@ public partial class SmokeTest : Node
         if (active < minimum || summary.Population == 0)
         {
             reason = $"colony did not grow: {counts}";
+            return false;
+        }
+        reason = counts;
+        return true;
+    }
+
+    /// <summary>
+    /// 진행 검사: 튜토리얼 목표가 적어도 셋(농장·집·일꾼 배치) 채워지고, 요약의 비트와 알림 수가 맞아야 합니다.
+    /// 20일이면 마을로 한 번은 승급해야 합니다(인구 8, 기분 50, 방어 3, 공물 30금 5마정석).
+    /// </summary>
+    private bool CheckProgress(out string reason)
+    {
+        CoreSummaryView summary = _main.Sync.Summary;
+        int bits = 0;
+        for (int step = 0; step < (int)TutorialStep.Count; step++)
+        {
+            bits += (summary.TutorialDone >> step) & 1;
+        }
+        string counts = $"rank {(Rank)summary.Rank} (+{_ranksGained}), research {_researchDone}/{_researchStarted}," +
+                        $" tutorial {bits}/{(int)TutorialStep.Count}, defense {summary.Defense}";
+        GD.Print($"progress: {counts}");
+        if (bits != _tutorialSteps)
+        {
+            reason = $"tutorial bits ({bits}) do not match step events ({_tutorialSteps})";
+            return false;
+        }
+        if (LaunchOptions.Current.SmokeDays >= 6 && bits < 3)
+        {
+            reason = $"tutorial objectives did not progress: {counts}";
+            return false;
+        }
+        if (LaunchOptions.Current.SmokeDays >= 20 && _ranksGained == 0)
+        {
+            reason = $"no rank up in {LaunchOptions.Current.SmokeDays} days: {counts}";
+            return false;
+        }
+        if (summary.Rank != _ranksGained || summary.Outcome != (int)Outcome.None)
+        {
+            reason = $"rank or outcome out of step: {counts}, outcome {summary.Outcome}";
             return false;
         }
         reason = counts;

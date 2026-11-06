@@ -73,6 +73,7 @@ public partial class CombatDirector : Node2D
     private Node2D _projectileLayer = null!;
     private int _raidId;
     private int _gridRevision = -1;
+    private int _researchDone = -1; // 연구가 끝나면 건물 정의(감시탑·경비병·성채 공격)가 바뀌므로 다시 읽음
 
     public WorldSync Sync { get; set; } = null!;
     public Node2D? UnitsLayer { get; set; }
@@ -129,11 +130,17 @@ public partial class CombatDirector : Node2D
             defs.Add(def);
         }
         _enemyDefs = defs.ToArray();
+        ReloadBuildingDefs();
+        _gridRevision = -1;
+        _researchDone = -1;
+    }
+
+    private void ReloadBuildingDefs()
+    {
         for (int type = 0; type < _buildingDefs.Length; type++)
         {
             CoreBridge.Instance.TryGetBuildingDef((BuildingType)type, out _buildingDefs[type]);
         }
-        _gridRevision = -1;
     }
 
     private void Clear()
@@ -160,6 +167,11 @@ public partial class CombatDirector : Node2D
     public void OnRefreshed()
     {
         CoreBridge core = CoreBridge.Instance;
+        if (Sync.Summary.ResearchDone != _researchDone)
+        {
+            _researchDone = Sync.Summary.ResearchDone;
+            ReloadBuildingDefs(); // "날카로운 화살" 같은 연구가 공격 수치를 바꿈
+        }
         if (!core.TryGetRaid(out CoreRaidView raid) || raid.Id == 0)
         {
             if (_raidId != 0)
@@ -481,8 +493,8 @@ public partial class CombatDirector : Node2D
         {
             EnemyBehavior.Thief => canLoot,
             EnemyBehavior.Monster => canLoot || b.Type == (int)BuildingType.House,
-            // 성채는 체력 1 에서 버티므로 그 뒤로는 다른 건물을 부숨
-            _ => b.Type != (int)BuildingType.Keep || b.Hp > 1,
+            // 병사는 무엇이든 부숨 (성채가 무너지면 패배)
+            _ => true,
         };
     }
 

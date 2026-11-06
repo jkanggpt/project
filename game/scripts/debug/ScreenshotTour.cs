@@ -80,6 +80,14 @@ public partial class ScreenshotTour : Node
             _main.Hud.Villagers.Toggle();
             _main.Tools.Select(0, 0);
 
+            // 등급 창(다음 등급 "마을"의 조건)과 연구 창(요새부터 풀리는 연구는 잠김)
+            _main.Hud.Ranks.Toggle();
+            await Capture("17_rank_panel");
+            _main.Hud.Ranks.Toggle();
+            _main.Hud.Research.Open();
+            await Capture("18_research_panel");
+            _main.Hud.Research.Toggle();
+
             await AdvanceTo(19 * 60 + 40);
             await Capture("06_dusk_zoom2");
 
@@ -160,6 +168,21 @@ public partial class ScreenshotTour : Node
             GameClock.Instance.SetSpeed(0);
             await Capture("14_paused");
             GameClock.Instance.SetSpeed(1);
+
+            // 승리·패배 화면 미리 보기: 지금까지의 기록에 결과만 바꿔 넣음 (C 의 상태는 바꾸지 않음)
+            if (CoreBridge.Instance.TryGetRunStats(out CoreRunStatsView stats))
+            {
+                stats.Outcome = (int)Outcome.Won;
+                stats.Rank = (int)Rank.Royal;
+                stats.VictoryDay = stats.Days;
+                _main.Hud.Outcome.Present(stats);
+                await Capture("19_victory_preview");
+                stats.Outcome = (int)Outcome.Lost;
+                stats.LoseReason = (int)LoseReason.Keep;
+                _main.Hud.Outcome.Present(stats);
+                await Capture("20_defeat_preview");
+                _main.Hud.Outcome.Visible = false;
+            }
         }
         catch (Exception exception)
         {
