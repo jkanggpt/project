@@ -813,7 +813,6 @@ public static class Strings
 
     public static string EnemyTooltip(int type, int hp, int maxHp) => $"{EnemyName(type)} — 체력 {hp}/{maxHp}";
 
-    public const string SaveBlockedRaid = "습격 중에는 저장할 수 없습니다.";
 
     private static string? StoryText(string name, Story story, int value) => story switch
     {
@@ -824,6 +823,115 @@ public static class Strings
     };
 
     public static string Produced(int resource, int amount) => $"+{amount} {ResourceName(resource)}";
+
+    // ---- 제목 화면, 새 게임, 세이브 슬롯, 일시정지, 설정 (마일스톤 6) ----
+    public const string GameSubtitle = "폐허가 된 언덕 위 성채를 왕성으로";
+    public const string TitleContinue = "이어하기";
+    public const string TitleNewGame = "새 게임";
+    public const string TitleLoad = "불러오기";
+    public const string TitleSettings = "설정";
+    public const string TitleQuit = "종료";
+    public const string TitleNoSave = "아직 저장한 게임이 없습니다";
+    public const string TitleCredits = "그림·소리: Kenney (CC0) · 글꼴: Galmuri (OFL)";
+    public static string TitleContinueInfo(in SlotInfo slot) =>
+        $"{SlotName(slot.Slot)} · {SaveSummary(slot.Ok ? slot.Info : slot.Backup)}" + (slot.OnlyBackup ? " (예비 파일)" : "");
+
+    public const string NewGameTitle = "새 게임";
+    public const string NewGameName = "성채 이름";
+    public const string NewGameNameInvalid = "쓸 수 없는 이름입니다 (한글 15자쯤까지, 줄바꿈 없이)";
+    public const string NewGameSeed = "지도 시드";
+    public const string NewGameSeedHint = "비우면 무작위";
+    public const string NewGameSeedRandom = "무작위";
+    public const string NewGameSeedInvalid = "시드는 0 부터 2147483647 사이의 숫자입니다";
+    public const string NewGameDifficulty = "난이도";
+    public const string NewGameStart = "시작";
+    public const string Cancel = "취소";
+    private static readonly string[] DifficultyBlurbs =
+    {
+        "처음 영주가 된 사람에게. 습격이 약하고 드물며 시작 자원이 넉넉합니다.",
+        "기본 난이도. 계절과 습격이 고르게 압박합니다.",
+        "도전하는 영주에게. 습격이 세고 잦으며 자원이 빠듯합니다.",
+    };
+    public static string DifficultyText(in CoreDifficultyView view) =>
+        Pick(DifficultyBlurbs, view.Difficulty) + "\n" +
+        $"시작 주민 {view.StartVillagers}명 · 금화 {view.GetStart(ResourceKind.Gold)} · 마정석 {view.GetStart(ResourceKind.Mana)} · " +
+        $"습격 세기 {view.RaidStrengthPct}% · 습격 간격 {view.RaidIntervalPct}% · 자연 사건 {view.NaturePct}% · 공물 {view.TributePct}%";
+
+    public const string SaveDialogTitle = "저장하기";
+    public const string LoadDialogTitle = "불러오기";
+    public const string AutosaveName = "자동 저장";
+    public static string SlotName(int slot) => slot == SaveSlots.AutosaveSlot ? AutosaveName : $"슬롯 {slot}";
+    public static string SaveSummary(in CoreSaveInfoView info) =>
+        $"{info.GetCastleName()} — {info.Year}년 {SeasonName(info.Season)}, {info.Day}일째 {Clock(info.MinuteOfDay)} · " +
+        $"{RankName(info.Rank)} · 주민 {info.Population}명 · {DifficultyName(info.Difficulty)}" +
+        (info.Outcome == (int)Outcome.Won ? " · 승리" : info.Outcome == (int)Outcome.Lost ? " · 패배" : "");
+    public static string SlotLine(in SlotInfo slot)
+    {
+        string name = SlotName(slot.Slot);
+        if (!slot.Exists)
+        {
+            return $"{name}\n비어 있음";
+        }
+        string when = SaveSlots.LocalTime(slot.ModifiedUnix);
+        if (slot.Ok)
+        {
+            return $"{name} · {when}\n{SaveSummary(slot.Info)}";
+        }
+        string problem = SaveProblem(slot.Info);
+        return slot.BackupOk
+            ? $"{name} · {problem}\n예비 파일: {SaveSummary(slot.Backup)}"
+            : $"{name} · {problem}\n불러올 수 없습니다";
+    }
+    public static string SaveProblem(in CoreSaveInfoView info) => (CoreResultCode)info.Result switch
+    {
+        CoreResultCode.Version => $"다른 버전의 세이브 (형식 {info.Version}, 이 게임은 {CoreSaveVersion})",
+        CoreResultCode.Format => info.ErrorLine > 0 ? $"망가진 세이브 ({info.ErrorLine}번째 줄)" : "망가진 세이브",
+        _ => ResultMessage((CoreResultCode)info.Result),
+    };
+    /// <summary>C 의 CORE_SAVE_VERSION (세이브 형식). 다른 버전 안내에만 씀</summary>
+    public const int CoreSaveVersion = 5;
+    public static string ConfirmOverwrite(in SlotInfo slot) =>
+        $"{SlotName(slot.Slot)}에 저장된 게임 위에 저장할까요?\n{(slot.Ok ? SaveSummary(slot.Info) : SaveProblem(slot.Info))}";
+    public static string ConfirmBackup(in SlotInfo slot) =>
+        $"{SlotName(slot.Slot)}의 세이브가 망가졌습니다 ({SaveProblem(slot.Info)}).\n" +
+        $"그 전에 저장한 예비 파일(.bak)로 불러올까요?\n{SaveSummary(slot.Backup)}";
+    public const string ConfirmLoseProgress = "저장하지 않은 진행은 사라집니다. 불러올까요?";
+    public static string Saved(int slot) => $"{SlotName(slot)}에 저장했습니다";
+    public static string SaveFailed(CoreResult result) => $"저장하지 못했습니다: {result.Message}";
+    public static string Loaded(int slot, bool backup) => $"{SlotName(slot)}{(backup ? "의 예비 파일" : "")}에서 불러왔습니다";
+    public static string LoadFailed(CoreResult result, int line) =>
+        $"불러오지 못했습니다: {result.Message}" + (line > 0 ? $" ({line}번째 줄)" : "");
+    public const string SaveBlockedRaid = "습격 중에는 저장할 수 없습니다. 습격이 끝나면 저장하세요 (자동 저장도 그때 합니다).";
+    public const string Autosaved = "자동 저장";
+    public const string YesButton = "예";
+    public const string NoButton = "아니오";
+    public const string OkButton = "확인";
+
+    public const string PauseTitle = "일시정지";
+    public const string PauseResume = "계속하기";
+    public const string PauseSave = "저장하기";
+    public const string PauseLoad = "불러오기";
+    public const string PauseSettings = "설정";
+    public const string PauseToTitle = "제목 화면으로";
+    public const string PauseQuit = "게임 종료";
+    public static string LastSave(int day, int minute, int slot) =>
+        $"마지막 저장: {day}일째 {Clock(minute)} ({SlotName(slot)})";
+    public const string NoSaveYet = "아직 저장하지 않았습니다";
+    public const string QuitAutosaveNote = "제목 화면으로 가거나 끝낼 때 자동 저장합니다.";
+    public const string ConfirmQuitInRaid = "습격 중이라 저장할 수 없습니다.\n마지막 저장 뒤의 진행은 사라집니다. 그래도 나갈까요?";
+    public const string MenuButton = "메뉴";
+    public const string MenuButtonTooltip = "일시정지 메뉴: 저장, 불러오기, 설정, 제목 화면 (Esc)";
+
+    public const string SettingsTitle = "설정";
+    public const string SettingsMaster = "전체 음량";
+    public const string SettingsMusic = "음악";
+    public const string SettingsSfx = "효과음";
+    public const string SettingsMusicNote = "음악은 아직 없습니다 (자리만 있음)";
+    public const string SettingsUiScale = "UI 크기";
+    public const string SettingsUiAuto = "자동 (창 크기에 맞춤)";
+    public static string SettingsUiFixed(int scale) => $"{scale}배";
+    public const string SettingsFullscreen = "전체 화면";
+    public const string SettingsEdgeScroll = "화면 가장자리로 카메라 이동";
 
     // ---- 오류 코드 → 문장 ----
     public static string ResultMessage(CoreResultCode code) => code switch

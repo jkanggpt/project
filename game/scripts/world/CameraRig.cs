@@ -23,6 +23,9 @@ public partial class CameraRig : Camera2D
     /// <summary>화면 가장자리에 마우스를 대면 스크롤 (설정에서 끌 수 있게 될 예정)</summary>
     public bool EdgeScrollEnabled { get; set; } = true;
 
+    /// <summary>메뉴가 열려 있으면 꺼서 키보드·가장자리·휠로 카메라가 움직이지 않게 합니다</summary>
+    public bool InputEnabled { get; set; } = true;
+
     public override void _Ready()
     {
         // 일시정지 중에도 둘러볼 수 있어야 합니다
@@ -79,6 +82,11 @@ public partial class CameraRig : Camera2D
                 Offset = Vector2.Zero;
             }
         }
+        if (!InputEnabled)
+        {
+            _dragging = false;
+            return;
+        }
         Vector2 direction = Input.GetVector("camera_left", "camera_right", "camera_up", "camera_down");
         if (EdgeScrollEnabled && DisplayServer.WindowIsFocused())
         {
@@ -93,6 +101,10 @@ public partial class CameraRig : Camera2D
 
     public override void _UnhandledInput(InputEvent inputEvent)
     {
+        if (!InputEnabled)
+        {
+            return;
+        }
         switch (inputEvent)
         {
             case InputEventMouseButton { ButtonIndex: MouseButton.WheelUp, Pressed: true } wheel:

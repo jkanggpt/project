@@ -40,7 +40,7 @@ public enum CoreStatus
 public partial class CoreBridge : Node
 {
     /// <summary>C 의 CORE_ABI_VERSION 과 같아야 합니다.</summary>
-    public const int ExpectedAbiVersion = 5;
+    public const int ExpectedAbiVersion = 6;
 
     /// <summary>정의 파일 (순서는 DataFile)</summary>
     private static readonly string[] DataFiles = { "res://data/buildings.def", "res://data/traits.def", "res://data/names.txt", "res://data/enemies.def",
@@ -98,7 +98,9 @@ public partial class CoreBridge : Node
 
     public override void _Notification(int what)
     {
-        if (what == NotificationPredelete || what == NotificationWMCloseRequest)
+        // 창 닫기(WMCloseRequest)에서는 해제하지 않습니다: 자동 로드라 Main 보다 먼저 알림을 받는데,
+        // Main 이 그때 자동 저장을 해야 하기 때문입니다. 실제로 끝날 때 _ExitTree 에서 해제합니다.
+        if (what == NotificationPredelete)
         {
             DestroyWorld();
         }
@@ -219,6 +221,7 @@ public partial class CoreBridge : Node
         Compare("CoreRankView", sizes.RankView, Marshal.SizeOf<CoreRankView>(), problems);
         Compare("CoreRunStatsView", sizes.RunStatsView, Marshal.SizeOf<CoreRunStatsView>(), problems);
         Compare("CoreDifficultyView", sizes.DifficultyView, Marshal.SizeOf<CoreDifficultyView>(), problems);
+        Compare("CoreSaveInfoView", sizes.SaveInfoView, Marshal.SizeOf<CoreSaveInfoView>(), problems);
         detail = string.Join("; ", problems);
         return problems.Count == 0;
     }
@@ -805,6 +808,27 @@ public partial class CoreBridge : Node
             _world = loaded;
         }
         return result;
+    }
+
+    /// <summary>
+    /// 세이브 파일의 요약 (슬롯 목록). 파일 전체를 C 가 실제로 불러와 검사한 뒤 바로 해제하므로,
+    /// Ok 이면 그 파일은 불러올 수 있습니다. 지금 월드는 건드리지 않습니다.
+    /// </summary>
+    public CoreSaveInfoView PeekSave(string path)
+    {
+        if (Status != CoreStatus.Ready)
+        {
+            return new CoreSaveInfoView { Result = (int)CoreResultCode.InvalidArg };
+        }
+        string absolute = ProjectSettings.GlobalizePath(path);
+        Native.core_peek_save(Utf8Text.ToNullTerminated(absolute), _defs, out CoreSaveInfoView info);
+        return info;
+    }
+
+    /// <summary>성채 이름으로 쓸 수 있는지 (C 의 규칙: UTF-8 47바이트까지, 제어 문자 없음)</summary>
+    public bool IsValidCastleName(string name)
+    {
+        return Status == CoreStatus.Ready && Native.core_check_castle_name(Utf8Text.ToNullTerminated(name)) == (int)CoreResultCode.Ok;
     }
 
     // ---- 디버그 ----------------------------------------------------------

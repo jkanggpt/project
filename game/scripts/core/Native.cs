@@ -485,6 +485,7 @@ public struct CoreStructSizes
     public int RankView;
     public int RunStatsView;
     public int DifficultyView;
+    public int SaveInfoView;
 }
 
 /// <summary>적 정의 (data/enemies.def)</summary>
@@ -613,6 +614,38 @@ public struct CoreRunStatsView
     public int Outcome;
     public int LoseReason;
     public int VictoryDay;
+}
+
+/// <summary>세이브 파일 하나의 요약 (core_peek_save, 슬롯 목록·이어하기)</summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct CoreSaveInfoView
+{
+    /// <summary>불러오기 결과 (CoreResultCode). Ok 일 때만 아래 값이 채워집니다</summary>
+    public int Result;
+    public int ErrorLine;
+    /// <summary>첫 줄의 세이브 버전 (못 읽으면 0)</summary>
+    public int Version;
+    public int Seed;
+    public int Difficulty;
+    public int Tick;
+    public int Day;
+    public int Year;
+    public int Season;
+    public int MinuteOfDay;
+    public int Rank;
+    public int Population;
+    public int Outcome;
+    public fixed byte CastleName[CoreNewGameParams.NameBytes];
+
+    public readonly bool Ok => Result == (int)CoreResultCode.Ok;
+
+    public readonly string GetCastleName()
+    {
+        fixed (byte* buffer = CastleName)
+        {
+            return Utf8Text.Read(new ReadOnlySpan<byte>(buffer, CoreNewGameParams.NameBytes));
+        }
+    }
 }
 
 /// <summary>난이도 하나의 설정 (core_get_difficulty)</summary>
@@ -814,6 +847,8 @@ internal static class Native
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_poll_event(IntPtr world, out CoreEventView coreEvent);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_save(IntPtr world, byte[] pathUtf8);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_load(byte[] pathUtf8, IntPtr defs, out IntPtr world, out int errorLine);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_peek_save(byte[] pathUtf8, IntPtr defs, out CoreSaveInfoView info);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_check_castle_name(byte[] nameUtf8);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_validate(IntPtr world);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_state_hash(IntPtr world, out ulong hash);
 }

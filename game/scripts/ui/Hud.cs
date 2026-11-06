@@ -39,6 +39,8 @@ public partial class Hud : CanvasLayer
     private Button _researchButton = null!;
     private PanelContainer _hint = null!;
     private Label _hintLabel = null!;
+    private Label _saved = null!;
+    private Tween? _savedTween;
     private Control _fatal = null!;
     private Label _fatalMessage = null!;
     private Label _fatalDetail = null!;
@@ -53,6 +55,10 @@ public partial class Hud : CanvasLayer
     public RankPanel Ranks { get; private set; } = null!;
     public TutorialPanel Tutorial { get; private set; } = null!;
     public OutcomePanel Outcome { get; private set; } = null!;
+
+    /// <summary>위쪽 막대의 "메뉴" 단추 (일시정지 메뉴)</summary>
+    [Signal]
+    public delegate void MenuRequestedEventHandler();
 
     public override void _Ready()
     {
@@ -71,6 +77,7 @@ public partial class Hud : CanvasLayer
         GetNode<Label>("Root/Fatal/Box/Title").Text = Strings.FatalTitle;
 
         BuildSpeedButtons(GetNode<HBoxContainer>("Root/TopBar/Row/Left/Speed"));
+        BuildMenuButton(GetNode<HBoxContainer>("Root/TopBar/Row/Left"));
         BuildStatus(GetNode<Control>("Root/TopBar/Row"));
         BuildResourceLabels();
         BuildPanels();
@@ -120,6 +127,44 @@ public partial class Hud : CanvasLayer
             return;
         }
         GetViewport().SetInputAsHandled();
+    }
+
+    /// <summary>맨 왼쪽의 "메뉴" 단추와, 시각 옆에 잠깐 떴다 사라지는 "자동 저장" 표시</summary>
+    private void BuildMenuButton(HBoxContainer left)
+    {
+        var menu = new Button { Text = Strings.MenuButton, TooltipText = Strings.MenuButtonTooltip, FocusMode = Control.FocusModeEnum.None };
+        menu.Pressed += () => EmitSignal(SignalName.MenuRequested);
+        left.AddChild(menu);
+        left.MoveChild(menu, 0);
+        _saved = new Label { Text = Strings.Autosaved, Modulate = new Color(0.7f, 1f, 0.7f, 0f), MouseFilter = Control.MouseFilterEnum.Ignore };
+        left.AddChild(_saved);
+        left.MoveChild(_saved, left.GetNode("Clock").GetIndex() + 1);
+    }
+
+    /// <summary>저장했다는 표시를 잠깐 보여 줍니다 (자동 저장마다 알림을 쌓지 않으려고)</summary>
+    public void FlashSaved(string text)
+    {
+        _saved.Text = text;
+        _savedTween?.Kill();
+        _saved.Modulate = new Color(0.7f, 1f, 0.7f, 1f);
+        _savedTween = CreateTween();
+        _savedTween.SetPauseMode(Tween.TweenPauseMode.Process);
+        _savedTween.TweenInterval(2.0);
+        _savedTween.TweenProperty(_saved, "modulate:a", 0.0f, 1.0);
+    }
+
+    /// <summary>Esc: 열려 있는 창(주민 목록·시장·상인·연구·등급) 하나를 닫습니다. 닫았으면 true</summary>
+    public bool CloseOpenPanel()
+    {
+        foreach (Control panel in new Control[] { Research, Ranks, Market, Merchant, Villagers })
+        {
+            if (panel.Visible)
+            {
+                panel.Visible = false;
+                return true;
+            }
+        }
+        return false;
     }
 
     private void BuildSpeedButtons(HBoxContainer container)
