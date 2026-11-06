@@ -147,9 +147,17 @@ public partial class Main : Node2D
             RebuildWorldView();
             ShowTitle();
         }
-        foreach (string warning in core.DataWarnings)
+        // 정의 파일 경고(학생이 고친 .def 에 틀린 줄): 게임 중이면 알림, 제목 화면이면 HUD 가 숨어 있으므로 창으로
+        if (InGame)
         {
-            Hud.ShowToast(warning);
+            foreach (string warning in core.DataWarnings)
+            {
+                Hud.ShowToast(warning);
+            }
+        }
+        else if (core.DataWarnings.Count > 0)
+        {
+            Menus.Confirm.Tell(string.Join("\n", core.DataWarnings));
         }
     }
 

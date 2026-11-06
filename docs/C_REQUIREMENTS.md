@@ -1,7 +1,7 @@
 # C 요구사항 대응표
 
 고급프로그래밍 과제의 C 요구사항(`docs/SPEC.md` §1.1)이 **어느 파일의 어느 함수**에서, **어떤 게임 기능**으로 쓰이는지 정리한 표입니다.
-마일스톤마다 갱신합니다. (지금: 마일스톤 5 끝)
+마일스톤마다 갱신합니다. (지금: 마일스톤 6 끝)
 
 ## 한눈에 보기
 
@@ -12,8 +12,8 @@
 | 사용자 정의 함수 10개 이상 | 코어 약 470개, CLI 약 140개 | 모듈마다 한 가지 역할 |
 | 함수 포인터 | `research.c:RESEARCH_EFFECTS[]`, `tutorial.c:TUTORIAL_CHECKS[]`, `threat.c:THREAT_KINDS[]`, `nature.c:NATURE_EVENTS[]`, `villager_ai.c:STATE_TABLE[]`, `jobs.c:JOB_TABLE[]`, `defs.c:SECTION_PARSERS[]`, `save.c:SECTIONS[]`, `cli/commands.c:COMMANDS[]` | 연구 효과, 튜토리얼 목표 확인, 위협 종류별 세기·습격 구성, 자연 사건, 주민 행동, 직업별 생산, 정의 파일·세이브 해석, CLI 메뉴 |
 | 동적 메모리 | `entity.c:entity_add_villager`·`reserve_slot`·`insert_sorted`, `threat.c:reserve_enemies`, `defs.c:add_research`, `grid.c:grid_alloc`, `events.c:grow` | 늘었다 줄었다 하는 주민·건물 목록, 일꾼·거주민 배열, 습격마다 수가 다른 적 목록, 정의 파일이 정하는 연구 목록, 지도, 이벤트 큐 |
-| 파일 입출력 | `save.c:save_write`/`save_read`, `api.c:core_defs_load_file`, `defs.c:defs_write_file` | 저장 → 껐다 켜기 → 이어하기 (날씨·사건·시장 가격·상인·위협 예고·연구·등급·승패까지), 건물·특성·이름·적·연구·등급 정의 파일 |
-| 오류 처리 | `save.c:save_read`, `defs.c:defs_load_text`, `market.c:market_trade`, `threat.c:threat_report_*`, `research.c:research_start`, `rank.c:rank_up`, `cli/console.c:read_int`, 모든 `mem_*` 호출 | 파일 없음, 망가진 정의 파일, 할 수 없는 거래·수리·연구·승급(이유 코드), 늦게 온 습격 보고, 습격 중 저장, 패배 뒤 진행, 잘못된 입력, 메모리 부족 |
+| 파일 입출력 | `save.c:save_write`/`save_read`, `api.c:core_defs_load_file`, `defs.c:defs_write_file` | 저장 → 껐다 켜기 → 이어하기 (날씨·사건·시장 가격·상인·위협 예고·연구·등급·승패까지), 슬롯 셋 + 자동 저장과 목록 요약(`core_peek_save`), 건물·특성·이름·적·연구·등급 정의 파일 |
+| 오류 처리 | `save.c:save_read`, `defs.c:defs_load_text`, `market.c:market_trade`, `threat.c:threat_report_*`, `research.c:research_start`, `rank.c:rank_up`, `cli/console.c:read_int`, 모든 `mem_*` 호출 | 파일 없음, 망가진 세이브(→ 예비 파일 `.bak` 제안)·다른 버전의 세이브, 망가진 정의 파일, 할 수 없는 거래·수리·연구·승급(이유 코드), 늦게 온 습격 보고, 습격 중 저장, 패배 뒤 진행, 잘못된 입력, 메모리 부족 |
 
 ## 1. 구조체 (서로 다른 목적 2개 이상, 포함·참조 관계)
 
@@ -157,14 +157,16 @@
 | --- | --- |
 | `save.c:save_write` | 텍스트 세이브를 `<경로>.tmp` 에 쓰고, 예전 파일을 `<경로>.bak` 으로 복사한 뒤, 한 번에 바꿔치기 |
 | `save.c:save_read` | 한 줄씩 읽어 섹션별 해석 함수로 보내고, 값의 범위와 불변 조건을 모두 검사. 주민·건물은 id 로 읽어 `relink` 로 포인터를 다시 연결 |
+| `save.c:save_peek_version` | 첫 줄만 읽어 세이브 형식 번호를 알아냄 (다른 버전의 세이브라고 알려 주려고) |
+| `api.c:core_peek_save` | 슬롯 목록용 요약: `save_read` 로 **파일 전체를 실제로 불러와 검사**한 뒤 이름·날짜·등급·주민·난이도·승패·틱만 `CoreSaveInfoView` 에 남기고 월드를 바로 해제. 실패하면 결과 코드와 줄 번호 |
 | `api.c:core_defs_load_file` | `game/data/buildings.def`, `traits.def`, `names.txt`, `enemies.def`, `research.def`, `ranks.def` 를 읽음. 틀린 줄이 있으면 **그 파일 전체를 기본값으로** 두고 파일·줄 번호로 경고 |
 | `defs.c:defs_write_file` | 내장 기본값을 정의 파일로 씀 (`castle_cli --dump-defs game/data`) |
 | `platform.c:platform_fopen_utf8` | Windows 에서 한글 경로를 `_wfopen` 으로 엶 |
 | `platform.c:platform_replace_file` | Windows 는 `MoveFileExW(REPLACE_EXISTING)`, 그 밖은 `rename` |
 
 세이브 v5 는 `[threat]` 섹션에 예고된 위협과 습격 번호를, `[research]` 에 끝낸 연구(번호가 아니라 **키**로: 정의 파일 순서가 바뀌어도 맞게)와 진행 중인 연구를, `[progress]` 에 등급 알림·승패·튜토리얼·한 판의 기록을 씁니다. `[research]` 는 건물보다 먼저 와야 합니다(연구가 성벽 최대 체력 등을 바꾸므로). **습격 중에는 저장하지 않습니다** (`core_save` 가 `CORE_ERR_REJECTED`): 싸움의 실시간 상태(적의 위치)는 Godot 의 것이라 C 가 저장할 수 없기 때문입니다.
-게임 기능: CLI 메뉴 "저장하기"/"불러오기", `castle_cli --load <파일>`, Godot 스모크 테스트의 저장→불러오기 해시 비교. 세이브 메뉴 UI 는 마일스톤 6.
-확인하는 테스트: `save_roundtrip_same_hash`, `save_roundtrip_colony`(주민·건물·연결까지), `save_roundtrip_world_pressure`(사건·예보·상인·가격·병까지), `threat_save_roundtrip`(위협 예고까지), `research_effects_and_save`(연구 효과와 진행까지), `save_keeps_backup`, `save_korean_path`(Windows CI 포함), `defs_builtin_roundtrip`, `cli_menu_script`.
+게임 기능 (마일스톤 6): Godot 의 세이브 슬롯 셋(`user://saves/slot1~3.sav`)과 자동 저장(`autosave.sav`: 하루가 시작될 때, 습격 중이면 끝난 뒤, 제목 화면으로 가거나 끝낼 때), 제목 화면의 "이어하기"(가장 최근 세이브), 불러오기 창의 요약 목록. 망가진 슬롯은 예비 파일(`.bak`, 그 전 저장)을 제안하고, 다른 버전의 세이브는 형식 번호를 보여 주며 막습니다. CLI 메뉴 "불러오기"도 요약을 먼저 보여 주고 망가졌으면 `.bak` 을 묻습니다. 파일을 쓰고 읽고 검사하는 일은 모두 C 가 하고, Godot 은 슬롯 번호를 경로로 바꿀 뿐입니다.
+확인하는 테스트: `save_peek_summarizes_slot`, `save_peek_broken_offers_backup`(잘린 세이브·`.bak`·다른 버전), `save_roundtrip_same_hash`, `save_roundtrip_colony`(주민·건물·연결까지), `save_roundtrip_world_pressure`(사건·예보·상인·가격·병까지), `threat_save_roundtrip`(위협 예고까지), `research_effects_and_save`(연구 효과와 진행까지), `save_keeps_backup`, `save_korean_path`(Windows CI 포함), `defs_builtin_roundtrip`, `cli_menu_script`(두 번째 실행에서 잘린 세이브 → `.bak` 로 불러오기), Godot 스모크 테스트(슬롯 저장 → 제목 화면 → 이어하기 해시 비교, 잘린 슬롯 → 예비 파일, 자동 저장 횟수).
 
 ## 7. 오류 처리
 
@@ -172,6 +174,8 @@
 | --- | --- | --- | --- |
 | 파일 열기 실패 | `save.c:save_read`, `save_write` | `CORE_ERR_FILE_OPEN` 반환, CLI 는 "파일을 열 수 없습니다" 출력 | `load_missing_file`, `save_refuses_invalid_world`, `cli_menu_script` |
 | 망가진 세이브 | `save.c` 의 모든 해석 함수 | `CORE_ERR_FORMAT`/`CORE_ERR_VERSION` + 문제 줄 번호, 반쯤 읽은 월드는 모두 해제 | `load_truncated_files`, `load_garbled_files`, `load_rejects_bad_values`, `load_wrong_version` |
+| 망가진 세이브를 고르면 | `api.c:core_peek_save`, `cli/commands.c:cmd_load`, Godot `SlotDialog`·`Main.ContinueLatest` | 목록에 "망가진 세이브 (N번째 줄)", 예비 파일이 멀쩡하면 "예비 파일로 불러올까요?", 다른 버전이면 "형식 4, 이 게임은 5" 로 막음. 실패하면 하던 게임은 그대로 | `save_peek_broken_offers_backup`, `cli_menu_script`, Godot 스모크 테스트 |
+| 쓸 수 없는 성채 이름 | `api.c:core_check_castle_name` (`world_name_is_valid`) | 새 게임 창이 입력할 때마다 검사해 시작 단추를 끄고 이유를 보여 줌, CLI 는 다시 물음 | `castle_name_check` |
 | 망가진 정의 파일 | `defs.c:defs_load_text` | 그 파일은 기본값으로, 나머지 파일은 그대로. 경고(파일·줄)를 Godot 알림과 CLI 에 보여 줌 | `defs_errors_keep_defaults` |
 | 지을 수 없는 자리, 돈 부족, 길을 막는 건물 | `placement.c:placement_check` | 이유 코드(`CORE_PLACE_*`)를 돌려주고 아무것도 바꾸지 않음. Godot 은 미리보기를 빨갛게 하고 이유를 보여 줌 | `placement_rules`, `placement_roads_and_paths` |
 | 늦게 온 걷기 보고 | `villager_ai.c:vil_arrived` | 주민의 의도가 그사이 바뀌었으면 `CORE_IGNORED` 로 무시 | `villager_handshake_stale_rev` |

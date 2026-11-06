@@ -89,3 +89,15 @@
 | `game/scripts/ui/ResearchPanel.cs`, `RankPanel.cs`, `TutorialPanel.cs`, `OutcomePanel.cs` | 연구 창, 등급 창, 처음 목표 목록, 승리·패배 화면 | 생성 |
 | `game/scripts/` core/Native, core/CoreBridge, ui/Hud, ui/Inspector, ui/Strings, ui/Toasts, world/CombatDirector, world/EnemyAgent, Main, debug/LaunchOptions, debug/SmokeTest, debug/ScreenshotTour | ABI 5, 등급·연구 단추, 결과 화면과 새 게임, `--difficulty`, 연구 뒤 전투 수치 다시 읽기, 같은 알림 합치기, 자동 조종의 승급·연구, 새 스크린숏 | 수정 |
 | `docs/*.md`, `README.md`, `PROGRESS.md`, `CLAUDE.md` | 문서 | 수정 |
+
+## 마일스톤 6 — 저장과 메뉴 (2026-11-06)
+
+| 파일 / 폴더 | 내용 | 종류 |
+| --- | --- | --- |
+| `core/include/castle_core.h`, `core/src/api.c`, `core/src/save.c`, `core/src/save.h` | ABI 6: 세이브 요약 뷰와 `core_peek_save`, `core_check_castle_name`, `save_peek_version`, `CORE_SAVE_VERSION` | 수정 |
+| `cli/commands.c`, `cli/format.c`, `cli/format.h` | 불러오기 전에 요약을 보여 주고 망가졌으면 예비 파일 제안, 새 게임 이름 검사 | 수정 |
+| `tests/test_save.c`, `tests/test_api.c`, `tests/test_list.h`, `tests/cli_menu_input.txt`, `tests/run_cli_script.cmake` | 요약·망가진 세이브와 예비 파일·다른 버전·이름 검사 테스트 3개, CLI 스크립트의 잘린 세이브 실행 | 수정 |
+| `game/scripts/core/GameSettings.cs`, `game/scripts/core/SaveSlots.cs` | 설정 파일, 세이브 슬롯 경로·요약·이어하기 | 생성 |
+| `game/scripts/ui/MenuLayer.cs`, `MenuParts.cs`, `TitleScreen.cs`, `PauseMenu.cs`, `NewGameDialog.cs`, `SlotDialog.cs`, `SettingsPanel.cs` | 제목 화면, 일시정지 메뉴, 새 게임 창, 저장·불러오기 창, 설정 창, 확인 창 | 생성 |
+| `game/scripts/` Main, core/Native, core/CoreBridge, ui/Hud, ui/Strings, world/CameraRig, debug/SmokeTest, debug/ScreenshotTour | 한 판의 흐름(제목 → 게임 → 저장·불러오기), 자동 저장, ABI 6, 메뉴 단추·자동 저장 표시, 메뉴 중 카메라 입력 끄기, 저장 흐름 검사, 메뉴 스크린숏 | 수정 |
+| `docs/*.md`, `README.md`, `PROGRESS.md`, `CLAUDE.md` | 문서 | 수정 |

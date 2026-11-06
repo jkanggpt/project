@@ -27,7 +27,7 @@ Run from the repository root. Presets live in `CMakePresets.json`.
 - Build C#: `dotnet build game/MagicCastle.csproj` (warnings-as-errors check: `-c ExportRelease`)
 - Import assets (needed once per fresh clone): `godot --headless --path game --import`
 - Godot headless smoke test (builds core + C#, imports, runs N days): `tools/smoke_test.sh 20` (longer runs reach the fortress and research: `godot --headless --path game -- --smoke-test --days 60 --seed 42` after the script has built everything once)
-- Godot with a difficulty: `godot --path game -- --difficulty peaceful|normal|harsh`
+- Godot with a difficulty: `godot --path game -- --difficulty peaceful|normal|harsh` (a plain run opens the title screen; automated runs skip it, start a game directly, and keep their saves in `user://saves_automated`, never the students' `user://saves`)
 - Screenshots under Xvfb (to `artifacts/screenshots/`): `tools/screenshots.sh [seed] [WxH]`
 - Regenerate all art (terrain, buildings, villagers, icons, roads) from the Kenney packs: `python3 tools/make_art.py`
 - Windows (students): `cmake --preset windows-msvc && cmake --build --preset windows-msvc && ctest --preset windows-msvc`

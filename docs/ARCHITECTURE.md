@@ -145,11 +145,11 @@ sequenceDiagram
 4. `market_daily`: 시장 가격 움직임, 상인이 오거나 떠남
 5. 이주 (`population_daily`), 일자리·집 다시 배치, 굶주림 알림
 
-## 공개 API (`core/include/castle_core.h`, ABI 5)
+## 공개 API (`core/include/castle_core.h`, ABI 6)
 
 | 분류 | 함수 | 하는 일 |
 | --- | --- | --- |
-| 버전 | `core_abi_version()` | ABI 번호 (지금 5) |
+| 버전 | `core_abi_version()` | ABI 번호 (지금 6). 세이브 형식 번호는 `CORE_SAVE_VERSION` (지금 5) |
 | | `core_get_struct_sizes(out, size)` | 뷰 구조체 크기 (C# 이 비교) |
 | | `core_get_config(out)` | 하루 틱 수, 실제 시간, 밤·근무 시각 등 고정값 |
 | | `core_result_name(code)` | 오류 코드의 영어 이름 (로그용) |
@@ -182,6 +182,8 @@ sequenceDiagram
 | 피드백 | `core_poll_event(world, out)` | 이벤트 하나 꺼내기 (있으면 1) |
 | 저장 | `core_save(world, path)` | 원자적 저장 + `.bak` (습격 중에는 `CORE_ERR_REJECTED`) |
 | | `core_load(path, defs, &world, &line)` | 불러오기, 실패하면 문제 줄 번호 |
+| | `core_peek_save(path, defs, &info)` | 슬롯 목록용 요약 (파일 전체를 불러와 검사한 뒤 이름·날짜·등급·주민·난이도·승패·틱만 남김). 망가졌으면 결과 코드와 줄, 다른 버전이면 그 형식 번호 |
+| | `core_check_castle_name(name)` | 새 게임 화면의 이름 검사 (UTF-8, 47바이트까지, 제어 문자·잘린 글자 없음) |
 | 디버그 | `core_validate(world)` | 불변 조건 위반 개수 |
 | | `core_state_hash(world, &hash)` | 저장되는 상태 전체의 해시 |
 
@@ -203,6 +205,23 @@ sequenceDiagram
 - 연구 효과는 **이 월드의 건물 정의 복사본**을 고칩니다. Godot 은 `RESEARCH_DONE` 뒤에 `core_get_building_def` 를 다시 읽어(`CombatDirector.ReloadBuildingDefs`) 감시탑 피해 등 전투 수치를 맞춥니다. 수치를 C# 에 따로 두지 않으므로 어긋나지 않습니다.
 - 등급이 건물을 잠급니다(`BuildingDef.rank`): 배치가 `CORE_PLACE_LOCKED` 로 거절되고, Godot 건설 막대는 그 단추를 끄고 "필요 등급"을 툴팁으로 보여 줍니다.
 - 승리·패배 화면의 숫자는 `core_get_run_stats` 에서만 읽습니다. 진 뒤 Godot 은 시간을 멈추고 "새 게임"만 보여 줍니다.
+
+## 세이브와 메뉴 (마일스톤 6)
+
+```
+시작 ─ 자동 검사? ── 예 → 바로 새 게임 (saves_automated 폴더, 기본 설정)
+          └─ 아니오 → 배경용 월드(시드 42)를 멈춰 두고 제목 화면
+제목 화면: 이어하기(SaveSlots.Latest: 가장 최근 파일, 시각이 같으면 더 나중 틱) / 새 게임 / 불러오기 / 설정 / 종료
+게임 중 Esc·"메뉴" → 일시정지 메뉴 (배속 0, 닫으면 되돌림): 저장하기 / 불러오기 / 설정 / 제목 화면 / 종료
+자동 저장 (autosave.sav): DAY_STARTED, 새 게임 직후, 제목으로·종료(창의 X 포함)
+          C 가 거절하면(습격 중) 미뤘다가 RAID_ENDED 에서. 진 게임과 제목 배경 월드는 저장하지 않음
+```
+
+- **파일은 C 만 씁니다.** `SaveSlots.cs` 는 슬롯 번호를 `user://saves/slot{1..3}.sav`·`autosave.sav` 경로로 바꾸고, 목록에 `core_peek_save` 의 요약과 파일 시각을 보여 줄 뿐입니다. 저장의 원자성(임시 파일 → 바꿔치기)과 `.bak`, 습격 중 거절, 불러오기 검사는 모두 C 에 있습니다.
+- **망가진 슬롯**: 요약이 실패하면(`CORE_ERR_FORMAT`) 같은 이름의 `.bak` 을 요약해 보고, 멀쩡하면 "예비 파일로 불러올까요?"를 묻습니다. 다른 버전(`CORE_ERR_VERSION`)은 형식 번호를 보여 주고 막습니다. 불러오기가 실패해도 하던 게임은 그대로입니다.
+- **설정**은 게임 상태가 아니라서 Godot 이 `user://settings.cfg`(`ConfigFile`)에 씁니다: 전체·음악·효과음 음량(버스 Master/Music/SFX·UI), UI 크기(자동 또는 1~4배), 전체 화면, 가장자리 스크롤.
+- **입력**: 메뉴 층(`MenuLayer`, CanvasLayer 20)은 `Main` 의 마지막 자식이라 처리되지 않은 입력을 가장 먼저 받습니다. 메뉴가 열려 있으면 키를 모두 먹고(배속·철거·카메라 단축키가 뒤에서 움직이지 않게), 마우스는 화면 전체를 덮는 막이 막습니다. 게임 중 Esc 는 열린 창 → 건설 도구 → 선택 → 일시정지 메뉴 순서로 처리합니다.
+- **창 닫기**: 자동 로드 `CoreBridge` 는 창 닫기 알림에서 월드를 해제하지 않습니다(알림이 `Main` 보다 먼저 가므로, `Main` 이 자동 저장할 월드가 없어짐). 월드는 노드가 실제로 사라질 때(`_ExitTree`) 해제합니다.
 
 ## 결과 코드
 
