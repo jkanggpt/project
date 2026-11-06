@@ -75,3 +75,17 @@
 | `game/scripts/` core/Native, core/CoreBridge, world/Pathfinder, world/VillagerAgent, world/WorldSync, world/Art, world/CameraRig, ui/Hud, ui/Inspector, ui/Strings, Main, debug/* | ABI 4, 적용 길찾기, 피신·경비 모습, 위협 카운트다운·습격 띠, 화면 흔들림, 자동 조종의 방어·습격 진행, 습격 스크린숏 | 수정 |
 | `tools/make_art.py`, `game/assets/units/enemies.png`, `game/assets/units/arrow.png`, `game/assets/ui/bubble_alarm.png` (+ `.import`) | 적 그림(Kenney 타일), 화살·경보 말풍선(직접 그림) | 생성 |
 | `docs/*.md`, `README.md`, `PROGRESS.md`, `CREDITS.md`, `CLAUDE.md` | 문서 | 수정 |
+
+## 마일스톤 5 — 진행 (2026-11-06)
+
+| 파일 / 폴더 | 내용 | 종류 |
+| --- | --- | --- |
+| `core/src/research.c`, `research.h`, `rank.c`, `rank.h`, `tutorial.c`, `tutorial.h`, `difficulty.c`, `difficulty.h` | 연구(효과 함수 표 `RESEARCH_EFFECTS`), 등급·승급·승패, 튜토리얼 목표(확인 함수 표 `TUTORIAL_CHECKS`), 난이도 프리셋 표 | 생성 |
+| `core/include/castle_core.h` | ABI 5: 등급·연구·승패·튜토리얼 열거형, 연구·등급·기록·난이도 뷰, 연구 시작·승급 명령, 새 이벤트·거절 이유·장부 항목 | 수정 |
+| `core/src/` api, defs, defs_builtin, economy, events, jobs, market, nature, placement, population, save, threat, validate, villager_ai, world | 연구·등급 정의 파일, 마탑 직업, 연구 효과가 닿는 곳(시장 차이·난방·병·결계), 성채 함락, 한 판의 기록, 세이브 v5, 불변 조건 | 수정 |
+| `cli/` commands, format, main, sim | 연구·승급 메뉴, 상태의 등급·목표·결과, 봇의 승급 목표·연구, 소크의 패배 처리 | 수정 |
+| `tests/test_progress.c`, `tests/test_town.c`·`.h`, 나머지 테스트 | 연구·효과·저장, 승급 규칙, 승리, 성채 함락·인구 0 패배, 튜토리얼, 난이도, 정의 파일 (9개), 기존 테스트를 패배 규칙에 맞게 | 생성 / 수정 |
+| `game/data/research.def`, `game/data/ranks.def`, `game/data/buildings.def` | 연구 12개, 등급 5개, 방어 점수·등급 잠금·밸런스 | 생성 / 수정 (`--dump-defs`) |
+| `game/scripts/ui/ResearchPanel.cs`, `RankPanel.cs`, `TutorialPanel.cs`, `OutcomePanel.cs` | 연구 창, 등급 창, 처음 목표 목록, 승리·패배 화면 | 생성 |
+| `game/scripts/` core/Native, core/CoreBridge, ui/Hud, ui/Inspector, ui/Strings, ui/Toasts, world/CombatDirector, world/EnemyAgent, Main, debug/LaunchOptions, debug/SmokeTest, debug/ScreenshotTour | ABI 5, 등급·연구 단추, 결과 화면과 새 게임, `--difficulty`, 연구 뒤 전투 수치 다시 읽기, 같은 알림 합치기, 자동 조종의 승급·연구, 새 스크린숏 | 수정 |
+| `docs/*.md`, `README.md`, `PROGRESS.md`, `CLAUDE.md` | 문서 | 수정 |

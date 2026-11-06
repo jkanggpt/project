@@ -145,11 +145,11 @@ sequenceDiagram
 4. `market_daily`: 시장 가격 움직임, 상인이 오거나 떠남
 5. 이주 (`population_daily`), 일자리·집 다시 배치, 굶주림 알림
 
-## 공개 API (`core/include/castle_core.h`, ABI 4)
+## 공개 API (`core/include/castle_core.h`, ABI 5)
 
 | 분류 | 함수 | 하는 일 |
 | --- | --- | --- |
-| 버전 | `core_abi_version()` | ABI 번호 (지금 4) |
+| 버전 | `core_abi_version()` | ABI 번호 (지금 5) |
 | | `core_get_struct_sizes(out, size)` | 뷰 구조체 크기 (C# 이 비교) |
 | | `core_get_config(out)` | 하루 틱 수, 실제 시간, 밤·근무 시각 등 고정값 |
 | | `core_result_name(code)` | 오류 코드의 영어 이름 (로그용) |
@@ -158,7 +158,7 @@ sequenceDiagram
 | | `core_defs_load_file` / `core_defs_save_file` | 파일에서 읽기 / 기본값을 파일로 쓰기 (CLI) |
 | 수명 | `core_create(params, defs, &world)` | 새 게임 (성채 이름, 시드, 난이도, 정의) |
 | | `core_destroy(world)` | 해제 (NULL 이어도 됨) |
-| 시간 | `core_tick(world, n)` | n 틱 진행 (1 ≤ n ≤ 1440) |
+| 시간 | `core_tick(world, n)` | n 틱 진행 (1 ≤ n ≤ 1440). 패배한 뒤에는 `CORE_ERR_REJECTED` (시간이 멈춤) |
 | 읽기 | `core_get_summary(world, out)` | 날짜·시각·자원(한도, 어제 변화)·인구·성채 위치 등 |
 | | `core_get_map_size`, `core_copy_terrain`, `core_copy_roads` | 지도 크기, 지형, 도로 |
 | | `core_copy_cost_grid(world, buf, cap, &rev)` | 이동 비용 격자 + 수정 번호 |
@@ -168,10 +168,14 @@ sequenceDiagram
 | | `core_get_market`, `core_get_merchant`, `core_get_repair_cost` | 시장 가격, 상인 제안, 수리 비용 |
 | | `core_get_enemy_def` | 적 정의 (체력, 피해, 공격 사이, 속도, 거리, 행동, 훔치는 자원·양, 마정석) |
 | | `core_copy_threats`, `core_get_raid`, `core_copy_enemies` | 예고된 위협들, 진행 중인 습격(없으면 id 0), 그 적들 (id, 종류, 살아 있음/처치/달아남) |
+| | `core_get_research(world, index, out)` | 연구 하나 (갈래, 앞선 연구, 필요 등급, 비용, 점수, 효과, 상태: 잠김/할 수 있음/진행 중/끝남, 진행 점수). 번호가 넘으면 `CORE_ERR_NOT_FOUND` (연구 수는 정의 파일이 정함) |
+| | `core_get_rank(world, out)` | 지금·다음 등급, 조건마다 필요/가진 값, 공물, 준비됨, 풀리는 건물·연구 |
+| | `core_get_run_stats`, `core_get_difficulty` | 한 판의 기록(승리·패배 화면), 난이도 프리셋 값 |
 | 배치 | `core_can_place(world, type, x, y, out)` | 미리보기: 결과 이유, 문 앞 칸, 생산성 |
 | 명령 | `core_place_building`, `core_place_line`, `core_demolish`, `core_remove_road` | 짓기, 줄 놓기(도로·성벽), 철거(절반 환불) |
 | | `core_assign_worker`, `core_unassign_worker`, `core_release_worker`, `core_set_auto_assign` | 일꾼 직접 배치·빼기·자동에 맡기기, 건물별 자동 배치 |
 | | `core_trade`, `core_merchant_accept`, `core_repair` | 시장 거래, 상인 제안 받기, 수리 (안 되면 `CORE_ERR_REJECTED` + 이유 `CORE_DENY_*`) |
+| | `core_start_research(world, index, &reason)`, `core_rank_up(world, &reason)` | 연구 시작(비용을 냄), 승급(공물을 냄). 안 되면 이유 (`CORE_DENY_RESEARCH_LOCKED`, `REQUIREMENTS`, `NO_MANA`, `GAME_OVER` …) |
 | 보고 | `core_villager_arrived`, `core_villager_unreachable` | 주민 핸드셰이크 |
 | | `core_report_building_damage`, `core_report_villager_damage` | 습격: 적이 준 피해 (습격 id 가 다르면 `CORE_IGNORED`) |
 | | `core_report_enemy_killed`, `core_report_loot`, `core_report_enemy_escaped`, `core_report_raid_ended` | 습격: 처치(마정석), 약탈(실제로 빼앗긴 양), 달아남, 끝 |
@@ -181,7 +185,24 @@ sequenceDiagram
 | 디버그 | `core_validate(world)` | 불변 조건 위반 개수 |
 | | `core_state_hash(world, &hash)` | 저장되는 상태 전체의 해시 |
 
-다음 마일스톤에서 더해질 것: 연구(정의, 해금 명령, 효과), 승급 명령과 조건, 패배(성채 무너짐)·승리.
+요약 뷰(`CoreSummaryView`)에는 마일스톤 5 에서 방어 점수, 승급 준비, 진행 중인 연구와 점수, 마법사 수, 끝낸 연구 수, 승패와 패배 이유, 튜토리얼 비트가 더해졌습니다.
+
+## 진행: 연구·등급·승패 (마일스톤 5)
+
+```
+마탑의 마법사 ─(JOB_TABLE)→ research_work: 점수 모음 ─ 다 차면 → complete
+                                                       └→ research_reapply:
+                                                            원래 건물 정의 복사 → 끝낸 연구를 번호 순서로
+                                                            RESEARCH_EFFECTS[effect](world, value)
+매시간 world_step → tutorial_hourly (TUTORIAL_CHECKS[])
+                 → rank_hourly: 성채 무너짐 / 주민 0 → rank_lose → DEFEAT, 이후 core_tick = REJECTED
+                                 조건을 처음 채움 → RANK_READY 알림
+플레이어 → core_rank_up → 조건 + 공물 → RANK_UP (왕성이면 VICTORY, 계속 다스릴 수 있음)
+```
+
+- 연구 효과는 **이 월드의 건물 정의 복사본**을 고칩니다. Godot 은 `RESEARCH_DONE` 뒤에 `core_get_building_def` 를 다시 읽어(`CombatDirector.ReloadBuildingDefs`) 감시탑 피해 등 전투 수치를 맞춥니다. 수치를 C# 에 따로 두지 않으므로 어긋나지 않습니다.
+- 등급이 건물을 잠급니다(`BuildingDef.rank`): 배치가 `CORE_PLACE_LOCKED` 로 거절되고, Godot 건설 막대는 그 단추를 끄고 "필요 등급"을 툴팁으로 보여 줍니다.
+- 승리·패배 화면의 숫자는 `core_get_run_stats` 에서만 읽습니다. 진 뒤 Godot 은 시간을 멈추고 "새 게임"만 보여 줍니다.
 
 ## 결과 코드
 
