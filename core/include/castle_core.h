@@ -35,7 +35,9 @@ extern "C" {
 #endif
 
 /* C#의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
-#define CORE_ABI_VERSION 5
+#define CORE_ABI_VERSION 6
+/* 지금 세이브 파일 형식의 버전 (첫 줄 "MAGICCASTLE_SAVE <버전>") */
+#define CORE_SAVE_VERSION 5
 
 /* 성채·주민 이름 버퍼 크기 (UTF-8 바이트, 끝의 '\0' 포함) */
 #define CORE_NAME_BYTES 48
@@ -824,6 +826,25 @@ typedef struct CoreDifficultyView {
     int32_t tribute_pct;     /* 승급 공물 % */
 } CoreDifficultyView;
 
+/* 세이브 파일 하나의 요약 (슬롯 목록·이어하기용, core_peek_save).
+ * 파일 전체를 실제로 불러와 검사한 뒤 요약하므로, result 가 CORE_OK 이면 그 파일은 불러올 수 있습니다. */
+typedef struct CoreSaveInfoView {
+    int32_t result;          /* 불러오기 결과 (CORE_OK, CORE_ERR_FORMAT, CORE_ERR_VERSION, CORE_ERR_FILE_OPEN …) */
+    int32_t error_line;      /* 문제가 있는 줄 (없으면 0) */
+    int32_t version;         /* 첫 줄의 세이브 버전 (읽지 못하면 0). 지금 버전은 CORE_SAVE_VERSION */
+    int32_t seed;            /* 아래는 result 가 CORE_OK 일 때만 채워짐 */
+    int32_t difficulty;      /* CoreDifficulty */
+    int32_t tick;            /* 저장한 틱 (저장하지 않은 진행이 있는지 비교용) */
+    int32_t day;
+    int32_t year;
+    int32_t season;          /* CoreSeason */
+    int32_t minute_of_day;
+    int32_t rank;            /* CoreRank */
+    int32_t population;
+    int32_t outcome;         /* CoreOutcome */
+    char castle_name[CORE_NAME_BYTES];
+} CoreSaveInfoView;
+
 /* ABI 검사용: C가 아는 구조체 크기. C#이 Marshal.SizeOf 와 비교합니다. */
 typedef struct CoreStructSizes {
     int32_t new_game_params;
@@ -847,6 +868,7 @@ typedef struct CoreStructSizes {
     int32_t rank_view;
     int32_t run_stats_view;
     int32_t difficulty_view;
+    int32_t save_info_view;
 } CoreStructSizes;
 
 /* 불투명 핸들 */
@@ -999,6 +1021,12 @@ CORE_API int32_t core_save(const CoreWorld *world, const char *path_utf8);
  * defs 가 NULL 이면 내장 기본값 */
 CORE_API int32_t core_load(const char *path_utf8, const CoreDefs *defs, CoreWorld **out_world,
                            int32_t *out_error_line);
+/* 세이브 파일을 불러와 검사하고 요약만 남긴 뒤 바로 해제합니다 (슬롯 목록). 지금 월드는 건드리지 않습니다.
+ * 돌려주는 값은 core_load 와 같고, out->result 에도 같은 값이 들어갑니다. 파일이 없으면 CORE_ERR_FILE_OPEN */
+CORE_API int32_t core_peek_save(const char *path_utf8, const CoreDefs *defs, CoreSaveInfoView *out);
+/* 성채 이름으로 쓸 수 있는지 (새 게임 화면). UTF-8, 1 ~ CORE_NAME_BYTES-1 바이트, 제어 문자·잘린 글자 없음.
+ * 쓸 수 있으면 CORE_OK, 아니면 CORE_ERR_INVALID_ARG */
+CORE_API int32_t core_check_castle_name(const char *name_utf8);
 
 /* ---- 디버그 ---------------------------------------------------------- */
 /* 불변 조건 위반 개수 (0이면 정상), 월드가 NULL 이면 음수 */

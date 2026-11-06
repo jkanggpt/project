@@ -1161,6 +1161,28 @@ static int check_header(const char *line)
     return version == SAVE_VERSION ? CORE_OK : CORE_ERR_VERSION;
 }
 
+int32_t save_peek_version(const char *path)
+{
+    char line[64];
+    size_t magic_length = strlen(SAVE_MAGIC);
+    int32_t version = 0;
+    char *end;
+    FILE *file = platform_fopen_utf8(path, "rb");
+    if (file == NULL) {
+        return 0;
+    }
+    if (fgets(line, (int)sizeof(line), file) != NULL && strncmp(line, SAVE_MAGIC, magic_length) == 0 &&
+        line[magic_length] == ' ') {
+        end = line + magic_length + 1;
+        end[strcspn(end, "\r\n")] = '\0';
+        if (!parse_i32(end, 0, INT32_MAX, &version)) {
+            version = 0;
+        }
+    }
+    fclose(file);
+    return version;
+}
+
 /* 파일 내용을 state->world 에 읽어 들입니다 */
 static int read_world(LineReader *reader, LoadState *state)
 {

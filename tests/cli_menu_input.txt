@@ -27,6 +27,9 @@ abc
 20
 12
 cli_test.sav
+4
+12
+cli_test.sav
 13
 
 13

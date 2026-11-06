@@ -724,13 +724,50 @@ int cli_load_game(CliContext *context, const char *path)
     return 1;
 }
 
+/* 불러올 수 없는 세이브의 까닭을 알려 줍니다 */
+static void print_save_problem(const CoreSaveInfoView *info)
+{
+    print_result("불러오기", info->result);
+    if (info->result == CORE_ERR_VERSION) {
+        printf("  이 파일은 세이브 형식 %d, 이 게임은 형식 %d 입니다.\n", (int)info->version, CORE_SAVE_VERSION);
+    } else if (info->error_line > 0) {
+        printf("  문제가 있는 줄: %d\n", (int)info->error_line);
+    }
+}
+
+/* 먼저 요약(core_peek_save)으로 확인하고, 망가졌으면 예비 파일(<이름>.bak)을 제안합니다 */
 static int cmd_load(CliContext *context)
 {
     char path[CLI_PATH_BYTES];
+    char backup[CLI_PATH_BYTES + 8];
+    char text[256];
+    CoreSaveInfoView info;
+    CoreSaveInfoView backup_info;
+    int answer = 0;
     if (!read_text("불러올 파일 이름", context->save_path, path, sizeof(path))) {
         return 0;
     }
-    if (cli_load_game(context, path)) {
+    if (core_peek_save(path, context->defs, &info) == CORE_OK) {
+        fmt_save_info(&info, text, sizeof(text));
+        printf("  %s\n", text);
+        if (cli_load_game(context, path)) {
+            return cmd_status(context);
+        }
+        return 1;
+    }
+    print_save_problem(&info);
+    snprintf(backup, sizeof(backup), "%s.bak", path);
+    if (info.result == CORE_ERR_FILE_OPEN || core_peek_save(backup, context->defs, &backup_info) != CORE_OK) {
+        return 1;
+    }
+    fmt_save_info(&backup_info, text, sizeof(text));
+    printf("예비 파일(.bak, 그 전에 저장한 것)은 불러올 수 있습니다:\n  %s\n", text);
+    printf("1) 예비 파일로 불러오기  0) 그만두기\n");
+    if (!read_int("선택", 0, 1, &answer)) {
+        return 0;
+    }
+    if (answer == 1 && cli_load_game(context, backup)) {
+        strcpy(context->save_path, path); /* 다음 저장은 원래 이름으로 (망가진 파일을 바꿈) */
         return cmd_status(context);
     }
     return 1;
@@ -748,6 +785,10 @@ static int cmd_new_game(CliContext *context)
     for (;;) {
         if (!read_text("성채 이름", "바람언덕", params.castle_name, sizeof(params.castle_name))) {
             return 0;
+        }
+        if (core_check_castle_name(params.castle_name) != CORE_OK) {
+            printf("이름에 쓸 수 없는 글자가 있거나 너무 깁니다 (%d바이트까지). 다시 입력하세요.\n", CORE_NAME_BYTES - 1);
+            continue;
         }
         if (!read_int("지도 시드", 0, 2147483647, &seed)) {
             return 0;

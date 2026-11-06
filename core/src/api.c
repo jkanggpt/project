@@ -34,6 +34,7 @@ _Static_assert(CORE_MAX_RESEARCH <= 32, "research done flags are a 32-bit mask")
 _Static_assert(CORE_TUTORIAL_COUNT <= 31, "tutorial flags are a bit mask");
 _Static_assert(CORE_NATURE_COUNT == 6, "nature events changed: update C# strings");
 _Static_assert(CORE_THREAT_COUNT == 4, "threat types changed: update C# strings");
+_Static_assert(sizeof(CoreSaveInfoView) == 13 * 4 + CORE_NAME_BYTES, "unexpected padding in CoreSaveInfoView");
 
 #define DEFS_MAX_FILE_BYTES (1024 * 1024) /* 정의 파일 하나의 최대 크기 */
 
@@ -71,6 +72,7 @@ CORE_API int32_t core_get_struct_sizes(CoreStructSizes *out, int32_t out_size)
     out->rank_view = (int32_t)sizeof(CoreRankView);
     out->run_stats_view = (int32_t)sizeof(CoreRunStatsView);
     out->difficulty_view = (int32_t)sizeof(CoreDifficultyView);
+    out->save_info_view = (int32_t)sizeof(CoreSaveInfoView);
     return CORE_OK;
 }
 
@@ -1243,6 +1245,56 @@ CORE_API int32_t core_load(const char *path_utf8, const CoreDefs *defs, CoreWorl
         *out_error_line = line;
     }
     return rc;
+}
+
+CORE_API int32_t core_peek_save(const char *path_utf8, const CoreDefs *defs, CoreSaveInfoView *out)
+{
+    World *world = NULL;
+    int32_t line = 0;
+    int rc;
+    if (out == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    memset(out, 0, sizeof(*out));
+    if (path_utf8 == NULL) {
+        out->result = CORE_ERR_NULL_ARG;
+        return CORE_ERR_NULL_ARG;
+    }
+    if (path_utf8[0] == '\0') {
+        out->result = CORE_ERR_INVALID_ARG;
+        return CORE_ERR_INVALID_ARG;
+    }
+    out->version = save_peek_version(path_utf8);
+    /* 요약만 보려고 해도 파일 전체를 실제로 불러와 검사합니다: 목록에 "불러올 수 있음"이라고 보인 슬롯은
+     * 정말로 불러올 수 있어야 하기 때문입니다. 세이브 하나는 작으므로(수십 KB) 슬롯 넷이면 금방입니다 */
+    rc = save_read(path_utf8, defs != NULL ? &defs->defs : NULL, &world, &line);
+    out->result = rc;
+    out->error_line = line;
+    if (rc != CORE_OK) {
+        return rc;
+    }
+    out->seed = world->seed;
+    out->difficulty = world->difficulty;
+    out->tick = world->clock.tick;
+    out->day = clock_day(&world->clock);
+    out->year = clock_year(&world->clock);
+    out->season = clock_season(&world->clock);
+    out->minute_of_day = clock_minute_of_day(&world->clock);
+    out->rank = world->rank;
+    out->population = world->villager_count;
+    out->outcome = world->outcome;
+    memcpy(out->castle_name, world->castle_name, CORE_NAME_BYTES);
+    out->castle_name[CORE_NAME_BYTES - 1] = '\0';
+    world_destroy(world);
+    return CORE_OK;
+}
+
+CORE_API int32_t core_check_castle_name(const char *name_utf8)
+{
+    if (name_utf8 == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    return world_name_is_valid(name_utf8, CORE_NAME_BYTES) ? CORE_OK : CORE_ERR_INVALID_ARG;
 }
 
 CORE_API int32_t core_validate(const CoreWorld *world)

@@ -44,5 +44,7 @@ const char *fmt_direction_name(int32_t direction);
 
 /* "1년 봄 3일 (3일째) 06:00" */
 void fmt_date(const CoreSummaryView *summary, char *out, size_t size);
+/* 세이브 한 줄 요약 (성채 이름, 날짜, 등급, 주민, 난이도, 승패) */
+void fmt_save_info(const CoreSaveInfoView *info, char *out, size_t size);
 
 #endif

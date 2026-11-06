@@ -42,5 +42,34 @@ foreach(expected IN ITEMS
     message(FATAL_ERROR "expected text not found: ${expected}\n--- output ---\n${output}\n${errors}")
   endif()
 endforeach()
-file(REMOVE cli_test.sav cli_test.sav.bak)
+
+# 두 번째 실행: 저장 도중 꺼진 것처럼 본 파일의 뒤쪽 절반을 잘라 내면, 불러오기가 예비 파일(.bak)을 제안해야 합니다
+file(READ cli_test.sav whole)
+string(LENGTH "${whole}" whole_length)
+math(EXPR half "${whole_length} / 2")
+string(SUBSTRING "${whole}" 0 ${half} broken)
+file(WRITE cli_test.sav "${broken}")
+file(WRITE cli_backup_input.txt "13\ncli_test.sav\n1\n0\n")
+execute_process(
+  COMMAND ${CLI} --data ${DATA}
+  INPUT_FILE cli_backup_input.txt
+  OUTPUT_VARIABLE output
+  ERROR_VARIABLE errors
+  RESULT_VARIABLE result)
+if(NOT result EQUAL 0)
+  message(FATAL_ERROR "castle_cli (backup run) exited with ${result}\n${output}\n${errors}")
+endif()
+foreach(expected IN ITEMS
+    "불러오기 실패: 세이브 파일이 손상되었습니다"
+    "문제가 있는 줄"
+    "예비 파일(.bak, 그 전에 저장한 것)은 불러올 수 있습니다"
+    "바람언덕 — 1년"
+    "'cli_test.sav.bak' 에서 불러왔습니다"
+    "=== 바람언덕 ===")
+  string(FIND "${output}" "${expected}" position)
+  if(position EQUAL -1)
+    message(FATAL_ERROR "expected text not found (backup run): ${expected}\n--- output ---\n${output}\n${errors}")
+  endif()
+endforeach()
+file(REMOVE cli_test.sav cli_test.sav.bak cli_backup_input.txt)
 message(STATUS "CLI menu script OK")

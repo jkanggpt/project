@@ -85,6 +85,7 @@ void test_api_struct_sizes_and_config(void)
     CHECK_EQ(sizes.rank_view, 16 * 4);
     CHECK_EQ(sizes.run_stats_view, 12 * 4);
     CHECK_EQ(sizes.difficulty_view, (2 + CORE_RES_COUNT + 5) * 4);
+    CHECK_EQ(sizes.save_info_view, 13 * 4 + CORE_NAME_BYTES);
 
     CHECK_EQ(core_get_config(&config), CORE_OK);
     CHECK_EQ(config.abi_version, CORE_ABI_VERSION);

@@ -576,3 +576,12 @@ void fmt_date(const CoreSummaryView *summary, char *out, size_t size)
              (int)summary->day_of_season, (int)summary->day, (int)(summary->minute_of_day / 60),
              (int)(summary->minute_of_day % 60), summary->is_night ? " 밤" : "");
 }
+
+void fmt_save_info(const CoreSaveInfoView *info, char *out, size_t size)
+{
+    snprintf(out, size, "%s — %d년 %s, %d일째 %02d:%02d · %s · 주민 %d명 · %s%s", info->castle_name, (int)info->year,
+             fmt_season_name(info->season), (int)info->day, (int)(info->minute_of_day / 60),
+             (int)(info->minute_of_day % 60), fmt_rank_name(info->rank), (int)info->population,
+             fmt_difficulty_name(info->difficulty),
+             info->outcome == CORE_OUTCOME_WON ? " · 승리" : (info->outcome == CORE_OUTCOME_LOST ? " · 패배" : ""));
+}

@@ -13,7 +13,7 @@
 #include "world.h"
 
 #define SAVE_MAGIC "MAGICCASTLE_SAVE"
-#define SAVE_VERSION 5
+#define SAVE_VERSION CORE_SAVE_VERSION
 
 /* 임시 파일(<path>.tmp)에 쓰고, 기존 파일은 <path>.bak 으로 복사한 뒤, 임시 파일로 바꿔치기합니다 */
 int save_write(const World *world, const char *path);
@@ -21,5 +21,8 @@ int save_write(const World *world, const char *path);
 /* 성공하면 *out_world 에 새 월드. 실패하면 부분적으로 읽은 것을 모두 해제하고 *out_world = NULL,
  * *out_line 에 문제가 된 줄 번호(파일을 못 열었으면 0) */
 int save_read(const char *path, const Defs *defs, World **out_world, int32_t *out_line);
+
+/* 첫 줄만 읽어 세이브 버전을 돌려줍니다 (다른 버전의 세이브를 알아보는 데 씀). 못 읽으면 0 */
+int32_t save_peek_version(const char *path);
 
 #endif

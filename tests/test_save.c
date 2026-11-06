@@ -1,5 +1,6 @@
 /*
- * test_save.c — 저장/불러오기: 왕복 해시, .bak, 한글 경로, 망가진 파일 (퍼징), 메모리 부족
+ * test_save.c — 저장/불러오기: 왕복 해시, .bak, 한글 경로, 망가진 파일 (퍼징), 메모리 부족,
+ *               슬롯 목록용 요약(core_peek_save), 성채 이름 검사
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -430,4 +431,123 @@ void test_load_out_of_memory_is_clean(void)
     }
     core_destroy(world);
     remove_save_files(path);
+}
+
+void test_save_peek_summarizes_slot(void)
+{
+    const char *path = "peek_slot.sav";
+    CoreWorld *world = make_played_world(41);
+    CoreSummaryView summary;
+    CoreSaveInfoView info;
+
+    CHECK(world != NULL);
+    CHECK_EQ(world_set_name(world, "바람언덕 성채"), CORE_OK);
+    remove_save_files(path);
+    CHECK_EQ(core_save(world, path), CORE_OK);
+    CHECK_EQ(core_get_summary(world, &summary), CORE_OK);
+
+    CHECK_EQ(core_peek_save(path, NULL, &info), CORE_OK);
+    CHECK_EQ(info.result, CORE_OK);
+    CHECK_EQ(info.error_line, 0);
+    CHECK_EQ(info.version, CORE_SAVE_VERSION);
+    CHECK_EQ(info.seed, summary.seed);
+    CHECK_EQ(info.difficulty, CORE_DIFF_HARSH);
+    CHECK_EQ(info.tick, summary.tick);
+    CHECK_EQ(info.day, summary.day);
+    CHECK_EQ(info.year, summary.year);
+    CHECK_EQ(info.season, summary.season);
+    CHECK_EQ(info.minute_of_day, summary.minute_of_day);
+    CHECK_EQ(info.rank, summary.rank);
+    CHECK_EQ(info.population, summary.population);
+    CHECK_EQ(info.outcome, CORE_OUTCOME_NONE);
+    CHECK(strcmp(info.castle_name, "바람언덕 성채") == 0);
+
+    /* 요약을 읽어도 파일과 지금 월드는 그대로 */
+    CHECK_EQ(core_peek_save(path, NULL, &info), CORE_OK);
+    CHECK_EQ(core_validate(world), 0);
+
+    /* 없는 파일, 잘못된 인자 */
+    CHECK_EQ(core_peek_save("no_such_slot.sav", NULL, &info), CORE_ERR_FILE_OPEN);
+    CHECK_EQ(info.result, CORE_ERR_FILE_OPEN);
+    CHECK_EQ(info.version, 0);
+    CHECK_EQ(core_peek_save(path, NULL, NULL), CORE_ERR_NULL_ARG);
+    CHECK_EQ(core_peek_save(NULL, NULL, &info), CORE_ERR_NULL_ARG);
+    CHECK_EQ(info.result, CORE_ERR_NULL_ARG);
+    CHECK_EQ(core_peek_save("", NULL, &info), CORE_ERR_INVALID_ARG);
+
+    core_destroy(world);
+    remove_save_files(path);
+}
+
+void test_save_peek_broken_offers_backup(void)
+{
+    const char *path = "peek_broken.sav";
+    CoreWorld *world = make_played_world(43);
+    CoreSaveInfoView info;
+    CoreWorld *loaded = NULL;
+    size_t size = 0;
+    char *text;
+    char *changed;
+    int32_t line = 0;
+
+    CHECK(world != NULL);
+    remove_save_files(path);
+    CHECK_EQ(core_save(world, path), CORE_OK);
+    CHECK_EQ(core_tick(world, 6), CORE_OK);
+    CHECK_EQ(core_save(world, path), CORE_OK); /* 두 번째 저장: 첫 저장이 .bak 으로 남음 */
+
+    /* 저장 도중 꺼진 것처럼 파일 뒤쪽 절반을 잃음 → 본 파일은 망가지고 .bak 은 멀쩡함 */
+    text = test_read_file(path, &size);
+    CHECK(text != NULL);
+    CHECK(test_write_file(path, text, size / 2));
+    CHECK_EQ(core_peek_save(path, NULL, &info), CORE_ERR_FORMAT);
+    CHECK_EQ(info.result, CORE_ERR_FORMAT);
+    CHECK_EQ(info.version, CORE_SAVE_VERSION); /* 첫 줄은 남아 있음 */
+    CHECK(info.error_line > 1);
+    CHECK_EQ(core_load(path, NULL, &loaded, &line), CORE_ERR_FORMAT);
+    CHECK(loaded == NULL);
+    CHECK_EQ(line, info.error_line);
+
+    CHECK_EQ(core_peek_save("peek_broken.sav.bak", NULL, &info), CORE_OK);
+    CHECK(info.tick > 0);
+    CHECK_EQ(core_load("peek_broken.sav.bak", NULL, &loaded, &line), CORE_OK);
+    core_destroy(loaded);
+
+    /* 다른 버전의 세이브: 버전 번호를 알려 줌 */
+    changed = replace_once(text, "MAGICCASTLE_SAVE 5", "MAGICCASTLE_SAVE 4");
+    CHECK(changed != NULL);
+    CHECK(test_write_file(path, changed, strlen(changed)));
+    CHECK_EQ(core_peek_save(path, NULL, &info), CORE_ERR_VERSION);
+    CHECK_EQ(info.version, 4);
+    CHECK_EQ(info.error_line, 1);
+    free(changed);
+
+    /* 세이브가 아닌 파일 */
+    CHECK(test_write_file(path, "hello\n", 6));
+    CHECK_EQ(core_peek_save(path, NULL, &info), CORE_ERR_FORMAT);
+    CHECK_EQ(info.version, 0);
+
+    free(text);
+    core_destroy(world);
+    remove_save_files(path);
+}
+
+void test_castle_name_check(void)
+{
+    char longest[CORE_NAME_BYTES];
+    char too_long[CORE_NAME_BYTES + 1];
+    memset(longest, 'a', sizeof(longest) - 1);
+    longest[sizeof(longest) - 1] = '\0';
+    memset(too_long, 'a', sizeof(too_long) - 1);
+    too_long[sizeof(too_long) - 1] = '\0';
+
+    CHECK_EQ(core_check_castle_name("바람언덕 성채"), CORE_OK);
+    CHECK_EQ(core_check_castle_name("Castle 7"), CORE_OK);
+    CHECK_EQ(core_check_castle_name(longest), CORE_OK);
+    CHECK_EQ(core_check_castle_name(too_long), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_check_castle_name(""), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_check_castle_name("두 줄\n이름"), CORE_ERR_INVALID_ARG); /* 세이브는 한 줄에 값 하나 */
+    CHECK_EQ(core_check_castle_name("\xff\xfe"), CORE_ERR_INVALID_ARG);   /* 잘못된 UTF-8 */
+    CHECK_EQ(core_check_castle_name("\xea\xb0"), CORE_ERR_INVALID_ARG);   /* 잘린 한글 */
+    CHECK_EQ(core_check_castle_name(NULL), CORE_ERR_NULL_ARG);
 }
