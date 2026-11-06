@@ -11,11 +11,15 @@
 // 마일스톤 5부터는 조건이 차면 승급하고, 요새가 되면 마탑을 지어 가장 싼 연구를 시작합니다.
 // 등급이 모자랄 때 연구가 거절되는지, 튜토리얼 목표가 차례로 채워지는지도 확인하고, 연구·등급 창을 열어 봅니다.
 // 패배(성채 함락·주민 0명)하면 실패로 봅니다.
+// 마일스톤 6부터는 끝에 저장 흐름 전체를 확인합니다: 자동 저장(하루마다, 습격 중이면 미룸), 슬롯 저장 → 제목 화면 →
+// 이어하기(해시가 같아야 함), 뒤쪽이 잘린 슬롯 → 예비 파일(.bak)로 불러오기, 다른 버전의 세이브는 목록에서 막힘,
+// 일시정지 메뉴가 배속을 되돌리는지. 세이브는 학생 폴더가 아닌 user://saves_automated 에 씁니다.
 using System;
 using System.Collections.Generic;
 using Godot;
 using MagicCastle.Audio;
 using MagicCastle.Core;
+using MagicCastle.UI;
 using MagicCastle.World;
 
 namespace MagicCastle.Debugging;
@@ -117,7 +121,7 @@ public partial class SmokeTest : Node
         if (_main.Sync.Summary.Tick >= _targetTick && _main.Sync.Summary.RaidId == 0)
         {
             Finish(CheckColony(out string colony) && CheckRaids(out colony) && CheckProgress(out colony) &&
-                   CheckSaveLoad(out colony), colony);
+                   CheckSaveLoad(out colony) && CheckPersistence(out colony), colony);
         }
     }
 
@@ -137,6 +141,12 @@ public partial class SmokeTest : Node
                 return false;
             }
             GD.Print("raid: save correctly blocked");
+            CoreResult autosave = _main.TryAutosave();
+            if (autosave.Code != CoreResultCode.Rejected)
+            {
+                Finish(false, $"autosave during a raid should be deferred, got {autosave.Name}");
+                return false;
+            }
         }
         // 싸움을 먼저 진행해 보고가 이번 틱 안에 들어가게 함 (보통 플레이와 같은 순서: 틱 사이에 싸움)
         _main.Combat.Step(config.MinutesPerTick);
@@ -826,6 +836,131 @@ public partial class SmokeTest : Node
             return false;
         }
         reason = $"state hash {after:x16}";
+        return true;
+    }
+
+    /// <summary>
+    /// 저장 흐름 (마일스톤 6): 자동 저장 → 슬롯 저장 → 제목 → 이어하기 → 망가진 슬롯과 예비 파일 → 다른 버전 → 메뉴들.
+    /// </summary>
+    private bool CheckPersistence(out string reason)
+    {
+        CoreBridge core = CoreBridge.Instance;
+        // 1) 자동 저장: 새 게임 직후 + 날마다 (습격 중이던 날은 끝난 뒤). 미룬 것이 남아 있으면 안 됨
+        int days = LaunchOptions.Current.SmokeDays;
+        GD.Print($"autosave: {_main.AutosaveCount} saves, {_main.AutosaveDeferred} deferred during raids");
+        if (_main.AutosaveCount < days)
+        {
+            reason = $"too few autosaves: {_main.AutosaveCount} in {days} days";
+            return false;
+        }
+        SlotInfo autosave = SaveSlots.Peek(SaveSlots.AutosaveSlot);
+        if (!autosave.Ok || autosave.Info.Tick > _main.Sync.Summary.Tick)
+        {
+            reason = $"autosave slot not loadable: {Strings.SlotLine(autosave)}";
+            return false;
+        }
+
+        // 2) 슬롯 1 에 저장하고 요약 확인
+        ulong before = core.StateHash();
+        CoreSummaryView summary = _main.Sync.Summary;
+        if (!_main.SaveToSlot(1).Ok)
+        {
+            reason = "slot 1 save failed";
+            return false;
+        }
+        SlotInfo slot1 = SaveSlots.Peek(1);
+        if (!slot1.Ok || slot1.Info.Tick != summary.Tick || slot1.Info.Population != summary.Population ||
+            slot1.Info.GetCastleName() != summary.GetCastleName() || slot1.Info.Rank != summary.Rank)
+        {
+            reason = $"slot 1 summary does not match the world: {Strings.SlotLine(slot1)}";
+            return false;
+        }
+        GD.Print($"slot 1: {Strings.SlotLine(slot1).Replace('\n', ' ')}");
+
+        // 3) 제목 화면 → 이어하기 (가장 최근 = 방금 저장한 슬롯 1, 또는 같은 틱의 자동 저장)
+        _main.ShowTitle();
+        if (_main.InGame || !_main.Menus.Title.Visible || _main.Hud.Visible)
+        {
+            reason = "title screen did not open";
+            return false;
+        }
+        int latest = SaveSlots.Latest(out SlotInfo latestInfo);
+        if (latest < 0 || latestInfo.Info.Tick != summary.Tick)
+        {
+            reason = $"continue would pick slot {latest} (tick {latestInfo.Info.Tick}, expected {summary.Tick})";
+            return false;
+        }
+        _main.ContinueLatest();
+        if (!_main.InGame || _main.Menus.AnyOpen || core.StateHash() != before || !NodesMatchViews(out reason))
+        {
+            reason = $"continue did not restore the game (hash {core.StateHash():x16}, expected {before:x16})";
+            return false;
+        }
+
+        // 4) 슬롯 2: 두 번 저장(첫 번째가 .bak) → 본 파일 뒤쪽 절반을 잃음 → 예비 파일로 불러오면 첫 저장의 상태
+        ulong first = core.StateHash();
+        int firstTick = _main.Sync.Summary.Tick;
+        _main.SaveToSlot(2);
+        GameClock.Instance.Advance(1);
+        _main.SaveToSlot(2);
+        byte[] bytes = FileAccess.GetFileAsBytes(SaveSlots.PathOf(2));
+        using (FileAccess file = FileAccess.Open(SaveSlots.PathOf(2), FileAccess.ModeFlags.Write))
+        {
+            file.StoreBuffer(bytes[..(bytes.Length / 2)]);
+        }
+        SlotInfo broken = SaveSlots.Peek(2);
+        if (broken.Ok || !broken.OnlyBackup || broken.Backup.Tick != firstTick || broken.Info.Result != (int)CoreResultCode.Format)
+        {
+            reason = $"truncated slot 2 not detected with a good backup: {Strings.SlotLine(broken)}";
+            return false;
+        }
+        ulong current = core.StateHash();
+        if (_main.LoadSlot(2, false) || core.StateHash() != current)
+        {
+            reason = "loading a truncated save should fail and keep the current world";
+            return false;
+        }
+        _main.Menus.CloseAll(); // "불러오지 못했습니다" 창
+        if (!_main.LoadSlot(2, true) || core.StateHash() != first)
+        {
+            reason = $"backup load did not restore the first save (hash {core.StateHash():x16}, expected {first:x16})";
+            return false;
+        }
+        GD.Print($"slot 2: {Strings.SlotLine(broken).Replace('\n', ' ')} -> backup loaded");
+
+        // 5) 다른 버전의 세이브(슬롯 3): 목록에서 이유와 함께 막힘
+        string text = System.Text.Encoding.UTF8.GetString(FileAccess.GetFileAsBytes(SaveSlots.PathOf(1)));
+        using (FileAccess file = FileAccess.Open(SaveSlots.PathOf(3), FileAccess.ModeFlags.Write))
+        {
+            file.StoreString(text.Replace($"MAGICCASTLE_SAVE {Strings.CoreSaveVersion}", "MAGICCASTLE_SAVE 4"));
+        }
+        SlotInfo old = SaveSlots.Peek(3);
+        if (old.Ok || old.Info.Result != (int)CoreResultCode.Version || old.Info.Version != 4)
+        {
+            reason = $"old-version save not reported: {Strings.SlotLine(old)}";
+            return false;
+        }
+        _main.Menus.Slots.Open(false, false);
+        _main.Menus.Slots.Close();
+
+        // 6) 일시정지 메뉴는 배속을 되돌리고, 설정·새 게임 창은 열고 닫힘
+        GameClock.Instance.SetSpeed(2);
+        _main.OpenPauseMenu();
+        bool paused = _main.Menus.Pause.Visible && GameClock.Instance.Speed == 0;
+        _main.Menus.Settings.Open();
+        _main.Menus.Back();
+        _main.Menus.Back(); // 일시정지 메뉴의 Esc = 계속하기
+        if (!paused || _main.Menus.AnyOpen || GameClock.Instance.Speed != 2)
+        {
+            reason = $"pause menu did not pause and resume (speed {GameClock.Instance.Speed})";
+            return false;
+        }
+        if (core.IsValidCastleName("") || !core.IsValidCastleName("바람언덕 성채"))
+        {
+            reason = "castle name check is wrong";
+            return false;
+        }
+        reason = $"saves ok, {_main.AutosaveCount} autosaves";
         return true;
     }
 

@@ -46,10 +46,10 @@ public partial class SettingsPanel : Control
         _uiScale.ItemSelected += _ => OnChanged();
         grid.AddChild(_uiScale);
         grid.AddChild(new Control());
-        _fullscreen = new CheckBox { Text = Strings.SettingsFullscreen };
+        _fullscreen = new CheckBox { Text = Strings.SettingsFullscreen, Flat = true };
         _fullscreen.Toggled += _ => OnChanged();
         box.AddChild(_fullscreen);
-        _edgeScroll = new CheckBox { Text = Strings.SettingsEdgeScroll };
+        _edgeScroll = new CheckBox { Text = Strings.SettingsEdgeScroll, Flat = true };
         _edgeScroll.Toggled += _ => OnChanged();
         box.AddChild(_edgeScroll);
         box.AddChild(MenuParts.Note(Strings.SettingsMusicNote));

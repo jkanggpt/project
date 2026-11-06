@@ -31,7 +31,8 @@ public partial class TitleScreen : Control
 
         _panel = new PanelContainer();
         AddChild(_panel);
-        _panel.SetAnchorsPreset(LayoutPreset.CenterLeft);
+        // 앵커만 바꾸면 Godot 이 지금 자리를 지키려고 오프셋을 다시 계산하므로, 오프셋까지 함께 정합니다
+        _panel.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterLeft);
         _panel.GrowVertical = GrowDirection.Both;
         var box = new VBoxContainer();
         _panel.AddChild(box);
@@ -60,7 +61,7 @@ public partial class TitleScreen : Control
 
         _credits = new Label { Text = Strings.TitleCredits, Modulate = new Color(1, 1, 1, 0.6f) };
         AddChild(_credits);
-        _credits.SetAnchorsPreset(LayoutPreset.BottomRight);
+        _credits.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomRight);
         _credits.GrowHorizontal = GrowDirection.Begin;
         _credits.GrowVertical = GrowDirection.Begin;
     }
@@ -68,14 +69,14 @@ public partial class TitleScreen : Control
     public void ApplyScale(int scale)
     {
         _panel.CustomMinimumSize = new Vector2(220 * scale, 0);
-        _panel.OffsetLeft = 24 * scale;
-        _panel.OffsetRight = 24 * scale;
+        _panel.OffsetLeft = _panel.OffsetRight = 24 * scale;
+        _panel.OffsetTop = _panel.OffsetBottom = 0;
         _title.AddThemeFontSizeOverride("font_size", 24 * scale);
         _title.AddThemeConstantOverride("shadow_offset_x", scale);
         _title.AddThemeConstantOverride("shadow_offset_y", scale);
         _continueInfo.CustomMinimumSize = new Vector2(210 * scale, 0);
-        _credits.OffsetRight = -6 * scale;
-        _credits.OffsetBottom = -4 * scale;
+        _credits.OffsetLeft = _credits.OffsetRight = -6 * scale;
+        _credits.OffsetTop = _credits.OffsetBottom = -4 * scale;
     }
 
     /// <summary>latestSlot 이 -1 이면 이어할 세이브가 없음</summary>

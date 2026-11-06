@@ -43,7 +43,7 @@ public partial class PauseMenu : Control
 
     public void ApplyScale(int scale)
     {
-        _panel.CustomMinimumSize = new Vector2(200 * scale, 0);
+        _panel.CustomMinimumSize = new Vector2(240 * scale, 0);
     }
 
     /// <summary>saveBlockedReason 이 비어 있지 않으면 저장 단추를 끄고 툴팁으로 이유를 보여 줍니다 (습격 중)</summary>

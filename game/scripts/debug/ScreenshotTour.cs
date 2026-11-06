@@ -183,6 +183,37 @@ public partial class ScreenshotTour : Node
                 await Capture("20_defeat_preview");
                 _main.Hud.Outcome.Visible = false;
             }
+
+            // 메뉴 (마일스톤 6): 일시정지 메뉴 → 저장하기 → 설정, 그리고 제목 화면 → 새 게임 → 불러오기
+            // (습격 중에는 저장이 거절되므로 습격이 끝날 때까지 진행)
+            for (int i = 0; i < 400 && _main.Sync.Summary.RaidId != 0; i++)
+            {
+                _main.Combat.Step(CoreBridge.Instance.Config.MinutesPerTick);
+                GameClock.Instance.Advance(1);
+                await WaitFrames(1);
+            }
+            _main.SaveToSlot(1);
+            GameClock.Instance.Advance(CoreBridge.Instance.Config.TicksPerDay / 2);
+            _main.SaveToSlot(2);
+            WriteOldVersionSave(3); // 다른 버전의 세이브가 목록에서 어떻게 보이는지
+            await WaitFrames(2);
+            _main.OpenPauseMenu();
+            await Capture("21_pause_menu");
+            _main.Menus.Slots.Open(true, false);
+            await Capture("22_save_slots");
+            _main.Menus.Slots.Close();
+            _main.Menus.Settings.Open();
+            await Capture("23_settings");
+            _main.Menus.Settings.Close();
+            _main.ShowTitle();
+            await WaitSeconds(1.0); // 제목 화면의 카메라가 조금 흘러가도록
+            await Capture("24_title");
+            _main.Menus.NewGame.Open((int)Difficulty.Normal);
+            await Capture("25_new_game");
+            _main.Menus.NewGame.Cancel();
+            _main.Menus.Slots.Open(false, false);
+            await Capture("26_load_slots");
+            _main.Menus.Slots.Close();
         }
         catch (Exception exception)
         {
@@ -194,6 +225,14 @@ public partial class ScreenshotTour : Node
             ? $"SCREENSHOTS SAVED to {_directory}"
             : $"SCREENSHOTS FAILED ({errors} engine errors/warnings)\n{ErrorCounter.Summary()}");
         Sfx.QuitQuietly(GetTree(), errors == 0 && ok ? 0 : 1);
+    }
+
+    /// <summary>슬롯 1 의 세이브를 옛 형식 번호로 바꿔 slot 에 씁니다 (목록에서 "다른 버전"으로 막히는 모습)</summary>
+    private static void WriteOldVersionSave(int slot)
+    {
+        string text = System.Text.Encoding.UTF8.GetString(Godot.FileAccess.GetFileAsBytes(SaveSlots.PathOf(1)));
+        using Godot.FileAccess file = Godot.FileAccess.Open(SaveSlots.PathOf(slot), Godot.FileAccess.ModeFlags.Write);
+        file.StoreString(text.Replace($"MAGICCASTLE_SAVE {UI.Strings.CoreSaveVersion}", "MAGICCASTLE_SAVE 4"));
     }
 
     /// <summary>예고된 위협이 오는 쪽으로 distance 칸 떨어진 곳 근처에 짓습니다</summary>

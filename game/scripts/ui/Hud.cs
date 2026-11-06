@@ -129,7 +129,10 @@ public partial class Hud : CanvasLayer
         GetViewport().SetInputAsHandled();
     }
 
-    /// <summary>맨 왼쪽의 "메뉴" 단추와, 시각 옆에 잠깐 떴다 사라지는 "자동 저장" 표시</summary>
+    /// <summary>
+    /// 맨 왼쪽의 "메뉴" 단추와, 오른쪽 아래(건설 막대 위)에 잠깐 떴다 사라지는 "자동 저장" 표시.
+    /// 표시는 위쪽 막대 밖에 띄웁니다 (막대 안에 두면 1280×720 에서 막대가 한 줄 더 접힘).
+    /// </summary>
     private void BuildMenuButton(HBoxContainer left)
     {
         var menu = new Button { Text = Strings.MenuButton, TooltipText = Strings.MenuButtonTooltip, FocusMode = Control.FocusModeEnum.None };
@@ -137,8 +140,11 @@ public partial class Hud : CanvasLayer
         left.AddChild(menu);
         left.MoveChild(menu, 0);
         _saved = new Label { Text = Strings.Autosaved, Modulate = new Color(0.7f, 1f, 0.7f, 0f), MouseFilter = Control.MouseFilterEnum.Ignore };
-        left.AddChild(_saved);
-        left.MoveChild(_saved, left.GetNode("Clock").GetIndex() + 1);
+        _saved.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.8f));
+        _root.AddChild(_saved);
+        _saved.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomRight);
+        _saved.GrowHorizontal = Control.GrowDirection.Begin;
+        _saved.GrowVertical = Control.GrowDirection.Begin;
     }
 
     /// <summary>저장했다는 표시를 잠깐 보여 줍니다 (자동 저장마다 알림을 쌓지 않으려고)</summary>
@@ -488,6 +494,8 @@ public partial class Hud : CanvasLayer
             _bannerTime += delta;
             _raidBanner.Modulate = new Color(1, 1, 1, 0.9f + 0.1f * (float)Math.Sin(_bannerTime * 4));
         }
+        _saved.OffsetLeft = _saved.OffsetRight = -6 * scale;
+        _saved.OffsetTop = _saved.OffsetBottom = -bottom - 4 * scale;
         Vector2 inspectorSize = Inspector.GetCombinedMinimumSize();
         Inspector.OffsetLeft = 4 * scale;
         Inspector.OffsetRight = Inspector.OffsetLeft + inspectorSize.X;
