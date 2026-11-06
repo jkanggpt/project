@@ -19,7 +19,7 @@ Run from the repository root. Presets live in `CMakePresets.json`.
 
 - Configure + build C (Linux, sanitizers): `cmake --preset linux-debug -DCASTLE_WERROR=ON && cmake --build --preset linux-debug` (Clang: preset `linux-clang-debug`; needs `libclang-rt-18-dev`)
 - Run C tests: `ctest --preset linux-debug -j8`
-- Soak test (quality gate, ~7 min under ASan): `build/linux-debug/bin/castle_cli --soak 400 --seeds 20`
+- Soak test (quality gate, ~16 min under ASan locally, ~20 min in CI; defeated worlds restart): `build/linux-debug/bin/castle_cli --soak 400 --seeds 20`
 - Simulator CSV: `mkdir -p artifacts && build/linux-debug/bin/castle_cli --simulate 60 --seed 7 --bot reasonable --out artifacts/sim.csv` (bots: `idle`, `reasonable`; add `--events` to print notifications, `--difficulty 0|1|2` for peaceful/normal/harsh). The CSV has `rank`, `defense`, `research_done`, `outcome` columns for balance checks; the release build (`build/linux-release/bin/castle_cli`) runs sims ~7× faster than the ASan one
 - The CLI reads definition files from `game/data` by default (`--data <dir>` to change). Regenerate them from the built-in defaults: `build/linux-debug/bin/castle_cli --dump-defs game/data`
 - Windows cross-compile check (MinGW): `cmake --preset mingw-release -DCASTLE_WERROR=ON && cmake --build --preset mingw-release`
