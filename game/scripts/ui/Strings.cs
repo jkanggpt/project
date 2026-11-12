@@ -924,6 +924,10 @@ public static class Strings
     public const string MenuButton = "메뉴";
     public const string MenuButtonTooltip = "일시정지 메뉴: 저장, 불러오기, 설정, 제목 화면 (Esc)";
 
+    public const string StressFailed = "성능 측정 마을을 만들지 못했습니다";
+    public static string PerfLine(int fps, double processMs, int villagers, int enemies) =>
+        $"FPS {fps} · 프레임 처리 {processMs:0.0} ms · 주민 {villagers} · 적 {enemies}";
+
     public const string SettingsTitle = "설정";
     public const string SettingsMaster = "전체 음량";
     public const string SettingsMusic = "음악";

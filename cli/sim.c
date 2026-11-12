@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "castle_core.h"
 #include "battle.h"
@@ -970,4 +971,72 @@ int sim_run_soak(int days, int seeds, int32_t first_seed, const CoreDefs *defs)
     }
     printf("소크 테스트 실패: 시드 %d개 중 %d개에서 문제\n", seeds, failed_seeds);
     return 1;
+}
+
+/* ---- 성능 측정 (--bench) ---------------------------------------------------- */
+
+/* 지금 시각 (ms). C11 의 timespec_get 이 없는 C 라이브러리(오래된 MinGW)에서는 clock() 으로 (정밀도가 낮음) */
+static double now_ms(void)
+{
+#if defined(TIME_UTC)
+    struct timespec ts;
+    if (timespec_get(&ts, TIME_UTC) != 0) {
+        return (double)ts.tv_sec * 1000.0 + (double)ts.tv_nsec / 1000000.0;
+    }
+#endif
+    return (double)clock() * 1000.0 / CLOCKS_PER_SEC;
+}
+
+int sim_run_bench(int villagers, int enemies, int32_t seed, const CoreDefs *defs)
+{
+    CoreWorld *world = NULL;
+    Walker walker;
+    CoreConfigView config;
+    CoreSummaryView summary;
+    CoreEventView event;
+    double total = 0.0;
+    double slowest = 0.0;
+    int32_t measured = 0;
+    int32_t tick;
+    int32_t rc;
+    (void)core_get_config(&config);
+    if (create_world(seed, CORE_DIFF_NORMAL, "Bench", defs, &world) != CORE_OK) {
+        fprintf(stderr, "월드를 만들 수 없습니다\n");
+        return 1;
+    }
+    rc = core_debug_stress(world, villagers, enemies);
+    if (rc != CORE_OK) {
+        fprintf(stderr, "큰 마을을 만들 수 없습니다: %s\n", core_result_name(rc));
+        core_destroy(world);
+        return 1;
+    }
+    walker_init(&walker);
+    /* 하루는 적응 (집·일터를 찾아 걷기 시작), 그다음 닷새를 잼. 걷기 흉내(Godot 몫)는 재지 않음 */
+    for (tick = 0; tick < config.ticks_per_day * 6; tick++) {
+        double start;
+        double spent;
+        if (tick >= config.ticks_per_day) {
+            start = now_ms();
+            rc = core_tick(world, 1);
+            spent = now_ms() - start;
+            total += spent;
+            slowest = spent > slowest ? spent : slowest;
+            measured++;
+        } else {
+            rc = core_tick(world, 1);
+        }
+        if (rc != CORE_OK || walker_step(&walker, world) != 0) {
+            fprintf(stderr, "%d틱째에 멈췄습니다: %s\n", (int)tick, core_result_name(rc));
+            break;
+        }
+        while (core_poll_event(world, &event) == 1) {
+        }
+    }
+    (void)core_get_summary(world, &summary);
+    printf("주민 %d명 (요청 %d), 건물 %d채, 적 %d명: 틱 %d번, 평균 %.3f ms, 가장 느린 틱 %.3f ms (목표: 1 ms 미만)\n",
+           (int)summary.population, villagers, (int)summary.building_count, enemies, (int)measured,
+           measured > 0 ? total / measured : 0.0, slowest);
+    walker_free(&walker);
+    core_destroy(world);
+    return 0;
 }

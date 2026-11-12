@@ -849,6 +849,7 @@ internal static class Native
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_load(byte[] pathUtf8, IntPtr defs, out IntPtr world, out int errorLine);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_peek_save(byte[] pathUtf8, IntPtr defs, out CoreSaveInfoView info);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_check_castle_name(byte[] nameUtf8);
+    [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_debug_stress(IntPtr world, int villagers, int enemies);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_validate(IntPtr world);
     [DllImport(LibraryName, CallingConvention = Cdecl)] public static extern int core_state_hash(IntPtr world, out ulong hash);
 }

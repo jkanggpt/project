@@ -26,6 +26,12 @@ public partial class Main : Node2D
     /// <summary>제목 화면 뒤에 보여 줄 지도의 시드 (숲·물·바위가 고루 있는 지도)</summary>
     private const int TitleBackdropSeed = 42;
 
+    /// <summary>성능 측정(--stress)의 마을 크기 (SPEC §5: 주민 150명 + 적 40명에서 60 fps)</summary>
+    public const int StressVillagers = 150;
+    public const int StressEnemies = 40;
+    private const int StressSeed = 7;
+    private double _perfTimer;
+
     private bool _reconcileQueued;
     private int _shownOutcome; // 이미 보여 준 결과 (같은 화면을 두 번 띄우지 않음)
     private bool _autosavePending; // 습격 중이라 미룬 자동 저장
@@ -117,22 +123,30 @@ public partial class Main : Node2D
         Hud.MenuRequested += OpenPauseMenu;
         WireMenus();
 
-        if (options.Automated)
+        if (options.Automated || options.Stress)
         {
             SaveSlots.ClearAutomatedSaves();
-            int seed = options.Seed ?? (int)(GD.Randi() & 0x7FFFFFFF);
+            int seed = options.Seed ?? (options.Stress ? StressSeed : (int)(GD.Randi() & 0x7FFFFFFF));
             if (!StartNewGame(Strings.DefaultCastleName, seed, (int)options.Difficulty))
             {
                 GetTree().Quit(2);
                 return;
             }
+            if (options.Stress)
+            {
+                StartStress();
+            }
             if (options.SmokeTest)
             {
                 AddChild(new SmokeTest());
             }
-            else
+            else if (options.ScreenshotDir != null)
             {
                 AddChild(new ScreenshotTour());
+            }
+            else if (options.StressProbe)
+            {
+                AddChild(new StressProbe());
             }
         }
         else
@@ -217,6 +231,10 @@ public partial class Main : Node2D
         {
             double minute = Sync.Summary.MinuteOfDay + GameClock.Instance.TickFraction * CoreBridge.Instance.Config.MinutesPerTick;
             DayNight.SetMinute(minute);
+        }
+        if (LaunchOptions.Current.Stress)
+        {
+            UpdatePerf(delta);
         }
         // 제목 화면: 지도 위를 천천히 흘러갑니다
         if (!InGame && Menus.Title.Visible && CoreBridge.Instance.HasWorld)
@@ -334,7 +352,8 @@ public partial class Main : Node2D
     /// </summary>
     public CoreResult TryAutosave()
     {
-        if (!InGame || !CoreBridge.Instance.HasWorld || Sync.Summary.Outcome == (int)Outcome.Lost)
+        // 성능 측정 마을(--stress)은 저장하지 않음: 학생의 자동 저장을 덮지 않게
+        if (!InGame || !CoreBridge.Instance.HasWorld || Sync.Summary.Outcome == (int)Outcome.Lost || LaunchOptions.Current.Stress)
         {
             return new CoreResult(CoreResultCode.Ignored);
         }
@@ -449,6 +468,36 @@ public partial class Main : Node2D
         }
         OpenPauseMenu();
         return true;
+    }
+
+    // ---- 성능 측정 (--stress) -----------------------------------------------
+
+    /// <summary>주민 150명 + 마물 40명의 큰 마을을 만들고 FPS 를 보여 줍니다</summary>
+    private void StartStress()
+    {
+        // 측정(--stress-probe)은 마을만 먼저 만들고, 적은 측정 중에 StressProbe 가 부름 (나타나는 순간도 재려고)
+        CoreResult result = CoreBridge.Instance.DebugStress(StressVillagers, LaunchOptions.Current.StressProbe ? 0 : StressEnemies);
+        if (!result.Ok)
+        {
+            Hud.ShowToast($"{Strings.StressFailed}: {result.Name}");
+            return;
+        }
+        Sync.Reconcile();
+        Camera.SetZoomLevel(1);
+        Hud.ShowPerf(true);
+        GD.Print($"stress: {Sync.VillagerCount} villagers, {Sync.BuildingCount} buildings");
+    }
+
+    private void UpdatePerf(double delta)
+    {
+        _perfTimer += delta;
+        if (_perfTimer < 0.5)
+        {
+            return;
+        }
+        _perfTimer = 0;
+        double processMs = Performance.GetMonitor(Performance.Monitor.TimeProcess) * 1000.0;
+        Hud.SetPerf(Strings.PerfLine((int)Engine.GetFramesPerSecond(), processMs, Sync.VillagerCount, Combat.EnemyCount));
     }
 
     // ---- 화면 맞추기 --------------------------------------------------------

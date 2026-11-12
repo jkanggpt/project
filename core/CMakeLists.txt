@@ -3,6 +3,7 @@ set(CASTLE_CORE_SOURCES
   src/api.c
   src/clock.c
   src/defs.c
+  src/debug.c
   src/defs_builtin.c
   src/difficulty.c
   src/economy.c

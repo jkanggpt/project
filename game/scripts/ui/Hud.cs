@@ -40,6 +40,7 @@ public partial class Hud : CanvasLayer
     private PanelContainer _hint = null!;
     private Label _hintLabel = null!;
     private Label _saved = null!;
+    private Label _perf = null!;
     private Tween? _savedTween;
     private Control _fatal = null!;
     private Label _fatalMessage = null!;
@@ -145,7 +146,19 @@ public partial class Hud : CanvasLayer
         _saved.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomRight);
         _saved.GrowHorizontal = Control.GrowDirection.Begin;
         _saved.GrowVertical = Control.GrowDirection.Begin;
+        _perf = new Label { Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _perf.AddThemeColorOverride("font_color", new Color(1f, 1f, 0.6f));
+        _perf.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.9f));
+        _root.AddChild(_perf);
+        _perf.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomRight);
+        _perf.GrowHorizontal = Control.GrowDirection.Begin;
+        _perf.GrowVertical = Control.GrowDirection.Begin;
     }
+
+    /// <summary>성능 측정(--stress) 중 오른쪽 아래의 FPS 줄</summary>
+    public void ShowPerf(bool visible) => _perf.Visible = visible;
+
+    public void SetPerf(string text) => _perf.Text = text;
 
     /// <summary>저장했다는 표시를 잠깐 보여 줍니다 (자동 저장마다 알림을 쌓지 않으려고)</summary>
     public void FlashSaved(string text)
@@ -496,6 +509,8 @@ public partial class Hud : CanvasLayer
         }
         _saved.OffsetLeft = _saved.OffsetRight = -6 * scale;
         _saved.OffsetTop = _saved.OffsetBottom = -bottom - 4 * scale;
+        _perf.OffsetLeft = _perf.OffsetRight = -6 * scale;
+        _perf.OffsetTop = _perf.OffsetBottom = -bottom - 18 * scale;
         Vector2 inspectorSize = Inspector.GetCombinedMinimumSize();
         Inspector.OffsetLeft = 4 * scale;
         Inspector.OffsetRight = Inspector.OffsetLeft + inspectorSize.X;

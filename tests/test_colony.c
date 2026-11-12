@@ -685,3 +685,29 @@ void test_autumn_immigration_needs_winter_food(void)
     CHECK(world->villager_count > before);
     core_destroy(world);
 }
+
+void test_debug_stress_town(void)
+{
+    /* 성능 측정용 큰 마을(core_debug_stress)도 불변 조건을 지켜야 함 */
+    CoreWorld *world = test_make_world(143, CORE_DIFF_NORMAL);
+    CoreSummaryView summary;
+    CoreRaidView raid;
+    CHECK(world != NULL);
+    CHECK_EQ(core_debug_stress(NULL, 10, 0), CORE_ERR_NULL_ARG);
+    CHECK_EQ(core_debug_stress(world, -1, 0), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_debug_stress(world, 301, 0), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_debug_stress(world, 10, 65), CORE_ERR_INVALID_ARG);
+    CHECK_EQ(core_debug_stress(world, 150, 40), CORE_OK);
+    CHECK_EQ(test_validate_verbose(world), 0);
+    CHECK_EQ(core_get_summary(world, &summary), CORE_OK);
+    CHECK_EQ(summary.population, 150);
+    CHECK(summary.housing_capacity >= 150);
+    CHECK_EQ(core_get_raid(world, &raid), CORE_OK);
+    CHECK(raid.id != 0);
+    CHECK_EQ(raid.enemy_count, 40);
+    CHECK_EQ(core_debug_stress(world, 150, 40), CORE_ERR_REJECTED); /* 이미 습격 중 */
+    test_keep_alive(world);
+    CHECK(test_run(world, 144));
+    CHECK_EQ(test_validate_verbose(world), 0);
+    core_destroy(world);
+}

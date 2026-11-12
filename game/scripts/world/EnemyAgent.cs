@@ -117,6 +117,10 @@ public partial class EnemyAgent : Node2D
         _retarget -= minutes;
         if (_mode == Mode.Flee)
         {
+            if (!_hasPath && !director.Sync.EnemyPaths.HasBudget)
+            {
+                return; // 이번 프레임의 길찾기 시간이 다 참 (적 40명이 한꺼번에 나타날 때): 다음 프레임에
+            }
             if (!_hasPath && !PlanPath(director, _home))
             {
                 director.Escaped(this); // 달아날 길도 없으면 그 자리에서 물러난 것으로 봄
@@ -181,6 +185,10 @@ public partial class EnemyAgent : Node2D
         }
         if (!_hasPath)
         {
+            if (!director.Sync.EnemyPaths.HasBudget)
+            {
+                return; // 다음 프레임에 길을 찾음
+            }
             Vector2I goal = GoalCell(director);
             if (!PlanPath(director, goal))
             {

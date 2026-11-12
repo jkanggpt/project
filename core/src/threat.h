@@ -75,6 +75,8 @@ void threat_tick(World *world);
 int threat_raid_active(const World *world);
 /* 진행 중인 습격을 바로 끝냅니다 (패배했을 때). 습격이 없으면 아무것도 안 함 */
 void threat_abort_raid(World *world);
+/* 디버그 전용 (core_debug_stress): 지금 바로 type 습격을 count 명으로 시작. 이미 습격 중이면 CORE_ERR_REJECTED */
+int threat_debug_raid(World *world, int32_t type, int32_t direction, int32_t count);
 /* 경비병인가 (다 지은 병영의 일꾼) */
 int threat_is_guard(const World *world, const Villager *villager);
 

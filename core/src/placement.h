@@ -39,6 +39,8 @@ void placement_rebuild_layers(World *world);
 void placement_refresh_productivity(World *world);
 /* 한 틱: 짓는 중인 건물을 한 틱씩 진행하고, 다 지으면 알립니다 */
 void placement_tick(World *world);
+/* 짓는 중인 건물을 바로 다 지음 (디버그 전용: core_debug_stress) */
+void placement_finish_now(World *world, Building *building);
 /* 저장 한도를 다시 셉니다: 다 지은 저장 건물(성채·창고)의 한도 합 + 승급으로 늘어난 한도 */
 void placement_refresh_capacity(World *world);
 

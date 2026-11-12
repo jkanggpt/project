@@ -27,6 +27,7 @@ public partial class VillagerAgent : Node2D
     private float _bobTime;
     private bool _selected;
     private bool _silent; // 싸움을 마치고 C 가 아는 자리로 걸어 돌아가는 중 (이미 도착한 것으로 되어 있어 보고하지 않음)
+    private Pathfinder? _waitingForPath; // 이번 프레임의 길찾기 시간이 다 차서 다음 프레임에 길을 찾을 차례
 
     public int Id { get; private set; }
     public CoreVillagerView View { get; private set; }
@@ -70,6 +71,7 @@ public partial class VillagerAgent : Node2D
         }
         if (view.AtTarget != 0 || view.Holding)
         {
+            _waitingForPath = null; // 기다리던 길찾기는 이제 필요 없음
             if (_silent && _walkingRev >= 0 && view.IntentRev == _walkingRev)
             {
                 return; // 싸운 자리에서 걸어 돌아가는 중
@@ -89,6 +91,18 @@ public partial class VillagerAgent : Node2D
             return; // 같은 의도로 걷는 중이거나 이미 보고함
         }
         _silent = false;
+        StartWalkingTo(view, paths);
+    }
+
+    /// <summary>새 의도의 목표까지 길을 찾아 걷기 시작합니다. 이번 프레임의 길찾기 시간이 다 찼으면 다음 프레임에.</summary>
+    private void StartWalkingTo(in CoreVillagerView view, Pathfinder paths)
+    {
+        if (!InstantTravel && !paths.HasBudget)
+        {
+            _waitingForPath = paths; // C 는 도착 보고를 기다릴 뿐이므로 한두 프레임 늦어도 됨
+            return;
+        }
+        _waitingForPath = null;
         var target = new Vector2I(view.TargetX, view.TargetY);
         if (!paths.FindPath(CurrentCell, target, _path))
         {
@@ -110,6 +124,7 @@ public partial class VillagerAgent : Node2D
     public void BeginCombat()
     {
         CombatControlled = true;
+        _waitingForPath = null;
         _walkingRev = -1;
         _silent = false;
     }
@@ -206,6 +221,12 @@ public partial class VillagerAgent : Node2D
         if (CombatControlled)
         {
             return;
+        }
+        if (_waitingForPath != null && _waitingForPath.HasBudget)
+        {
+            Pathfinder paths = _waitingForPath;
+            _waitingForPath = null;
+            StartWalkingTo(View, paths);
         }
         if (_walkingRev < 0)
         {

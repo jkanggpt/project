@@ -244,6 +244,21 @@ static void start_raid(World *world, const Threat *threat)
     events_push_raid(&world->events, CORE_EVT_RAID_STARTED, raid->id, raid->type, raid->enemy_count, raid->direction);
 }
 
+int threat_debug_raid(World *world, int32_t type, int32_t direction, int32_t count)
+{
+    Threat threat;
+    if (world->threat.raid.id != 0) {
+        return CORE_ERR_REJECTED;
+    }
+    memset(&threat, 0, sizeof(threat));
+    threat.type = type;
+    threat.direction = direction;
+    threat.eta_tick = world->clock.tick;
+    threat.strength = count;
+    start_raid(world, &threat);
+    return world->threat.raid.id != 0 ? CORE_OK : CORE_ERR_OUT_OF_MEMORY;
+}
+
 static void end_raid(World *world)
 {
     ThreatState *state = &world->threat;

@@ -2,7 +2,9 @@
 //   --smoke-test [--days N]    화면 없이 N일 진행하며 오류를 검사하고 종료 (실패하면 종료 코드 1)
 //   --screenshots <폴더>       주요 장면을 PNG 로 저장하고 종료 (Xvfb 에서 사용)
 //   --seed N                   지도 시드 고정
-//   --difficulty peaceful|normal|harsh (또는 0|1|2)   난이도 (새 게임 화면은 마일스톤 6)
+//   --difficulty peaceful|normal|harsh (또는 0|1|2)   난이도 (보통은 새 게임 화면에서 고름)
+//   --stress                   성능 측정: 제목 없이 주민 150명 + 마물 40명의 큰 마을, 화면 오른쪽 아래에 FPS (자동 저장 안 함)
+//   --stress-probe             위와 같은 마을을 3배속으로 600프레임 돌려 프레임 시간을 출력하고 종료 (자동 검사)
 using System;
 using System.Globalization;
 
@@ -18,11 +20,17 @@ public sealed class LaunchOptions
     public int? Seed { get; private set; }
     public Core.Difficulty Difficulty { get; private set; } = Core.Difficulty.Normal;
 
+    /// <summary>성능 측정용 큰 마을 (--stress 또는 --stress-probe)</summary>
+    public bool Stress { get; private set; }
+
+    /// <summary>프레임 시간을 재고 끝냄 (--stress-probe)</summary>
+    public bool StressProbe { get; private set; }
+
     /// <summary>오류 기록기를 붙여야 하는 모드인지</summary>
-    public bool CountErrors => SmokeTest || ScreenshotDir != null;
+    public bool CountErrors => SmokeTest || ScreenshotDir != null || StressProbe;
 
     /// <summary>사람 대신 프로그램이 조종하는 모드인지 (가장자리 스크롤 등을 끔)</summary>
-    public bool Automated => SmokeTest || ScreenshotDir != null;
+    public bool Automated => SmokeTest || ScreenshotDir != null || StressProbe;
 
     public static void Parse(string[] args)
     {
@@ -34,6 +42,13 @@ public sealed class LaunchOptions
             {
                 case "--smoke-test":
                     options.SmokeTest = true;
+                    break;
+                case "--stress":
+                    options.Stress = true;
+                    break;
+                case "--stress-probe":
+                    options.Stress = true;
+                    options.StressProbe = true;
                     break;
                 case "--days" when int.TryParse(next, NumberStyles.Integer, CultureInfo.InvariantCulture, out int days):
                     options.SmokeDays = Math.Clamp(days, 1, 1000);

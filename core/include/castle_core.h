@@ -35,7 +35,7 @@ extern "C" {
 #endif
 
 /* C#의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
-#define CORE_ABI_VERSION 6
+#define CORE_ABI_VERSION 7
 /* 지금 세이브 파일 형식의 버전 (첫 줄 "MAGICCASTLE_SAVE <버전>") */
 #define CORE_SAVE_VERSION 5
 
@@ -1029,6 +1029,10 @@ CORE_API int32_t core_peek_save(const char *path_utf8, const CoreDefs *defs, Cor
 CORE_API int32_t core_check_castle_name(const char *name_utf8);
 
 /* ---- 디버그 ---------------------------------------------------------- */
+/* 성능 측정용 (디버그 전용, 일반 플레이에서는 부르지 않음): 성채 둘레에 집·농장을 공짜로 바로 짓고
+ * 주민을 villagers 명(최대 300)까지 늘리고 식량·목재를 채움. enemies > 0 이면 그만큼(최대 64)의 마물 습격을 바로 시작.
+ * CLI --bench, Godot --stress 가 씀. 범위 밖이면 CORE_ERR_INVALID_ARG, 이미 습격 중이면 CORE_ERR_REJECTED */
+CORE_API int32_t core_debug_stress(CoreWorld *world, int32_t villagers, int32_t enemies);
 /* 불변 조건 위반 개수 (0이면 정상), 월드가 NULL 이면 음수 */
 CORE_API int32_t core_validate(const CoreWorld *world);
 /* 저장되는 상태 전체의 64비트 해시. 저장→불러오기 후 같아야 합니다. */

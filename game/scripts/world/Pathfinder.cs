@@ -17,6 +17,15 @@ public sealed class Pathfinder
     /// <summary>적이 성벽·성문 한 칸을 지나는 비용 (보통 칸의 몇 배). 이만큼 돌아가는 길이 있으면 돌아감</summary>
     public const float EnemyWallWeight = 12f;
 
+    /// <summary>
+    /// 한 프레임에 주민 길찾기에 쓸 시간 (ms). 아침 일곱 시에 주민 150명이 한꺼번에 일터로 갈 때
+    /// 길찾기 150번이 한 프레임에 몰려 30 ms 씩 끊기던 것을, 남은 주민은 다음 프레임으로 넘겨 나눕니다 (마일스톤 7).
+    /// </summary>
+    private const double FrameBudgetMs = 4.0;
+    private static readonly long FrameBudgetTicks = (long)(System.Diagnostics.Stopwatch.Frequency * FrameBudgetMs / 1000.0);
+    private ulong _budgetFrame = ulong.MaxValue;
+    private long _spentTicks;
+
     private readonly AStarGrid2D _grid = new();
     private readonly bool _forEnemies;
     private byte[] _cost = System.Array.Empty<byte>();
@@ -102,8 +111,37 @@ public sealed class Pathfinder
         return CostCodes.Normal / (float)c;
     }
 
+    /// <summary>이번 프레임에 길찾기를 더 해도 되는가 (아니면 다음 프레임에)</summary>
+    public bool HasBudget
+    {
+        get
+        {
+            ResetBudgetIfNewFrame();
+            return _spentTicks < FrameBudgetTicks;
+        }
+    }
+
+    private void ResetBudgetIfNewFrame()
+    {
+        ulong frame = Engine.GetProcessFrames();
+        if (frame != _budgetFrame)
+        {
+            _budgetFrame = frame;
+            _spentTicks = 0;
+        }
+    }
+
     /// <summary>from 에서 to 까지의 칸 목록. 길이 없으면 false</summary>
     public bool FindPath(Vector2I from, Vector2I to, List<Vector2I> into)
+    {
+        ResetBudgetIfNewFrame();
+        long start = System.Diagnostics.Stopwatch.GetTimestamp();
+        bool found = FindPathNow(from, to, into);
+        _spentTicks += System.Diagnostics.Stopwatch.GetTimestamp() - start;
+        return found;
+    }
+
+    private bool FindPathNow(Vector2I from, Vector2I to, List<Vector2I> into)
     {
         into.Clear();
         if (Revision < 0 || !Walkable(to))

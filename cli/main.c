@@ -19,6 +19,7 @@ static void print_usage(void)
     printf("  castle_cli --load <파일>           세이브 파일을 불러와 시작\n");
     printf("  castle_cli --simulate <일수> --seed <시드> [--bot <이름>] [--difficulty 0-2] [--out <CSV>] [--events]\n");
     printf("  castle_cli --soak <일수> --seeds <개수> [--first-seed <시드>]\n");
+    printf("  castle_cli --bench <주민 수> [--enemies <적 수>] [--seed <시드>]  틱 하나에 걸리는 시간 (성능 목표: 150명에서 1 ms 미만)\n");
     printf("  castle_cli --dump-defs <폴더>       내장 기본 정의를 정의 파일로 씀\n");
     printf("  (모든 모드) --data <폴더>           정의 파일 폴더 (기본: game/data)\n");
     printf("  castle_cli --help\n\n");
@@ -40,7 +41,7 @@ static int parse_arg_int(const char *text, int min, int max, int *out)
     return 1;
 }
 
-typedef enum Mode { MODE_MENU, MODE_SIMULATE, MODE_SOAK, MODE_DUMP_DEFS } Mode;
+typedef enum Mode { MODE_MENU, MODE_SIMULATE, MODE_SOAK, MODE_BENCH, MODE_DUMP_DEFS } Mode;
 
 typedef struct Options {
     Mode mode;
@@ -55,6 +56,8 @@ typedef struct Options {
     const char *data_dir;
     const char *dump_dir;
     int print_events;
+    int villagers;
+    int enemies;
 } Options;
 
 /* 성공 1, 잘못된 인자 0 */
@@ -79,6 +82,13 @@ static int parse_options(int argc, char **argv, Options *options)
         } else if (strcmp(arg, "--soak") == 0 && value != NULL) {
             options->mode = MODE_SOAK;
             ok = parse_arg_int(value, 1, 100000, &options->days);
+            i++;
+        } else if (strcmp(arg, "--bench") == 0 && value != NULL) {
+            options->mode = MODE_BENCH;
+            ok = parse_arg_int(value, 0, 300, &options->villagers);
+            i++;
+        } else if (strcmp(arg, "--enemies") == 0 && value != NULL) {
+            ok = parse_arg_int(value, 0, 64, &options->enemies);
             i++;
         } else if (strcmp(arg, "--seed") == 0 && value != NULL) {
             ok = parse_arg_int(value, 0, 2147483647, &options->seed);
@@ -197,6 +207,11 @@ int main(int argc, char **argv)
     if (options.mode == MODE_SIMULATE) {
         status = sim_run_simulation(options.days, options.seed, options.difficulty, options.bot, options.csv_path,
                                     defs, options.print_events);
+        core_defs_destroy(defs);
+        return status;
+    }
+    if (options.mode == MODE_BENCH) {
+        status = sim_run_bench(options.villagers, options.enemies, options.seed, defs);
         core_defs_destroy(defs);
         return status;
     }

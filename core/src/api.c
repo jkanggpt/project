@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "castle_core.h"
+#include "debug.h"
 #include "jobs.h"
 #include "market.h"
 #include "mem.h"
@@ -1295,6 +1296,17 @@ CORE_API int32_t core_check_castle_name(const char *name_utf8)
         return CORE_ERR_NULL_ARG;
     }
     return world_name_is_valid(name_utf8, CORE_NAME_BYTES) ? CORE_OK : CORE_ERR_INVALID_ARG;
+}
+
+CORE_API int32_t core_debug_stress(CoreWorld *world, int32_t villagers, int32_t enemies)
+{
+    if (world == NULL) {
+        return CORE_ERR_NULL_ARG;
+    }
+    if (world->outcome == CORE_OUTCOME_LOST) {
+        return CORE_ERR_REJECTED;
+    }
+    return debug_stress(world, villagers, enemies);
 }
 
 CORE_API int32_t core_validate(const CoreWorld *world)

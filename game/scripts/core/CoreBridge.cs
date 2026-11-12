@@ -40,7 +40,7 @@ public enum CoreStatus
 public partial class CoreBridge : Node
 {
     /// <summary>C 의 CORE_ABI_VERSION 과 같아야 합니다.</summary>
-    public const int ExpectedAbiVersion = 6;
+    public const int ExpectedAbiVersion = 7;
 
     /// <summary>정의 파일 (순서는 DataFile)</summary>
     private static readonly string[] DataFiles = { "res://data/buildings.def", "res://data/traits.def", "res://data/names.txt", "res://data/enemies.def",
@@ -832,6 +832,21 @@ public partial class CoreBridge : Node
     }
 
     // ---- 디버그 ----------------------------------------------------------
+
+    /// <summary>성능 측정용 큰 마을 (디버그 전용, --stress): 주민 villagers 명, 적 enemies 명의 마물 습격</summary>
+    public CoreResult DebugStress(int villagers, int enemies)
+    {
+        if (!HasWorld)
+        {
+            return new CoreResult(CoreResultCode.NullArg);
+        }
+        CoreResult result = Checked("core_debug_stress", Native.core_debug_stress(_world, villagers, enemies));
+        if (result.Ok)
+        {
+            EmitSignal(SignalName.CommandApplied);
+        }
+        return result;
+    }
 
     /// <summary>불변 조건 위반 개수 (0 이면 정상)</summary>
     public int Validate()

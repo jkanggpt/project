@@ -588,6 +588,14 @@ static void complete_building(World *world, Building *building)
     jobs_on_buildings_changed(world);
 }
 
+void placement_finish_now(World *world, Building *building)
+{
+    if (building != NULL && building->state == CORE_BSTATE_CONSTRUCTING) {
+        building->build_progress = world_building_def(world, building->type)->build_ticks;
+        complete_building(world, building);
+    }
+}
+
 static int place_road(World *world, int32_t x, int32_t y)
 {
     Grid *grid = &world->grid;
