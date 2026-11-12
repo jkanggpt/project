@@ -40,7 +40,7 @@ public enum CoreStatus
 public partial class CoreBridge : Node
 {
     /// <summary>C 의 CORE_ABI_VERSION 과 같아야 합니다.</summary>
-    public const int ExpectedAbiVersion = 7;
+    public const int ExpectedAbiVersion = 8;
 
     /// <summary>정의 파일 (순서는 DataFile)</summary>
     private static readonly string[] DataFiles = { "res://data/buildings.def", "res://data/traits.def", "res://data/names.txt", "res://data/enemies.def",

@@ -16,15 +16,20 @@ public partial class MenuLayer : CanvasLayer
     public NewGameDialog NewGame { get; private set; } = null!;
     public SlotDialog Slots { get; private set; } = null!;
     public SettingsPanel Settings { get; private set; } = null!;
+    public HelpPanel Help { get; private set; } = null!;
     public ConfirmPanel Confirm { get; private set; } = null!;
 
     /// <summary>게임 중 Esc (메뉴가 없을 때). true 면 처리함</summary>
     public Func<bool>? InGameEscape { get; set; }
 
-    public bool AnyOpen => Title.Visible || Pause.Visible || NewGame.Visible || Slots.Visible || Settings.Visible || Confirm.Visible;
+    public bool AnyOpen => Title.Visible || Pause.Visible || NewGame.Visible || Slots.Visible || Settings.Visible ||
+                           Help.Visible || Confirm.Visible;
+
+    /// <summary>게임 중 F1 (메뉴가 없을 때): Main 이 일시정지 메뉴를 열고 도움말을 띄움</summary>
+    public Action? InGameHelp { get; set; }
 
     /// <summary>제목이나 일시정지 위에 뜨는 창이 열려 있음</summary>
-    public bool DialogOpen => NewGame.Visible || Slots.Visible || Settings.Visible || Confirm.Visible;
+    public bool DialogOpen => NewGame.Visible || Slots.Visible || Settings.Visible || Help.Visible || Confirm.Visible;
 
     public override void _Ready()
     {
@@ -39,6 +44,7 @@ public partial class MenuLayer : CanvasLayer
         NewGame = Add(root, new NewGameDialog { Name = "NewGame" });
         Slots = Add(root, new SlotDialog { Name = "Slots" });
         Settings = Add(root, new SettingsPanel { Name = "Settings" });
+        Help = Add(root, new HelpPanel { Name = "Help" });
         Confirm = Add(root, new ConfirmPanel { Name = "Confirm" });
         Slots.Confirm = Confirm;
     }
@@ -56,6 +62,7 @@ public partial class MenuLayer : CanvasLayer
         NewGame.ApplyScale(scale);
         Slots.ApplyScale(scale);
         Settings.ApplyScale(scale);
+        Help.ApplyScale(scale);
         Confirm.ApplyScale(scale);
     }
 
@@ -67,12 +74,26 @@ public partial class MenuLayer : CanvasLayer
         NewGame.Visible = false;
         Slots.Visible = false;
         Settings.Visible = false;
+        Help.Visible = false;
         Confirm.Visible = false;
     }
 
     public override void _UnhandledInput(InputEvent inputEvent)
     {
         bool escape = inputEvent.IsActionPressed("ui_cancel");
+        if (inputEvent.IsActionPressed("help") && !Title.Visible && !Help.Visible && !DialogOpen)
+        {
+            if (Pause.Visible)
+            {
+                Help.Open();
+            }
+            else
+            {
+                InGameHelp?.Invoke();
+            }
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (!AnyOpen)
         {
             if (escape && InGameEscape != null && InGameEscape())
@@ -102,6 +123,10 @@ public partial class MenuLayer : CanvasLayer
         else if (Settings.Visible)
         {
             Settings.Close();
+        }
+        else if (Help.Visible)
+        {
+            Help.Close();
         }
         else if (Slots.Visible)
         {

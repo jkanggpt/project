@@ -70,7 +70,7 @@ void test_api_struct_sizes_and_config(void)
     CHECK_EQ(sizes.config_view, 17 * 4);
     CHECK_EQ(sizes.villager_view, 29 * 4 + 48);
     CHECK_EQ(sizes.building_view, 21 * 4);
-    CHECK_EQ(sizes.building_def_view, 31 * 4 + 24);
+    CHECK_EQ(sizes.building_def_view, 32 * 4 + 24);
     CHECK_EQ(sizes.trait_def_view, 6 * 4 + 24);
     CHECK_EQ(sizes.placement_view, 11 * 4);
     CHECK_EQ(sizes.mood_term_view, 8);

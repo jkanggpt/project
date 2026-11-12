@@ -3,6 +3,7 @@
 // 제안은 C 가 정합니다 (core_get_merchant). 단추는 CoreBridge.AcceptDeal 만 부릅니다.
 using System.Collections.Generic;
 using Godot;
+using MagicCastle.Audio;
 using MagicCastle.Core;
 using MagicCastle.World;
 
@@ -65,6 +66,7 @@ public partial class MerchantPanel : PanelContainer
         CoreResult result = CoreBridge.Instance.AcceptDeal(index, out DenyReason reason);
         if (!result.Ok)
         {
+            Sfx.Instance?.Play(Sound.Denied);
             EmitSignal(SignalName.Message, Strings.TradeRejected(reason));
         }
         Refresh();

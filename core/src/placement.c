@@ -99,6 +99,11 @@ static int32_t rule_terrain(int32_t rule)
     }
 }
 
+int32_t placement_counted_terrain(const BuildingDef *def)
+{
+    return rule_terrain(def->placement);
+}
+
 int32_t placement_count_terrain(const World *world, const BuildingDef *def, int32_t x, int32_t y, int32_t w,
                                 int32_t h)
 {

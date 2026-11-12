@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using MagicCastle.Audio;
 using MagicCastle.Core;
 using MagicCastle.World;
 
@@ -97,6 +98,7 @@ public partial class Inspector : PanelContainer
             CoreResult result = CoreBridge.Instance.Repair(_buildingId, out DenyReason reason);
             if (!result.Ok)
             {
+                Sfx.Instance?.Play(Sound.Denied);
                 EmitSignal(SignalName.Message, Strings.RepairRejected(reason));
             }
         };
@@ -196,6 +198,10 @@ public partial class Inspector : PanelContainer
         if (b.WorkerSlots > 0)
         {
             lines.Add(Strings.Workers(b.Workers, b.WorkerSlots));
+            if (b.Workers == 0 && b.State == (int)BuildingState.Active)
+            {
+                lines.Add(Strings.NoWorkersHint);
+            }
             lines.Add(Strings.Productivity(b.Productivity));
         }
         if (b.ResidentSlots > 0)

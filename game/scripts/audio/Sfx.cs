@@ -19,6 +19,11 @@ public enum Sound
     EnemyDown,   // 적이 쓰러짐
     Loot,        // 금화를 빼앗김
     Victory,     // 습격이 끝남
+    Click,       // 단추 (UI 버스)
+    Built,       // 건물을 다 지음
+    Fanfare,     // 승급, 연구 완료, 목표 달성, 승리
+    Denied,      // 할 수 없음 (UI 버스)
+    Place,       // 건물을 놓음
 }
 
 public partial class Sfx : Node
@@ -40,13 +45,22 @@ public partial class Sfx : Node
         (new[] { Impact + "impactPunch_heavy_000.ogg", Impact + "impactPunch_heavy_001.ogg" }, -10f, 0.1),
         (new[] { Rpg + "handleCoins.ogg", Rpg + "handleCoins2.ogg" }, -6f, 0.3),
         (new[] { Interface + "confirmation_002.ogg" }, -6f, 1.0),
+        (new[] { Interface + "click_002.ogg", Interface + "click_003.ogg" }, -12f, 0.03),
+        (new[] { Rpg + "bookPlace1.ogg", Rpg + "bookPlace2.ogg" }, -10f, 0.4),
+        (new[] { Interface + "maximize_006.ogg" }, -6f, 1.0),
+        (new[] { Interface + "error_004.ogg" }, -12f, 0.3),
+        (new[] { Interface + "drop_002.ogg" }, -10f, 0.08),
     };
+
+    /// <summary>UI 버스로 내는 소리 (설정의 "효과음" 음량이 UI 버스에도 걸림)</summary>
+    private static bool IsUi(Sound sound) => sound is Sound.Click or Sound.Denied;
 
     private readonly List<AudioStreamPlayer> _players = new();
     private readonly Dictionary<string, AudioStream?> _streams = new();
     private readonly double[] _lastPlayed = new double[Table.Length];
     private readonly int[] _nextFile = new int[Table.Length];
     private int _nextPlayer;
+    private StringName _sfxBus = "Master";
 
     public static Sfx? Instance { get; private set; }
 
@@ -78,6 +92,7 @@ public partial class Sfx : Node
     {
         ProcessMode = ProcessModeEnum.Always;
         StringName bus = AudioServer.GetBusIndex("SFX") >= 0 ? new StringName("SFX") : new StringName("Master");
+        _sfxBus = bus;
         for (int i = 0; i < PoolSize; i++)
         {
             var player = new AudioStreamPlayer { Bus = bus };
@@ -132,6 +147,7 @@ public partial class Sfx : Node
         AudioStreamPlayer player = _players[_nextPlayer];
         _nextPlayer = (_nextPlayer + 1) % _players.Count;
         player.Stream = stream;
+        player.Bus = IsUi(sound) && AudioServer.GetBusIndex("UI") >= 0 ? "UI" : _sfxBus;
         player.VolumeDb = Table[index].VolumeDb;
         player.PitchScale = (float)GD.RandRange(0.92, 1.08);
         player.Play();

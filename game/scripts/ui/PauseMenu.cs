@@ -15,6 +15,7 @@ public partial class PauseMenu : Control
     public event Action? SavePressed;
     public event Action? LoadPressed;
     public event Action? SettingsPressed;
+    public event Action? HelpPressed;
     public event Action? TitlePressed;
     public event Action? QuitPressed;
 
@@ -34,6 +35,7 @@ public partial class PauseMenu : Control
         box.AddChild(_save);
         box.AddChild(MenuParts.MenuButton(Strings.PauseLoad, () => LoadPressed?.Invoke()));
         box.AddChild(MenuParts.MenuButton(Strings.PauseSettings, () => SettingsPressed?.Invoke()));
+        box.AddChild(MenuParts.MenuButton(Strings.PauseHelp, () => HelpPressed?.Invoke()));
         box.AddChild(MenuParts.MenuButton(Strings.PauseToTitle, () => TitlePressed?.Invoke()));
         box.AddChild(MenuParts.MenuButton(Strings.PauseQuit, () => QuitPressed?.Invoke()));
         var note = MenuParts.Note(Strings.QuitAutosaveNote);

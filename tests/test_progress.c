@@ -496,3 +496,21 @@ void test_research_and_rank_files(void)
     }
     core_defs_destroy(defs);
 }
+
+void test_building_def_counted_terrain(void)
+{
+    /* 건설 미리보기의 겹쳐 그리기가 쓰는 "세는 지형"은 배치 규칙에서 나옴 (Godot 에 규칙을 두지 않으려고) */
+    CoreWorld *world = test_make_world(144, CORE_DIFF_NORMAL);
+    CoreBuildingDefView def;
+    CHECK(world != NULL);
+    CHECK_EQ(core_get_building_def(world, CORE_BLD_LUMBER, &def), CORE_OK);
+    CHECK_EQ(def.count_terrain, CORE_TERRAIN_FOREST);
+    CHECK(def.work_radius > 0);
+    CHECK_EQ(core_get_building_def(world, CORE_BLD_QUARRY, &def), CORE_OK);
+    CHECK_EQ(def.count_terrain, CORE_TERRAIN_ROCK);
+    CHECK_EQ(core_get_building_def(world, CORE_BLD_MANA_MINE, &def), CORE_OK);
+    CHECK_EQ(def.count_terrain, CORE_TERRAIN_MANA);
+    CHECK_EQ(core_get_building_def(world, CORE_BLD_HOUSE, &def), CORE_OK);
+    CHECK_EQ(def.count_terrain, -1);
+    core_destroy(world);
+}

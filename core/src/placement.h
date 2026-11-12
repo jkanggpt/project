@@ -27,6 +27,8 @@ int placement_remove_road(World *world, int32_t x, int32_t y);
 
 /* 건물이 문 앞 칸을 쓰는지 (주민이 오가는 건물) */
 int placement_needs_door(const BuildingDef *def, int32_t type);
+/* 생산성을 셀 때 세는 지형 (CoreTerrain), 지형을 세지 않는 건물이면 -1 */
+int32_t placement_counted_terrain(const BuildingDef *def);
 /* 작업 반경 안의 관련 지형 칸 수 (배치 규칙이 없는 건물은 -1) */
 int32_t placement_count_terrain(const World *world, const BuildingDef *def, int32_t x, int32_t y, int32_t w,
                                 int32_t h);

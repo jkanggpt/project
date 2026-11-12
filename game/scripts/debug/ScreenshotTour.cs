@@ -47,8 +47,8 @@ public partial class ScreenshotTour : Node
             await AdvanceTo(10 * 60);
             await Capture("02_construction_zoom3");
 
-            // 건설 도구: 마우스 아래 미리보기와 안내
-            _main.Tools.BeginBuild(BuildingType.House);
+            // 건설 도구: 마우스 아래 미리보기와 안내 (벌목장: 작업 반경 점선, 세는 숲 칸, 문 칸)
+            _main.Tools.BeginBuild(BuildingType.Lumber);
             Input.WarpMouse(GetViewport().GetVisibleRect().Size * new Vector2(0.62f, 0.55f));
             await WaitFrames(4);
             await Capture("03_build_ghost_zoom3");
@@ -199,6 +199,9 @@ public partial class ScreenshotTour : Node
             await WaitFrames(2);
             _main.OpenPauseMenu();
             await Capture("21_pause_menu");
+            _main.Menus.Help.Open();
+            await Capture("21b_help");
+            _main.Menus.Help.Close();
             _main.Menus.Slots.Open(true, false);
             await Capture("22_save_slots");
             _main.Menus.Slots.Close();

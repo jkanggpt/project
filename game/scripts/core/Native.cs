@@ -406,6 +406,8 @@ public unsafe struct CoreBuildingDefView
     public int AttackCooldown;
     /// <summary>방어 점수 (승급 조건)</summary>
     public int Defense;
+    /// <summary>생산성을 셀 때 작업 반경 안에서 세는 지형 (Terrain, 없으면 -1)</summary>
+    public int CountTerrain;
     public fixed byte Key[KeyBytes];
 
     public readonly int GetCost(ResourceKind resource)

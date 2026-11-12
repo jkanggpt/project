@@ -35,7 +35,7 @@ extern "C" {
 #endif
 
 /* C#의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
-#define CORE_ABI_VERSION 7
+#define CORE_ABI_VERSION 8
 /* 지금 세이브 파일 형식의 버전 (첫 줄 "MAGICCASTLE_SAVE <버전>") */
 #define CORE_SAVE_VERSION 5
 
@@ -657,6 +657,7 @@ typedef struct CoreBuildingDefView {
     int32_t attack_range;     /* 공격 거리 (칸) */
     int32_t attack_cooldown;  /* 공격 사이 시간 (게임 속 분) */
     int32_t defense;          /* 방어 점수 (승급 조건) */
+    int32_t count_terrain;    /* 생산성을 셀 때 작업 반경 안에서 세는 지형 (CoreTerrain, 없으면 -1). 건설 미리보기 겹쳐 그리기 */
     char key[CORE_KEY_BYTES];
 } CoreBuildingDefView;
 

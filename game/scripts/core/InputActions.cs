@@ -19,6 +19,7 @@ public static class InputActions
         Add("speed_3", Key.Key3);
         Add("tool_demolish", Key.X);
         Add("toggle_villagers", Key.V);
+        Add("help", Key.F1);
     }
 
     private static void Add(string action, params Key[] keys)

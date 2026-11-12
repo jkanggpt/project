@@ -50,6 +50,17 @@ public partial class MapView : Node2D
         new(1f, 1f, 1f), new(1.04f, 1.02f, 0.9f), new(1.12f, 0.94f, 0.74f), new(0.92f, 0.96f, 1.06f),
     };
 
+    /// <summary>칸의 지형 (C 가 준 지형 격자의 복사본). 지도 밖이면 -1</summary>
+    public int TerrainAt(Vector2I cell)
+    {
+        if (_width <= 0 || cell.X < 0 || cell.Y < 0 || cell.X >= _width)
+        {
+            return -1;
+        }
+        int index = cell.Y * _width + cell.X;
+        return index < _terrain.Length ? _terrain[index] : -1;
+    }
+
     [Export]
     public Texture2D? TerrainAtlas { get; set; }
 
@@ -93,6 +104,35 @@ public partial class MapView : Node2D
         _tint = Colors.White;
         _snowAlpha = 0;
         SetLook(summary.Season, summary.Weather, summary.NatureEvent, instant: true);
+    }
+
+    /// <summary>
+    /// 지형이 바뀐 칸만 다시 그립니다. 건물·도로를 지으면 C 가 그 자리의 숲을 풀밭으로 바꾸는데(clear_forest),
+    /// 그전에는 Godot 의 지형 복사본이 처음 그대로라 철거한 자리에 나무가 남아 보이고, 건설 미리보기가
+    /// 이미 베인 숲을 세는 칸으로 칠했습니다 (마일스톤 7). WorldSync 가 비용 격자가 바뀔 때 부릅니다.
+    /// </summary>
+    public void UpdateTerrain(byte[] terrain)
+    {
+        if (terrain.Length != _terrain.Length || _width <= 0)
+        {
+            return;
+        }
+        for (int index = 0; index < terrain.Length; index++)
+        {
+            if (terrain[index] == _terrain[index])
+            {
+                continue;
+            }
+            _terrain[index] = terrain[index];
+            int x = index % _width;
+            int y = index / _width;
+            int type = terrain[index];
+            if (type >= 0 && type < VariantWeights.Length)
+            {
+                _ground.SetCell(new Vector2I(x, y), _sourceId, new Vector2I(PickVariant(type, x, y), type));
+            }
+            PutSnow(x, y);
+        }
     }
 
     /// <summary>물이 아닌 모든 칸에 눈 덮개를 깔아 둡니다 (보일지는 투명도로 정함)</summary>

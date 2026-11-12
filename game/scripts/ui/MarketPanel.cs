@@ -4,6 +4,7 @@
 // 게임 규칙(값, 차이, 값의 움직임)은 C 에 있습니다.
 using System.Collections.Generic;
 using Godot;
+using MagicCastle.Audio;
 using MagicCastle.Core;
 using MagicCastle.World;
 
@@ -99,6 +100,10 @@ public partial class MarketPanel : PanelContainer
     private void Trade(ResourceKind kind, int lots)
     {
         CoreResult result = CoreBridge.Instance.Trade(kind, lots, out int gold, out DenyReason reason);
+        if (!result.Ok)
+        {
+            Sfx.Instance?.Play(Sound.Denied);
+        }
         EmitSignal(SignalName.Message, result.Ok ? Strings.Traded(kind, lots, gold) : Strings.TradeRejected(reason));
         Refresh();
     }

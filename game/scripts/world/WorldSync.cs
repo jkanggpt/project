@@ -205,6 +205,12 @@ public partial class WorldSync : Node
         Paths.Rebuild((byte[])_cost.Clone(), summary.MapWidth, summary.MapHeight, revision);
         EnemyPaths.Rebuild((byte[])_cost.Clone(), summary.MapWidth, summary.MapHeight, revision);
         Map?.SetRoads(_roads, summary.MapWidth, summary.MapHeight);
+        // 지은 자리의 숲은 풀밭이 됨: 지형도 바뀐 칸만 다시 (비용 격자가 바뀔 때만이라 드묾)
+        byte[]? terrain = CoreBridge.Instance.CopyTerrain(out _, out _);
+        if (terrain != null)
+        {
+            Map?.UpdateTerrain(terrain);
+        }
         _knownCostGridRev = revision;
     }
 

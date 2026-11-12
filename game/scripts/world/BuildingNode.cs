@@ -1,5 +1,6 @@
 // BuildingNode.cs — 건물 하나의 그림 (C 의 건물 뷰를 보고 모습을 맞춤)
 //   짓는 중: 공사 현장 그림 + 진행 막대 / 부서짐: 체력 막대 / 무너짐: 어둡게 + 기울임 / 추운 집: 눈송이 표시
+//   일꾼이 한 명도 없는 일터: 오른쪽 위에 붉은 "!" (자동 배치는 놀고 있는 주민만 보내므로 눈에 띄게)
 using Godot;
 using MagicCastle.Core;
 
@@ -14,6 +15,8 @@ public partial class BuildingNode : Node2D
     private float _progress = -1f;
     private float _health = 1f;
     private bool _cold;
+    private bool _unstaffed;
+    private float _pulse;
 
     public int Id { get; private set; }
     public CoreBuildingView View { get; private set; }
@@ -74,11 +77,15 @@ public partial class BuildingNode : Node2D
             : -1f;
         float health = view.MaxHp > 0 && view.State == (int)BuildingState.Active ? view.Hp / (float)view.MaxHp : 1f;
         bool cold = (view.Flags & (int)BuildingFlags.Cold) != 0;
-        if (!Mathf.IsEqualApprox(progress, _progress) || !Mathf.IsEqualApprox(health, _health) || cold != _cold)
+        bool unstaffed = view.State == (int)BuildingState.Active && view.WorkerSlots > 0 && view.Workers == 0;
+        if (!Mathf.IsEqualApprox(progress, _progress) || !Mathf.IsEqualApprox(health, _health) || cold != _cold ||
+            unstaffed != _unstaffed)
         {
             _progress = progress;
             _health = health;
             _cold = cold;
+            _unstaffed = unstaffed;
+            SetProcess(unstaffed);
             QueueRedraw();
         }
     }
@@ -145,9 +152,30 @@ public partial class BuildingNode : Node2D
             DrawLine(center + new Vector2(-1.8f, -1.8f), center + new Vector2(1.8f, 1.8f), ice, 1f);
             DrawLine(center + new Vector2(-1.8f, 1.8f), center + new Vector2(1.8f, -1.8f), ice, 1f);
         }
+        if (_unstaffed)
+        {
+            // 일꾼 없음: 오른쪽 위 붉은 원에 흰 "!" (천천히 밝아졌다 어두워짐)
+            var center = new Vector2(w - 3, 3);
+            float glow = 0.75f + 0.25f * Mathf.Sin(_pulse * 3f);
+            DrawCircle(center, 3.5f, new Color(0.1f, 0.05f, 0.05f, 0.85f));
+            DrawCircle(center, 2.8f, new Color(0.85f * glow, 0.18f, 0.15f));
+            DrawLine(center + new Vector2(0, -1.8f), center + new Vector2(0, 0.6f), Colors.White, 1f);
+            DrawRect(new Rect2(center + new Vector2(-0.5f, 1.2f), new Vector2(1f, 1f)), Colors.White);
+        }
         if (_selected)
         {
             DrawRect(new Rect2(-1, -1, w + 2, h + 2), new Color(1f, 0.95f, 0.5f), false, 1f);
         }
+    }
+
+    public override void _Ready()
+    {
+        SetProcess(_unstaffed); // 깜빡임은 일꾼 없는 일터만 (건물마다 매 프레임 다시 그리지 않게)
+    }
+
+    public override void _Process(double delta)
+    {
+        _pulse += (float)delta;
+        QueueRedraw();
     }
 }

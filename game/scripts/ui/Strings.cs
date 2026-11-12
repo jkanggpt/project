@@ -405,6 +405,7 @@ public static class Strings
         total > 0 ? $"짓는 중 {progress * 100 / total}%" : "짓는 중";
 
     public static string Workers(int count, int slots) => $"일꾼 {count}/{slots}";
+    public const string NoWorkersHint = "아무도 일하지 않습니다 (지도에 붉은 !). 놀고 있는 주민이 생기면 오고, 아래 '일꾼 넣기'로 직접 보낼 수도 있습니다.";
     public static string Residents(int count, int slots) => $"거주민 {count}/{slots}";
     public static string Productivity(int percent) => $"생산성 {percent}% (주변 지형)";
     public static string Hp(int hp, int max) => $"체력 {hp}/{max}";
@@ -914,6 +915,20 @@ public static class Strings
     public const string PauseSave = "저장하기";
     public const string PauseLoad = "불러오기";
     public const string PauseSettings = "설정";
+    public const string PauseHelp = "도움말 (F1)";
+    public const string HelpTitle = "도움말";
+    public const string HelpText =
+        "[카메라]  W A S D·화살표·화면 가장자리·가운데 단추 끌기로 움직이고, 마우스 휠·= - 로 확대합니다.\n" +
+        "[시간]  스페이스 멈춤·계속, 1·2·3 배속. 멈춘 채로도 짓고 고를 수 있습니다.\n" +
+        "[짓기]  아래 막대에서 건물을 고르고 초록 미리보기일 때 왼쪽 클릭. 노란 칸은 생산성에 세는 지형, 점선은 작업 반경, 파란 네모는 문입니다. " +
+        "도로·성벽은 끌어서 줄로. X 는 철거(비용 절반 환불), 오른쪽 클릭·Esc 는 취소.\n" +
+        "[주민]  주민을 누르면 검사창, V 는 주민 목록. 건물 검사창의 '일꾼 넣기'로 직접 보냅니다. " +
+        "자동 배치는 놀고 있는 주민만 보내므로, 일꾼이 없는 일터에는 붉은 ! 가 뜹니다.\n" +
+        "[위쪽 막대]  자원 숫자에 마우스를 올리면 장부. 등급 단추는 다음 등급의 조건과 공물, '연구'는 마탑의 연구, '위협'은 다음 습격까지 남은 시간.\n" +
+        "[계절]  겨울에는 농장이 멈추고 집마다 밤에 목재를 땝니다. 가을의 '겨울 준비'가 빨가면 모자란 것입니다. 이주민은 가을에 겨울 식량이 있어야 옵니다.\n" +
+        "[습격]  종이 울리면 주민은 성채로 숨습니다. 감시탑·성채 망루가 쏘고 병영 일꾼이 싸웁니다. 습격 중에는 저장·수리·승급을 할 수 없습니다.\n" +
+        "[승패]  왕성이 되면 승리(계속 다스릴 수 있음). 성채가 무너지거나 주민이 한 명도 없으면 패배.\n" +
+        "[저장]  Esc → 저장하기 (슬롯 셋). 하루가 시작될 때와 제목 화면으로 가거나 끝낼 때 자동 저장합니다.";
     public const string PauseToTitle = "제목 화면으로";
     public const string PauseQuit = "게임 종료";
     public static string LastSave(int day, int minute, int slot) =>

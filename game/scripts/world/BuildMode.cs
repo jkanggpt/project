@@ -3,6 +3,7 @@
 // 놓을 수 있는지는 언제나 C 에 묻습니다(core_can_place). Godot 은 규칙을 모릅니다.
 using System.Collections.Generic;
 using Godot;
+using MagicCastle.Audio;
 using MagicCastle.Core;
 using MagicCastle.UI;
 
@@ -20,6 +21,10 @@ public partial class BuildMode : Node2D
     private const int MaxLineGhosts = 256;
     private static readonly Color Good = new(0.55f, 1f, 0.55f, 0.75f);
     private static readonly Color Bad = new(1f, 0.45f, 0.45f, 0.75f);
+    private static readonly Color OverlayCounted = new(1f, 0.9f, 0.35f, 0.3f);
+    private static readonly Color OverlayCountedEdge = new(1f, 0.92f, 0.4f, 0.9f);
+    private static readonly Color OverlayRadius = new(1f, 0.95f, 0.6f, 0.8f);
+    private static readonly Color OverlayDoor = new(0.5f, 0.85f, 1f, 0.9f);
 
     private readonly List<Sprite2D> _lineGhosts = new();
     private readonly List<Vector2I> _linePath = new();
@@ -30,6 +35,17 @@ public partial class BuildMode : Node2D
     private CoreBuildingDefView _def;
     private Rect2I _highlight;
     private bool _highlightOn;
+    private Rect2I _footprint;
+    private Vector2I _door = new(-1, -1);
+    private bool _footprintOn;
+
+    /// <summary>작업 반경 안의 지형을 칠할 때 읽는 지도 (Main 이 넣어 줌)</summary>
+    public MapView? Map { get; set; }
+
+    /// <summary>마우스 아래 적의 이름·체력을 보여 주려고 (Main 이 넣어 줌)</summary>
+    public CombatDirector? Combat { get; set; }
+
+    private int _hoverEnemy;
 
     public static BuildMode? Instance { get; private set; }
 
@@ -93,6 +109,7 @@ public partial class BuildMode : Node2D
     {
         Mode = ToolMode.Demolish;
         _dragging = false;
+        _footprintOn = false;
         HideGhosts();
         _hoverTile = new Vector2I(-9999, -9999);
         EmitSignal(SignalName.ModeChanged, (int)Mode, -1);
@@ -101,6 +118,7 @@ public partial class BuildMode : Node2D
     public void Cancel()
     {
         Mode = ToolMode.Select;
+        _footprintOn = false;
         _dragging = false;
         HideGhosts();
         _highlightOn = false;
@@ -155,6 +173,37 @@ public partial class BuildMode : Node2D
 
     // ---- 마우스 ----------------------------------------------------------
 
+    /// <summary>고르기 도구일 때 마우스 아래 적이 있으면 이름과 체력을 마우스 옆에 (적은 검사창이 없음)</summary>
+    private void UpdateEnemyHover()
+    {
+        EnemyAgent? found = null;
+        if (Combat != null && Combat.EnemyCount > 0)
+        {
+            Vector2 mouse = GetGlobalMousePosition();
+            float best = 10f * 10f;
+            foreach (EnemyAgent enemy in Combat.Enemies)
+            {
+                float distance = enemy.Position.DistanceSquaredTo(mouse + new Vector2(0, 6)); // 그림은 발밑보다 위
+                if (distance < best)
+                {
+                    best = distance;
+                    found = enemy;
+                }
+            }
+        }
+        if (found == null)
+        {
+            if (_hoverEnemy != 0)
+            {
+                _hoverEnemy = 0;
+                EmitSignal(SignalName.HintChanged, "");
+            }
+            return;
+        }
+        _hoverEnemy = found.Id;
+        EmitSignal(SignalName.HintChanged, Strings.EnemyTooltip(found.Type, found.Hp, found.MaxHp));
+    }
+
     private Vector2I MouseTile()
     {
         Vector2 mouse = GetGlobalMousePosition();
@@ -166,8 +215,13 @@ public partial class BuildMode : Node2D
 
     public override void _Process(double delta)
     {
-        if (!CoreBridge.Instance.HasWorld || Mode == ToolMode.Select)
+        if (!CoreBridge.Instance.HasWorld)
         {
+            return;
+        }
+        if (Mode == ToolMode.Select)
+        {
+            UpdateEnemyHover();
             return;
         }
         Vector2I tile = MouseTile();
@@ -190,12 +244,17 @@ public partial class BuildMode : Node2D
     {
         if (_def.Line != 0 && _dragging)
         {
+            _footprintOn = false;
             _ghost.Visible = false;
             UpdateLinePreview(_dragStart, tile);
             return;
         }
         Vector2I origin = _def.Line != 0 ? tile : Origin(tile);
         CorePlacementView view = CoreBridge.Instance.CanPlace(Type, origin);
+        _footprint = new Rect2I(origin, new Vector2I(_def.W, _def.H));
+        _door = new Vector2I(view.DoorX, view.DoorY);
+        _footprintOn = _def.Line == 0;
+        QueueRedraw();
         _ghost.Visible = true;
         _ghost.Position = new Vector2(origin.X * Art.Tile, origin.Y * Art.Tile);
         _ghost.Modulate = view.Result == (int)PlaceResult.Ok ? Good : Bad;
@@ -276,12 +335,61 @@ public partial class BuildMode : Node2D
 
     public override void _Draw()
     {
+        if (Mode == ToolMode.Build && _footprintOn)
+        {
+            DrawPlacementOverlay();
+        }
         if (Mode == ToolMode.Demolish && _highlightOn)
         {
             var rect = new Rect2(_highlight.Position * Art.Tile, _highlight.Size * Art.Tile);
             DrawRect(rect, new Color(1f, 0.3f, 0.3f, 0.35f));
             DrawRect(rect, new Color(1f, 0.4f, 0.4f), false, 1f);
         }
+    }
+
+    /// <summary>
+    /// 건설 미리보기 겹쳐 그리기: 작업 반경(점선 테두리), 그 안에서 생산성에 세는 지형 칸(노란 칸),
+    /// 주민이 드나드는 문 칸(작은 네모). 어떤 지형을 세는지는 C 가 정의에 담아 줍니다(count_terrain).
+    /// </summary>
+    private void DrawPlacementOverlay()
+    {
+        int radius = _def.WorkRadius;
+        if (radius > 0 && _def.CountTerrain >= 0 && Map != null)
+        {
+            var area = new Rect2I(_footprint.Position - new Vector2I(radius, radius), _footprint.Size + new Vector2I(radius * 2, radius * 2));
+            for (int y = area.Position.Y; y < area.End.Y; y++)
+            {
+                for (int x = area.Position.X; x < area.End.X; x++)
+                {
+                    var cell = new Vector2I(x, y);
+                    bool inside = _footprint.HasPoint(cell);
+                    if (Map.TerrainAt(cell) != _def.CountTerrain || (inside && _def.CountTerrain != (int)Terrain.Mana))
+                    {
+                        continue;
+                    }
+                    var tileRect = new Rect2(cell * Art.Tile + new Vector2(1, 1), new Vector2(Art.Tile - 2, Art.Tile - 2));
+                    DrawRect(tileRect, OverlayCounted);
+                    DrawRect(tileRect, OverlayCountedEdge, false, 1f);
+                }
+            }
+            DrawDashedRect(new Rect2(area.Position * Art.Tile, area.Size * Art.Tile), OverlayRadius);
+        }
+        if (_door.X >= 0 && _door.Y >= 0)
+        {
+            DrawRect(new Rect2(_door * Art.Tile + new Vector2(5, 5), new Vector2(Art.Tile - 10, Art.Tile - 10)), OverlayDoor);
+        }
+    }
+
+    private void DrawDashedRect(Rect2 rect, Color color)
+    {
+        Vector2 a = rect.Position;
+        Vector2 b = rect.Position + new Vector2(rect.Size.X, 0);
+        Vector2 c = rect.End;
+        Vector2 d = rect.Position + new Vector2(0, rect.Size.Y);
+        DrawDashedLine(a, b, color, 1f, 4f);
+        DrawDashedLine(b, c, color, 1f, 4f);
+        DrawDashedLine(c, d, color, 1f, 4f);
+        DrawDashedLine(d, a, color, 1f, 4f);
     }
 
     public override void _UnhandledInput(InputEvent inputEvent)
@@ -364,6 +472,10 @@ public partial class BuildMode : Node2D
             _dragging = false;
             HideGhosts();
             CoreBridge.Instance.PlaceLine(Type, _dragStart, tile, out int placed, out PlaceResult reason);
+            if (placed == 0)
+            {
+                Sfx.Instance?.Play(Sound.Denied);
+            }
             EmitSignal(SignalName.Message, placed > 0 ? Strings.LinePlaced(Type, placed) : Strings.BuildRejected(reason));
             _hoverTile = new Vector2I(-9999, -9999);
             return;
@@ -375,6 +487,7 @@ public partial class BuildMode : Node2D
         CoreResult result = CoreBridge.Instance.PlaceBuilding(Type, Origin(tile), out int id, out PlaceResult why);
         if (!result.Ok)
         {
+            Sfx.Instance?.Play(Sound.Denied);
             EmitSignal(SignalName.Message, Strings.BuildRejected(why));
         }
         _ = id;
@@ -394,6 +507,7 @@ public partial class BuildMode : Node2D
             CoreResult result = CoreBridge.Instance.Demolish(id);
             if (!result.Ok)
             {
+                Sfx.Instance?.Play(Sound.Denied);
                 EmitSignal(SignalName.Message, result.Message);
             }
         }

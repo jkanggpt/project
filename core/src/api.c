@@ -559,6 +559,7 @@ CORE_API int32_t core_get_building_def(const CoreWorld *world, int32_t type, Cor
     out->attack_range = def->attack_range;
     out->attack_cooldown = def->attack_cooldown;
     out->defense = def->defense;
+    out->count_terrain = placement_counted_terrain(def);
     memcpy(out->key, def->key, CORE_KEY_BYTES);
     out->key[CORE_KEY_BYTES - 1] = '\0';
     return CORE_OK;

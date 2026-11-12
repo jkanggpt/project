@@ -4,6 +4,7 @@
 // 연구가 몇 개인지는 정의 파일이 정하므로(최대 32개) 창을 열 때마다 0 번부터 읽어 다시 만듭니다.
 using System.Collections.Generic;
 using Godot;
+using MagicCastle.Audio;
 using MagicCastle.Core;
 using MagicCastle.World;
 
@@ -124,6 +125,7 @@ public partial class ResearchPanel : PanelContainer
         CoreResult result = CoreBridge.Instance.StartResearch(index, out DenyReason reason);
         if (!result.Ok)
         {
+            Sfx.Instance?.Play(Sound.Denied);
             EmitSignal(SignalName.Message, Strings.ResearchRejected(reason));
         }
         Refresh();

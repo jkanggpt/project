@@ -3,6 +3,7 @@
 // 조건과 지금 값은 모두 C 의 등급 뷰(core_get_rank)에서 읽고, 단추는 CoreBridge.RankUp 만 부릅니다.
 using System.Collections.Generic;
 using Godot;
+using MagicCastle.Audio;
 using MagicCastle.Core;
 
 namespace MagicCastle.UI;
@@ -67,6 +68,7 @@ public partial class RankPanel : PanelContainer
         CoreResult result = CoreBridge.Instance.RankUp(out DenyReason reason);
         if (!result.Ok)
         {
+            Sfx.Instance?.Play(Sound.Denied);
             EmitSignal(SignalName.Message, Strings.RankUpRejected(reason));
         }
         Refresh();

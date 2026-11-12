@@ -75,6 +75,7 @@ public partial class Main : Node2D
         Tools = GetNode<BuildMode>("World/BuildMode");
         Weather = GetNode<WeatherFx>("WeatherFx");
         Sync.Map = Map;
+        Tools.Map = Map;
         Sync.BuildingsLayer = GetNode<Node2D>("World/Buildings");
         Sync.UnitsLayer = GetNode<Node2D>("World/Units");
         Sync.Floating = GetNode<FloatingText>("World/FloatingText");
@@ -83,6 +84,7 @@ public partial class Main : Node2D
         // 싸움은 일시정지되면 멈춰야 하므로 World(일시정지 가능) 아래에 둡니다
         Combat = new CombatDirector { Name = "Combat", Sync = Sync, UnitsLayer = Sync.UnitsLayer, Camera = Camera };
         GetNode<Node2D>("World").AddChild(Combat);
+        Tools.Combat = Combat;
         // 메뉴 층은 마지막 자식이어야 처리되지 않은 입력을 가장 먼저 받습니다 (MenuLayer 설명)
         Menus = new MenuLayer { Name = "Menus" };
         AddChild(Menus);
@@ -122,6 +124,9 @@ public partial class Main : Node2D
         Hud.Outcome.ContinueRequested += () => GameClock.Instance.SetSpeed(1);
         Hud.MenuRequested += OpenPauseMenu;
         WireMenus();
+        // 단추 소리: 지금 있는 단추와 앞으로 생기는 단추(연구 창 등) 모두
+        ConnectClicks(this);
+        GetTree().NodeAdded += node => ConnectClicks(node, recursive: false);
 
         if (options.Automated || options.Stress)
         {
@@ -190,6 +195,15 @@ public partial class Main : Node2D
         pause.SavePressed += () => Menus.Slots.Open(true, false);
         pause.LoadPressed += () => Menus.Slots.Open(false, HasUnsavedProgress);
         pause.SettingsPressed += () => Menus.Settings.Open();
+        pause.HelpPressed += () => Menus.Help.Open();
+        Menus.InGameHelp = () =>
+        {
+            OpenPauseMenu();
+            if (Menus.Pause.Visible)
+            {
+                Menus.Help.Open();
+            }
+        };
         pause.TitlePressed += () => LeaveGame(ShowTitle);
         pause.QuitPressed += () => LeaveGame(QuitGame);
 
@@ -386,13 +400,14 @@ public partial class Main : Node2D
         _lastSaveMinute = summary.MinuteOfDay;
     }
 
-    /// <summary>하루가 시작될 때 자동 저장, 미룬 자동 저장은 습격이 끝날 때</summary>
+    /// <summary>하루가 시작될 때 자동 저장, 미룬 자동 저장은 습격이 끝날 때. 그리고 손맛 (소리·반짝임)</summary>
     private void OnSessionEvent(CoreEventView coreEvent)
     {
         if (!InGame)
         {
             return;
         }
+        PlayFeedback(coreEvent);
         switch ((CoreEventType)coreEvent.Type)
         {
             case CoreEventType.DayStarted:
@@ -401,6 +416,69 @@ public partial class Main : Node2D
             case CoreEventType.RaidEnded when _autosavePending:
                 TryAutosave();
                 break;
+        }
+    }
+
+    /// <summary>큰 일에는 소리와 반짝임: 건물 완성(먼지), 승급(성채 위 금색), 연구 완료(마탑 위 보라색), 목표·승리</summary>
+    private void PlayFeedback(in CoreEventView coreEvent)
+    {
+        Sfx? sfx = Sfx.Instance;
+        Node2D layer = Sync.UnitsLayer ?? this;
+        CoreSummaryView summary = Sync.Summary;
+        Vector2 keep = Map.TileCenter(summary.KeepX + summary.KeepSize / 2, summary.KeepY);
+        switch ((CoreEventType)coreEvent.Type)
+        {
+            case CoreEventType.BuildingCompleted when coreEvent.B != (int)BuildingType.Road && coreEvent.B != (int)BuildingType.Wall:
+                sfx?.Play(Sound.Built);
+                if (Sync.TryGetBuilding(coreEvent.A, out CoreBuildingView built))
+                {
+                    Effects.Dust(layer, new Vector2((built.X + built.W / 2f) * Art.Tile, (built.Y + built.H) * Art.Tile), built.W * Art.Tile);
+                }
+                break;
+            case CoreEventType.RankUp:
+            case CoreEventType.Victory:
+                sfx?.Play(Sound.Fanfare);
+                Effects.Sparkle(layer, keep, new Color(1f, 0.85f, 0.35f), 48);
+                break;
+            case CoreEventType.ResearchDone:
+                sfx?.Play(Sound.Fanfare);
+                Effects.Sparkle(layer, MageTowerTop() ?? keep, new Color(0.75f, 0.55f, 1f));
+                break;
+            case CoreEventType.TutorialDone:
+                sfx?.Play(Sound.Fanfare);
+                break;
+            case CoreEventType.BuildingPlaced when coreEvent.B != (int)BuildingType.Road && coreEvent.B != (int)BuildingType.Wall:
+                sfx?.Play(Sound.Place);
+                break;
+        }
+    }
+
+    private Vector2? MageTowerTop()
+    {
+        foreach (CoreBuildingView building in Sync.Buildings)
+        {
+            if (building.Type == (int)BuildingType.MageTower && building.State == (int)BuildingState.Active)
+            {
+                return new Vector2((building.X + building.W / 2f) * Art.Tile, building.Y * Art.Tile);
+            }
+        }
+        return null;
+    }
+
+    /// <summary>단추를 누르면 딸깍 (UI 버스)</summary>
+    private static void ConnectClicks(Node node, bool recursive = true)
+    {
+        if (node is BaseButton button)
+        {
+            button.Pressed += () => Sfx.Instance?.Play(Sound.Click);
+        }
+        if (!recursive)
+        {
+            return;
+        }
+        foreach (Node child in node.GetChildren())
+        {
+            ConnectClicks(child);
         }
     }
 
