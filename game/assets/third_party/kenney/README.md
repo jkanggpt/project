@@ -20,3 +20,8 @@
 1. zip을 내려받아 압축을 풀고, 이 폴더 안에 새 폴더로 넣습니다. `License.txt`도 함께 넣습니다.
 2. 위 표와 저장소 루트의 `CREDITS.md`에 한 줄씩 추가합니다.
 3. 커밋하고 푸시합니다.
+
+## Godot 가져오기에서 뺀 폴더
+
+`tiny-town/Tiles/`, `tiny-dungeon/Tiles/`, `tiny-dungeon/Tiled/` 에는 `.gdignore` 가 있어서 Godot 이 가져오지 않습니다.
+같은 그림이 `Tilemap/` 의 한 장짜리 시트에 있고, 게임은 그 시트만 씁니다. 낱장 타일이 필요해지면 `.gdignore` 를 지우면 됩니다.

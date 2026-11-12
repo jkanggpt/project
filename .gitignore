@@ -1,0 +1,41 @@
+# C/CMake 빌드 결과
+/build/
+/out/
+/cmake-build-*/
+CMakeUserPresets.json
+
+# Godot
+game/.godot/
+game/bin/
+game/export/
+*.translation
+
+# C# 빌드 결과
+game/.mono/
+game/bin/
+game/obj/
+*.csproj.user
+
+# 스크린숏, 시뮬레이터 출력 등 (docs/screenshots/ 는 커밋함)
+/artifacts/
+
+# 에디터, IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# 도구
+node_modules/
+*.tgz
+
+# 세이브 파일 (CLI 테스트 중 생김)
+*.sav
+*.sav.bak
+*.sav.tmp
+
+# 파이썬 캐시 (tools/*.py)
+__pycache__/

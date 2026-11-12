@@ -1,0 +1,58 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/Main.cs" id="1_main"]
+[ext_resource type="Script" path="res://scripts/world/MapView.cs" id="2_map"]
+[ext_resource type="Script" path="res://scripts/world/CameraRig.cs" id="3_camera"]
+[ext_resource type="Script" path="res://scripts/world/DayNight.cs" id="4_daynight"]
+[ext_resource type="Script" path="res://scripts/world/WorldSync.cs" id="5_sync"]
+[ext_resource type="PackedScene" path="res://scenes/ui/Hud.tscn" id="6_hud"]
+[ext_resource type="Texture2D" path="res://assets/tiles/terrain.png" id="7_terrain"]
+[ext_resource type="Texture2D" path="res://assets/tiles/roads.png" id="8_roads"]
+[ext_resource type="Script" path="res://scripts/world/FloatingText.cs" id="9_floating"]
+[ext_resource type="Script" path="res://scripts/world/BuildMode.cs" id="10_build"]
+[ext_resource type="Texture2D" path="res://assets/tiles/snow.png" id="11_snow"]
+[ext_resource type="Script" path="res://scripts/world/WeatherFx.cs" id="12_weather"]
+
+[node name="Main" type="Node2D"]
+process_mode = 3
+script = ExtResource("1_main")
+
+[node name="WorldSync" type="Node" parent="."]
+script = ExtResource("5_sync")
+
+[node name="World" type="Node2D" parent="."]
+process_mode = 1
+
+[node name="Map" type="Node2D" parent="World"]
+script = ExtResource("2_map")
+TerrainAtlas = ExtResource("7_terrain")
+RoadAtlas = ExtResource("8_roads")
+SnowAtlas = ExtResource("11_snow")
+
+[node name="Ground" type="TileMapLayer" parent="World/Map"]
+
+[node name="Roads" type="TileMapLayer" parent="World/Map"]
+
+[node name="Buildings" type="Node2D" parent="World"]
+y_sort_enabled = true
+
+[node name="Units" type="Node2D" parent="World"]
+y_sort_enabled = true
+
+[node name="FloatingText" type="Node2D" parent="World"]
+script = ExtResource("9_floating")
+
+[node name="BuildMode" type="Node2D" parent="World"]
+script = ExtResource("10_build")
+
+[node name="DayNight" type="CanvasModulate" parent="."]
+script = ExtResource("4_daynight")
+
+[node name="Camera" type="Camera2D" parent="."]
+process_mode = 3
+script = ExtResource("3_camera")
+
+[node name="WeatherFx" type="CanvasLayer" parent="."]
+script = ExtResource("12_weather")
+
+[node name="Hud" parent="." instance=ExtResource("6_hud")]

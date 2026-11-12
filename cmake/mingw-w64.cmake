@@ -1,0 +1,14 @@
+# Linux에서 Windows 64비트용으로 교차 컴파일하는 툴체인 파일 (MinGW-w64)
+# 사용법: cmake --preset mingw-release
+#   또는: cmake -B build/mingw -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64.cmake
+set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_SYSTEM_PROCESSOR x86_64)
+
+set(CASTLE_MINGW_PREFIX x86_64-w64-mingw32)
+set(CMAKE_C_COMPILER ${CASTLE_MINGW_PREFIX}-gcc)
+set(CMAKE_RC_COMPILER ${CASTLE_MINGW_PREFIX}-windres)
+
+set(CMAKE_FIND_ROOT_PATH /usr/${CASTLE_MINGW_PREFIX})
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

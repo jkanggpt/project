@@ -1,0 +1,126 @@
+# 마법성채 키우기 CI
+# 모든 PR 은 이 작업들이 모두 초록색이어야 합니다 (docs/SPEC.md §2.1, §8).
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.compiler }} + 새니타이저
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: gcc
+            preset: linux-debug
+          - compiler: clang
+            preset: linux-clang-debug
+    steps:
+      - uses: actions/checkout@v4
+      - name: 도구 설치
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: 구성
+        run: cmake --preset ${{ matrix.preset }} -DCASTLE_WERROR=ON
+      - name: 빌드
+        run: cmake --build --preset ${{ matrix.preset }}
+      - name: 테스트
+        run: ctest --preset ${{ matrix.preset }} -j 4
+      - name: 짧은 소크 테스트
+        run: build/${{ matrix.preset }}/bin/castle_cli --soak 60 --seeds 5 --first-seed 1000
+
+  soak:
+    name: 소크 테스트 400일 × 20시드 (ASan/LSan)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: 도구 설치
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: 빌드
+        run: |
+          cmake --preset linux-debug -DCASTLE_BUILD_TESTS=OFF
+          cmake --build --preset linux-debug --target castle_cli
+      - name: 소크 테스트
+        run: build/linux-debug/bin/castle_cli --soak 400 --seeds 20
+
+  mingw:
+    name: MinGW-w64 교차 컴파일 (Linux → Windows)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: 도구 설치
+        run: sudo apt-get update && sudo apt-get install -y ninja-build gcc-mingw-w64-x86-64
+      - name: 구성
+        run: cmake --preset mingw-release -DCASTLE_WERROR=ON
+      - name: 빌드
+        run: cmake --build --preset mingw-release
+
+  windows:
+    name: Windows MSVC
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 구성
+        run: cmake --preset windows-msvc -DCASTLE_WERROR=ON -DCASTLE_COPY_TO_GODOT=OFF
+      - name: 빌드
+        run: cmake --build --preset windows-msvc
+      - name: 테스트 (한글 경로 저장/불러오기 포함)
+        run: ctest --preset windows-msvc
+      - name: 짧은 소크 테스트
+        run: build/windows-msvc/bin/Release/castle_cli.exe --soak 30 --seeds 3
+      - name: castle_core.dll 올리기
+        uses: actions/upload-artifact@v4
+        with:
+          name: castle_core-windows-x64
+          path: build/windows-msvc/bin/Release/castle_core.dll
+          retention-days: 14
+
+  csharp:
+    name: C# 빌드 (Godot 프로젝트)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Debug 빌드
+        run: dotnet build game/MagicCastle.csproj -c Debug
+      - name: ExportRelease 빌드 (경고 = 오류)
+        run: dotnet build game/MagicCastle.csproj -c ExportRelease
+
+  godot:
+    name: Godot 헤드리스 스모크 테스트 (20일)
+    runs-on: ubuntu-24.04
+    env:
+      GODOT_DIR: ${{ github.workspace }}/../godot
+      GODOT_NAME: Godot_v4.7.2-stable_mono_linux_x86_64
+    steps:
+      - uses: actions/checkout@v4
+      - name: 도구 설치
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Godot 캐시
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GODOT_DIR }}
+          key: godot-4.7.2-stable-mono-linux
+      - name: Godot 4.7.2 .NET 내려받기
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$GODOT_DIR"
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/4.7.2-stable/${GODOT_NAME}.zip"
+          unzip -q godot.zip -d "$GODOT_DIR"
+          rm godot.zip
+      - name: 스모크 테스트
+        run: GODOT="$GODOT_DIR/$GODOT_NAME/Godot_v4.7.2-stable_mono_linux.x86_64" tools/smoke_test.sh 20

@@ -1,0 +1,128 @@
+# 연구 나무. 이 파일이 목록 전체를 정합니다 (최대 32개). 문법이 틀리면 게임이 기본값을 쓰고 경고합니다.
+# branch: economy(경제) defense(방어) magic(마법)
+# requires: 먼저 끝내야 하는 연구의 키 (이 파일에서 더 앞에 있어야 함) 또는 none
+# required_rank: 시작하려면 필요한 등급 (0 촌락, 1 마을, 2 요새, 3 성, 4 왕성)
+# cost_gold/cost_mana: 시작할 때 내는 값, points: 마탑의 마법사가 모아야 하는 연구 점수
+# effect: farm_yield(농장 +%) extract_yield(벌목장·채석장 +%) storage(저장 한도 +%) market(시장 차이 -%p)
+#         tower_damage(감시탑 +) wall_hp(성벽·성문 체력 +%) guard_damage(경비병 +) keep_damage(성채 망루 +)
+#         mana_yield(마정석 광산 +%) healing(앓는 시간 -%) heating(난방 목재 -) ward(습격 건물 피해 -%)
+
+[research crop_rotation]
+requires = none
+branch = economy
+required_rank = 2
+cost_gold = 40
+cost_mana = 15
+points = 25
+effect = farm_yield
+value = 25
+
+[research better_tools]
+requires = crop_rotation
+branch = economy
+required_rank = 2
+cost_gold = 60
+cost_mana = 25
+points = 35
+effect = extract_yield
+value = 25
+
+[research trade_guild]
+requires = better_tools
+branch = economy
+required_rank = 3
+cost_gold = 100
+cost_mana = 40
+points = 45
+effect = market
+value = 10
+
+[research granary]
+requires = trade_guild
+branch = economy
+required_rank = 3
+cost_gold = 140
+cost_mana = 60
+points = 55
+effect = storage
+value = 30
+
+[research sharp_arrows]
+requires = none
+branch = defense
+required_rank = 2
+cost_gold = 40
+cost_mana = 15
+points = 25
+effect = tower_damage
+value = 4
+
+[research stone_walls]
+requires = sharp_arrows
+branch = defense
+required_rank = 2
+cost_gold = 60
+cost_mana = 25
+points = 35
+effect = wall_hp
+value = 60
+
+[research drill]
+requires = stone_walls
+branch = defense
+required_rank = 3
+cost_gold = 100
+cost_mana = 40
+points = 45
+effect = guard_damage
+value = 5
+
+[research keep_ballista]
+requires = drill
+branch = defense
+required_rank = 3
+cost_gold = 140
+cost_mana = 60
+points = 55
+effect = keep_damage
+value = 8
+
+[research mana_sense]
+requires = none
+branch = magic
+required_rank = 2
+cost_gold = 30
+cost_mana = 15
+points = 25
+effect = mana_yield
+value = 50
+
+[research herbal_magic]
+requires = mana_sense
+branch = magic
+required_rank = 2
+cost_gold = 60
+cost_mana = 25
+points = 35
+effect = healing
+value = 50
+
+[research warm_hearth]
+requires = herbal_magic
+branch = magic
+required_rank = 3
+cost_gold = 100
+cost_mana = 40
+points = 45
+effect = heating
+value = 1
+
+[research ward]
+requires = warm_hearth
+branch = magic
+required_rank = 3
+cost_gold = 140
+cost_mana = 60
+points = 55
+effect = ward
+value = 30
