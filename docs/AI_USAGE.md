@@ -101,3 +101,17 @@
 | `game/scripts/ui/MenuLayer.cs`, `MenuParts.cs`, `TitleScreen.cs`, `PauseMenu.cs`, `NewGameDialog.cs`, `SlotDialog.cs`, `SettingsPanel.cs` | 제목 화면, 일시정지 메뉴, 새 게임 창, 저장·불러오기 창, 설정 창, 확인 창 | 생성 |
 | `game/scripts/` Main, core/Native, core/CoreBridge, ui/Hud, ui/Strings, world/CameraRig, debug/SmokeTest, debug/ScreenshotTour | 한 판의 흐름(제목 → 게임 → 저장·불러오기), 자동 저장, ABI 6, 메뉴 단추·자동 저장 표시, 메뉴 중 카메라 입력 끄기, 저장 흐름 검사, 메뉴 스크린숏 | 수정 |
 | `docs/*.md`, `README.md`, `PROGRESS.md`, `CLAUDE.md` | 문서 | 수정 |
+
+## 마일스톤 7 — 다듬기와 밸런스 (2026-11-12)
+
+| 파일 / 폴더 | 내용 | 종류 |
+| --- | --- | --- |
+| `core/src/debug.c`, `core/src/debug.h` | 성능 측정용 큰 마을 (디버그 전용) | 생성 |
+| `core/include/castle_core.h`, `core/src/` api, jobs, placement, threat, defs_builtin, difficulty | ABI 7·8: `core_debug_stress`, 정의 뷰의 `count_terrain`; 자동 배치 두 번 돌기; 연구·공물 숫자; 혹독 시작 마정석 | 수정 |
+| `game/data/ranks.def`, `game/data/research.def` | 공물·연구 비용 (`--dump-defs`) | 수정 |
+| `cli/` main, sim | `--bench`, 봇의 승급 목표 순서 | 수정 |
+| `tests/` test_colony, test_progress, test_api, test_list | 종류 먼저 배치, 가을 이주, 큰 마을, 세는 지형 (4개, 총 82개) | 수정 |
+| `tools/balance.py` | 시뮬레이터 봇 밸런스 측정 (시드 × 난이도, 등급별 중앙값) | 생성 |
+| `game/scripts/debug/StressProbe.cs`, `game/scripts/world/Effects.cs`, `game/scripts/ui/HelpPanel.cs` | 프레임 시간 측정, 반짝임·흙먼지, 도움말 창 | 생성 |
+| `game/scripts/` Main, audio/Sfx, core/*, debug/LaunchOptions, debug/SmokeTest, debug/ScreenshotTour, ui/*, world/BuildMode, world/BuildingNode, world/MapView, world/Pathfinder, world/VillagerAgent, world/EnemyAgent, world/WorldSync | `--stress`, 길찾기 예산, 겹쳐 그리기, 일꾼 없는 일터 표시, 소리, 지형 새로 고침, 적 이름·체력, 자동 조종 다듬기 | 수정 |
+| `docs/*.md`, `README.md`, `PROGRESS.md`, `CLAUDE.md` | 문서 | 수정 |

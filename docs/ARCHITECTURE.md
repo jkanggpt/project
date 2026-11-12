@@ -145,11 +145,11 @@ sequenceDiagram
 4. `market_daily`: 시장 가격 움직임, 상인이 오거나 떠남
 5. 이주 (`population_daily`), 일자리·집 다시 배치, 굶주림 알림
 
-## 공개 API (`core/include/castle_core.h`, ABI 6)
+## 공개 API (`core/include/castle_core.h`, ABI 8)
 
 | 분류 | 함수 | 하는 일 |
 | --- | --- | --- |
-| 버전 | `core_abi_version()` | ABI 번호 (지금 6). 세이브 형식 번호는 `CORE_SAVE_VERSION` (지금 5) |
+| 버전 | `core_abi_version()` | ABI 번호 (지금 8). 세이브 형식 번호는 `CORE_SAVE_VERSION` (지금 5) |
 | | `core_get_struct_sizes(out, size)` | 뷰 구조체 크기 (C# 이 비교) |
 | | `core_get_config(out)` | 하루 틱 수, 실제 시간, 밤·근무 시각 등 고정값 |
 | | `core_result_name(code)` | 오류 코드의 영어 이름 (로그용) |
@@ -185,6 +185,7 @@ sequenceDiagram
 | | `core_peek_save(path, defs, &info)` | 슬롯 목록용 요약 (파일 전체를 불러와 검사한 뒤 이름·날짜·등급·주민·난이도·승패·틱만 남김). 망가졌으면 결과 코드와 줄, 다른 버전이면 그 형식 번호 |
 | | `core_check_castle_name(name)` | 새 게임 화면의 이름 검사 (UTF-8, 47바이트까지, 제어 문자·잘린 글자 없음) |
 | 디버그 | `core_validate(world)` | 불변 조건 위반 개수 |
+| | `core_debug_stress(world, villagers, enemies)` | 성능 측정용 큰 마을 (집·농장·창고를 공짜로, 주민 최대 300, 적 최대 64의 마물 습격). CLI `--bench`, Godot `--stress` 만 부름 |
 | | `core_state_hash(world, &hash)` | 저장되는 상태 전체의 해시 |
 
 요약 뷰(`CoreSummaryView`)에는 마일스톤 5 에서 방어 점수, 승급 준비, 진행 중인 연구와 점수, 마법사 수, 끝낸 연구 수, 승패와 패배 이유, 튜토리얼 비트가 더해졌습니다.
@@ -222,6 +223,18 @@ sequenceDiagram
 - **설정**은 게임 상태가 아니라서 Godot 이 `user://settings.cfg`(`ConfigFile`)에 씁니다: 전체·음악·효과음 음량(버스 Master/Music/SFX·UI), UI 크기(자동 또는 1~4배), 전체 화면, 가장자리 스크롤.
 - **입력**: 메뉴 층(`MenuLayer`, CanvasLayer 20)은 `Main` 의 마지막 자식이라 처리되지 않은 입력을 가장 먼저 받습니다. 메뉴가 열려 있으면 키를 모두 먹고(배속·철거·카메라 단축키가 뒤에서 움직이지 않게), 마우스는 화면 전체를 덮는 막이 막습니다. 게임 중 Esc 는 열린 창 → 건설 도구 → 선택 → 일시정지 메뉴 순서로 처리합니다.
 - **창 닫기**: 자동 로드 `CoreBridge` 는 창 닫기 알림에서 월드를 해제하지 않습니다(알림이 `Main` 보다 먼저 가므로, `Main` 이 자동 저장할 월드가 없어짐). 월드는 노드가 실제로 사라질 때(`_ExitTree`) 해제합니다.
+
+## 성능 (마일스톤 7)
+
+| 무엇 | 어떻게 | 결과 (클라우드 VM) | 목표 |
+| --- | --- | --- | --- |
+| C 틱 | `castle_cli --bench 150 [--enemies 40]` (릴리스 빌드) | 평균 0.010 ms, 가장 느린 틱 0.05 ms (300명 0.018 ms) | 1 ms 미만 |
+| Godot 프레임 (그리기 제외) | `godot --headless --path game -- --stress-probe` | 평균 7.0 ms, 99% 10 ms, 넘는 프레임은 적 40명이 나타나는 한 프레임 | 16.7 ms (60 fps) |
+| Godot 프레임 (CPU 로 그림) | 위를 Xvfb 로 | 평균 21 ms (llvmpipe) | 학생 노트북에서 `--stress` 로 확인 |
+
+- **길찾기 예산**: 주민·적의 길찾기는 한 프레임에 4 ms 까지(`Pathfinder.HasBudget`). 아침에 150명이 한꺼번에 출근할 때 30 ms 씩 끊기던 것을, 남은 주민은 다음 프레임에 출발하도록 나눔.
+- **지형 복사본**: 비용 격자가 바뀔 때(건설·철거·도로) `core_copy_terrain` 으로 다시 받아 바뀐 칸만 다시 그림 (건물이 숲을 베면 C 가 풀밭으로 바꾸므로).
+- **건설 겹쳐 그리기**는 C 의 정의 뷰에 있는 `work_radius` 와 `count_terrain`(세는 지형)만 씀 — 어떤 지형을 세는지는 C 의 배치 규칙이 정함.
 
 ## 결과 코드
 

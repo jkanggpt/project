@@ -1,7 +1,7 @@
 # C 요구사항 대응표
 
 고급프로그래밍 과제의 C 요구사항(`docs/SPEC.md` §1.1)이 **어느 파일의 어느 함수**에서, **어떤 게임 기능**으로 쓰이는지 정리한 표입니다.
-마일스톤마다 갱신합니다. (지금: 마일스톤 6 끝)
+마일스톤마다 갱신합니다. (지금: 마일스톤 7 끝)
 
 ## 한눈에 보기
 
@@ -9,7 +9,7 @@
 | --- | --- | --- |
 | 구조체 2개 이상, 포함·참조 관계 | `core/src/entity.h` `Villager`, `Building` / `world.h` `struct CoreWorld` / `threat.h` `Raid`, `Enemy` / `defs.h` `ResearchDef`, `RankDef` | 주민과 건물, 게임 상태 전체, 습격과 적, 연구와 등급 |
 | 포인터로 원본 수정, 포인터로 배열·구조체 접근 | `entity.c:entity_link_worker`, `economy.c:eco_change`, `villager_ai.c:vil_set_intent`, `threat.c:reserve_enemies`, `research.c:scale` | 일꾼 배치, 자원·장부, 주민 의도, 습격의 적 목록, 연구 효과 |
-| 사용자 정의 함수 10개 이상 | 코어 약 470개, CLI 약 140개 | 모듈마다 한 가지 역할 |
+| 사용자 정의 함수 10개 이상 | 코어 약 480개, CLI 약 140개 | 모듈마다 한 가지 역할 |
 | 함수 포인터 | `research.c:RESEARCH_EFFECTS[]`, `tutorial.c:TUTORIAL_CHECKS[]`, `threat.c:THREAT_KINDS[]`, `nature.c:NATURE_EVENTS[]`, `villager_ai.c:STATE_TABLE[]`, `jobs.c:JOB_TABLE[]`, `defs.c:SECTION_PARSERS[]`, `save.c:SECTIONS[]`, `cli/commands.c:COMMANDS[]` | 연구 효과, 튜토리얼 목표 확인, 위협 종류별 세기·습격 구성, 자연 사건, 주민 행동, 직업별 생산, 정의 파일·세이브 해석, CLI 메뉴 |
 | 동적 메모리 | `entity.c:entity_add_villager`·`reserve_slot`·`insert_sorted`, `threat.c:reserve_enemies`, `defs.c:add_research`, `grid.c:grid_alloc`, `events.c:grow` | 늘었다 줄었다 하는 주민·건물 목록, 일꾼·거주민 배열, 습격마다 수가 다른 적 목록, 정의 파일이 정하는 연구 목록, 지도, 이벤트 큐 |
 | 파일 입출력 | `save.c:save_write`/`save_read`, `api.c:core_defs_load_file`, `defs.c:defs_write_file` | 저장 → 껐다 켜기 → 이어하기 (날씨·사건·시장 가격·상인·위협 예고·연구·등급·승패까지), 슬롯 셋 + 자동 저장과 목록 요약(`core_peek_save`), 건물·특성·이름·적·연구·등급 정의 파일 |
@@ -84,7 +84,7 @@
 
 ## 3. 함수 (10개 이상, 각자 한 가지 역할)
 
-코어 약 410개, CLI 약 120개. 예:
+코어 약 480개, CLI 약 140개. 예:
 
 | 모듈 | 함수 |
 | --- | --- |
@@ -102,6 +102,8 @@
 | `threat.c` | `threat_start_game`, `threat_tick`, `schedule_next`, `start_raid`, `end_raid`, `end_if_done`, `reserve_enemies`, `add_enemies`, `compose_bandits`, `threat_report_building_damage`, `threat_report_loot`, `threat_is_guard` |
 | `research.c` | `research_start`, `research_work`, `research_reapply`, `research_state_of`, `research_mages`, `complete`, `scale`, `effect_farm_yield` … `effect_ward` |
 | `rank.c` | `rank_defense`, `rank_fill_view`, `rank_is_ready`, `rank_up`, `rank_storage_bonus`, `rank_lose`, `rank_hourly` |
+| `debug.c` | `debug_stress`, `build_ring`, `build_free` (성능 측정용 큰 마을, 디버그 전용, 마일스톤 7) |
+| `jobs.c` (배치) | `jobs_auto_assign` (두 번 돎: 아무도 일하지 않는 종류 먼저, 그다음 지은 순서), `fill_up_to`, `best_candidate` |
 | `tutorial.c` | `tutorial_hourly`, `tutorial_note_assign`, `built_farm`, `built_house`, `assigned_worker`, `built_wall`, `survived_raid` |
 | `cli/battle.c` | `battle_tick`, `snapshot_take`, `defense_power`, `pick_wall`, `defend`, `attack`, `loot` |
 | `defs.c` | `defs_load_text`, `defs_write_file`, `parse_sections`, `parse_names`, `apply_field`, `begin_building`, `begin_trait` |
@@ -188,5 +190,6 @@
 | 잘못된 사용자 입력 → 다시 묻기 | `cli/console.c:read_int`, `read_text` | 숫자가 아니거나 범위 밖이면 이유를 말하고 다시 물음 | `cli_menu_script` ("abc", "99", "-1", "5" 입력) |
 | 잘못된 명령줄 인자 | `cli/main.c:parse_options` | 사용법 출력 후 종료 코드 2 | `cli_bad_arguments` |
 | 할당이 `NULL` | 모든 `mem_*` 호출 지점 | `CORE_ERR_OUT_OF_MEMORY` 반환, 이미 할당한 것은 해제, 기존 상태 유지 | `world_out_of_memory_is_clean`, `load_out_of_memory_is_clean` (k 번째 할당을 일부러 실패시킴) |
+| 성능 측정 마을의 잘못된 요청 | `api.c:core_debug_stress`, `debug.c` | 주민 0~300·적 0~64 밖이면 `CORE_ERR_INVALID_ARG`, 이미 습격 중이면 `CORE_ERR_REJECTED`, 진 월드도 거절. 공짜 건물도 장부("기타")를 거쳐 불변 조건을 지킴 | `debug_stress_town` |
 | 잘못된 API 인자 | `api.c` 모든 함수 | `CORE_ERR_NULL_ARG`/`CORE_ERR_INVALID_ARG`, 절대 죽지 않음 | `api_rejects_null_and_bad_args` |
 | DLL 없음, 버전 다름 | `game/scripts/core/CoreBridge.cs` | 화면에 한국어 안내, 게임을 시작하지 않음 | Godot 스모크 테스트 (DLL 을 치우면 종료 코드 2) |
