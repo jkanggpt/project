@@ -309,7 +309,9 @@ public static class Strings
         $"주민 {s.Population}명, 평균 기분 {s.AverageMood}\n" +
         $"집 자리 {s.HousingCapacity} (집 없는 주민 {s.Homeless}명)\n" +
         $"일자리 {s.JobSlots} (일하는 주민 {s.Employed}명)\n" +
-        "빈집이 있고 기분이 좋고 식량이 넉넉하면 아침마다 이주민이 옵니다 (겨울 제외).";
+        "빈집이 있고 기분이 좋고 식량이 넉넉하면 아침마다 이주민이 옵니다 (겨울 제외).\n" +
+        "가을에는 겨울 준비 식량을 다 모아야 옵니다 (겨울에 굶을 사람을 더 받지 않음).\n" +
+        "새로 지은 일터는 놀고 있는 주민이 생기면 아무도 일하지 않는 종류부터 한 명씩 채웁니다.";
 
     public const string SpeedPause = "||";
     public const string SpeedPauseTooltip = "일시정지 (스페이스)\n멈춘 동안에도 화면을 둘러보고 건물을 놓을 수 있습니다.";

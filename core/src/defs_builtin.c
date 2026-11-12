@@ -97,18 +97,18 @@ const int32_t BUILTIN_NAME_COUNT = (int32_t)(sizeof(BUILTIN_NAMES) / sizeof(BUIL
 /* 연구 나무: 갈래 셋(경제·방어·마법) × 넷. 갈래 안에서는 앞의 연구를 먼저 끝내야 합니다.
  * 키, 갈래, 앞선 연구 번호, 필요 등급, 금화, 마정석, 연구 점수, 효과, 효과 크기 */
 const ResearchDef BUILTIN_RESEARCH[] = {
-    {"crop_rotation", CORE_BRANCH_ECONOMY, -1, 2, 80, 5, 25, CORE_EFFECT_FARM_YIELD, 25},        /* 윤작 */
-    {"better_tools", CORE_BRANCH_ECONOMY, 0, 2, 100, 8, 35, CORE_EFFECT_EXTRACT_YIELD, 25},      /* 좋은 연장 */
-    {"trade_guild", CORE_BRANCH_ECONOMY, 1, 3, 150, 10, 45, CORE_EFFECT_MARKET, 10},             /* 상인 조합 */
-    {"granary", CORE_BRANCH_ECONOMY, 2, 3, 200, 15, 55, CORE_EFFECT_STORAGE, 30},                /* 큰 곳간 */
-    {"sharp_arrows", CORE_BRANCH_DEFENSE, -1, 2, 80, 5, 25, CORE_EFFECT_TOWER_DAMAGE, 4},        /* 날카로운 화살 */
-    {"stone_walls", CORE_BRANCH_DEFENSE, 4, 2, 100, 8, 35, CORE_EFFECT_WALL_HP, 60},             /* 돌 성벽 */
-    {"drill", CORE_BRANCH_DEFENSE, 5, 3, 150, 10, 45, CORE_EFFECT_GUARD_DAMAGE, 5},              /* 경비 훈련 */
-    {"keep_ballista", CORE_BRANCH_DEFENSE, 6, 3, 200, 15, 55, CORE_EFFECT_KEEP_DAMAGE, 8},       /* 성채 쇠뇌 */
-    {"mana_sense", CORE_BRANCH_MAGIC, -1, 2, 60, 10, 25, CORE_EFFECT_MANA_YIELD, 50},            /* 마력 감지 */
-    {"herbal_magic", CORE_BRANCH_MAGIC, 8, 2, 100, 12, 35, CORE_EFFECT_HEALING, 50},             /* 약초 마법 */
-    {"warm_hearth", CORE_BRANCH_MAGIC, 9, 3, 150, 15, 45, CORE_EFFECT_HEATING, 1},               /* 따뜻한 불씨 */
-    {"ward", CORE_BRANCH_MAGIC, 10, 3, 200, 20, 55, CORE_EFFECT_WARD, 30},                       /* 마법 결계 */
+    {"crop_rotation", CORE_BRANCH_ECONOMY, -1, 2, 40, 15, 25, CORE_EFFECT_FARM_YIELD, 25},        /* 윤작 */
+    {"better_tools", CORE_BRANCH_ECONOMY, 0, 2, 60, 25, 35, CORE_EFFECT_EXTRACT_YIELD, 25},      /* 좋은 연장 */
+    {"trade_guild", CORE_BRANCH_ECONOMY, 1, 3, 100, 40, 45, CORE_EFFECT_MARKET, 10},             /* 상인 조합 */
+    {"granary", CORE_BRANCH_ECONOMY, 2, 3, 140, 60, 55, CORE_EFFECT_STORAGE, 30},                /* 큰 곳간 */
+    {"sharp_arrows", CORE_BRANCH_DEFENSE, -1, 2, 40, 15, 25, CORE_EFFECT_TOWER_DAMAGE, 4},        /* 날카로운 화살 */
+    {"stone_walls", CORE_BRANCH_DEFENSE, 4, 2, 60, 25, 35, CORE_EFFECT_WALL_HP, 60},             /* 돌 성벽 */
+    {"drill", CORE_BRANCH_DEFENSE, 5, 3, 100, 40, 45, CORE_EFFECT_GUARD_DAMAGE, 5},              /* 경비 훈련 */
+    {"keep_ballista", CORE_BRANCH_DEFENSE, 6, 3, 140, 60, 55, CORE_EFFECT_KEEP_DAMAGE, 8},       /* 성채 쇠뇌 */
+    {"mana_sense", CORE_BRANCH_MAGIC, -1, 2, 30, 15, 25, CORE_EFFECT_MANA_YIELD, 50},            /* 마력 감지 */
+    {"herbal_magic", CORE_BRANCH_MAGIC, 8, 2, 60, 25, 35, CORE_EFFECT_HEALING, 50},             /* 약초 마법 */
+    {"warm_hearth", CORE_BRANCH_MAGIC, 9, 3, 100, 40, 45, CORE_EFFECT_HEATING, 1},               /* 따뜻한 불씨 */
+    {"ward", CORE_BRANCH_MAGIC, 10, 3, 140, 60, 55, CORE_EFFECT_WARD, 30},                       /* 마법 결계 */
 };
 const int32_t BUILTIN_RESEARCH_COUNT = (int32_t)(sizeof(BUILTIN_RESEARCH) / sizeof(BUILTIN_RESEARCH[0]));
 
@@ -117,7 +117,7 @@ const int32_t BUILTIN_RESEARCH_COUNT = (int32_t)(sizeof(BUILTIN_RESEARCH) / size
 const RankDef BUILTIN_RANKS[CORE_RANK_COUNT] = {
     {"hamlet", 0, 0, 0, 0, 0, 0, 0},              /* 촌락 */
     {"village", 8, 50, 3, 0, 30, 5, 100},         /* 마을 */
-    {"fortress", 16, 55, 6, 0, 80, 10, 150},      /* 요새 */
-    {"castle", 26, 55, 12, 3, 200, 30, 200},      /* 성 */
-    {"royal_castle", 36, 60, 18, 6, 300, 60, 250}, /* 왕성 */
+    {"fortress", 16, 55, 6, 0, 50, 10, 150},      /* 요새 */
+    {"castle", 26, 55, 12, 3, 150, 50, 200},      /* 성 */
+    {"royal_castle", 36, 60, 18, 6, 250, 100, 250}, /* 왕성 */
 };

@@ -4,6 +4,7 @@
 #include "jobs.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "nature.h"
 #include "research.h"
@@ -204,20 +205,57 @@ static Villager *best_candidate(const World *world, const Building *building)
     return best;
 }
 
+/* 건물 하나에 일꾼을 limit 명까지 채웁니다. 놀고 있는 주민이 없으면 0 */
+static int fill_up_to(World *world, Building *building, int32_t limit)
+{
+    const BuildingDef *def = world_building_def(world, building->type);
+    if (limit > def->worker_slots) {
+        limit = def->worker_slots;
+    }
+    while (building->worker_count < limit) {
+        Villager *villager = best_candidate(world, building);
+        if (villager == NULL || entity_link_worker(building, villager, def->worker_slots) != CORE_OK) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/*
+ * 놀고 있는 주민을 일자리에 보냅니다. 두 번 돕니다:
+ *   1) 아무도 일하지 않는 "종류"의 첫 건물에 한 명씩 (새로 지은 마정석 광산·마탑·시장이 오래된 일터에 밀려
+ *      빈 채로 남지 않게. 같은 종류가 이미 돌아가고 있으면 건너뜀 → 농장 여럿이 반쯤 비는 일은 없음)
+ *   2) 남은 자리를 지은 순서대로 채움
+ */
 void jobs_auto_assign(World *world)
 {
+    int staffed[CORE_BLD_COUNT];
     int32_t i;
+    memset(staffed, 0, sizeof(staffed));
+    for (i = 0; i < world->building_count; i++) {
+        const Building *building = world->buildings[i];
+        if (building->state == CORE_BSTATE_ACTIVE && building->worker_count > 0) {
+            staffed[building->type] = 1;
+        }
+    }
     for (i = 0; i < world->building_count; i++) {
         Building *building = world->buildings[i];
-        const BuildingDef *def = world_building_def(world, building->type);
+        if (building->state != CORE_BSTATE_ACTIVE || !building->auto_assign || staffed[building->type] ||
+            world_building_def(world, building->type)->worker_slots == 0) {
+            continue;
+        }
+        if (!fill_up_to(world, building, 1)) {
+            return; /* 놀고 있는 주민이 더 없음 */
+        }
+        staffed[building->type] = 1;
+    }
+    for (i = 0; i < world->building_count; i++) {
+        Building *building = world->buildings[i];
         if (building->state != CORE_BSTATE_ACTIVE || !building->auto_assign) {
             continue;
         }
-        while (building->worker_count < def->worker_slots) {
-            Villager *villager = best_candidate(world, building);
-            if (villager == NULL || entity_link_worker(building, villager, def->worker_slots) != CORE_OK) {
-                break;
-            }
+        if (!fill_up_to(world, building, INT32_MAX)) {
+            return;
         }
     }
 }

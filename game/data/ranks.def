@@ -26,7 +26,7 @@ population = 16
 mood = 55
 defense = 6
 research = 0
-tribute_gold = 80
+tribute_gold = 50
 tribute_mana = 10
 storage = 150
 
@@ -35,8 +35,8 @@ population = 26
 mood = 55
 defense = 12
 research = 3
-tribute_gold = 200
-tribute_mana = 30
+tribute_gold = 150
+tribute_mana = 50
 storage = 200
 
 [rank royal_castle]
@@ -44,6 +44,6 @@ population = 36
 mood = 60
 defense = 18
 research = 6
-tribute_gold = 300
-tribute_mana = 60
+tribute_gold = 250
+tribute_mana = 100
 storage = 250

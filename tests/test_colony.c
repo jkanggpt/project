@@ -9,6 +9,7 @@
 #include "entity.h"
 #include "jobs.h"
 #include "mem.h"
+#include "nature.h"
 #include "placement.h"
 #include "platform.h"
 #include "population.h"
@@ -615,4 +616,72 @@ void test_save_roundtrip_colony(void)
     core_destroy(loaded);
     (void)platform_remove_file(path);
     (void)platform_remove_file("colony.sav.bak");
+}
+
+void test_auto_assign_unstaffed_type_first(void)
+{
+    /* 놀고 있는 주민이 한 명뿐일 때: 먼저 지은 농장의 두 번째 자리보다, 아무도 일하지 않는 종류(치료소)가 먼저 */
+    CoreWorld *world = test_make_world(141, CORE_DIFF_NORMAL);
+    Building *farm;
+    Building *healer;
+    Villager *free_one = NULL;
+    int32_t i;
+    CHECK(world != NULL);
+    test_flatten(world, world->keep_x + 4, world->keep_y - 4, 10, 10);
+    farm = test_build_now(world, CORE_BLD_FARM, world->keep_x + 5, world->keep_y - 3);
+    CHECK(farm != NULL);
+    /* 모두 일터에서 빼고 직접 배치 표시(자동 배치가 다시 넣지 않음). 한 명은 농장에 직접, 한 명은 자동에 맡김 */
+    for (i = 0; i < world->villager_count; i++) {
+        Villager *villager = world->villagers[i];
+        entity_unlink_worker(villager);
+        villager->flags |= CORE_VF_MANUAL;
+    }
+    CHECK_EQ(core_assign_worker(world, world->villagers[0]->id, farm->id), CORE_OK);
+    free_one = world->villagers[1];
+    free_one->flags &= ~CORE_VF_MANUAL;
+    healer = test_build_now(world, CORE_BLD_HEALER, world->keep_x + 9, world->keep_y - 3);
+    CHECK(healer != NULL);
+    jobs_auto_assign(world);
+    CHECK(free_one->workplace == healer);
+    CHECK_EQ(farm->worker_count, 1);
+    CHECK_EQ(test_validate_verbose(world), 0);
+    core_destroy(world);
+}
+
+/* 가을에는 겨울을 날 식량이 있어야 이주민이 옴 (마일스톤 3 의 규칙, 밸런스를 맞추며 다시 확인) */
+void test_autumn_immigration_needs_winter_food(void)
+{
+    CoreWorld *world = test_make_world(142, CORE_DIFF_NORMAL);
+    int32_t food = 0;
+    int32_t wood = 0;
+    int32_t before;
+    int32_t i;
+    CHECK(world != NULL);
+    test_flatten(world, world->keep_x + 4, world->keep_y - 4, 10, 10);
+    CHECK(test_build_now(world, CORE_BLD_HOUSE, world->keep_x + 5, world->keep_y - 3) != NULL);
+    CHECK(test_build_now(world, CORE_BLD_HOUSE, world->keep_x + 8, world->keep_y - 3) != NULL);
+    for (i = 0; i < world->villager_count; i++) {
+        world->villagers[i]->mood = 90;
+    }
+    /* 가을 첫날 */
+    world->clock.tick = CORE_SEASON_AUTUMN * CLOCK_DAYS_PER_SEASON * CLOCK_TICKS_PER_DAY + 6 * 6;
+    nature_winter_needs(world, &food, &wood);
+    CHECK(food > 0);
+    world->bank.capacity = food * 4;
+    world->bank.amount[CORE_RES_FOOD] = food - 1;
+    before = world->villager_count;
+    population_daily(world);
+    CHECK_EQ(world->villager_count, before); /* 겨울 식량이 모자라면 오지 않음 */
+    world->bank.amount[CORE_RES_FOOD] = food * 2;
+    population_daily(world);
+    CHECK(world->villager_count > before);
+    /* 여름에는 겨울 식량을 따지지 않음 (집을 하나 더 지어 빈자리를 만들고) */
+    test_give(world, 500);
+    CHECK(test_build_now(world, CORE_BLD_HOUSE, world->keep_x + 11, world->keep_y - 3) != NULL);
+    world->clock.tick = CORE_SEASON_SUMMER * CLOCK_DAYS_PER_SEASON * CLOCK_TICKS_PER_DAY + 6 * 6;
+    world->bank.amount[CORE_RES_FOOD] = world->villager_count * 6;
+    before = world->villager_count;
+    population_daily(world);
+    CHECK(world->villager_count > before);
+    core_destroy(world);
 }

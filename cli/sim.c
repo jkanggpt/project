@@ -215,14 +215,14 @@ static int bot_progress(BotContext *bot)
     if (s->resources[CORE_RES_FOOD] > s->population * 8 && s->season != CORE_SEASON_WINTER) {
         bot_staff(bot, CORE_BLD_MAGE_TOWER, 2);
     }
-    /* 연구: 시작할 수 있는 것 중 점수가 가장 적은 것 (같으면 번호 순) — 금화를 조금 남겨 둠 */
+    /* 연구: 시작할 수 있는 것 중 점수가 가장 적은 것 (같으면 번호 순) — 금화를 40 남겨 둠 */
     if (s->research_active < 0 && count_type(bot, CORE_BLD_MAGE_TOWER) > 0 && !winter_short(s)) {
         CoreResearchView view;
         int32_t best = -1;
         int32_t best_points = 0;
         int32_t i;
         for (i = 0; core_get_research(bot->world, i, &view) == CORE_OK; i++) {
-            if (view.state == CORE_RSTATE_AVAILABLE && s->resources[CORE_RES_GOLD] >= view.cost_gold + 80 &&
+            if (view.state == CORE_RSTATE_AVAILABLE && s->resources[CORE_RES_GOLD] >= view.cost_gold + 40 &&
                 s->resources[CORE_RES_MANA] >= view.cost_mana && (best < 0 || view.points < best_points)) {
                 best = i;
                 best_points = view.points;
@@ -377,15 +377,16 @@ static int bot_goal(BotContext *bot, int32_t *built)
     if (count_type(bot, CORE_BLD_FARM) == 0 || count_type(bot, CORE_BLD_LUMBER) == 0) {
         return 0;
     }
-    if (rank.have_defense < rank.need_defense) {
-        int32_t direction = s->threat_type != CORE_THREAT_NONE ? s->threat_direction : 0;
-        return build_or_save(bot, CORE_BLD_TOWER, 5, direction, built);
-    }
+    /* 마정석은 천천히 모이므로 마을이 되면 광산부터 (공물·마탑·연구에 모두 마정석이 듦) */
     if (s->rank >= CORE_RANK_VILLAGE && count_type(bot, CORE_BLD_MANA_MINE) == 0) {
         int saving = build_or_save(bot, CORE_BLD_MANA_MINE, 18, -1, built);
         if (saving || *built > 0) {
             return saving;
         }
+    }
+    if (rank.have_defense < rank.need_defense) {
+        int32_t direction = s->threat_type != CORE_THREAT_NONE ? s->threat_direction : 0;
+        return build_or_save(bot, CORE_BLD_TOWER, 5, direction, built);
     }
     if (rank.have_research < rank.need_research || s->rank >= CORE_RANK_FORTRESS) {
         if (count_type(bot, CORE_BLD_MAGE_TOWER) == 0) {
@@ -412,6 +413,7 @@ static int bot_goal(BotContext *bot, int32_t *built)
 static void bot_reasonable(BotContext *bot)
 {
     const CoreSummaryView *s;
+    int essentials_ok;
     int32_t farms;
     int32_t houses;
     int32_t built = 0;
@@ -456,9 +458,25 @@ static void bot_reasonable(BotContext *bot)
     if (built < 2 && houses >= 1 && count_type(bot, CORE_BLD_QUARRY) == 0 && s->resources[CORE_RES_STONE] < 15) {
         built += build_best(bot, CORE_BLD_QUARRY, 16);
     }
-    /* 2) 집: 집 없는 주민이 있거나 빈자리가 2 보다 적으면 */
+    /* 2) 집: 집 없는 주민이 있거나 빈자리가 2 보다 적으면 (이주민이 곧 세금이므로 집은 아끼지 않음) */
     if (built < 2 && (s->homeless > 0 || s->housing_capacity - (s->population - s->homeless) < 2)) {
         built += build_best(bot, CORE_BLD_HOUSE, 8);
+    }
+    /* 2-0) 승급에 꼭 필요한 건물(첫 광산, 모자란 감시탑, 첫 마탑)은 겨울 준비와 상관없이 짓되,
+     *      먹을 것이 넉넉할 때만 (숲이 적은 지도에서 목재를 써 버려 굶지 않게) */
+    essentials_ok = s->resources[CORE_RES_FOOD] >= s->population * 6;
+    if (built < 2 && essentials_ok && s->rank >= CORE_RANK_VILLAGE && count_type(bot, CORE_BLD_MANA_MINE) == 0) {
+        built += build_best(bot, CORE_BLD_MANA_MINE, 18);
+    }
+    if (built < 2 && essentials_ok && s->rank >= CORE_RANK_VILLAGE && s->resources[CORE_RES_WOOD] >= 30) {
+        CoreRankView rank;
+        if (core_get_rank(bot->world, &rank) == CORE_OK && rank.next_rank >= 0 && rank.have_defense < rank.need_defense) {
+            built += build_toward(bot, CORE_BLD_TOWER, s->threat_type != CORE_THREAT_NONE ? s->threat_direction : 0, 5);
+        }
+    }
+    if (built < 2 && essentials_ok && s->rank >= CORE_RANK_FORTRESS && count_type(bot, CORE_BLD_MAGE_TOWER) == 0 &&
+        s->resources[CORE_RES_WOOD] >= 40) {
+        built += build_best(bot, CORE_BLD_MAGE_TOWER, 14);
     }
     /* 2-1) 주민이 열 명이 되면 시장 (겨울 식량·목재를 살 곳) */
     if (built < 2 && s->population >= 10 && count_type(bot, CORE_BLD_MARKET) == 0) {
