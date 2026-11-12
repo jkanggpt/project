@@ -36,3 +36,6 @@ node_modules/
 *.sav
 *.sav.bak
 *.sav.tmp
+
+# 파이썬 캐시 (tools/*.py)
+__pycache__/
