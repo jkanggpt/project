@@ -402,7 +402,7 @@ public partial class SmokeTest : Node
     }
 
     /// <summary>
-    /// 기본 계획(농장·집·벌목장·채집·채석)을 지은 뒤 이틀에 한 번: 겨울(농장이 쉬는 철)이 오기 전에 먹을 것이 모자라면 농장, 집이 꽉 차면 집,
+    /// 기본 계획(농장·집·벌목장·채집·채석)을 지은 뒤 이틀에 한 번: 먹을 것이 줄고 있거나 겨울(농장이 쉬는 철) 준비가 모자라면 농장, 집이 꽉 차면 집,
     /// 나무가 바닥이면 벌목장, 마을이 되면 마정석 광산 하나. 오래 돌리는 스모크 테스트(60일 등)가 겨울을 넘기게 합니다.
     /// </summary>
     private void Grow(in CoreSummaryView summary)
@@ -416,7 +416,8 @@ public partial class SmokeTest : Node
         int population = summary.Population;
         bool winter = summary.Season == CoreBridge.Instance.Config.SeasonsPerYear - 1;
         BuildingType type;
-        if (!winter && summary.GetResource(ResourceKind.Food) < summary.WinterFoodNeed + population * 2 && farms < 2 + population / 3)
+        bool foodFalling = summary.GetDelta(ResourceKind.Food) < 0 || summary.GetResource(ResourceKind.Food) < summary.WinterFoodNeed + population * 2;
+        if (!winter && foodFalling && farms < 2 + population / 3)
         {
             type = BuildingType.Farm;
         }
