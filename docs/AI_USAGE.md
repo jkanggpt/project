@@ -145,3 +145,7 @@
 
 외부 raylib 소스는 공식 아카이브를 검증해 사용하며 AI가 만든 코드로 표시하지 않습니다.
 스크린숏은 새 C 실행판이 렌더링한 화면입니다. 사용자 기존 AGENTS.md와 저장 파일은 변경하지 않습니다.
+
+최종 검증에서 한국어 C 문자열을 C11 `u8` 리터럴로 명시하고, 구형 Windows SDK 헤더의 C5105 경고를 해당 include에만 한정 처리했습니다.
+`docs/screenshots/native_title.png`, `native_game.png`는 배포본이 직접 렌더링한 화면입니다. README와 CMake 배포 규칙에 연결했습니다.
+배포본·검사 로그·ZIP은 artifacts/에만 두고 Git에 넣지 않습니다. GitHub 인증 취소 후 학생 지시에 따라 로컬 커밋으로 마무리합니다.

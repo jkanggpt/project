@@ -4,6 +4,9 @@
 **게임 규칙·화면·입력·이동·전투·메뉴·저장을 C로 구현**하며 그래픽·창·소리는 raylib 5.5를 사용합니다.
 Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 
+![C 실행판 게임 화면](docs/screenshots/native_game.png)
+![C 실행판 제목 화면](docs/screenshots/native_title.png)
+
 ## Windows 빌드와 실행
 
 준비물: CMake 3.21 이상과 Visual Studio 2022 C/C++ 개발 도구 또는 MinGW-w64 + Ninja.
