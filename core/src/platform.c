@@ -21,7 +21,15 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#ifdef _MSC_VER
+/* 구형 Windows SDK 10.0.19041 헤더의 매크로 경고만 한정해 제외합니다. */
+#pragma warning(push)
+#pragma warning(disable: 5105)
+#endif
 #include <windows.h>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 /* UTF-8 경로를 UTF-16 으로 바꾼 결과.
  * 보통 길이의 경로는 구조체 안의 배열(스택)에 담고, 아주 긴 경로만 힙에 할당합니다.

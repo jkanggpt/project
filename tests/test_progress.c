@@ -482,7 +482,7 @@ void test_research_and_rank_files(void)
         CoreNewGameParams params;
         CoreWorld *world = NULL;
         memset(&params, 0, sizeof(params));
-        strcpy(params.castle_name, "시험성");
+        strcpy(params.castle_name, u8"시험성");
         params.seed = 509;
         params.difficulty = CORE_DIFF_NORMAL;
         CHECK_EQ(core_create(&params, defs, &world), CORE_OK);
@@ -499,7 +499,7 @@ void test_research_and_rank_files(void)
 
 void test_building_def_counted_terrain(void)
 {
-    /* 건설 미리보기의 겹쳐 그리기가 쓰는 "세는 지형"은 배치 규칙에서 나옴 (Godot 에 규칙을 두지 않으려고) */
+    /* 건설 미리보기의 겹쳐 그리기가 쓰는 "세는 지형"은 배치 규칙에서 나옴 (C 그래픽 프런트엔드 에 규칙을 두지 않으려고) */
     CoreWorld *world = test_make_world(144, CORE_DIFF_NORMAL);
     CoreBuildingDefView def;
     CHECK(world != NULL);

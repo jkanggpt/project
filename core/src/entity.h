@@ -48,7 +48,7 @@ struct Villager {
     Building *home;       /* 참조 (없으면 NULL) */
     Building *workplace;  /* 참조 */
 
-    /* 의도: Godot 이 이것을 보고 걷게 합니다 */
+    /* 의도: C 그래픽 프런트엔드 이 이것을 보고 걷게 합니다 */
     int32_t state;        /* CoreVillagerState */
     int32_t intent_rev;
     int32_t intent_flags; /* CORE_INTENT_* */

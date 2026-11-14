@@ -173,7 +173,7 @@ void test_platform_replace_and_copy(void)
 {
     const char *a = "platform_a.txt";
     const char *b = "platform_b.txt";
-    const char *c = "플랫폼_복사본.txt";
+    const char *c = u8"플랫폼_복사본.txt";
     FILE *file;
     size_t size = 0;
     char *data;
@@ -201,9 +201,9 @@ void test_platform_replace_and_copy(void)
     CHECK(platform_file_exists(b));
     CHECK_EQ(platform_copy_file("does_not_exist.txt", c), -1);
     CHECK(platform_fopen_utf8("no_such_dir/file.txt", "rb") == NULL);
-    CHECK_EQ(platform_make_dir("플랫폼_폴더"), 0);
-    CHECK_EQ(platform_make_dir("플랫폼_폴더"), 0); /* 이미 있어도 성공 */
-    CHECK(!platform_file_exists("플랫폼_폴더"));   /* 폴더는 "파일"이 아님 */
+    CHECK_EQ(platform_make_dir(u8"플랫폼_폴더"), 0);
+    CHECK_EQ(platform_make_dir(u8"플랫폼_폴더"), 0); /* 이미 있어도 성공 */
+    CHECK(!platform_file_exists(u8"플랫폼_폴더"));   /* 폴더는 "파일"이 아님 */
     CHECK_EQ(platform_remove_file(b), 0);
     CHECK_EQ(platform_remove_file(c), 0);
     CHECK_EQ(platform_remove_file(c), -1);

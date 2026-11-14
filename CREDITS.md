@@ -45,3 +45,9 @@ npm 패키지 `galmuri` 에서 받았습니다 (`npm pack galmuri`). 글꼴 파�
 ## 음악
 
 아직 없습니다. CC0 곡을 찾으면 여기에 적습니다 (빈 자리는 마일스톤 7 에서 정리).
+
+## C 그래픽 실행 라이브러리 (2026-11-14)
+
+- raylib 5.5 — Ramon Santamaria 및 기여자, zlib/libpng 라이선스. https://github.com/raysan5/raylib/tree/5.5
+- raylib가 포함하는 GLFW — zlib/libpng 라이선스. 배포 시 raylib와 GLFW 라이선스를 licenses/에 포함합니다.
+- 이미지·글꼴·효과음은 위의 기존 CC0/OFL 파일을 계속 사용합니다. Python 합성기는 C 전환에서 제거했고 생성된 PNG의 제작 출처 기록은 유지합니다.

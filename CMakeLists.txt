@@ -1,5 +1,5 @@
 # 마법성채 키우기 — 최상위 CMake 설정
-# C 코어(castle_core), CLI(castle_cli), 테스트(castle_tests)를 빌드합니다.
+# C 코어, 그래픽 게임, CLI, 밸런스 도구와 테스트를 빌드합니다.
 cmake_minimum_required(VERSION 3.20)
 project(MagicCastle VERSION 0.1.0 LANGUAGES C)
 
@@ -7,9 +7,11 @@ option(CASTLE_SANITIZE "AddressSanitizer + UBSan + LeakSanitizer (GCC/Clang 전�
 option(CASTLE_WERROR "경고를 오류로 처리 (CI에서 켭니다)" OFF)
 option(CASTLE_BUILD_TESTS "단위 테스트 빌드" ON)
 option(CASTLE_BUILD_CLI "콘솔 프런트엔드(castle_cli) 빌드" ON)
-option(CASTLE_COPY_TO_GODOT "빌드한 castle_core를 game/bin/<플랫폼>/ 에 복사" OFF)
+option(CASTLE_BUILD_GAME "raylib 기반 C 그래픽 게임 빌드" ON)
+option(CASTLE_BUILD_TOOLS "C 밸런스 도구 빌드" ON)
+option(CASTLE_BUILD_SHARED "외부 프로그램용 C 공유 라이브러리 빌드" OFF)
 
-# 32비트 DLL은 64비트 Godot에서 이해하기 어려운 오류를 내며 로드에 실패합니다.
+# 지원 환경과 포인터 크기를 64비트로 통일합니다.
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
   message(FATAL_ERROR "castle_core는 64비트로만 빌드합니다. (Visual Studio라면 -A x64 를 쓰세요)")
 endif()
@@ -38,8 +40,7 @@ else()
     $<$<BOOL:${CASTLE_WERROR}>:-Werror>)
 endif()
 
-# 새니타이저: 정적 라이브러리, CLI, 테스트에만 붙입니다.
-# Godot용 공유 라이브러리에는 붙이지 않습니다 (ASan이 들어간 DLL은 Godot이 로드할 수 없음).
+# 새니타이저는 정적 코어를 연결한 실행 파일과 테스트에 적용합니다.
 add_library(castle_sanitize INTERFACE)
 if(CASTLE_SANITIZE)
   if(MSVC)
@@ -53,11 +54,19 @@ endif()
 
 add_subdirectory(core)
 
-if(CASTLE_BUILD_CLI)
+if(CASTLE_BUILD_CLI OR CASTLE_BUILD_TOOLS OR CASTLE_BUILD_GAME)
   add_subdirectory(cli)
 endif()
 
 if(CASTLE_BUILD_TESTS)
   enable_testing()
+endif()
+
+add_subdirectory(game)
+if(CASTLE_BUILD_TOOLS)
+  add_subdirectory(tools)
+endif()
+
+if(CASTLE_BUILD_TESTS)
   add_subdirectory(tests)
 endif()

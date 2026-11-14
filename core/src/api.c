@@ -3,7 +3,7 @@
  *
  * 여기는 "접착제"만 있습니다: 인자를 검사하고, 알맞은 모듈 함수를 부르고, 결과를 뷰 구조체로 복사합니다.
  * 게임 규칙은 각 모듈(world, placement, villager_ai, jobs, …)에 있습니다.
- * 바깥(Godot, CLI)에서 무엇을 넘기든 죽지 않고 오류 코드를 돌려주는 것이 이 파일의 책임입니다.
+ * 바깥(C 그래픽 프런트엔드, CLI)에서 무엇을 넘기든 죽지 않고 오류 코드를 돌려주는 것이 이 파일의 책임입니다.
  */
 #include <string.h>
 
@@ -26,15 +26,15 @@
 #include "world.h"
 
 /* 공개 헤더의 상수와 내부 상수가 어긋나면 컴파일 단계에서 막습니다 */
-_Static_assert(CORE_RES_COUNT == 6, "resource count changed: update save keys and C# views");
-_Static_assert(sizeof(CoreSummaryView) % 4 == 0, "views must stay 4-byte aligned for C#");
+_Static_assert(CORE_RES_COUNT == 6, u8"resource count changed: update save keys and 외부 호출자 views");
+_Static_assert(sizeof(CoreSummaryView) % 4 == 0, u8"views must stay 4-byte aligned for 외부 호출자");
 _Static_assert(sizeof(CoreNewGameParams) == CORE_NAME_BYTES + 8, "unexpected padding in CoreNewGameParams");
-_Static_assert(CORE_MOOD_TERM_COUNT == 10, "mood terms changed: update C# strings");
-_Static_assert(CORE_LEDGER_COUNT == 14, "ledger categories changed: update save format and C# strings");
+_Static_assert(CORE_MOOD_TERM_COUNT == 10, u8"mood terms changed: update 외부 호출자 strings");
+_Static_assert(CORE_LEDGER_COUNT == 14, u8"ledger categories changed: update save format and 외부 호출자 strings");
 _Static_assert(CORE_MAX_RESEARCH <= 32, "research done flags are a 32-bit mask");
 _Static_assert(CORE_TUTORIAL_COUNT <= 31, "tutorial flags are a bit mask");
-_Static_assert(CORE_NATURE_COUNT == 6, "nature events changed: update C# strings");
-_Static_assert(CORE_THREAT_COUNT == 4, "threat types changed: update C# strings");
+_Static_assert(CORE_NATURE_COUNT == 6, u8"nature events changed: update 외부 호출자 strings");
+_Static_assert(CORE_THREAT_COUNT == 4, u8"threat types changed: update 외부 호출자 strings");
 _Static_assert(sizeof(CoreSaveInfoView) == 13 * 4 + CORE_NAME_BYTES, "unexpected padding in CoreSaveInfoView");
 
 #define DEFS_MAX_FILE_BYTES (1024 * 1024) /* 정의 파일 하나의 최대 크기 */

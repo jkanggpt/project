@@ -29,16 +29,8 @@ set(CASTLE_CORE_SOURCES
   src/world.c
 )
 
-# 플랫폼별 폴더 이름: Godot의 CoreBridge가 res://bin/<이 이름>/ 에서 라이브러리를 찾습니다.
-if(WIN32)
-  set(CASTLE_GODOT_PLATFORM windows-x64)
-elseif(APPLE)
-  set(CASTLE_GODOT_PLATFORM macos)
-else()
-  set(CASTLE_GODOT_PLATFORM linux-x64)
-endif()
-
-# 1) Godot이 불러 쓰는 공유 라이브러리 (castle_core.dll / libcastle_core.so)
+# 공유 라이브러리는 선택 사항이며 C 게임은 정적 코어를 직접 연결합니다.
+if(CASTLE_BUILD_SHARED)
 add_library(castle_core SHARED ${CASTLE_CORE_SOURCES})
 target_include_directories(castle_core PUBLIC include PRIVATE src)
 target_compile_definitions(castle_core PRIVATE CASTLE_CORE_BUILD)
@@ -53,15 +45,9 @@ if(MINGW)
   target_link_options(castle_core PRIVATE -static-libgcc)
 endif()
 
-if(CASTLE_COPY_TO_GODOT)
-  set(CASTLE_GODOT_BIN_DIR ${PROJECT_SOURCE_DIR}/game/bin/${CASTLE_GODOT_PLATFORM})
-  add_custom_command(TARGET castle_core POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CASTLE_GODOT_BIN_DIR}
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:castle_core> ${CASTLE_GODOT_BIN_DIR}/
-    COMMENT "castle_core를 ${CASTLE_GODOT_BIN_DIR} 에 복사합니다 (게임이 실행 중이면 실패합니다)")
 endif()
 
-# 2) CLI가 링크하는 정적 라이브러리 (공개 API만 사용)
+# 게임과 CLI가 링크하는 정적 라이브러리 (공개 API만 사용)
 add_library(castle_core_static STATIC ${CASTLE_CORE_SOURCES})
 target_include_directories(castle_core_static PUBLIC include PRIVATE src)
 target_compile_definitions(castle_core_static PUBLIC CASTLE_CORE_STATIC)

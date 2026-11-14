@@ -303,7 +303,7 @@ void threat_tick(World *world)
     int32_t now = world->clock.tick;
     if (state->raid.id != 0) {
         if (now - state->raid.started_tick >= THREAT_RAID_TIMEOUT) {
-            end_raid(world); /* Godot 이 끝을 알리지 않음: 하루 뒤 스스로 끝냄 */
+            end_raid(world); /* C 그래픽 프런트엔드 이 끝을 알리지 않음: 하루 뒤 스스로 끝냄 */
         }
         return;
     }

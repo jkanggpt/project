@@ -306,7 +306,7 @@ static void write_progress(FILE *file, const World *world)
 static int write_world(FILE *file, const World *world)
 {
     fprintf(file, "%s %d\n", SAVE_MAGIC, SAVE_VERSION);
-    fputs("# 마법성채 키우기 저장 파일입니다. 직접 고치면 불러오지 못할 수 있습니다.\n", file);
+    fputs(u8"# 마법성채 키우기 저장 파일입니다. 직접 고치면 불러오지 못할 수 있습니다.\n", file);
     write_meta(file, world);
     write_economy(file, world);
     write_map(file, world);

@@ -7,7 +7,7 @@
 #include "entity.h"
 #include "world.h"
 
-/* 걷는 중인 주민을 모두 목표에 도착시킵니다 (Godot 대신) */
+/* 걷는 중인 주민을 모두 목표에 도착시킵니다 (C 그래픽 프런트엔드 대신) */
 void test_arrive_all(CoreWorld *world);
 /* ticks 만큼 한 틱씩 진행하며 매 틱 모두 도착시킵니다. 실패하면 0 */
 int test_run(CoreWorld *world, int32_t ticks);

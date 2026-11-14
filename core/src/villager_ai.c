@@ -287,7 +287,7 @@ static void on_sleep(World *world, Villager *villager)
 static void on_go_work(World *world, Villager *villager)
 {
     (void)world;
-    (void)villager; /* 걷는 중: Godot 이 움직이고 도착을 알려 줌 */
+    (void)villager; /* 걷는 중: C 그래픽 프런트엔드 이 움직이고 도착을 알려 줌 */
 }
 
 static void on_working(World *world, Villager *villager)
@@ -345,7 +345,7 @@ static void on_flee(World *world, Villager *villager)
 
 static void on_guard_post(World *world, Villager *villager)
 {
-    on_idle(world, villager); /* 싸움은 Godot(CLI 는 숫자 전투)이 하고, 피해는 보고로 들어옴 */
+    on_idle(world, villager); /* 싸움은 C 그래픽 프런트엔드(CLI 는 숫자 전투)이 하고, 피해는 보고로 들어옴 */
 }
 
 static void on_leaving(World *world, Villager *villager)

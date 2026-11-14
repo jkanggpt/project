@@ -2,7 +2,7 @@
  * events.h — 피드백 이벤트 큐
  *
  * 소리, 알림 문구, 떠오르는 숫자 같은 "보여 주기"에만 쓰는 이벤트입니다.
- * Godot은 상태를 이벤트가 아니라 매 틱의 스냅숏(뷰 복사)으로 맞추므로, 이벤트를 놓쳐도 게임이 어긋나지 않습니다.
+ * C 그래픽 프런트엔드은 상태를 이벤트가 아니라 매 틱의 스냅숏(뷰 복사)으로 맞추므로, 이벤트를 놓쳐도 게임이 어긋나지 않습니다.
  * 그래서 저장하지 않고, 너무 많이 쌓이면 가장 오래된 것부터 버립니다.
  */
 #ifndef CASTLE_EVENTS_H
@@ -109,7 +109,7 @@ void events_push_raid(EventQueue *queue, CoreEventType type, int32_t a, int32_t 
 /* text: 연구 키 등 (NULL 이면 빈 문자열) */
 void events_push_progress(EventQueue *queue, CoreEventType type, int32_t a, int32_t b, int32_t c, const char *text);
 
-/* 내부 이벤트(공용체)를 C#에 건넬 평평한 뷰로 바꿉니다. */
+/* 내부 이벤트(공용체)를 외부 호출자에 건넬 평평한 뷰로 바꿉니다. */
 void events_to_view(const Event *event, CoreEventView *out);
 
 #endif

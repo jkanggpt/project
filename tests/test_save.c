@@ -114,23 +114,23 @@ void test_save_keeps_backup(void)
 void test_save_korean_path(void)
 {
     /* Windows 사용자 폴더에 한글이 있는 경우를 흉내 냅니다 (Windows CI 에서 _wfopen/MoveFileExW 경로를 확인) */
-    const char *dir = "세이브_폴더";
-    const char *path = "세이브_폴더/바람언덕 성채.sav";
+    const char *dir = u8"세이브_폴더";
+    const char *path = u8"세이브_폴더/바람언덕 성채.sav";
     CoreWorld *world = make_played_world(31);
     CoreWorld *loaded = NULL;
     CoreSummaryView summary;
 
     CHECK(world != NULL);
-    CHECK_EQ(world_set_name(world, "바람언덕 🏰 성채"), CORE_OK);
+    CHECK_EQ(world_set_name(world, u8"바람언덕 🏰 성채"), CORE_OK);
     CHECK_EQ(platform_make_dir(dir), 0);
     remove_save_files(path);
     CHECK_EQ(core_save(world, path), CORE_OK);
     CHECK_EQ(core_save(world, path), CORE_OK); /* 두 번째 저장: 대상이 있는 상태에서 바꿔치기 + .bak */
-    CHECK(platform_file_exists("세이브_폴더/바람언덕 성채.sav.bak"));
+    CHECK(platform_file_exists(u8"세이브_폴더/바람언덕 성채.sav.bak"));
     CHECK_EQ(core_load(path, NULL, &loaded, NULL), CORE_OK);
     CHECK(hash_of(world) == hash_of(loaded));
     CHECK_EQ(core_get_summary(loaded, &summary), CORE_OK);
-    CHECK(strcmp(summary.castle_name, "바람언덕 🏰 성채") == 0);
+    CHECK(strcmp(summary.castle_name, u8"바람언덕 🏰 성채") == 0);
     core_destroy(world);
     core_destroy(loaded);
     remove_save_files(path);
@@ -441,7 +441,7 @@ void test_save_peek_summarizes_slot(void)
     CoreSaveInfoView info;
 
     CHECK(world != NULL);
-    CHECK_EQ(world_set_name(world, "바람언덕 성채"), CORE_OK);
+    CHECK_EQ(world_set_name(world, u8"바람언덕 성채"), CORE_OK);
     remove_save_files(path);
     CHECK_EQ(core_save(world, path), CORE_OK);
     CHECK_EQ(core_get_summary(world, &summary), CORE_OK);
@@ -460,7 +460,7 @@ void test_save_peek_summarizes_slot(void)
     CHECK_EQ(info.rank, summary.rank);
     CHECK_EQ(info.population, summary.population);
     CHECK_EQ(info.outcome, CORE_OUTCOME_NONE);
-    CHECK(strcmp(info.castle_name, "바람언덕 성채") == 0);
+    CHECK(strcmp(info.castle_name, u8"바람언덕 성채") == 0);
 
     /* 요약을 읽어도 파일과 지금 월드는 그대로 */
     CHECK_EQ(core_peek_save(path, NULL, &info), CORE_OK);
@@ -541,12 +541,12 @@ void test_castle_name_check(void)
     memset(too_long, 'a', sizeof(too_long) - 1);
     too_long[sizeof(too_long) - 1] = '\0';
 
-    CHECK_EQ(core_check_castle_name("바람언덕 성채"), CORE_OK);
+    CHECK_EQ(core_check_castle_name(u8"바람언덕 성채"), CORE_OK);
     CHECK_EQ(core_check_castle_name("Castle 7"), CORE_OK);
     CHECK_EQ(core_check_castle_name(longest), CORE_OK);
     CHECK_EQ(core_check_castle_name(too_long), CORE_ERR_INVALID_ARG);
     CHECK_EQ(core_check_castle_name(""), CORE_ERR_INVALID_ARG);
-    CHECK_EQ(core_check_castle_name("두 줄\n이름"), CORE_ERR_INVALID_ARG); /* 세이브는 한 줄에 값 하나 */
+    CHECK_EQ(core_check_castle_name(u8"두 줄\n이름"), CORE_ERR_INVALID_ARG); /* 세이브는 한 줄에 값 하나 */
     CHECK_EQ(core_check_castle_name("\xff\xfe"), CORE_ERR_INVALID_ARG);   /* 잘못된 UTF-8 */
     CHECK_EQ(core_check_castle_name("\xea\xb0"), CORE_ERR_INVALID_ARG);   /* 잘린 한글 */
     CHECK_EQ(core_check_castle_name(NULL), CORE_ERR_NULL_ARG);

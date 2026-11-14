@@ -23,7 +23,7 @@ void test_world_create_and_destroy(void)
     CHECK_EQ(summary.difficulty, CORE_DIFF_HARSH);
     CHECK_EQ(summary.keep_x, 48);
     CHECK_EQ(summary.keep_size, 3);
-    CHECK(strcmp(summary.castle_name, "시험성") == 0);
+    CHECK(strcmp(summary.castle_name, u8"시험성") == 0);
     CHECK(summary.cost_grid_rev >= 1);
     CHECK_EQ(summary.resource_capacity[CORE_RES_GOLD], 0);
     CHECK(summary.resource_capacity[CORE_RES_FOOD] > 0);
@@ -37,7 +37,7 @@ void test_world_rejects_bad_params(void)
     CoreWorld *world = (CoreWorld *)&params; /* 실패하면 NULL 로 바뀌어야 함 */
 
     memset(&params, 0, sizeof(params));
-    strcpy(params.castle_name, "성");
+    strcpy(params.castle_name, u8"성");
     params.seed = 1;
     params.difficulty = 3;
     CHECK_EQ(core_create(&params, NULL, &world), CORE_ERR_INVALID_ARG);
@@ -153,7 +153,7 @@ void test_world_out_of_memory_is_clean(void)
     int succeeded = 0;
 
     memset(&params, 0, sizeof(params));
-    strcpy(params.castle_name, "메모리성");
+    strcpy(params.castle_name, u8"메모리성");
     params.seed = 11;
     params.difficulty = CORE_DIFF_NORMAL;
 

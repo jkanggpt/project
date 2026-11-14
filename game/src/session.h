@@ -1,0 +1,76 @@
+/* session.h — C 코어의 스냅숏과 실시간 이동·전투를 연결하는 C 실행 계층 */
+#ifndef CASTLE_GAME_SESSION_H
+#define CASTLE_GAME_SESSION_H
+#include "castle_core.h"
+#include "path.h"
+
+#define GAME_MAX_ENEMIES 64
+#define GAME_MAX_PROJECTILES 512
+typedef struct GamePoint { float x, y; } GamePoint;
+typedef struct GameActor {
+    int id, revision, grid_revision, next, target_x, target_y;
+    GamePoint position;
+    GamePath path;
+    float cooldown;
+} GameActor;
+typedef struct GameEnemy {
+    GameActor actor;
+    CoreEnemyDefView def;
+    int hp, incoming, target_id, target_kind, fleeing, looted;
+    float retarget;
+} GameEnemy;
+typedef struct GameProjectile {
+    GamePoint from, to;
+    float elapsed, duration;
+    int raid_id, target_id, target_kind, damage;
+} GameProjectile;
+typedef struct GameTower { int id; float cooldown; } GameTower;
+typedef void (*GameEventFn)(void *context, const CoreEventView *event);
+typedef struct GameSession {
+    CoreWorld *world;
+    CoreDefs *defs;
+    CoreConfigView config;
+    CoreSummaryView summary;
+    CoreBuildingDefView building_defs[CORE_BLD_COUNT];
+    CoreBuildingView *buildings;
+    CoreVillagerView *villagers;
+    int building_count, building_capacity, villager_count, villager_capacity;
+    uint8_t *terrain, *roads, *cost;
+    int cells, grid_revision;
+    GameActor *actors;
+    int actor_count, actor_capacity;
+    GamePathfinder finder;
+    CoreRaidView raid;
+    GameEnemy enemies[GAME_MAX_ENEMIES];
+    int enemy_count, raid_id;
+    GameTower *towers;
+    int tower_count, tower_capacity;
+    GameProjectile projectiles[GAME_MAX_PROJECTILES];
+    int projectile_count;
+    float tick_minutes;
+    int last_error;
+    unsigned long steps, arrivals, shots, kills, barrier_hits, loots;
+    GameEventFn on_event;
+    void *event_context;
+} GameSession;
+
+int game_session_init(GameSession *s, const char *data_dir);
+void game_session_free(GameSession *s);
+int game_session_new(GameSession *s, const char *name, int seed, int difficulty);
+int game_session_load(GameSession *s, const char *path, int *error_line);
+int game_session_refresh(GameSession *s);
+/* 게임 속 분 단위. 프레임과 무관하게 최대 2분씩 잘라 이동·전투를 풉니다. */
+int game_session_step(GameSession *s, float minutes);
+void game_session_events(GameSession *s);
+CoreBuildingView *game_building(GameSession *s, int id);
+CoreVillagerView *game_villager(GameSession *s, int id);
+GameActor *game_actor(GameSession *s, int id);
+GameEnemy *game_enemy(GameSession *s, int id);
+int game_building_at(const GameSession *s, int x, int y);
+float game_distance(GamePoint a, GamePoint b);
+int game_actor_plan(GameSession *s, GameActor *actor, int x, int y, int enemy);
+int game_actor_walk(GameSession *s, GameActor *actor, float tiles, int enemy, int *barrier_id);
+void game_combat_clear(GameSession *s);
+int game_combat_sync(GameSession *s);
+void game_combat_step(GameSession *s, float minutes);
+#endif

@@ -115,3 +115,33 @@
 | `game/scripts/debug/StressProbe.cs`, `game/scripts/world/Effects.cs`, `game/scripts/ui/HelpPanel.cs` | 프레임 시간 측정, 반짝임·흙먼지, 도움말 창 | 생성 |
 | `game/scripts/` Main, audio/Sfx, core/*, debug/LaunchOptions, debug/SmokeTest, debug/ScreenshotTour, ui/*, world/BuildMode, world/BuildingNode, world/MapView, world/Pathfinder, world/VillagerAgent, world/EnemyAgent, world/WorldSync | `--stress`, 길찾기 예산, 겹쳐 그리기, 일꾼 없는 일터 표시, 소리, 지형 새로 고침, 적 이름·체력, 자동 조종 다듬기 | 수정 |
 | `docs/*.md`, `README.md`, `PROGRESS.md`, `CLAUDE.md` | 문서 | 수정 |
+
+## C 실행판 전환 — Codex (OpenAI), 2026-11-14
+
+학생 요청: C 이외의 실행 코드를 가능한 범위에서 C로 재구현하고 Godot를 제거.
+
+| 파일 / 폴더 | 작업 |
+| --- | --- |
+| game/src/path.c, path.h | C A*·최소 힙·비용 격자·경로 수명 생성 |
+| game/src/session.c, session.h | 스냅숏·연속 이동·고정 틱·안전한 월드 교체 생성 |
+| game/src/combat.c | 적·경비병·탑·투사체·벽 공격·약탈·보고 생성 |
+| game/src/storage.c, storage.h | 한글 경로·명령줄·설정·파일 처리 생성 |
+| game/src/main.c, app.h | C 진입점·한 판 흐름·슬롯·자동 저장·자동 검사 생성 |
+| game/src/assets.c, assets.h | PNG/TTF/OGG와 한글 글꼴 로더·효과음 생성 |
+| game/src/render.c | 타일·건물·주민·전투·날씨·건설·카메라 생성 |
+| game/src/panels.c, ui.c, ui.h | 한국어 UI·메뉴·검사창·목록·연구·거래 생성 |
+| game/CMakeLists.txt, CMakeLists.txt, CMakePresets.json, core/CMakeLists.txt, cli/CMakeLists.txt | raylib·정적 코어·C 도구·검사 빌드 수정 |
+| cli/sim.c, sim.h | 같은 C 봇을 그래픽 자동 검사에서 쓰도록 공용 진입점 추가 |
+| tools/balance.c, CMakeLists.txt | Python 대신 C 밸런스 집계 생성 |
+| tools/build_windows.ps1, smoke_test.cmake, screenshots.cmake | 빌드·자동 검사·화면 촬영 설정 생성 |
+| tests/test_native.c, tests/CMakeLists.txt | C 경로·이동·전투·설정·저장 교체 검사 추가 |
+| tests/run_cli_script.cmake | Windows 출력 UTF-8 해석 지정 |
+| core/cli/tests의 기존 C·헤더 | 이전 Godot/C#을 가리키던 주석을 C 프런트엔드 설명으로 갱신 |
+| game/scripts/**/*.cs, *.uid, scenes/*.tscn, scenes/ui/*.tscn, project.godot, MagicCastle.csproj, MagicCastle.sln, default_bus_layout.tres, ui/theme.tres | C 구현으로 대체해 제거 |
+| game/assets/**/*.import, **/.gdignore | Godot 전용 메타데이터 제거 |
+| tools/balance.py, make_art.py, smoke_test.sh, screenshots.sh | C 도구·CMake 실행 설정으로 대체하거나 재생성 제외로 제거 |
+| .github/workflows/ci.yml, .gitignore, README.md, CLAUDE.md, CREDITS.md, PROGRESS.md | C 빌드·실행·검사·배포·진행 기록 갱신 |
+| docs/NATIVE_PORT.md, ARCHITECTURE.md, QA.md, SPEC.md, C_WALKTHROUGH.md, C_REQUIREMENTS.md, DECISIONS.md, AI_USAGE.md | 현재 구조·범위·검사·전환 우선순위 기록 |
+
+외부 raylib 소스는 공식 아카이브를 검증해 사용하며 AI가 만든 코드로 표시하지 않습니다.
+스크린숏은 새 C 실행판이 렌더링한 화면입니다. 사용자 기존 AGENTS.md와 저장 파일은 변경하지 않습니다.

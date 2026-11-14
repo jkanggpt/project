@@ -12,7 +12,14 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 5105) /* 구형 Windows SDK 헤더 내부의 매크로 */
+#endif
 #include <windows.h>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 #endif
 
 void console_init(void)
@@ -104,7 +111,7 @@ int read_int(const char *prompt, int min, int max, int *out)
             return 0;
         }
         if (got < 0) {
-            printf("  입력이 너무 깁니다. 다시 입력하세요.\n");
+            printf(u8"  입력이 너무 깁니다. 다시 입력하세요.\n");
             continue;
         }
         errno = 0;
@@ -113,11 +120,11 @@ int read_int(const char *prompt, int min, int max, int *out)
             end++;
         }
         if (line[0] == '\0' || end == line || *end != '\0' || errno != 0) {
-            printf("  숫자를 입력하세요.\n");
+            printf(u8"  숫자를 입력하세요.\n");
             continue;
         }
         if (value < min || value > max) {
-            printf("  %d부터 %d 사이의 숫자를 입력하세요.\n", min, max);
+            printf(u8"  %d부터 %d 사이의 숫자를 입력하세요.\n", min, max);
             continue;
         }
         *out = (int)value;
@@ -130,7 +137,7 @@ int read_text(const char *prompt, const char *default_text, char *buffer, size_t
     for (;;) {
         int got;
         if (default_text != NULL) {
-            printf("%s [엔터 = %s]: ", prompt, default_text);
+            printf(u8"%s [엔터 = %s]: ", prompt, default_text);
         } else {
             printf("%s: ", prompt);
         }
@@ -141,12 +148,12 @@ int read_text(const char *prompt, const char *default_text, char *buffer, size_t
             return 0;
         }
         if (got < 0) {
-            printf("  너무 깁니다. %u바이트보다 짧게 입력하세요.\n", (unsigned)(size - 1));
+            printf(u8"  너무 깁니다. %u바이트보다 짧게 입력하세요.\n", (unsigned)(size - 1));
             continue;
         }
         if (buffer[0] == '\0') {
             if (default_text == NULL) {
-                printf("  비워 둘 수 없습니다.\n");
+                printf(u8"  비워 둘 수 없습니다.\n");
                 continue;
             }
             if (strlen(default_text) >= size) {

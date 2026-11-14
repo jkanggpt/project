@@ -14,6 +14,12 @@ add_executable(castle_tests
 )
 target_link_libraries(castle_tests PRIVATE castle_core_testing castle_warnings)
 
+add_executable(castle_native_tests test_native.c)
+target_include_directories(castle_native_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
+target_link_libraries(castle_native_tests PRIVATE castle_frontend castle_warnings)
+add_test(NAME native_runtime COMMAND castle_native_tests ${PROJECT_SOURCE_DIR}/game/data)
+set_tests_properties(native_runtime PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
 file(STRINGS test_list.h CASTLE_TEST_LINES REGEX "^TEST_ENTRY\\(")
 foreach(line IN LISTS CASTLE_TEST_LINES)
   string(REGEX REPLACE "^TEST_ENTRY\\(([a-z0-9_]+)\\).*" "\\1" test_name "${line}")

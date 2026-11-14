@@ -4,17 +4,12 @@
 /cmake-build-*/
 CMakeUserPresets.json
 
-# Godot
+# 전환 이전 실행판의 로컬 캐시도 계속 제외합니다.
 game/.godot/
 game/bin/
 game/export/
-*.translation
-
-# C# 빌드 결과
 game/.mono/
-game/bin/
 game/obj/
-*.csproj.user
 
 # 스크린숏, 시뮬레이터 출력 등 (docs/screenshots/ 는 커밋함)
 /artifacts/
@@ -39,3 +34,7 @@ node_modules/
 
 # 파이썬 캐시 (tools/*.py)
 __pycache__/
+
+# C 실행판의 자동 검사·설정 임시 결과
+saves_automated/
+native_settings.cfg

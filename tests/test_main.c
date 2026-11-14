@@ -54,7 +54,7 @@ CoreWorld *test_make_world(int32_t seed, int32_t difficulty)
     CoreNewGameParams params;
     CoreWorld *world = NULL;
     memset(&params, 0, sizeof(params));
-    strcpy(params.castle_name, "시험성");
+    strcpy(params.castle_name, u8"시험성");
     params.seed = seed;
     params.difficulty = difficulty;
     if (core_create(&params, NULL, &world) != CORE_OK) {

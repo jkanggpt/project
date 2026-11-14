@@ -4,6 +4,7 @@ file(REMOVE cli_test.sav cli_test.sav.bak)
 execute_process(
   COMMAND ${CLI} --data ${DATA}
   INPUT_FILE ${INPUT}
+  ENCODING UTF-8
   OUTPUT_VARIABLE output
   ERROR_VARIABLE errors
   RESULT_VARIABLE result)
@@ -53,6 +54,7 @@ file(WRITE cli_backup_input.txt "13\ncli_test.sav\n1\n0\n")
 execute_process(
   COMMAND ${CLI} --data ${DATA}
   INPUT_FILE cli_backup_input.txt
+  ENCODING UTF-8
   OUTPUT_VARIABLE output
   ERROR_VARIABLE errors
   RESULT_VARIABLE result)

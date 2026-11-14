@@ -3,7 +3,7 @@
  *
  * 지도는 width × height 타일이고, 격자는 행 우선 1차원 배열(index = y * width + x)로 저장합니다.
  * 크기는 월드를 만들 때 정해지므로 calloc 으로 할당합니다.
- * 이동 비용 격자는 지형(나중에는 도로, 건물, 성벽)으로부터 계산되며, Godot은 이것으로 길찾기 격자를 만듭니다.
+ * 이동 비용 격자는 지형(나중에는 도로, 건물, 성벽)으로부터 계산되며, C 그래픽 프런트엔드은 이것으로 길찾기 격자를 만듭니다.
  */
 #ifndef CASTLE_GRID_H
 #define CASTLE_GRID_H
@@ -42,7 +42,7 @@ typedef struct Grid {
     uint8_t *door_count; /* 그 칸을 문 앞으로 쓰는 건물 수 (다시 계산) */
     uint8_t *block;      /* GRID_BLOCK_* (다시 계산) */
     uint8_t *cost;       /* 이동 비용 (다시 계산) */
-    int32_t cost_rev;    /* 비용 격자가 바뀔 때마다 1 증가 → Godot이 길찾기를 다시 만들지 판단 */
+    int32_t cost_rev;    /* 비용 격자가 바뀔 때마다 1 증가 → C 그래픽 프런트엔드이 길찾기를 다시 만들지 판단 */
     uint8_t *scratch_mark;  /* 길 검사용 작업 공간 (배치 검사 때마다 새로 할당하지 않으려고 미리 마련) */
     int32_t *scratch_queue;
 } Grid;

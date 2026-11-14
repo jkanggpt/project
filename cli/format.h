@@ -2,7 +2,7 @@
  * format.h — CLI 용 한국어 문구
  *
  * C 코어는 언어를 모르고 숫자 코드만 냅니다. 사람이 읽을 문장은 프런트엔드가 만듭니다.
- * (Godot 쪽에는 Strings.cs 가 같은 일을 합니다)
+ * (C 그래픽 프런트엔드 쪽에는 Strings.cs 가 같은 일을 합니다)
  */
 #ifndef CASTLE_CLI_FORMAT_H
 #define CASTLE_CLI_FORMAT_H

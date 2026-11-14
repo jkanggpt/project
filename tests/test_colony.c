@@ -81,7 +81,7 @@ void test_defs_errors_keep_defaults(void)
     CHECK_EQ(core_defs_load_file(defs, CORE_DATA_BUILDINGS, "no_such_file.def", NULL), CORE_ERR_FILE_OPEN);
     /* 새 월드를 만들면 경고 이벤트로 알립니다 */
     memset(&params, 0, sizeof(params));
-    strcpy(params.castle_name, "경고성");
+    strcpy(params.castle_name, u8"경고성");
     params.difficulty = CORE_DIFF_NORMAL;
     CHECK_EQ(core_create(&params, defs, &world), CORE_OK);
     while (core_poll_event(world, &event) == 1) {
@@ -108,12 +108,12 @@ void test_defs_traits_and_names_grow(void)
     /* 이름 파일: 30개 → 목록이 바뀜 */
     names[0] = '\0';
     for (i = 0; i < 30; i++) {
-        used += (size_t)snprintf(names + used, sizeof(names) - used, "이름%d\n", (int)i);
+        used += (size_t)snprintf(names + used, sizeof(names) - used, u8"이름%d\n", (int)i);
     }
     CHECK_EQ(core_defs_load_text(defs, CORE_DATA_NAMES, names, (int32_t)used, &line), CORE_OK);
     CHECK_EQ(defs->defs.name_count, 30);
     /* 너무 적으면 거부하고 그대로 */
-    CHECK_EQ(core_defs_load_text(defs, CORE_DATA_NAMES, "하나\n둘\n", 10, &line), CORE_ERR_FORMAT);
+    CHECK_EQ(core_defs_load_text(defs, CORE_DATA_NAMES, u8"하나\n둘\n", 10, &line), CORE_ERR_FORMAT);
     CHECK_EQ(defs->defs.name_count, 30);
     CHECK_EQ(core_defs_load_text(defs, 99, "x", 1, &line), CORE_ERR_INVALID_ARG);
     CHECK_EQ(core_defs_load_text(NULL, CORE_DATA_NAMES, "x", 1, &line), CORE_ERR_NULL_ARG);

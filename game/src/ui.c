@@ -1,0 +1,117 @@
+/* ui.c — 버튼·입력·스크롤 화면은 C 함수로 구성합니다. */
+#include "ui.h"
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+const Color UI_BG={25,24,34,255},UI_PANEL={39,35,48,245},UI_EDGE={85,72,97,255};
+const Color UI_TEXT={239,231,219,255},UI_MUTED={161,153,171,255},UI_GOLD={244,197,108,255},UI_GOOD={133,209,151,255},UI_BAD={239,127,124,255};
+void ui_begin(GameUi *ui,GameAssets *assets,float size,float volume)
+{
+    ui->assets=assets; ui->font_size=size; ui->volume=volume; ui->tooltip[0]='\0'; ui->input_blocked=0; ui->consumed=0;
+}
+static void textv(GameUi *ui,float x,float y,float size,Color color,const char *format,va_list args)
+{
+    char text[2048]; (void)vsnprintf(text,sizeof(text),format,args);
+    DrawTextEx(ui->assets->font,text,(Vector2){x,y},size,0,color);
+}
+void ui_text(GameUi *ui,float x,float y,Color color,const char *format,...)
+{
+    va_list args; va_start(args,format); textv(ui,x,y,ui->font_size,color,format,args); va_end(args);
+}
+void ui_small(GameUi *ui,float x,float y,Color color,const char *format,...)
+{
+    va_list args; va_start(args,format); textv(ui,x,y,ui->font_size-3,color,format,args); va_end(args);
+}
+void ui_wrap(GameUi *ui,Rectangle area,Color color,const char *text)
+{
+    float x=area.x,y=area.y; int offset=0;
+    BeginScissorMode((int)area.x,(int)area.y,(int)area.width,(int)area.height);
+    while (text[offset] && y+ui->font_size<=area.y+area.height) {
+        int bytes=0,code=GetCodepointNext(text+offset,&bytes); char glyph[5]={0}; float width;
+        if (bytes<1) break;
+        if (code=='\n') { x=area.x; y+=ui->font_size+8; offset+=bytes; continue; }
+        if (bytes>4) break;
+        memcpy(glyph,text+offset,(size_t)bytes); width=MeasureTextEx(ui->assets->font,glyph,ui->font_size,0).x;
+        if (x+width>area.x+area.width) { x=area.x; y+=ui->font_size+8; }
+        DrawTextEx(ui->assets->font,glyph,(Vector2){x,y},ui->font_size,0,color); x+=width; offset+=bytes;
+    }
+    EndScissorMode();
+}
+void ui_box(Rectangle area,Color color)
+{
+    DrawRectangleRec(area,color); DrawRectangleLinesEx(area,1,UI_EDGE);
+}
+int ui_button(GameUi *ui,Rectangle area,const char *text,int enabled,int selected,const char *tooltip)
+{
+    int hover=CheckCollisionPointRec(GetMousePosition(),area),pressed=0;
+    Color fill=selected?(Color){96,73,63,255}:UI_PANEL;
+    Vector2 measure=MeasureTextEx(ui->assets->font,text,ui->font_size,0);
+    if (hover && enabled) fill=(Color){80,66,86,255};
+    if (!enabled) fill=(Color){31,30,39,245};
+    ui_box(area,fill);
+    if (selected) DrawRectangleLinesEx(area,2,UI_GOLD);
+    BeginScissorMode((int)area.x+2,(int)area.y,(int)area.width-4,(int)area.height);
+    DrawTextEx(ui->assets->font,text,(Vector2){area.x+fmaxf(6,(area.width-measure.x)*0.5f),area.y+(area.height-ui->font_size)*0.5f},ui->font_size,0,enabled?UI_TEXT:UI_MUTED);
+    EndScissorMode();
+    if (hover && tooltip) (void)snprintf(ui->tooltip,sizeof(ui->tooltip),"%s",tooltip);
+    if (hover && enabled && !ui->input_blocked && !ui->consumed && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        pressed=1; ui->consumed=1; game_sound(ui->assets,SND_CLICK,ui->volume);
+    }
+    return pressed;
+}
+void ui_bar(Rectangle area,float fraction,Color color)
+{
+    DrawRectangleRec(area,(Color){25,22,31,255});
+    fraction=fmaxf(0,fminf(1,fraction)); DrawRectangleRec((Rectangle){area.x,area.y,area.width*fraction,area.height},color);
+    DrawRectangleLinesEx(area,1,UI_EDGE);
+}
+static void append_utf8(char *text,size_t size,const char *add,int digits_only)
+{
+    size_t length=strlen(text),i=0;
+    while (add[i]) {
+        int bytes=0,code=GetCodepointNext(add+i,&bytes);
+        if (bytes<1) break;
+        if (code>=32 && code!=127 && (!digits_only || (code>='0' && code<='9')) && length+(size_t)bytes<size) {
+            memcpy(text+length,add+i,(size_t)bytes); length+=(size_t)bytes; text[length]='\0';
+        }
+        i+=(size_t)bytes;
+    }
+}
+void ui_textbox(GameUi *ui,Rectangle area,int id,char *text,size_t size,int digits_only)
+{
+    int active,code;
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !ui->input_blocked && CheckCollisionPointRec(GetMousePosition(),area)) ui->focus=id;
+    active=ui->focus==id; ui_box(area,(Color){24,23,32,255});
+    if (active) DrawRectangleLinesEx(area,2,UI_GOLD);
+    if (active && !ui->input_blocked) {
+        if ((IsKeyDown(KEY_LEFT_CONTROL)||IsKeyDown(KEY_RIGHT_CONTROL)) && IsKeyPressed(KEY_V)) append_utf8(text,size,GetClipboardText(),digits_only);
+        while ((code=GetCharPressed())>0) {
+            int length=0; const char *encoded=CodepointToUTF8(code,&length); char copy[5]={0};
+            if (length>0 && length<=4) { memcpy(copy,encoded,(size_t)length); append_utf8(text,size,copy,digits_only); }
+        }
+        if ((IsKeyPressed(KEY_BACKSPACE)||IsKeyPressedRepeat(KEY_BACKSPACE)) && text[0]) {
+            size_t n=strlen(text); do { n--; } while (n>0 && ((unsigned char)text[n]&0xC0)==0x80); text[n]='\0';
+        }
+    }
+    BeginScissorMode((int)area.x+5,(int)area.y,(int)area.width-10,(int)area.height);
+    ui_text(ui,area.x+10,area.y+9,UI_TEXT,"%s%s",text,active && ((int)(GetTime()*2)%2)==0?"|":"");
+    EndScissorMode();
+}
+void ui_slider(GameUi *ui,Rectangle area,float *value)
+{
+    if (!ui->input_blocked && IsMouseButtonDown(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(),area))
+        *value=fmaxf(0,fminf(1,(GetMouseX()-area.x)/area.width));
+    ui_bar((Rectangle){area.x,area.y+area.height*0.3f,area.width,area.height*0.4f},*value,UI_GOLD);
+    DrawCircleV((Vector2){area.x+area.width*(*value),area.y+area.height*0.5f},8,UI_TEXT);
+}
+void ui_tooltip(GameUi *ui)
+{
+    Rectangle area; float width;
+    if (!ui->tooltip[0]) return;
+    width=MeasureTextEx(ui->assets->font,ui->tooltip,ui->font_size,0).x+24;
+    if (width>520) width=520;
+    area=(Rectangle){fminf((float)GetMouseX()+12,GetScreenWidth()-width-12),(float)GetMouseY()+22,width,110};
+    if (area.y+area.height>GetScreenHeight()) area.y=GetMouseY()-area.height-12;
+    ui_box(area,(Color){20,18,27,250}); ui_wrap(ui,(Rectangle){area.x+12,area.y+10,area.width-24,area.height-20},UI_TEXT,ui->tooltip);
+}

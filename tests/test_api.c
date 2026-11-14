@@ -65,7 +65,7 @@ void test_api_struct_sizes_and_config(void)
     CHECK_EQ(sizes.new_game_params, (int32_t)sizeof(CoreNewGameParams));
     CHECK_EQ(sizes.summary_view, (int32_t)sizeof(CoreSummaryView));
     CHECK_EQ(sizes.event_view, 20 + 48);
-    /* C# 에서 같은 크기가 나와야 하는 값: int 55개 + 자원·한도·변화 6개씩 + 이름 48바이트 */
+    /* 외부 호출자 에서 같은 크기가 나와야 하는 값: int 55개 + 자원·한도·변화 6개씩 + 이름 48바이트 */
     CHECK_EQ(sizes.summary_view, 55 * 4 + 18 * 4 + 48);
     CHECK_EQ(sizes.config_view, 17 * 4);
     CHECK_EQ(sizes.villager_view, 29 * 4 + 48);

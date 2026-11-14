@@ -12,6 +12,7 @@
 #include "battle.h"
 #include "format.h"
 #include "walker.h"
+#include "platform.h"
 
 /* ---- 봇 공통 도우미 ---------------------------------------------------- */
 
@@ -533,8 +534,8 @@ static void bot_reasonable(BotContext *bot)
 }
 
 static const Bot BOTS[] = {
-    {"idle", "아무것도 하지 않음 (기준선)", bot_idle},
-    {"reasonable", "먹을 것, 집, 자원, 창고를 차례로 짓는 보통 플레이어", bot_reasonable},
+    {"idle", u8"아무것도 하지 않음 (기준선)", bot_idle},
+    {"reasonable", u8"먹을 것, 집, 자원, 창고를 차례로 짓는 보통 플레이어", bot_reasonable},
 };
 #define BOT_COUNT ((int)(sizeof(BOTS) / sizeof(BOTS[0])))
 
@@ -552,6 +553,19 @@ static const Bot *find_bot(const char *name)
 int sim_bot_exists(const char *bot_name)
 {
     return find_bot(bot_name) != NULL;
+}
+
+int sim_bot_daily(CoreWorld *world, const char *bot_name)
+{
+    const Bot *bot = find_bot(bot_name);
+    BotContext context;
+    if (world == NULL || bot == NULL) return CORE_ERR_INVALID_ARG;
+    memset(&context, 0, sizeof(context));
+    context.world = world;
+    if (core_get_summary(world, &context.summary) != CORE_OK) return CORE_ERR_INVALID_ARG;
+    bot->on_new_day(&context);
+    free(context.buildings);
+    return CORE_OK;
 }
 
 void sim_print_bots(void)
@@ -603,19 +617,19 @@ int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_n
     int status = 0;
 
     if (bot == NULL) {
-        fprintf(stderr, "모르는 봇입니다: %s\n", bot_name);
+        fprintf(stderr, u8"모르는 봇입니다: %s\n", bot_name);
         return 1;
     }
     memset(&context, 0, sizeof(context));
     (void)core_get_config(&config);
     if (create_world(seed, difficulty, "Simulation", defs, &context.world) != CORE_OK) {
-        fprintf(stderr, "월드를 만들 수 없습니다\n");
+        fprintf(stderr, u8"월드를 만들 수 없습니다\n");
         return 1;
     }
     if (csv_path != NULL) {
-        out = fopen(csv_path, "w");
+        out = platform_fopen_utf8(csv_path, "wb");
         if (out == NULL) {
-            fprintf(stderr, "CSV 파일을 열 수 없습니다: %s\n", csv_path);
+            fprintf(stderr, u8"CSV 파일을 열 수 없습니다: %s\n", csv_path);
             core_destroy(context.world);
             return 1;
         }
@@ -636,7 +650,7 @@ int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_n
                 break; /* 패배: 시간이 더는 흐르지 않음 (아래에서 기록하고 끝냄) */
             }
             if (rc != CORE_OK || battle_tick(&battle, context.world) != CORE_OK || core_validate(context.world) != 0) {
-                fprintf(stderr, "시뮬레이션 %d일째에 문제가 생겼습니다\n", day + 1);
+                fprintf(stderr, u8"시뮬레이션 %d일째에 문제가 생겼습니다\n", day + 1);
                 status = 1;
                 break;
             }
@@ -645,13 +659,13 @@ int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_n
             if (print_events && event.type != CORE_EVT_PRODUCED) {
                 char text[200];
                 fmt_event(&event, text, sizeof(text));
-                fprintf(stderr, "[%d일] %s\n", day + 2, text);
+                fprintf(stderr, u8"[%d일] %s\n", day + 2, text);
             }
         }
         (void)core_get_summary(context.world, &summary);
         write_csv_row(out, &summary);
         if (summary.outcome == CORE_OUTCOME_LOST) {
-            fprintf(stderr, "패배: %s (%d일째)\n", fmt_lose_reason(summary.lose_reason), (int)summary.day);
+            fprintf(stderr, u8"패배: %s (%d일째)\n", fmt_lose_reason(summary.lose_reason), (int)summary.day);
             break;
         }
     }
@@ -662,10 +676,10 @@ int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_n
     free(context.buildings);
     core_destroy(context.world);
     if (status == 0 && csv_path != NULL) {
-        printf("시뮬레이션 완료: %d일, 시드 %d, 봇 %s → %s (주민 %d명, 기분 %d, 등급 %s, 연구 %d%s)\n", days, (int)seed,
+        printf(u8"시뮬레이션 완료: %d일, 시드 %d, 봇 %s → %s (주민 %d명, 기분 %d, 등급 %s, 연구 %d%s)\n", days, (int)seed,
                bot_name, csv_path, (int)summary.population, (int)summary.average_mood, fmt_rank_name(summary.rank),
                (int)summary.research_done,
-               summary.outcome == CORE_OUTCOME_WON ? ", 승리" : summary.outcome == CORE_OUTCOME_LOST ? ", 패배" : "");
+               summary.outcome == CORE_OUTCOME_WON ? u8", 승리" : summary.outcome == CORE_OUTCOME_LOST ? u8", 패배" : "");
     }
     return status;
 }
@@ -855,7 +869,7 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
 
     memset(&bot, 0, sizeof(bot));
     if (create_world(seed, seed % CORE_DIFF_COUNT, "Soak", defs, &bot.world) != CORE_OK) {
-        fprintf(stderr, "  시드 %d: 월드를 만들 수 없습니다\n", (int)seed);
+        fprintf(stderr, u8"  시드 %d: 월드를 만들 수 없습니다\n", (int)seed);
         return 1;
     }
     walker_init(&walker);
@@ -877,7 +891,7 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
         if (rc == CORE_ERR_REJECTED && summary.outcome == CORE_OUTCOME_LOST) {
             /* 패배한 월드도 저장·불러오기·검사가 맞아야 함. 그다음 새 월드로 남은 틱을 돌림 */
             if (!save_load_roundtrip(&bot.world, path, defs) || core_validate(bot.world) != 0) {
-                fprintf(stderr, "  시드 %d: 패배한 월드의 저장/불러오기가 어긋났습니다\n", (int)seed);
+                fprintf(stderr, u8"  시드 %d: 패배한 월드의 저장/불러오기가 어긋났습니다\n", (int)seed);
                 failures++;
                 break;
             }
@@ -885,7 +899,7 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
             bot.world = NULL;
             restarts++;
             if (create_world(seed + 100000 * restarts, seed % CORE_DIFF_COUNT, "Soak", defs, &bot.world) != CORE_OK) {
-                fprintf(stderr, "  시드 %d: 새 월드를 만들 수 없습니다\n", (int)seed);
+                fprintf(stderr, u8"  시드 %d: 새 월드를 만들 수 없습니다\n", (int)seed);
                 failures++;
                 break;
             }
@@ -898,7 +912,7 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
             continue;
         }
         if (rc != CORE_OK) {
-            fprintf(stderr, "  시드 %d: core_tick 실패\n", (int)seed);
+            fprintf(stderr, u8"  시드 %d: core_tick 실패\n", (int)seed);
             failures++;
             break;
         }
@@ -906,7 +920,7 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
         /* 습격: 시드 셋 중 둘은 숫자 전투, 하나는 아무렇게나 보낸 보고 (끝은 C 의 시간 초과에 맡김) */
         if (seed % 3 != 0) {
             if (battle_tick(&battle, bot.world) != CORE_OK) {
-                fprintf(stderr, "  시드 %d: 전투 실패\n", (int)seed);
+                fprintf(stderr, u8"  시드 %d: 전투 실패\n", (int)seed);
                 failures++;
                 break;
             }
@@ -916,7 +930,7 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
         (*ticks_run)++;
         violations = core_validate(bot.world);
         if (violations != 0) {
-            fprintf(stderr, "  시드 %d: 불변 조건 위반 %d개 (%d일)\n", (int)seed, (int)violations, (int)summary.day);
+            fprintf(stderr, u8"  시드 %d: 불변 조건 위반 %d개 (%d일)\n", (int)seed, (int)violations, (int)summary.day);
             failures++;
             break;
         }
@@ -934,11 +948,11 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
                 random_commands(&bot, &random_state);
             }
             if (roll % 10 == 0 && !save_load_roundtrip(&bot.world, path, defs)) {
-                fprintf(stderr, "  시드 %d: 저장/불러오기 왕복이 어긋났습니다 (%d일)\n", (int)seed, (int)summary.day);
+                fprintf(stderr, u8"  시드 %d: 저장/불러오기 왕복이 어긋났습니다 (%d일)\n", (int)seed, (int)summary.day);
                 failures++;
             }
             if (roll % 13 == 0 && !poke_invalid_calls(bot.world)) {
-                fprintf(stderr, "  시드 %d: 잘못된 호출이 상태를 바꾸었습니다\n", (int)seed);
+                fprintf(stderr, u8"  시드 %d: 잘못된 호출이 상태를 바꾸었습니다\n", (int)seed);
                 failures++;
             }
         }
@@ -949,7 +963,7 @@ static int soak_one_seed(int days, int32_t seed, const CoreDefs *defs, long *tic
     remove(path);
     remove(backup);
     if (restarts > 0 && failures == 0) {
-        printf("  시드 %d: 패배 %d번 (새 월드로 계속)\n", (int)seed, (int)restarts);
+        printf(u8"  시드 %d: 패배 %d번 (새 월드로 계속)\n", (int)seed, (int)restarts);
     }
     return failures;
 }
@@ -966,10 +980,10 @@ int sim_run_soak(int days, int seeds, int32_t first_seed, const CoreDefs *defs)
         }
     }
     if (failed_seeds == 0) {
-        printf("소크 테스트 통과: 시드 %d개 × %d일, 틱 %ld번, 불변 조건 위반 0\n", seeds, days, ticks_run);
+        printf(u8"소크 테스트 통과: 시드 %d개 × %d일, 틱 %ld번, 불변 조건 위반 0\n", seeds, days, ticks_run);
         return 0;
     }
-    printf("소크 테스트 실패: 시드 %d개 중 %d개에서 문제\n", seeds, failed_seeds);
+    printf(u8"소크 테스트 실패: 시드 %d개 중 %d개에서 문제\n", seeds, failed_seeds);
     return 1;
 }
 
@@ -1001,17 +1015,17 @@ int sim_run_bench(int villagers, int enemies, int32_t seed, const CoreDefs *defs
     int32_t rc;
     (void)core_get_config(&config);
     if (create_world(seed, CORE_DIFF_NORMAL, "Bench", defs, &world) != CORE_OK) {
-        fprintf(stderr, "월드를 만들 수 없습니다\n");
+        fprintf(stderr, u8"월드를 만들 수 없습니다\n");
         return 1;
     }
     rc = core_debug_stress(world, villagers, enemies);
     if (rc != CORE_OK) {
-        fprintf(stderr, "큰 마을을 만들 수 없습니다: %s\n", core_result_name(rc));
+        fprintf(stderr, u8"큰 마을을 만들 수 없습니다: %s\n", core_result_name(rc));
         core_destroy(world);
         return 1;
     }
     walker_init(&walker);
-    /* 하루는 적응 (집·일터를 찾아 걷기 시작), 그다음 닷새를 잼. 걷기 흉내(Godot 몫)는 재지 않음 */
+    /* 하루는 적응 (집·일터를 찾아 걷기 시작), 그다음 닷새를 잼. 걷기 흉내(C 그래픽 프런트엔드 몫)는 재지 않음 */
     for (tick = 0; tick < config.ticks_per_day * 6; tick++) {
         double start;
         double spent;
@@ -1026,14 +1040,14 @@ int sim_run_bench(int villagers, int enemies, int32_t seed, const CoreDefs *defs
             rc = core_tick(world, 1);
         }
         if (rc != CORE_OK || walker_step(&walker, world) != 0) {
-            fprintf(stderr, "%d틱째에 멈췄습니다: %s\n", (int)tick, core_result_name(rc));
+            fprintf(stderr, u8"%d틱째에 멈췄습니다: %s\n", (int)tick, core_result_name(rc));
             break;
         }
         while (core_poll_event(world, &event) == 1) {
         }
     }
     (void)core_get_summary(world, &summary);
-    printf("주민 %d명 (요청 %d), 건물 %d채, 적 %d명: 틱 %d번, 평균 %.3f ms, 가장 느린 틱 %.3f ms (목표: 1 ms 미만)\n",
+    printf(u8"주민 %d명 (요청 %d), 건물 %d채, 적 %d명: 틱 %d번, 평균 %.3f ms, 가장 느린 틱 %.3f ms (목표: 1 ms 미만)\n",
            (int)summary.population, villagers, (int)summary.building_count, enemies, (int)measured,
            measured > 0 ? total / measured : 0.0, slowest);
     walker_free(&walker);

@@ -19,7 +19,7 @@ typedef struct ResourceBank {
     int32_t capacity; /* 물건 하나당 저장 한도 */
 } ResourceBank;
 
-/* 장부 항목은 공개 헤더의 CoreLedgerCategory (Godot 툴팁도 같은 번호를 씀) */
+/* 장부 항목은 공개 헤더의 CoreLedgerCategory (C 그래픽 프런트엔드 툴팁도 같은 번호를 씀) */
 
 /* 하루치 장부 두 장: 오늘 쌓는 것과 어제 끝난 것 */
 typedef struct Ledger {

@@ -804,40 +804,40 @@ int defs_write_file(const Defs *defs, int32_t file_id, const char *path)
         return CORE_ERR_FILE_OPEN;
     }
     if (file_id == CORE_DATA_BUILDINGS) {
-        fputs("# 건물 정의. 값을 바꾸면 게임 밸런스가 바뀝니다. 문법이 틀리면 게임이 기본값을 쓰고 경고합니다.\n"
+        fputs(u8"# 건물 정의. 값을 바꾸면 게임 밸런스가 바뀝니다. 문법이 틀리면 게임이 기본값을 쓰고 경고합니다.\n"
               "# produces/secondary: none gold mana food wood stone herbs\n"
               "# placement: any near_forest adjacent_rock on_mana\n"
-              "# rate: 일꾼 한 명이 일하는 한 틱(10분)에 만드는 양 × 1000 (기분 50, 생산성 100% 기준)\n",
+              u8"# rate: 일꾼 한 명이 일하는 한 틱(10분)에 만드는 양 × 1000 (기분 50, 생산성 100% 기준)\n",
               file);
         for (i = 0; i < CORE_BLD_COUNT; i++) {
             fprintf(file, "\n[building %s]\n", defs->buildings[i].key);
             write_fields(file, &defs->buildings[i], BUILDING_FIELDS, COUNT_OF(BUILDING_FIELDS));
         }
     } else if (file_id == CORE_DATA_TRAITS) {
-        fputs("# 주민 특성. work: 일 속도 %, food: 배고파지는 속도 %, mood: 기분, bravery: 용기, magic: 연구 속도 %\n",
+        fputs(u8"# 주민 특성. work: 일 속도 %, food: 배고파지는 속도 %, mood: 기분, bravery: 용기, magic: 연구 속도 %\n",
               file);
         for (i = 0; i < defs->trait_count; i++) {
             fprintf(file, "\n[trait %s]\n", defs->traits[i].key);
             write_fields(file, &defs->traits[i], TRAIT_FIELDS, COUNT_OF(TRAIT_FIELDS));
         }
     } else if (file_id == CORE_DATA_ENEMIES) {
-        fputs("# 적 정의. hp, damage(한 번 공격), cooldown(공격 사이, 게임 속 분), speed(한 틱에 걷는 칸 × 1000),\n"
-              "# range(공격 거리, 칸), behavior: thief(훔쳐 달아남) raider(건물을 부숨) monster(주민을 노림),\n"
-              "# loot/loot_amount: 저장소에 닿으면 훔치는 자원과 양, mana_reward: 쓰러뜨리면 얻는 마정석\n",
+        fputs(u8"# 적 정의. hp, damage(한 번 공격), cooldown(공격 사이, 게임 속 분), speed(한 틱에 걷는 칸 × 1000),\n"
+              u8"# range(공격 거리, 칸), behavior: thief(훔쳐 달아남) raider(건물을 부숨) monster(주민을 노림),\n"
+              u8"# loot/loot_amount: 저장소에 닿으면 훔치는 자원과 양, mana_reward: 쓰러뜨리면 얻는 마정석\n",
               file);
         for (i = 0; i < DEFS_ENEMY_COUNT; i++) {
             fprintf(file, "\n[enemy %s]\n", defs->enemies[i].key);
             write_fields(file, &defs->enemies[i], ENEMY_FIELDS, COUNT_OF(ENEMY_FIELDS));
         }
     } else if (file_id == CORE_DATA_RESEARCH) {
-        fputs("# 연구 나무. 이 파일이 목록 전체를 정합니다 (최대 32개). 문법이 틀리면 게임이 기본값을 쓰고 경고합니다.\n"
-              "# branch: economy(경제) defense(방어) magic(마법)\n"
-              "# requires: 먼저 끝내야 하는 연구의 키 (이 파일에서 더 앞에 있어야 함) 또는 none\n"
-              "# required_rank: 시작하려면 필요한 등급 (0 촌락, 1 마을, 2 요새, 3 성, 4 왕성)\n"
-              "# cost_gold/cost_mana: 시작할 때 내는 값, points: 마탑의 마법사가 모아야 하는 연구 점수\n"
-              "# effect: farm_yield(농장 +%) extract_yield(벌목장·채석장 +%) storage(저장 한도 +%) market(시장 차이 -%p)\n"
-              "#         tower_damage(감시탑 +) wall_hp(성벽·성문 체력 +%) guard_damage(경비병 +) keep_damage(성채 망루 +)\n"
-              "#         mana_yield(마정석 광산 +%) healing(앓는 시간 -%) heating(난방 목재 -) ward(습격 건물 피해 -%)\n",
+        fputs(u8"# 연구 나무. 이 파일이 목록 전체를 정합니다 (최대 32개). 문법이 틀리면 게임이 기본값을 쓰고 경고합니다.\n"
+              u8"# branch: economy(경제) defense(방어) magic(마법)\n"
+              u8"# requires: 먼저 끝내야 하는 연구의 키 (이 파일에서 더 앞에 있어야 함) 또는 none\n"
+              u8"# required_rank: 시작하려면 필요한 등급 (0 촌락, 1 마을, 2 요새, 3 성, 4 왕성)\n"
+              u8"# cost_gold/cost_mana: 시작할 때 내는 값, points: 마탑의 마법사가 모아야 하는 연구 점수\n"
+              u8"# effect: farm_yield(농장 +%) extract_yield(벌목장·채석장 +%) storage(저장 한도 +%) market(시장 차이 -%p)\n"
+              u8"#         tower_damage(감시탑 +) wall_hp(성벽·성문 체력 +%) guard_damage(경비병 +) keep_damage(성채 망루 +)\n"
+              u8"#         mana_yield(마정석 광산 +%) healing(앓는 시간 -%) heating(난방 목재 -) ward(습격 건물 피해 -%)\n",
               file);
         for (i = 0; i < defs->research_count; i++) {
             const ResearchDef *research = &defs->research[i];
@@ -846,17 +846,17 @@ int defs_write_file(const Defs *defs, int32_t file_id, const char *path)
             write_fields(file, research, RESEARCH_FIELDS, COUNT_OF(RESEARCH_FIELDS));
         }
     } else if (file_id == CORE_DATA_RANKS) {
-        fputs("# 등급 (촌락 → 마을 → 요새 → 성 → 왕성). 왕성이 되면 승리입니다.\n"
-              "# 다음 등급으로 오르려면: population(인구), mood(평균 기분), defense(방어 점수), research(끝낸 연구 수)를\n"
-              "# 모두 채우고 공물 tribute_gold, tribute_mana 를 냅니다 (난이도에 따라 공물 %가 다름).\n"
-              "# storage: 그 등급이 되면 늘어나는 저장 한도. 촌락은 시작 등급이라 조건을 쓰지 않습니다.\n",
+        fputs(u8"# 등급 (촌락 → 마을 → 요새 → 성 → 왕성). 왕성이 되면 승리입니다.\n"
+              u8"# 다음 등급으로 오르려면: population(인구), mood(평균 기분), defense(방어 점수), research(끝낸 연구 수)를\n"
+              u8"# 모두 채우고 공물 tribute_gold, tribute_mana 를 냅니다 (난이도에 따라 공물 %가 다름).\n"
+              u8"# storage: 그 등급이 되면 늘어나는 저장 한도. 촌락은 시작 등급이라 조건을 쓰지 않습니다.\n",
               file);
         for (i = 0; i < CORE_RANK_COUNT; i++) {
             fprintf(file, "\n[rank %s]\n", defs->ranks[i].key);
             write_fields(file, &defs->ranks[i], RANK_FIELDS, COUNT_OF(RANK_FIELDS));
         }
     } else if (file_id == CORE_DATA_NAMES) {
-        fputs("# 주민 이름. 한 줄에 하나 (UTF-8). 10개 이상이어야 합니다.\n", file);
+        fputs(u8"# 주민 이름. 한 줄에 하나 (UTF-8). 10개 이상이어야 합니다.\n", file);
         for (i = 0; i < defs->name_count; i++) {
             fprintf(file, "%s\n", defs->names[i].text);
         }

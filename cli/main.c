@@ -13,17 +13,17 @@
 
 static void print_usage(void)
 {
-    printf("마법성채 키우기 — 콘솔판\n\n");
-    printf("사용법:\n");
-    printf("  castle_cli                         대화형 메뉴\n");
-    printf("  castle_cli --load <파일>           세이브 파일을 불러와 시작\n");
-    printf("  castle_cli --simulate <일수> --seed <시드> [--bot <이름>] [--difficulty 0-2] [--out <CSV>] [--events]\n");
-    printf("  castle_cli --soak <일수> --seeds <개수> [--first-seed <시드>]\n");
-    printf("  castle_cli --bench <주민 수> [--enemies <적 수>] [--seed <시드>]  틱 하나에 걸리는 시간 (성능 목표: 150명에서 1 ms 미만)\n");
-    printf("  castle_cli --dump-defs <폴더>       내장 기본 정의를 정의 파일로 씀\n");
-    printf("  (모든 모드) --data <폴더>           정의 파일 폴더 (기본: game/data)\n");
+    printf(u8"마법성채 키우기 — 콘솔판\n\n");
+    printf(u8"사용법:\n");
+    printf(u8"  castle_cli                         대화형 메뉴\n");
+    printf(u8"  castle_cli --load <파일>           세이브 파일을 불러와 시작\n");
+    printf(u8"  castle_cli --simulate <일수> --seed <시드> [--bot <이름>] [--difficulty 0-2] [--out <CSV>] [--events]\n");
+    printf(u8"  castle_cli --soak <일수> --seeds <개수> [--first-seed <시드>]\n");
+    printf(u8"  castle_cli --bench <주민 수> [--enemies <적 수>] [--seed <시드>]  틱 하나에 걸리는 시간 (성능 목표: 150명에서 1 ms 미만)\n");
+    printf(u8"  castle_cli --dump-defs <폴더>       내장 기본 정의를 정의 파일로 씀\n");
+    printf(u8"  (모든 모드) --data <폴더>           정의 파일 폴더 (기본: game/data)\n");
     printf("  castle_cli --help\n\n");
-    printf("봇:\n");
+    printf(u8"봇:\n");
     sim_print_bots();
 }
 
@@ -125,7 +125,7 @@ static int parse_options(int argc, char **argv, Options *options)
             ok = 0;
         }
         if (!ok) {
-            fprintf(stderr, "잘못된 인자입니다: %s%s%s\n", arg, value ? " " : "", value ? value : "");
+            fprintf(stderr, u8"잘못된 인자입니다: %s%s%s\n", arg, value ? " " : "", value ? value : "");
             return 0;
         }
     }
@@ -152,11 +152,11 @@ static void load_defs(CoreDefs *defs, const char *data_dir, int quiet)
         join_path(path, sizeof(path), data_dir, DATA_FILES[file]);
         rc = core_defs_load_file(defs, file, path, &line);
         if (rc == CORE_ERR_FILE_OPEN && !quiet) {
-            printf("정의 파일이 없어 기본값을 씁니다: %s\n", path);
+            printf(u8"정의 파일이 없어 기본값을 씁니다: %s\n", path);
         } else if (rc == CORE_ERR_FORMAT) {
-            printf("정의 파일 %s 의 %d번째 줄이 잘못되어 기본값을 씁니다.\n", path, (int)line);
+            printf(u8"정의 파일 %s 의 %d번째 줄이 잘못되어 기본값을 씁니다.\n", path, (int)line);
         } else if (rc != CORE_OK && rc != CORE_ERR_FILE_OPEN) {
-            printf("정의 파일을 읽지 못했습니다: %s (%s)\n", path, core_result_name(rc));
+            printf(u8"정의 파일을 읽지 못했습니다: %s (%s)\n", path, core_result_name(rc));
         }
     }
 }
@@ -170,10 +170,10 @@ static int dump_defs(const CoreDefs *defs, const char *dir)
         join_path(path, sizeof(path), dir, DATA_FILES[file]);
         rc = core_defs_save_file(defs, file, path);
         if (rc != CORE_OK) {
-            fprintf(stderr, "쓸 수 없습니다: %s (%s)\n", path, core_result_name(rc));
+            fprintf(stderr, u8"쓸 수 없습니다: %s (%s)\n", path, core_result_name(rc));
             return 1;
         }
-        printf("썼습니다: %s\n", path);
+        printf(u8"썼습니다: %s\n", path);
     }
     return 0;
 }
@@ -195,7 +195,7 @@ int main(int argc, char **argv)
         return 2;
     }
     if (core_defs_create(&defs) != CORE_OK) {
-        fprintf(stderr, "메모리가 부족합니다.\n");
+        fprintf(stderr, u8"메모리가 부족합니다.\n");
         return 1;
     }
     if (options.mode == MODE_DUMP_DEFS) {
@@ -226,14 +226,14 @@ int main(int argc, char **argv)
     walker_init(&context.walker);
     battle_init(&context.battle);
     strcpy(context.save_path, "castle.sav");
-    printf("마법성채 키우기 — 콘솔판 (코어 ABI %d)\n", (int)core_abi_version());
+    printf(u8"마법성채 키우기 — 콘솔판 (코어 ABI %d)\n", (int)core_abi_version());
     if (options.load_path != NULL && !cli_load_game(&context, options.load_path)) {
-        printf("새 게임을 시작하거나 다른 파일을 불러오세요.\n");
+        printf(u8"새 게임을 시작하거나 다른 파일을 불러오세요.\n");
     }
     cli_run_menu(&context);
     core_destroy(context.world);
     walker_free(&context.walker);
     core_defs_destroy(defs);
-    printf("안녕히 가세요.\n");
+    printf(u8"안녕히 가세요.\n");
     return 0;
 }

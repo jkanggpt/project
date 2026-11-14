@@ -1,7 +1,7 @@
 /*
  * walker.h — CLI 용 "걷기 흉내"
  *
- * 게임에서는 Godot 이 주민을 실제로 걷게 하고 도착하면 core_villager_arrived 를 부릅니다.
+ * 게임에서는 C 그래픽 프런트엔드 이 주민을 실제로 걷게 하고 도착하면 core_villager_arrived 를 부릅니다.
  * CLI 에는 화면이 없으므로, 이 모듈이 그 역할을 대신합니다:
  *   - 의도가 바뀐 주민마다 이동 비용 격자 위에서 최단 경로(다익스트라)를 구해 걸리는 틱 수를 계산하고,
  *   - 그만큼 틱이 지나면 core_villager_arrived, 길이 없으면 core_villager_unreachable 을 부릅니다.

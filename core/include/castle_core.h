@@ -1,12 +1,12 @@
 /*
  * castle_core.h — 마법성채 키우기 C 코어의 공개 API
  *
- * Godot(C#)과 CLI는 이 헤더에 있는 함수와 구조체만 씁니다.
+ * C 그래픽 게임과 CLI는 이 헤더에 있는 함수와 구조체만 씁니다.
  * - 월드는 불투명 포인터(CoreWorld *)로만 다룹니다. 안을 들여다보지 않습니다.
  * - 데이터는 "뷰 구조체"(int32_t 필드와 고정 크기 UTF-8 char 배열)로
  *   호출한 쪽이 준비한 버퍼에 복사해서 건넵니다. C 메모리를 가리키는 포인터는 밖으로 나가지 않습니다.
  * - 모든 함수는 인자를 검사하고, 문제가 있으면 죽지 않고 음수 오류 코드(CoreResult)를 돌려줍니다.
- * - 구조체나 함수 모양을 바꾸면 CORE_ABI_VERSION 을 올리고 C# 쪽(Native.cs)도 같이 고칩니다.
+ * - 구조체나 함수 모양을 바꾸면 CORE_ABI_VERSION 을 올리고 외부 호출자 쪽(Native.cs)도 같이 고칩니다.
  */
 #ifndef CASTLE_CORE_H
 #define CASTLE_CORE_H
@@ -34,7 +34,7 @@ extern "C" {
 #  endif
 #endif
 
-/* C#의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
+/* 외부 호출자의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
 #define CORE_ABI_VERSION 8
 /* 지금 세이브 파일 형식의 버전 (첫 줄 "MAGICCASTLE_SAVE <버전>") */
 #define CORE_SAVE_VERSION 5
@@ -61,7 +61,7 @@ typedef enum CoreResult {
     CORE_ERR_NOT_FOUND = -11        /* 그런 id 의 주민·건물이 없음 */
 } CoreResult;
 
-/* ---- 열거형 (값은 저장 파일과 C#에서 그대로 쓰므로 바꾸지 않습니다) ------ */
+/* ---- 열거형 (값은 저장 파일과 외부 호출자에서 그대로 쓰므로 바꾸지 않습니다) ------ */
 typedef enum CoreTerrain {
     CORE_TERRAIN_GRASS = 0,  /* 풀밭 */
     CORE_TERRAIN_FOREST = 1, /* 숲 */
@@ -177,7 +177,7 @@ typedef enum CoreVillagerState {
     CORE_VS_EAT = 4,          /* 저장소로 가서 먹음 */
     CORE_VS_SEEK_HEALING = 5, /* 아픈 주민이 치료소로 감 */
     CORE_VS_FLEE = 6,         /* 습격 중 성채로 피신 (도착하면 성채 안에 숨음) */
-    CORE_VS_GUARD_POST = 7,   /* 습격 중 병영 일꾼이 경비병으로 나섬 (싸움은 Godot 이 함) */
+    CORE_VS_GUARD_POST = 7,   /* 습격 중 병영 일꾼이 경비병으로 나섬 (싸움은 C 그래픽 프런트엔드 이 함) */
     CORE_VS_LEAVING = 8,      /* 마을을 떠나 지도 가장자리로 감 */
     CORE_VS_COUNT = 9
 } CoreVillagerState;
@@ -234,7 +234,7 @@ typedef enum CoreDataFile {
     CORE_DATA_COUNT = 6
 } CoreDataFile;
 
-/* 피드백 이벤트 종류. 문장은 Godot/CLI가 이 코드로 만듭니다. (코어는 언어를 모릅니다) */
+/* 피드백 이벤트 종류. 문장은 C 그래픽 프런트엔드/CLI가 이 코드로 만듭니다. (코어는 언어를 모릅니다) */
 typedef enum CoreEventType {
     CORE_EVT_NONE = 0,
     CORE_EVT_DAY_STARTED = 1,        /* a = 새 날짜(1부터) */
@@ -372,7 +372,7 @@ typedef enum CoreDirection {
     CORE_DIR_COUNT = 4
 } CoreDirection;
 
-/* 적의 행동 (Godot 의 CombatDirector 가 이 값으로 목표를 고름) */
+/* 적의 행동 (C 그래픽 프런트엔드 의 CombatDirector 가 이 값으로 목표를 고름) */
 typedef enum CoreEnemyBehavior {
     CORE_BEHAVIOR_THIEF = 0,   /* 가장 가까운 저장소(성채·창고)로 가서 훔치고 달아남 */
     CORE_BEHAVIOR_RAIDER = 1,  /* 가까운 건물을 부숨 (성채 쪽으로) */
@@ -467,7 +467,7 @@ typedef enum CoreTutorialStep {
 #define CORE_COST_GATE 253   /* 성문: 주민은 지나가고 적은 막힘 */
 #define CORE_COST_WALL 254   /* 성벽: 주민은 못 지나감, 적은 부수고 지나감 */
 
-/* ---- 뷰 구조체 (C#의 Native.cs 와 필드 순서·크기가 같아야 함) ------------ */
+/* ---- 뷰 구조체 (외부 호출자 와 필드 순서·크기가 같아야 함) ------------ */
 
 /* 새 게임 설정 */
 typedef struct CoreNewGameParams {
@@ -698,7 +698,7 @@ typedef struct CoreRaidView {
     int32_t stolen;          /* 지금까지 빼앗긴 양 (금화 등 합계) */
 } CoreRaidView;
 
-/* 습격의 적 한 명 (위치와 체력은 Godot 이 가짐) */
+/* 습격의 적 한 명 (위치와 체력은 C 그래픽 프런트엔드 이 가짐) */
 typedef struct CoreEnemyView {
     int32_t id;
     int32_t type;            /* 적 종류 (core_get_enemy_def) */
@@ -846,7 +846,7 @@ typedef struct CoreSaveInfoView {
     char castle_name[CORE_NAME_BYTES];
 } CoreSaveInfoView;
 
-/* ABI 검사용: C가 아는 구조체 크기. C#이 Marshal.SizeOf 와 비교합니다. */
+/* ABI 검사용: C가 아는 구조체 크기. 외부 호출자이 Marshal.SizeOf 와 비교합니다. */
 typedef struct CoreStructSizes {
     int32_t new_game_params;
     int32_t config_view;
@@ -989,13 +989,13 @@ CORE_API int32_t core_start_research(CoreWorld *world, int32_t index, int32_t *o
  * 안 되면 CORE_ERR_REJECTED 와 *out_reason (CORE_DENY_REQUIREMENTS, NO_GOLD, NO_MANA, MAX_RANK, RAID) */
 CORE_API int32_t core_rank_up(CoreWorld *world, int32_t *out_reason);
 
-/* ---- 보고 (Godot → C) ------------------------------------------------ */
+/* ---- 보고 (C 그래픽 프런트엔드 → C) ------------------------------------------------ */
 /* 주민이 의도의 목표에 도착함. intent_rev 가 지금 것과 다르면 CORE_IGNORED */
 CORE_API int32_t core_villager_arrived(CoreWorld *world, int32_t villager_id, int32_t intent_rev);
 /* 목표까지 길이 없음. C 가 다른 할 일을 고르고 알림을 냅니다 */
 CORE_API int32_t core_villager_unreachable(CoreWorld *world, int32_t villager_id, int32_t intent_rev);
 
-/* 습격 보고 (Godot 의 전투 결과 → C 가 규칙대로 적용). 습격이 이미 끝났으면 CORE_IGNORED */
+/* 습격 보고 (C 그래픽 프런트엔드 의 전투 결과 → C 가 규칙대로 적용). 습격이 이미 끝났으면 CORE_IGNORED */
 /* 적이 건물에 준 피해 (성채는 체력 1 아래로 내려가지 않음 — 패배는 마일스톤 5) */
 CORE_API int32_t core_report_building_damage(CoreWorld *world, int32_t raid_id, int32_t building_id, int32_t damage);
 /* 적이 주민(경비병)에게 준 피해. 건강이 0 이 되면 쓰러짐 */
@@ -1007,7 +1007,7 @@ CORE_API int32_t core_report_loot(CoreWorld *world, int32_t raid_id, int32_t ene
                                   int32_t *out_amount);
 /* 적이 지도 밖으로 달아남 */
 CORE_API int32_t core_report_enemy_escaped(CoreWorld *world, int32_t raid_id, int32_t enemy_id);
-/* 습격이 끝남 (남은 적은 물러난 것으로 봄). Godot 이 알리지 않으면 하루 뒤 C 가 스스로 끝냄 */
+/* 습격이 끝남 (남은 적은 물러난 것으로 봄). C 그래픽 프런트엔드 이 알리지 않으면 하루 뒤 C 가 스스로 끝냄 */
 CORE_API int32_t core_report_raid_ended(CoreWorld *world, int32_t raid_id);
 
 /* ---- 피드백 이벤트 ---------------------------------------------------- */
@@ -1032,7 +1032,7 @@ CORE_API int32_t core_check_castle_name(const char *name_utf8);
 /* ---- 디버그 ---------------------------------------------------------- */
 /* 성능 측정용 (디버그 전용, 일반 플레이에서는 부르지 않음): 성채 둘레에 집·농장을 공짜로 바로 짓고
  * 주민을 villagers 명(최대 300)까지 늘리고 식량·목재를 채움. enemies > 0 이면 그만큼(최대 64)의 마물 습격을 바로 시작.
- * CLI --bench, Godot --stress 가 씀. 범위 밖이면 CORE_ERR_INVALID_ARG, 이미 습격 중이면 CORE_ERR_REJECTED */
+ * CLI --bench, C 그래픽 프런트엔드 --stress 가 씀. 범위 밖이면 CORE_ERR_INVALID_ARG, 이미 습격 중이면 CORE_ERR_REJECTED */
 CORE_API int32_t core_debug_stress(CoreWorld *world, int32_t villagers, int32_t enemies);
 /* 불변 조건 위반 개수 (0이면 정상), 월드가 NULL 이면 음수 */
 CORE_API int32_t core_validate(const CoreWorld *world);

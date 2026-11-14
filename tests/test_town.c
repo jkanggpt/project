@@ -7,7 +7,7 @@
 
 #include "placement.h"
 
-/* 주민이 목표로 바로 걸어간 것으로 치고 도착을 보고합니다 (Godot 대신) */
+/* 주민이 목표로 바로 걸어간 것으로 치고 도착을 보고합니다 (C 그래픽 프런트엔드 대신) */
 void test_arrive_all(CoreWorld *world)
 {
     int32_t i;

@@ -1,5 +1,10 @@
 # Build prompt — 마법성채 키우기 (complete game)
 
+> **2026-11-14 학생 요청으로 기술 구성을 C11 + raylib 5.5로 변경했습니다.**
+> 현재 구현·빌드·검사 기준은 `docs/NATIVE_PORT.md`, `docs/ARCHITECTURE.md`, `README.md`입니다.
+> 아래 원문의 Godot/C#/.NET·P/Invoke·장면·Python 도구 지시는 전환 이전 설계 기록입니다.
+> 게임 규칙·C 과제 요구사항·한국어·라이선스·메모리/저장 안정성 기준은 계속 적용합니다.
+
 ## 0. Mission
 
 Build **마법성채 키우기**, a complete, polished, stable 2D medieval-fantasy castle-management game.

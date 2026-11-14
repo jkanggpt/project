@@ -1,15 +1,13 @@
 # castle_cli — 공개 API 만 써서 진짜 게임을 돌리는 콘솔 프런트엔드 (선생님 시연, 테스트, 밸런스 시뮬레이터)
-add_executable(castle_cli
-  main.c
-  commands.c
-  console.c
-  format.c
-  sim.c
-  walker.c
-  battle.c
-)
-target_link_libraries(castle_cli PRIVATE castle_core_static castle_warnings)
+add_library(castle_cli_support STATIC format.c sim.c walker.c battle.c)
+target_include_directories(castle_cli_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(castle_cli_support PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
+target_link_libraries(castle_cli_support PUBLIC castle_core_static PRIVATE castle_warnings)
+if(CASTLE_BUILD_CLI)
+add_executable(castle_cli main.c commands.c console.c)
+target_link_libraries(castle_cli PRIVATE castle_cli_support castle_warnings)
 if(MINGW)
   # 선생님 컴퓨터에서 MinGW DLL 없이 실행되도록
   target_link_options(castle_cli PRIVATE -static)
+endif()
 endif()
