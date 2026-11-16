@@ -12,6 +12,7 @@
 #include "population.h"
 #include "villager_ai.h"
 #include "world.h"
+#include "expansion.h"
 
 /* 난이도별 세기(%)와 위협 사이 간격(%) — 평화, 보통, 혹독 */
 
@@ -365,6 +366,10 @@ int threat_report_building_damage(World *world, int32_t raid_id, int32_t buildin
         return CORE_ERR_NOT_FOUND;
     }
     /* 연구 "마법 결계": 건물이 받는 피해가 줄어듦 */
+    if(world->expansion && expansion_has_research(world,21) && world->expansion->protected_cells[grid_index(&world->grid,building->x,building->y)]){
+        int cost=expansion_has_research(world,22)?900:1000;
+        if(expansion_bank_have(world,CORE_RES_MANA)>=cost){(void)expansion_bank_add(world,CORE_RES_MANA,-cost,CORE_LEDGER_RAID);damage=(int32_t)((int64_t)damage*85/100);}
+    }
     damage = (int32_t)((int64_t)damage * (100 - world->research.ward_pct) / 100);
     placement_damage(world, building, damage);
     if (building->type == CORE_BLD_KEEP && building->state == CORE_BSTATE_RUINED) {
@@ -383,6 +388,8 @@ int threat_report_villager_damage(World *world, int32_t raid_id, int32_t village
     if (villager == NULL) {
         return CORE_ERR_NOT_FOUND;
     }
+    if(world->expansion && villager->inside_building)return CORE_IGNORED;
+    if(world->expansion && villager->workplace && villager->workplace->type==CORE_BLD_BARRACKS && expansion_has_research(world,11))damage=(int32_t)((int64_t)damage*90/100);
     villager->health -= damage;
     if (villager->health <= 0) {
         world->threat.raid.fallen++;

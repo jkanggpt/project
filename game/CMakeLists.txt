@@ -65,12 +65,16 @@ if(CASTLE_BUILD_GAME)
   install(FILES ${PROJECT_SOURCE_DIR}/CREDITS.md ${PROJECT_SOURCE_DIR}/README.md DESTINATION .)
   install(FILES ${PROJECT_SOURCE_DIR}/PROGRESS.md DESTINATION .)
   install(FILES ${PROJECT_SOURCE_DIR}/art/README.md ${PROJECT_SOURCE_DIR}/art/PROMPTS.md
-    ${PROJECT_SOURCE_DIR}/art/PROMPTS_OVERHEAD.md DESTINATION art)
+    ${PROJECT_SOURCE_DIR}/art/PROMPTS_OVERHEAD.md ${PROJECT_SOURCE_DIR}/art/EXPANSION_PROMPTS.md
+    ${PROJECT_SOURCE_DIR}/art/EXPANSION_ICONS_PROMPTS.md DESTINATION art)
+  install(FILES ${PROJECT_SOURCE_DIR}/art/expansion/ALPHA_REPAIR.md DESTINATION art/expansion)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/NATIVE_PORT.md ${PROJECT_SOURCE_DIR}/docs/ARCHITECTURE.md
     ${PROJECT_SOURCE_DIR}/docs/QA.md DESTINATION docs)
+  install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/expansion DESTINATION docs)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/native_title.png
     ${PROJECT_SOURCE_DIR}/docs/screenshots/native_game.png
-    ${PROJECT_SOURCE_DIR}/docs/screenshots/native_villagers.png DESTINATION docs/screenshots)
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/native_villagers.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/expansion_rotations.png DESTINATION docs/screenshots)
   if(DEFINED raylib_SOURCE_DIR)
     install(FILES "${raylib_SOURCE_DIR}/LICENSE" DESTINATION licenses RENAME raylib.txt)
     install(FILES "${raylib_SOURCE_DIR}/src/external/glfw/LICENSE.md" DESTINATION licenses RENAME GLFW.txt)

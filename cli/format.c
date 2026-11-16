@@ -40,7 +40,7 @@ static const char *const THREAT_NAMES[CORE_THREAT_COUNT] = {u8"없음", u8"도�
 static const char *const DIRECTION_NAMES[CORE_DIR_COUNT] = {u8"북", u8"동", u8"남", u8"서"};
 static const char *const LEDGER_NAMES[CORE_LEDGER_COUNT] = {u8"생산", u8"식사", u8"임금", u8"세금", u8"건설", u8"철거 환불", u8"거래",
                                                             u8"난방", u8"약탈", u8"기타", u8"치료", u8"수리", u8"공물", u8"연구"};
-static const char *const RANK_NAMES[CORE_RANK_COUNT] = {u8"촌락", u8"마을", u8"요새", u8"성", u8"왕성"};
+static const char *const RANK_NAMES[CORE_RANK_COUNT] = {u8"촌락", u8"마을", u8"요새", u8"성", u8"왕성",u8"왕성"};
 static const char *const BRANCH_NAMES[CORE_BRANCH_COUNT] = {u8"경제", u8"방어", u8"마법"};
 static const char *const RESEARCH_STATES[] = {u8"잠김", u8"시작할 수 있음", u8"연구 중", u8"끝남"};
 static const char *const TUTORIAL_NAMES[CORE_TUTORIAL_COUNT] = {u8"농장 짓기", u8"주택 짓기", u8"주민을 일터에 직접 배치하기",
@@ -70,7 +70,7 @@ static const char *const PLACE_RESULTS[CORE_PLACE_COUNT] = {
     u8"다른 건물의 문 앞을 막습니다", u8"문 앞 자리가 막혀 있습니다", u8"근처에 숲이 부족합니다",
     u8"바로 옆에 바위 지대가 있어야 합니다", u8"마정석 광맥 위에 지어야 합니다", u8"등급이 모자랍니다",
     u8"자원이 모자랍니다", u8"이미 있습니다", u8"다른 건물이나 지도 밖으로 가는 길을 막습니다",
-    u8"성채에서 그곳까지 걸어갈 길이 없습니다"};
+    u8"탐험한 땅과 성채 입구의 연결 도로를 확인하세요", u8"수변 시설에 필요한 물이 없습니다"};
 
 static const char *const VILLAGER_STATES[CORE_VS_COUNT] = {u8"쉬는 중", u8"자는 중",   u8"일하러 가는 중",
                                                             u8"일하는 중", u8"먹으러 감", u8"치료받으러 감",

@@ -184,10 +184,12 @@ void population_remove_departed(World *world, Villager *villager)
 {
     if(world->expansion && villager->contract_end_tick){
         ExpansionState *e=world->expansion;CoreCandidateView *c;int j;
-        if(e->archive_count==64){memmove(e->archive,e->archive+1,63*sizeof(*e->archive));e->archive_count--;}
-        c=&e->archive[e->archive_count++];memset(c,0,sizeof(*c));c->person_id=villager->personal_id;c->age=villager->age;c->field=0;c->fee=30;strcpy(c->name,villager->name);
+        c=NULL;for(j=0;j<e->archive_count;j++)if(e->archive[j].person_id==villager->personal_id)c=&e->archive[j];
+        if(!c){if(e->archive_count==64){memmove(e->archive,e->archive+1,63*sizeof(*e->archive));e->archive_count--;}c=&e->archive[e->archive_count++];}
+        memset(c,0,sizeof(*c));c->person_id=villager->personal_id;c->age=villager->age;c->field=0;strcpy(c->name,villager->name);
         c->stats[0]=villager->stats.strength;c->stats[1]=villager->stats.agility;c->stats[2]=villager->stats.vitality;c->stats[3]=villager->stats.dexterity;c->stats[4]=villager->stats.intellect;
         memcpy(c->initial,villager->initial_stats,sizeof(c->initial));memcpy(c->xp,villager->stat_xp,sizeof(c->xp));memcpy(c->skills,villager->skill_minutes,sizeof(c->skills));memcpy(c->traits,villager->traits,sizeof(c->traits));for(j=1;j<12;j++)if(c->skills[j]>c->skills[c->field])c->field=j;
+        expansion_candidate_price(world,c);
     }
     events_push_villager(&world->events, CORE_EVT_VILLAGER_LEFT, villager->id, 0, 0, villager->name);
     world->stats.villagers_left++;

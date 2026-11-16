@@ -7,6 +7,43 @@
 #include <string.h>
 
 static Vector2 pixel(GamePoint p) { return (Vector2){p.x * 16, p.y * 16}; }
+void game_render_rotation_preview(GameApp *a) {
+    static const int types[6] = {CORE_BLD_KEEP,     CORE_BLD_HOUSE, CORE_BLD_FARM,
+                                 CORE_BLD_BARRACKS, CORE_BLD_PORT,  CORE_BLD_MAGE_TOWER};
+    static const char *const directions[4] = {u8"정면 · 남쪽 입구", u8"오른쪽 · 동쪽 입구",
+                                              u8"후면 · 북쪽 입구", u8"왼쪽 · 서쪽 입구"};
+    float column = (GetScreenWidth() - 190.0f) / 4, row = (GetScreenHeight() - 128.0f) / 6;
+    int r, c;
+    ui_text(&a->ui, 28, 20, UI_GOLD, u8"새 건물 4방향 · 실제 점유와 그림 높이");
+    ui_small(&a->ui, 28, 53, UI_MUTED,
+             u8"R 키로 회전합니다. 농장류는 밭만 표시하며, 지붕의 높이는 점유 칸과 별개입니다.");
+    for (c = 0; c < 4; c++)
+        ui_small(&a->ui, 200 + c * column, 87, UI_TEXT, "%s", directions[c]);
+    for (r = 0; r < 6; r++) {
+        CoreExpansionBuildingInfo info;
+        float y = 121 + r * row;
+        (void)core_expansion_building_info(types[r], &info);
+        ui_small(&a->ui, 25, y + row / 2, UI_GOLD, u8"%s\n%d×%d칸", info.name, info.w, info.h);
+        for (c = 0; c < 4; c++) {
+            Texture2D t = a->assets.turns[types[r]][c];
+            float width, height, scale;
+            float x = 190 + c * column, base = y + row - 9;
+            int bw = c & 1 ? info.h : info.w, bh = c & 1 ? info.w : info.h, xx, yy;
+            for (yy = 0; yy < bh; yy++)
+                for (xx = 0; xx < bw; xx++) {
+                    Rectangle tile = {x + column / 2 - bw * 8.0f + xx * 16, base - bh * 9.0f + yy * 9, 16, 9};
+                    DrawRectangleRec(tile, (Color){54, 79, 60, 255});
+                    DrawRectangleLinesEx(tile, 1, (Color){112, 146, 113, 255});
+                }
+            scale = fminf((column - 32) / t.width, (row - 15) / t.height);
+            width = t.width * scale;
+            height = t.height * scale;
+            DrawTexturePro(t, (Rectangle){0, 0, (float)t.width, (float)t.height},
+                           (Rectangle){x + column / 2 - width / 2, base - height, width, height},
+                           (Vector2){0, 0}, 0, WHITE);
+        }
+    }
+}
 static unsigned tile_noise(int x, int y) {
     unsigned n = (unsigned)x * 0x9e3779b9u ^ (unsigned)y * 0x85ebca6bu;
     n ^= n >> 16;
@@ -64,6 +101,16 @@ static void terrain(GameApp *a) {
             } else if (s->summary.season == CORE_SEASON_WINTER && s->terrain[i] != CORE_TERRAIN_WATER)
                 sprite(a->assets.snow, (Rectangle){variant * 64.0f, 0, 64, 64}, dest,
                        (Color){255, 255, 255, 225});
+            if (s->exp_tiles && s->exp_tiles[i].explored && s->exp_tiles[i].ore_milli > 0 &&
+                !game_building_at(s, x, y)) {
+                int resource = s->exp_tiles[i].ore_kind;
+                if (resource >= 0 && resource < CORE_RES_COUNT) {
+                    Texture2D icon = a->assets.resources[resource];
+                    DrawCircle(x * 16 + 8, y * 16 + 9, 7, (Color){39, 33, 36, 210});
+                    sprite(icon, (Rectangle){0, 0, (float)icon.width, (float)icon.height},
+                           (Rectangle){x * 16.0f + 1, y * 16.0f + 2, 14, 14}, WHITE);
+                }
+            }
         }
 }
 static Rectangle box_rect(GameSpriteBox b) { return (Rectangle){b.x, b.y, b.w, b.h}; }
@@ -432,7 +479,7 @@ static void status_bubbles(GameApp *a) {
         if (b->state != CORE_BSTATE_ACTIVE ||
             (s->visibility && !s->visibility[b->y * s->summary.map_width + b->x]))
             continue;
-        if (b->worker_slots && !b->workers)
+        if (b->worker_slots && (!b->workers || b->blocked_reason==CORE_DENY_REQUIREMENTS))
             bubble(a, anchor, 20, 1);
         else if (b->working_now && b->job_field >= 0)
             bubble(a, anchor, b->job_field, 0);
@@ -446,7 +493,8 @@ static void status_bubbles(GameApp *a) {
             continue;
         p = pixel(actor->position);
         p.y -= GAME_ACTOR_HEIGHT;
-        if (v->hunger < 40)
+        if(v->state==CORE_VS_FLEE)icon=19;
+        else if (v->hunger < 40)
             icon = 12;
         else if (v->flags & CORE_VF_SICK)
             icon = 14;
@@ -651,6 +699,7 @@ void game_world_input(GameApp *a, float delta) {
             float best = 8;
             a->selected_villager = 0;
             a->selected_building = id;
+            a->inspector_scroll=0;
             for (i = 0; i < s->actor_count; i++) {
                 CoreVillagerView *v = game_villager(s, s->actors[i].id);
                 float distance =

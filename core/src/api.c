@@ -1286,8 +1286,8 @@ CORE_API int32_t core_peek_save(const char *path_utf8, const CoreDefs *defs, Cor
     out->difficulty = world->difficulty;
     out->tick = world->clock.tick;
     out->day = clock_day(&world->clock);
-    out->year = clock_year(&world->clock);
-    out->season = clock_season(&world->clock);
+    out->year = world->expansion ? exp_year(world) : clock_year(&world->clock);
+    out->season = world->expansion ? exp_season(world) : clock_season(&world->clock);
     out->minute_of_day = clock_minute_of_day(&world->clock);
     out->rank = world->rank;
     out->population = world->villager_count;

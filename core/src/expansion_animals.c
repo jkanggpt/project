@@ -1,8 +1,16 @@
 /* expansion_animals.c — 실제 야생 개체와 먹이·번식·수용량을 갖는 가축 */
 #include "expansion.h"
+#include "population.h"
 #include <string.h>
 
 static const int HP[16] = {12, 30, 28, 10, 22, 32, 38, 65, 28, 36, 9, 36, 120, 80, 95, 16};
+int expansion_wild_kind(World *w, int x, int y) {
+    static const int species[8][6] = {{0, 1, 4, 5, 7, 14},  {0, 1, 4, 9, 12, 1},  {1, 4, 11, 11, 12, 0},
+                                      {2, 2, 5, 15, 4, 0},  {3, 13, 15, 9, 4, 0}, {2, 6, 12, 2, 4, 1},
+                                      {15, 5, 0, 15, 4, 0}, {3, 3, 6, 13, 0, 1}};
+    int biome = w->expansion->tiles[grid_index(&w->grid, x, y)].biome;
+    return species[biome][rng_range(&w->rng, 0, 5)];
+}
 static const int MATURE[4] = {24, 12, 16, 8}, PERIOD[4] = {24, 12, 16, 8}, BABIES[4] = {1, 2, 1, 2};
 static const int KINDS[4] = {7, 9, 8, 10}, FEED[4] = {600, 700, 350, 150}, OUTPUT[4] = {1000, 0, 450, 350},
                  MEAT[4] = {30, 18, 12, 2}, LEATHER[4] = {6, 3, 3, 0};
@@ -55,11 +63,11 @@ static void slaughter(World *w, CoreAnimalView *a) {
 void expansion_animal_daily(World *w) {
     ExpansionState *e = w->expansion;
     int i, j, initial = e->animal_count;
-    uint8_t fed[CORE_EXP_MAX_ANIMALS] = {0};
+    uint16_t fed[CORE_EXP_MAX_ANIMALS] = {0};
     for (i = 0; i < initial; i++) {
         CoreAnimalView *a = &e->animals[i];
         Building *owner;
-        int k, feed, grass = 0, x, y;
+        int k, feed, paid, grass = 0, x, y;
         if (!a->alive)
             continue;
         a->age++;
@@ -85,14 +93,21 @@ void expansion_animal_daily(World *w) {
             if (grass >= 12)
                 feed /= 2;
         }
-        if (expansion_bank_have(w, CORE_RES_FOOD) < feed) {
-            if (++a->starve_days >= 2 && rng_range(&w->rng, 0, 99) < 25)
-                a->alive = 0;
-            continue;
-        }
-        (void)expansion_bank_add(w, CORE_RES_FOOD, -feed, CORE_LEDGER_CONSUMPTION);
-        a->starve_days = 0;
-        fed[i] = 1;
+        paid = expansion_bank_have(w, CORE_RES_FOOD);
+        if (paid > feed)
+            paid = feed;
+        if (paid < feed) {
+            if (++a->starve_days >= 2) {
+                a->hp -= 5;
+                if (a->hp <= 0 || rng_range(&w->rng, 0, 99) < 25) {
+                    a->hp = 0;
+                    a->alive = 0;
+                }
+            }
+        } else
+            a->starve_days = 0;
+        (void)expansion_bank_add(w, CORE_RES_FOOD, -paid, CORE_LEDGER_CONSUMPTION);
+        fed[i] = (uint16_t)(paid * 1000 / feed);
     }
     /* 모든 사료를 먼저 지불한 뒤 산출·도축·번식을 처리합니다. */
     for (i = 0; i < initial; i++) {
@@ -108,8 +123,9 @@ void expansion_animal_daily(World *w) {
         if (owner->worker_count && a->age >= MATURE[k]) {
             int factor = (int)((int64_t)owner->daily_work_milli * 1000 /
                                (w->defs.buildings[owner->type].worker_slots * 540000));
+            factor = factor * fed[i] / 1000;
             (void)expansion_bank_add(w, CORE_RES_FOOD, OUTPUT[k] * factor / 1000, CORE_LEDGER_PRODUCTION);
-            if (exp_day(w) >= a->breed_day) {
+            if (fed[i] == 1000 && exp_day(w) >= a->breed_day) {
                 int adults = 0, cap = owner->type == CORE_BLD_PASTURE ? 16 : 6, needed = BABIES[k],
                     can = cap - occupancy(e, owner->id);
                 for (j = 0; j < initial; j++)
@@ -152,8 +168,34 @@ void expansion_animal_daily(World *w) {
         if (a) {
             a->x_milli = rng_range(&w->rng, 1, w->grid.width - 2) * 1000 + 500;
             a->y_milli = rng_range(&w->rng, 1, w->grid.height - 2) * 1000 + 500;
+            a->kind = expansion_wild_kind(w, a->x_milli / 1000, a->y_milli / 1000);
+            a->hp = HP[a->kind];
         }
     }
+}
+CORE_API int32_t core_expansion_damage_animal(CoreWorld *w, int32_t animal_id, int32_t damage) {
+    static const int meat[16] = {2, 10, 7, 2, 3, 7, 9, 30, 12, 18, 2, 5, 20, 10, 22, 1};
+    static const int hide[16] = {0, 2, 2, 0, 1, 2, 3, 6, 3, 3, 0, 2, 6, 4, 5, 0};
+    int i;
+    if (!w)
+        return CORE_ERR_NULL_ARG;
+    if (!w->expansion || damage < 1 || damage > 10000)
+        return CORE_ERR_INVALID_ARG;
+    for (i = 0; i < w->expansion->animal_count; i++) {
+        CoreAnimalView *a = &w->expansion->animals[i];
+        if (a->id != animal_id || !a->alive)
+            continue;
+        if (a->owner)
+            return CORE_ERR_REJECTED;
+        a->hp = exp_clamp(a->hp - damage, 0, HP[a->kind]);
+        if (!a->hp) {
+            a->alive = 0;
+            (void)expansion_bank_add(w, CORE_RES_FOOD, meat[a->kind] * 1000, CORE_LEDGER_PRODUCTION);
+            (void)expansion_bank_add(w, CORE_RES_LEATHER, hide[a->kind] * 1000, CORE_LEDGER_PRODUCTION);
+        }
+        return CORE_OK;
+    }
+    return CORE_ERR_NOT_FOUND;
 }
 void expansion_animals_tick(World *w) {
     ExpansionState *e = w->expansion;
@@ -162,41 +204,72 @@ void expansion_animals_tick(World *w) {
         return;
     for (i = 0; i < e->animal_count; i++) {
         CoreAnimalView *a = &e->animals[i];
-        int x, y, dx, dy;
+        int x = a->x_milli / 1000, y = a->y_milli / 1000, j, nearest = -1, distance = 13, dx, dy, xx, yy,
+            active = 0;
         if (!a->alive)
             continue;
-        x = a->x_milli / 1000;
-        y = a->y_milli / 1000;
+        for (j = 0; j < w->villager_count; j++) {
+            Villager *v = w->villagers[j];
+            int d;
+            d = exp_dist(x, y, v->current_x_milli / 1000, v->current_y_milli / 1000);
+            if (d <= 12)
+                active = 1;
+            if (v->inside_building || v->state == CORE_VS_LEAVING)
+                continue;
+            if (d < distance) {
+                distance = d;
+                nearest = j;
+            }
+        }
+        /* 주민에게서 먼 개체는 하루 한 번만 움직입니다. */
+        if (!active && w->clock.tick % 144)
+            continue;
         dx = rng_range(&w->rng, -1, 1);
         dy = rng_range(&w->rng, -1, 1);
+        if (!a->owner && nearest >= 0 && distance <= (a->kind >= 11 ? 6 : 3)) {
+            Villager *v = w->villagers[nearest];
+            int vx = v->current_x_milli / 1000, vy = v->current_y_milli / 1000;
+            int sign = a->kind >= 11 ? 1 : -1;
+            dx = (vx > x ? 1 : vx < x ? -1 : 0) * sign;
+            dy = (vy > y ? 1 : vy < y ? -1 : 0) * sign;
+            if (a->kind == 14 && distance > 2) {
+                dx = dy = 0;
+            }
+        }
+        xx = x + dx;
+        yy = y + dy;
         if (a->owner) {
             Building *b = entity_find_building(w, a->owner);
             if (!b)
                 continue;
-            x = exp_clamp(x + dx, b->x, b->x + b->w - 1);
-            y = exp_clamp(y + dy, b->y, b->y + b->h - 1);
-        } else {
-            int xx = x + dx, yy = y + dy;
-            if (grid_in_bounds(&w->grid, xx, yy) && w->grid.cost[grid_index(&w->grid, xx, yy)]) {
+            x = exp_clamp(xx, b->x, b->x + b->w - 1);
+            y = exp_clamp(yy, b->y, b->y + b->h - 1);
+        } else if (grid_in_bounds(&w->grid, xx, yy)) {
+            int n = grid_index(&w->grid, xx, yy);
+            if (w->grid.cost[n] && !w->grid.block[n] &&
+                !(a->kind >= 11 && exp_day(w) <= 10 && exp_dist(xx, yy, w->keep_x, w->keep_y) < 12)) {
                 x = xx;
                 y = yy;
-            }
-            if (a->kind >= 11 && (exp_day(w) > 10 || exp_dist(x, y, w->keep_x, w->keep_y) >= 12)) {
-                int j;
-                for (j = 0; j < w->villager_count; j++) {
-                    Villager *v = w->villagers[j];
-                    if (!v->inside_building &&
-                        exp_dist(x, y, v->current_x_milli / 1000, v->current_y_milli / 1000) <= 1) {
-                        int damage = (int[]){5, 15, 9, 12, 4}[a->kind - 11];
-                        v->health = exp_clamp(v->health - damage, 1, 100);
-                        v->needs.safety = exp_clamp(v->needs.safety - 10, 0, 100);
-                        break;
-                    }
-                }
             }
         }
         a->x_milli = x * 1000 + 500;
         a->y_milli = y * 1000 + 500;
+        if (!a->owner && a->kind >= 11 && nearest >= 0 && distance <= 3 &&
+            (exp_day(w) > 10 || exp_dist(x, y, w->keep_x, w->keep_y) >= 12)) {
+            Villager *v = w->villagers[nearest];
+            if (!v->workplace || v->workplace->type != CORE_BLD_BARRACKS)
+                v->hold_ticks = 12;
+        }
+        if (!a->owner && a->kind >= 11 && nearest >= 0 &&
+            (exp_day(w) > 10 || exp_dist(x, y, w->keep_x, w->keep_y) >= 12)) {
+            Villager *v = w->villagers[nearest];
+            if (exp_dist(x, y, v->current_x_milli / 1000, v->current_y_milli / 1000) <= 1) {
+                v->health -= (int[]){5, 15, 9, 12, 4}[a->kind - 11];
+                v->needs.safety = exp_clamp(v->needs.safety - 10, 0, 100);
+                if (v->health <= 0)
+                    population_kill(w, v, CORE_DEATH_WILDLIFE);
+            }
+        }
     }
 }
 CORE_API int32_t core_expansion_copy_animals(const CoreWorld *w, CoreAnimalView *out, int32_t capacity,

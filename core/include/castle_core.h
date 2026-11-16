@@ -37,7 +37,7 @@ extern "C" {
 /* 외부 호출자의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
 #define CORE_ABI_VERSION 9
 /* 지금 세이브 파일 형식의 버전 (첫 줄 "MAGICCASTLE_SAVE <버전>") */
-#define CORE_SAVE_VERSION 6
+#define CORE_SAVE_VERSION 7
 
 /* 성채·주민 이름 버퍼 크기 (UTF-8 바이트, 끝의 '\0' 포함) */
 #define CORE_NAME_BYTES 48
@@ -234,7 +234,8 @@ typedef enum CorePlaceResult {
     CORE_PLACE_ALREADY_THERE = 14, /* 이미 같은 도로/성벽이 있음 */
     CORE_PLACE_BLOCKS_PATH = 15,   /* 지으면 다른 건물이나 지도 밖으로 가는 길이 끊김 */
     CORE_PLACE_UNREACHABLE = 16,   /* 성채에서 그 자리까지 걸어갈 길이 없음 */
-    CORE_PLACE_COUNT = 17
+    CORE_PLACE_NEEDS_WATER = 17,   /* 수변 시설에 필요한 물이 없음 */
+    CORE_PLACE_COUNT = 18
 } CorePlaceResult;
 
 /* 주민 상태 (상태마다 C 의 처리 함수가 하나씩 있음) */
@@ -282,7 +283,8 @@ typedef enum CoreMoodTerm {
 typedef enum CoreDeathCause {
     CORE_DEATH_STARVATION = 1,
     CORE_DEATH_ILLNESS = 2,
-    CORE_DEATH_RAID = 3     /* 습격에 쓰러짐 */
+    CORE_DEATH_RAID = 3,    /* 습격에 쓰러짐 */
+    CORE_DEATH_WILDLIFE = 4 /* 야생동물 공격 */
 } CoreDeathCause;
 
 /* 주민 이야기 (알림 문장) */

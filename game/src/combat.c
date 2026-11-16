@@ -4,7 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { TARGET_NONE = 0, TARGET_ENEMY = 1, TARGET_BUILDING = 2, TARGET_VILLAGER = 3 };
+enum { TARGET_NONE = 0, TARGET_ENEMY = 1, TARGET_BUILDING = 2, TARGET_VILLAGER = 3, TARGET_ANIMAL = 4 };
+static int researched(const GameSession *s, int index) {
+    CoreResearchView view;
+    return core_get_research(s->world, index, &view) == CORE_OK && view.state == CORE_RSTATE_DONE;
+}
 void game_combat_clear(GameSession *s) {
     int i;
     for (i = 0; i < s->enemy_count; i++)
@@ -99,19 +103,36 @@ static void impact(GameSession *s, const GameProjectile *p) {
         return;
     if (p->target_kind == TARGET_ENEMY) {
         GameEnemy *e = game_enemy(s, p->target_id);
+        GamePoint where = e ? e->actor.position : p->to;
+        int i;
         if (e) {
             e->incoming -= p->damage;
             if (e->incoming < 0)
                 e->incoming = 0;
         }
         hurt_enemy(s, p->target_id, p->damage);
+        if (p->radius > 0)
+            for (i = 0; i < s->enemy_count; i++)
+                if (s->enemies[i].actor.id != p->target_id && s->enemies[i].hp > 0 &&
+                    game_distance(where, s->enemies[i].actor.position) <= p->radius)
+                    hurt_enemy(s, s->enemies[i].actor.id, p->damage);
     } else if (p->target_kind == TARGET_BUILDING) {
         (void)core_report_building_damage(s->world, p->raid_id, p->target_id, p->damage);
     } else if (p->target_kind == TARGET_VILLAGER) {
         (void)core_report_villager_damage(s->world, p->raid_id, p->target_id, p->damage);
+    } else if (p->target_kind == TARGET_ANIMAL) {
+        int i;
+        if (core_expansion_damage_animal(s->world, p->target_id, p->damage) == CORE_OK)
+            for (i = 0; i < s->animal_count; i++)
+                if (s->animals[i].id == p->target_id) {
+                    s->animals[i].hp -= p->damage;
+                    if (s->animals[i].hp <= 0)
+                        s->animals[i].alive = 0;
+                    break;
+                }
     }
 }
-static void fire(GameSession *s, GamePoint from, GamePoint to, int kind, int id, int damage) {
+static void fire(GameSession *s, GamePoint from, GamePoint to, int kind, int id, int damage, float radius) {
     GameProjectile p;
     p.from = from;
     p.to = to;
@@ -121,6 +142,7 @@ static void fire(GameSession *s, GamePoint from, GamePoint to, int kind, int id,
     p.target_kind = kind;
     p.target_id = id;
     p.damage = damage;
+    p.radius = radius;
     if (s->projectile_count == GAME_MAX_PROJECTILES) {
         impact(s, &p);
         return;
@@ -168,6 +190,25 @@ static GameEnemy *nearest_enemy(GameSession *s, GamePoint position, float range,
     }
     return best;
 }
+static CoreAnimalView *nearest_animal(GameSession *s, GamePoint position, float range) {
+    CoreAnimalView *best = NULL;
+    int i;
+    if (!s->summary.ruleset || !s->visibility)
+        return NULL;
+    for (i = 0; i < s->animal_count; i++) {
+        CoreAnimalView *a = &s->animals[i];
+        int x = a->x_milli / 1000, y = a->y_milli / 1000;
+        float distance;
+        if (!a->alive || a->owner || a->kind < 11 || s->visibility[y * s->summary.map_width + x] < 2)
+            continue;
+        distance = game_distance(position, (GamePoint){a->x_milli / 1000.0f, a->y_milli / 1000.0f});
+        if (distance < range) {
+            best = a;
+            range = distance;
+        }
+    }
+    return best;
+}
 static GameTower *tower_state(GameSession *s, int id) {
     int i;
     for (i = 0; i < s->tower_count; i++)
@@ -208,7 +249,15 @@ static void towers_step(GameSession *s, float minutes) {
             if (s->summary.ruleset && core_expansion_fire(s->world, b->id) != CORE_OK)
                 continue;
             state->cooldown = (float)d->attack_cooldown;
-            fire(s, center(b), enemy->actor.position, TARGET_ENEMY, enemy->actor.id, d->attack);
+            fire(s, center(b), enemy->actor.position, TARGET_ENEMY, enemy->actor.id, d->attack,
+                 b->type == CORE_BLD_CANNON_TOWER ? (researched(s, 12) ? 2.0f : 1.0f) : 0.0f);
+        } else {
+            CoreAnimalView *animal = nearest_animal(s, center(b), (float)d->attack_range);
+            if (animal && core_expansion_fire(s->world, b->id) == CORE_OK) {
+                state->cooldown = (float)d->attack_cooldown;
+                fire(s, center(b), (GamePoint){animal->x_milli / 1000.0f, animal->y_milli / 1000.0f},
+                     TARGET_ANIMAL, animal->id, d->attack, 0);
+            }
         }
     }
 }
@@ -218,29 +267,60 @@ static void guards_step(GameSession *s, float minutes) {
     for (i = 0; i < s->villager_count; i++) {
         CoreVillagerView *v = &s->villagers[i];
         GameActor *a;
-        GamePoint post;
         GameEnemy *enemy;
-        int barrier;
+        CoreAnimalView *animal = NULL;
+        GamePoint post, goal;
+        int kind = TARGET_NONE, id = 0, barrier;
         if (!guard(v))
             continue;
         a = game_actor(s, v->id);
         if (!a)
             continue;
         post = (GamePoint){v->loc_x + 0.5f, v->loc_y + 0.5f};
-        enemy = nearest_enemy(s, post, s->summary.ruleset ? 400.0f : 8.0f, 0);
+        enemy = nearest_enemy(s, a->position, s->summary.ruleset ? 400.0f : 8.0f, 0);
+        goal = post;
+        if (enemy && (!s->summary.ruleset || s->dispatch_delay <= 0)) {
+            goal = enemy->actor.position;
+            kind = TARGET_ENEMY;
+            id = enemy->actor.id;
+        } else if ((animal = nearest_animal(s, a->position, 8.0f)) != NULL) {
+            goal = (GamePoint){animal->x_milli / 1000.0f, animal->y_milli / 1000.0f};
+            kind = TARGET_ANIMAL;
+            id = animal->id;
+        }
+        if (kind) {
+            a->chasing = 1;
+            a->chase_goal = goal;
+        } else if (a->chasing) {
+            goal = a->chase_goal;
+            if (game_distance(a->position, goal) < 0.6f) {
+                a->chasing = 0;
+                goal = post;
+            }
+        }
         a->cooldown -= minutes;
-        if (enemy && game_distance(a->position, enemy->actor.position) <= fmaxf(1, (float)d->attack_range)) {
+        if (kind && game_distance(a->position, goal) <= fmaxf(1, (float)d->attack_range)) {
             if (a->cooldown <= 0) {
                 a->cooldown = (float)d->attack_cooldown;
-                hurt_enemy(s, enemy->actor.id, d->attack);
+                if (kind == TARGET_ENEMY)
+                    hurt_enemy(s, id, d->attack);
+                else {
+                    GameProjectile hit = {0};
+                    hit.raid_id = s->raid_id;
+                    hit.target_kind = TARGET_ANIMAL;
+                    hit.target_id = id;
+                    hit.damage = d->attack;
+                    impact(s, &hit);
+                }
             }
         } else {
-            GamePoint goal = enemy ? enemy->actor.position : post;
             if (a->target_x != (int)goal.x || a->target_y != (int)goal.y ||
                 a->grid_revision != s->grid_revision || !a->path.count)
                 (void)game_actor_plan(s, a, (int)goal.x, (int)goal.y, 0);
-            (void)game_actor_walk(s, a, minutes * v->walk_speed / 1000.0f / s->config.minutes_per_tick, 0,
-                                  &barrier);
+            if (game_actor_walk(s, a, minutes * v->walk_speed / 1000.0f / s->config.minutes_per_tick, 0,
+                                &barrier) &&
+                !kind)
+                a->chasing = 0;
         }
     }
 }
@@ -325,7 +405,7 @@ static void attack(GameSession *s, GameEnemy *e, int kind, int id, GamePoint to)
         return;
     e->actor.cooldown = (float)e->def.cooldown;
     if (e->def.range > 1)
-        fire(s, e->actor.position, to, kind, id, e->def.damage);
+        fire(s, e->actor.position, to, kind, id, e->def.damage, 0);
     else if (kind == TARGET_BUILDING)
         (void)core_report_building_damage(s->world, s->raid_id, id, e->def.damage);
     else
@@ -395,9 +475,17 @@ static void enemy_step(GameSession *s, GameEnemy *e, float minutes) {
 }
 void game_combat_step(GameSession *s, float minutes) {
     int i;
+    if (s->summary.ruleset && s->summary.raid_id && s->alarm_seen_id != s->summary.raid_id) {
+        s->alarm_seen_id = s->summary.raid_id;
+        s->dispatch_delay = researched(s, 15) ? 16.0f : 20.0f;
+    } else if (s->dispatch_delay > 0)
+        s->dispatch_delay -= minutes;
     projectiles_step(s, minutes);
-    if (!s->raid_id)
+    if (!s->raid_id) {
+        towers_step(s, minutes);
+        guards_step(s, minutes);
         return;
+    }
     for (i = 0; i < s->enemy_count; i++)
         if (s->enemies[i].hp > 0)
             enemy_step(s, &s->enemies[i], minutes);

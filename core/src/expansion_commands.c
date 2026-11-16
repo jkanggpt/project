@@ -6,6 +6,39 @@
 #include <string.h>
 
 static const int DX[4] = {1, -1, 0, 0}, DY[4] = {0, 0, 1, -1};
+int expansion_edge(World *w, int near_x, int near_y, int *x, int *y) {
+    Grid *g = &w->grid;
+    Building *keep = world_keep(w);
+    int head = 0, tail = 0, i, best = INT32_MAX;
+    if (!keep)
+        return 0;
+    memset(g->scratch_mark, 0, (size_t)w->expansion->cells);
+    i = grid_index(g, keep->door_x, keep->door_y);
+    g->scratch_mark[i] = 1;
+    g->scratch_queue[tail++] = i;
+    while (head < tail) {
+        int p = g->scratch_queue[head++], k, px = p % g->width, py = p / g->width;
+        if (px == 0 || py == 0 || px == g->width - 1 || py == g->height - 1) {
+            int distance = exp_dist(px, py, near_x, near_y);
+            if (distance < best) {
+                best = distance;
+                *x = px;
+                *y = py;
+            }
+        }
+        for (k = 0; k < 4; k++) {
+            int xx = px + DX[k], yy = py + DY[k], n;
+            if (!grid_in_bounds(g, xx, yy))
+                continue;
+            n = grid_index(g, xx, yy);
+            if (!g->scratch_mark[n] && g->cost[n] && g->block[n] != GRID_BLOCK_WALL) {
+                g->scratch_mark[n] = 1;
+                g->scratch_queue[tail++] = n;
+            }
+        }
+    }
+    return best != INT32_MAX;
+}
 static void door(int x, int y, int w, int h, int rot, int *dx, int *dy) {
     *dx = x + w / 2;
     *dy = y + h;
@@ -53,24 +86,20 @@ void expansion_rebuild(World *w) {
                                             : (flags & CORE_EXP_OUTDOOR)         ? 0
                                                                                  : GRID_BLOCK_SOLID);
             }
-        if (grid_in_bounds(g, b->door_x, b->door_y))
+        if (!(flags & (CORE_EXP_WALL | CORE_EXP_GATE)) && grid_in_bounds(g, b->door_x, b->door_y))
             g->door_count[grid_index(g, b->door_x, b->door_y)]++;
     }
     grid_rebuild_costs(g);
     memset(e->connected, 0, (size_t)e->cells);
     for (i = 0; i < e->cells; i++)
         e->distance[i] = -1;
-    if (keep) {
-        for (y = keep->y - 1; y <= keep->y + keep->h; y++)
-            for (x = keep->x - 1; x <= keep->x + keep->w; x++)
-                if (grid_in_bounds(g, x, y) && !entity_building_covers(keep, x, y)) {
-                    i = grid_index(g, x, y);
-                    if (road_cell(w, i) && !e->connected[i]) {
-                        e->connected[i] = 1;
-                        e->distance[i] = 0;
-                        e->queue[tail++] = i;
-                    }
-                }
+    if (keep && grid_in_bounds(g, keep->door_x, keep->door_y)) {
+        i = grid_index(g, keep->door_x, keep->door_y);
+        if (road_cell(w, i)) {
+            e->connected[i] = 1;
+            e->distance[i] = 0;
+            e->queue[tail++] = i;
+        }
     }
     while (head < tail) {
         int p = e->queue[head++], k;
@@ -123,7 +152,9 @@ void expansion_rebuild(World *w) {
     for (i = 0; i < w->building_count; i++) {
         Building *b = w->buildings[i];
         int p, k, d;
-        if (b->state != CORE_BSTATE_ACTIVE || !grid_in_bounds(g, b->door_x, b->door_y))
+        if (b->state != CORE_BSTATE_ACTIVE ||
+            (expansion_spec(b->type)->flags & (CORE_EXP_WALL | CORE_EXP_GATE)) ||
+            !grid_in_bounds(g, b->door_x, b->door_y))
             continue;
         p = grid_index(g, b->door_x, b->door_y);
         d = e->distance[p];
@@ -161,6 +192,10 @@ void expansion_rebuild(World *w) {
         Building *b = w->buildings[i];
         const ExpansionBuildingSpec *s = expansion_spec(b->type);
         int sight = s->sight;
+        if (s->flags & (CORE_EXP_WALL | CORE_EXP_GATE))
+            sight = 0;
+        if ((b->type == CORE_BLD_OUTPOST || b->type == CORE_BLD_WATCHTOWER) && expansion_has_research(w, 8))
+            sight += 2;
         if (b->state != CORE_BSTATE_ACTIVE)
             continue;
         if (s->category == CORE_CAT_TOWERS && !b->worker_count)
@@ -168,7 +203,7 @@ void expansion_rebuild(World *w) {
         reveal(w, b->x + b->w / 2, b->y + b->h / 2, sight, e->static_visible);
     }
     for (i = 0; i < e->cells; i++)
-        if (g->road[i])
+        if (g->road[i] && e->connected[i])
             reveal(w, i % g->width, i / g->width, 1, e->static_visible);
     expansion_water_supply(w);
     e->dirty = 0;
@@ -185,6 +220,21 @@ void expansion_visibility(World *w) {
     for (i = 0; i < e->cells; i++)
         if (e->visible[i])
             e->tiles[i].explored = 1;
+    if (expansion_has_research(w, 16)) {
+        for (i = 0; i < e->cells; i++)
+            if (e->tiles[i].ore_kind == CORE_RES_MANA && !e->tiles[i].explored) {
+                int x = i % w->grid.width, y = i / w->grid.width, dx, dy, found = 0;
+                for (dy = -3; dy <= 3 && !found; dy++)
+                    for (dx = -3; dx <= 3; dx++)
+                        if (dx * dx + dy * dy <= 9 && grid_in_bounds(&w->grid, x + dx, y + dy) &&
+                            e->visible[grid_index(&w->grid, x + dx, y + dy)]) {
+                            found = 1;
+                            break;
+                        }
+                if (found)
+                    e->tiles[i].explored = 1;
+            }
+    }
 }
 void expansion_place_check(const World *w, int type, int x, int y, int rotation, int ignore,
                            CorePlacementView *out) {
@@ -226,10 +276,12 @@ void expansion_place_check(const World *w, int type, int x, int y, int rotation,
                 out->result = CORE_PLACE_ROAD_IN_WAY;
                 return;
             }
-            if (w->grid.door_count[p] && !(s->flags & CORE_EXP_ROAD) && !(s->flags & CORE_EXP_GATE) &&
-                !ignore) {
-                out->result = CORE_PLACE_BLOCKS_DOOR;
-                return;
+            if (w->grid.door_count[p] && !(s->flags & CORE_EXP_ROAD) && !(s->flags & CORE_EXP_GATE)) {
+                const Building *self = ignore ? entity_find_building(w, ignore) : NULL;
+                if (!self || w->grid.door_count[p] > 1 || self->door_x != xx || self->door_y != yy) {
+                    out->result = CORE_PLACE_BLOCKS_DOOR;
+                    return;
+                }
             }
             if ((s->flags & CORE_EXP_ROAD) && w->grid.road[p] == (type == CORE_BLD_STONE_ROAD ? 2
                                                                   : type == CORE_BLD_BRIDGE   ? 3
@@ -238,6 +290,21 @@ void expansion_place_check(const World *w, int type, int x, int y, int rotation,
                 return;
             }
         }
+    if (type == CORE_BLD_PORT || type == CORE_BLD_IRRIGATED_FARM) {
+        int water = 0, radius = type == CORE_BLD_PORT ? 1 : 2;
+        for (yy = y - radius; yy < y + out->h + radius; yy++)
+            for (xx = x - radius; xx < x + out->w + radius; xx++) {
+                int ax = xx < x ? x - xx : xx >= x + out->w ? xx - (x + out->w - 1) : 0;
+                int ay = yy < y ? y - yy : yy >= y + out->h ? yy - (y + out->h - 1) : 0;
+                if (ax + ay <= radius && grid_in_bounds(&w->grid, xx, yy) &&
+                    w->grid.terrain[grid_index(&w->grid, xx, yy)] == CORE_TERRAIN_WATER)
+                    water = 1;
+            }
+        if (!water) {
+            out->result = CORE_PLACE_NEEDS_WATER;
+            return;
+        }
+    }
     door(x, y, out->w, out->h, rotation, &dx, &dy);
     out->door_x = dx;
     out->door_y = dy;
@@ -299,7 +366,7 @@ int expansion_place(World *w, int type, int x, int y, int rotation, int *id, int
             CoreExpansionTileView *t = &w->expansion->tiles[n];
             t->tree_kind = 0;
             t->tree_logs_milli = 0;
-            t->regrow_day = 0;
+            t->regrow_milli = 0;
             if (w->grid.terrain[n] == CORE_TERRAIN_FOREST)
                 w->grid.terrain[n] = CORE_TERRAIN_GRASS;
         }
@@ -347,6 +414,12 @@ int expansion_demolish(World *w, Building *b) {
         return CORE_ERR_REJECTED;
     for (r = 0; r < CORE_RES_COUNT; r++)
         (void)expansion_bank_add(w, r, w->defs.buildings[b->type].cost[r] * 500, CORE_LEDGER_CONSTRUCTION);
+    for (r = 0; r < w->expansion->animal_count; r++)
+        if (w->expansion->animals[r].owner == b->id)
+            w->expansion->animals[r].owner = 0;
+    for (r = 0; r < w->villager_count; r++)
+        if (w->villagers[r]->inside_building == b->id)
+            w->villagers[r]->inside_building = 0;
     entity_remove_building(w, b);
     w->expansion->dirty = 1;
     expansion_rebuild(w);
@@ -387,6 +460,13 @@ CORE_API int32_t core_rotate_building(CoreWorld *w, int32_t id, int32_t rot, int
         *reason = p.result;
     if (p.result)
         return CORE_ERR_REJECTED;
+    if (b->state == CORE_BSTATE_ACTIVE &&
+        w->expansion->connected[grid_index(&w->grid, b->door_x, b->door_y)] &&
+        !w->expansion->connected[grid_index(&w->grid, p.door_x, p.door_y)]) {
+        if (reason)
+            *reason = CORE_PLACE_BLOCKS_PATH;
+        return CORE_ERR_REJECTED;
+    }
     b->rotation = rot;
     b->w = p.w;
     b->h = p.h;
@@ -453,12 +533,14 @@ CORE_API int32_t core_expansion_fire(CoreWorld *w, int32_t id) {
     b = entity_find_building(w, id);
     if (!b)
         return CORE_ERR_NOT_FOUND;
-    if (!w->expansion || !b->worker_count || !expansion_spec(b->type)->attack)
+    if (!w->expansion || b->state != CORE_BSTATE_ACTIVE || !b->worker_count ||
+        !expansion_spec(b->type)->attack)
         return CORE_ERR_REJECTED;
     if (b->type == CORE_BLD_ARCANE_TOWER && b->shots % 3 == 0) {
-        if (w->bank.amount[CORE_RES_MANA] < 1)
+        int cost = expansion_has_research(w, 22) ? 900 : 1000;
+        if (expansion_bank_have(w, CORE_RES_MANA) < cost)
             return CORE_ERR_REJECTED;
-        (void)expansion_bank_add(w, CORE_RES_MANA, -1000, CORE_LEDGER_PRODUCTION);
+        (void)expansion_bank_add(w, CORE_RES_MANA, -cost, CORE_LEDGER_PRODUCTION);
     }
     b->shots++;
     return CORE_OK;

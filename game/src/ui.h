@@ -10,6 +10,10 @@ typedef struct GameUi {
 } GameUi;
 extern const Color UI_BG,UI_PANEL,UI_EDGE,UI_TEXT,UI_MUTED,UI_GOLD,UI_GOOD,UI_BAD;
 void ui_begin(GameUi *ui,GameAssets *assets,float size,float volume);
+void ui_clip_begin(int x,int y,int width,int height);
+void ui_clip_end(void);
+void ui_clip_begin(int x,int y,int width,int height);
+void ui_clip_end(void);
 void ui_text(GameUi *ui,float x,float y,Color color,const char *format,...);
 void ui_small(GameUi *ui,float x,float y,Color color,const char *format,...);
 void ui_wrap(GameUi *ui,Rectangle area,Color color,const char *text);

@@ -97,10 +97,16 @@ static int build(ExpansionBot *bot, int type) {
                             if (xx >= 0 && yy >= 0 && xx < bot->summary.map_width &&
                                 yy < bot->summary.map_height) {
                                 CoreExpansionTileView *tile = &bot->tiles[yy * bot->summary.map_width + xx];
-                                if (info.job_field == 1 && tile->tree_age >= 28000)
-                                    score += 20;
+                                if (abs(xx - (x + info.w / 2)) + abs(yy - (y + info.h / 2)) > info.radius ||
+                                    (xx >= x && xx < x + info.w && yy >= y && yy < y + info.h))
+                                    continue;
+                                if (info.job_field == 1 && tile->tree_kind >= 1 && tile->tree_kind <= 4 &&
+                                    tile->tree_logs_milli > 0 &&
+                                    tile->tree_age >=
+                                        (int[]){28000, 48000, 84000, 112000}[tile->tree_kind - 1])
+                                    score += 300;
                                 if (info.job_field == 2 && tile->ore_milli > 0)
-                                    score += 80;
+                                    score += 150;
                             }
                 }
                 if (type == CORE_BLD_WELL) {
@@ -128,9 +134,10 @@ static int build(ExpansionBot *bot, int type) {
     }
 }
 static void staffing(ExpansionBot *bot) {
-    int priorities[16], n = 0, i, j;
+    int priorities[32], n = 0, i, j;
     priorities[n++] = CORE_BLD_LOGGING_SITE;
-    if (bot->summary.resources[CORE_RES_WOOD] < 35)
+    priorities[n++] = CORE_BLD_STALL;
+    if (bot->summary.resources[CORE_RES_WOOD] < 35 && bot->summary.resources[CORE_RES_LOGS] > 15)
         priorities[n++] = CORE_BLD_SAWMILL;
     if (bot->summary.resources[CORE_RES_STONE] < 35)
         priorities[n++] = CORE_BLD_QUARRY;
@@ -211,12 +218,15 @@ int sim_expansion_bot_daily(CoreWorld *world) {
     if (bot.summary.housing_capacity > 0 && bot.summary.water_served < bot.summary.permanent_population &&
         afford(&bot, CORE_BLD_WELL))
         (void)build(&bot, CORE_BLD_WELL);
-    else if (!count_type(&bot, CORE_BLD_LOGGING_SITE))
+    else if (!count_type(&bot, CORE_BLD_LOGGING_SITE)) {
+        (void)connect(&bot, bot.summary.keep_x + 10, bot.summary.keep_y + 2);
         (void)build(&bot, CORE_BLD_LOGGING_SITE);
-    else if (!count_type(&bot, CORE_BLD_GATHERER))
+    } else if (!count_type(&bot, CORE_BLD_GATHERER))
         (void)build(&bot, CORE_BLD_GATHERER);
     else if (count_type(&bot, CORE_BLD_GARDEN) < (bot.summary.population + 2) / 3)
         (void)build(&bot, CORE_BLD_GARDEN);
+    else if (bot.summary.rank >= 1 && !count_type(&bot, CORE_BLD_STALL))
+        (void)build(&bot, CORE_BLD_STALL);
     else if (bot.summary.rank >= 1 && !count_type(&bot, CORE_BLD_GRANARY))
         (void)build(&bot, CORE_BLD_GRANARY);
     else if (bot.summary.rank >= 1 && !count_type(&bot, CORE_BLD_SAWMILL))
@@ -278,6 +288,10 @@ int sim_expansion_bot_daily(CoreWorld *world) {
                 break;
         }
     if (bot.summary.market_open) {
+        if (bot.summary.resources[CORE_RES_LOGS] < 20 && bot.summary.resources[CORE_RES_GOLD] > 45) {
+            int32_t gold = 0, reason = 0;
+            (void)core_trade(world, CORE_RES_LOGS, 10, &gold, &reason);
+        }
         const int resources[] = {CORE_RES_WOOD, CORE_RES_STONE, CORE_RES_CLAY,   CORE_RES_IRON_ORE,
                                  CORE_RES_COAL, CORE_RES_IRON,  CORE_RES_LEATHER};
         for (i = 0; i < 7; i++) {

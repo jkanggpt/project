@@ -559,7 +559,10 @@ int vil_arrived(World *world, Villager *villager, int32_t intent_rev)
     if(world->expansion && villager->target && villager->state!=CORE_VS_GUARD_POST && !(expansion_spec(villager->target->type)->flags&CORE_EXP_OUTDOOR))villager->inside_building=villager->target->id;
     switch (villager->state) {
     case CORE_VS_LEAVING:
-        population_remove_departed(world, villager);
+        if(world->expansion && villager->contract_end_tick>world->clock.tick)
+            villager->intent_flags|=CORE_INTENT_HOLD;
+        else
+            population_remove_departed(world, villager);
         break;
     default:
         break;

@@ -1,5 +1,21 @@
 # 새 중세 판타지 픽셀아트
 
+## 통합 확장판 원화 (2026-11-17)
+
+현재 건물은 `art/expansion/buildings_00.png`~`buildings_15.png`, `keep_turns.png`의 65종×4방향입니다.
+`status_icons.png`·`resource_icons.png`·`animals.png`·`biomes.png`도 새로 생성했습니다. 원본은 21장입니다.
+프롬프트 전문은 `EXPANSION_PROMPTS.md`, `EXPANSION_ICONS_PROMPTS.md`, 투명도/셀 간섭 보정은 `expansion/ALPHA_REPAIR.md`입니다.
+
+```powershell
+./build/windows-msvc/bin/Release/castle_expansion_art.exe art/expansion game/assets/expansion
+./build/windows-msvc/bin/Release/castle_expansion_art.exe --check game/assets/expansion
+```
+
+패커는 행별 투명한 골에서 4열을 잘라 전체 건물과 소품을 보존하고, 내용 경계로 자른 뒤 최근접 보간으로 맞춥니다.
+출력은 `game/assets/expansion`의 260방향 PNG·4아틀라스·15개 자원 아이콘입니다. 런타임이 이 복사본을 읽으므로 생성 도구의 캐시 폴더는 배포에 필요하지 않습니다.
+농장류는 밭·작물만 그립니다. 풍차 등 별도 건물은 따로 건설합니다. 지붕은 점유 칸보다 높게 그리며, 주민은 문에 도착해 실내로 들어갑니다.
+`--screen rotations`로 4방향·점유 격자와 높이를 비교할 수 있습니다. 아래는 이전 그래픽 제작 이력입니다.
+
 2026-11-16 학생 요청에 따라 캐릭터·건물·나무·광석·지면·도로·자원 아이콘·화살을 내장 image_gen 도구로 새로 제작했습니다. 이어진 요청에 따라 건물은 지붕이 더 잘 보이는 약 45도 내려다보기로 다시 그렸고, 주민은 직업과 무관한 외형 8종과 방향별 걷기로 교체했습니다. 첨부 그림은 화풍과 구도의 참고이며 자체 파일을 게임에 넣지 않았습니다.
 
 | 원본 | 구성 | 게임 출력 |

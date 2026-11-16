@@ -1,8 +1,8 @@
 /* expansion_balance.c — 확장 저장 진단과 실제 C 이동을 포함한 장기 경제 검사 */
+#include "platform.h"
 #include "session.h"
 #include "sim.h"
 #include "storage.h"
-#include "platform.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -118,6 +118,10 @@ int main(int argc, char **argv) {
                 for (tick = 0; tick < days * 144 && s->summary.outcome != CORE_OUTCOME_LOST; tick++) {
                     if (last_day != s->summary.day) {
                         CoreSummaryView *p = &s->summary;
+                        if (core_validate(s->world) != 0) {
+                            failures++;
+                            break;
+                        }
                         last_day = p->day;
                         fprintf(csv, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", p->day, p->population,
                                 p->average_mood, p->rank, p->valid_roads, p->protected_area,
@@ -126,7 +130,7 @@ int main(int argc, char **argv) {
                         (void)sim_expansion_bot_daily(s->world);
                     }
                     rc = game_session_step(s, 10);
-                    if (rc != CORE_OK || core_validate(s->world) != 0) {
+                    if (rc != CORE_OK) {
                         failures++;
                         break;
                     }

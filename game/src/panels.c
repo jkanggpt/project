@@ -56,7 +56,7 @@ static void hud(GameApp *a) {
     }
     for (i = 0; i < CORE_RES_COUNT; i++) {
         Texture2D icon = a->assets.resources[i];
-        float x = 10 + i % 8 * (width - 360) / 8, ry = 75 + i / 8 * 27.0f;
+        float x = 10 + i % 8 * (width - 20) / 8, ry = 75 + i / 8 * 27.0f;
         if (icon.id)
             DrawTexturePro(icon, (Rectangle){0, 0, (float)icon.width, (float)icon.height},
                            rect(x, ry, 20, 20), (Vector2){0, 0}, 0, WHITE);
@@ -65,11 +65,10 @@ static void hud(GameApp *a) {
             hint, sizeof(hint),
             u8"%s\n어제 변화 %+d / 저장 한도 %d (0은 제한 없음)\n장부에서 항목별 수입·지출을 확인합니다.",
             fmt_resource_name(i), s->resource_delta[i], s->resource_capacity[i]);
-        if (CheckCollisionPointRec(GetMousePosition(), rect(x, ry, (width - 360) / 8, 25)))
+        if (CheckCollisionPointRec(GetMousePosition(), rect(x, ry, (width - 20) / 8, 25)))
             (void)snprintf(u->tooltip, sizeof(u->tooltip), "%s", hint);
     }
-    ui_small(u, width - 350, 80, UI_TEXT, u8"주민 %d · 기분 %d · %s", s->population, s->average_mood,
-             fmt_weather_name(s->weather));
+    ui_small(u, 10 + 7 * (width - 20) / 8, 103, UI_TEXT, u8"인구%d · %d점", s->population, s->average_mood);
     if (s->raid_id)
         ui_small(u, 540, 49, UI_BAD, u8"습격: %s %d명 · 저장/수리 불가", fmt_threat_name(s->raid_type),
                  s->raid_enemies_left);
@@ -77,10 +76,12 @@ static void hud(GameApp *a) {
         ui_small(u, 540, 49, UI_GOLD, u8"위협: %s %s · %d일 %d시간 후", fmt_threat_name(s->threat_type),
                  fmt_direction_name(s->threat_direction), s->threat_ticks_left / 144,
                  (s->threat_ticks_left % 144) / 6);
-    if (s->season == CORE_SEASON_AUTUMN || s->season == CORE_SEASON_WINTER)
-        ui_small(u, width - 460, 49, s->resources[CORE_RES_FOOD] < s->winter_food_need ? UI_BAD : UI_GOOD,
-                 u8"겨울 식량 %d/%d · 목재 %d/%d", s->resources[CORE_RES_FOOD], s->winter_food_need,
-                 s->resources[CORE_RES_WOOD], s->winter_wood_need);
+    if (!s->raid_id && (s->season == CORE_SEASON_AUTUMN || s->season == CORE_SEASON_WINTER)) {
+        int days = s->season == CORE_SEASON_WINTER ? 13 - s->day_of_season : 12;
+        int need = (s->population * 12 * days + 9) / 10;
+        ui_small(u, 540, 49, s->resources[CORE_RES_FOOD] < need ? UI_BAD : UI_GOOD,
+                 u8"겨울 %d일분 식량 %d/%d", days, s->resources[CORE_RES_FOOD], need);
+    }
 }
 static void build_bar(GameApp *a) {
     static const int groups[] = {1, 7, 8, 9, 10, 11, 12, 3, 4, 16, 17, 5, 13, 14, 15, 6};
@@ -168,7 +169,7 @@ static void inspector(GameApp *a) {
     } else
         u->input_blocked = 1;
     y -= a->inspector_scroll;
-    BeginScissorMode((int)viewport.x, (int)viewport.y, (int)viewport.width, (int)viewport.height);
+    ui_clip_begin((int)viewport.x, (int)viewport.y, (int)viewport.width, (int)viewport.height);
     if (b) {
         ui_text(u, x + 8, y, UI_GOLD, "%s #%d", core_expansion_building_name(b->type), b->id);
         y += 40;
@@ -306,7 +307,7 @@ static void inspector(GameApp *a) {
             }
         }
     }
-    EndScissorMode();
+    ui_clip_end();
     u->input_blocked = blocked;
 }
 static void notices(GameApp *a) {
@@ -439,7 +440,10 @@ static void slots(GameApp *a, int saving) {
         game_app_slot_path(a, slot, 0, path);
         ok = core_peek_save(path, a->session.defs, &info) == CORE_OK;
         if (ok)
-            fmt_save_info(&info, summary, sizeof(summary));
+            (void)snprintf(summary, sizeof(summary), u8"%s · %d년 %s · %d일 %02d:%02d · %s · %d명",
+                           info.castle_name, info.year, fmt_season_name(info.season), info.day,
+                           info.minute_of_day / 60, info.minute_of_day % 60,
+                           core_expansion_rank_name(info.rank), info.population);
         else {
             (void)snprintf(summary, sizeof(summary), "%s",
                            info.result == CORE_ERR_FILE_OPEN ? u8"빈 슬롯" : fmt_result_message(info.result));
@@ -634,6 +638,11 @@ static void market(GameApp *a, int contracts) {
     } else {
         CoreMarketView m;
         (void)core_get_market(s->world, &m);
+        if (!m.open) {
+            ui_wrap(&a->ui, rect(b.x + 30, b.y + 85, b.width - 60, 100), UI_BAD,
+                    u8"노점·시장·교역소를 짓고 일꾼을 배치하면 거래할 수 있습니다.");
+            return;
+        }
         ui_small(&a->ui, b.x + 30, b.y + 74, m.open ? UI_GOOD : UI_BAD,
                  u8"하루 거래 %d / %d개 · 6일마다 재고 보충 · 아래 가격은 개당", s->summary.market_used,
                  s->summary.market_limit);
@@ -711,6 +720,7 @@ static void villagers(GameApp *a) {
             GameActor *actor = game_actor(s, v->id);
             a->selected_villager = v->id;
             a->selected_building = 0;
+            a->inspector_scroll=0;
             if (actor)
                 a->camera.target = (Vector2){actor->position.x * 16, actor->position.y * 16};
             game_app_close(a);

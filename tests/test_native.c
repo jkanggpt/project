@@ -3,6 +3,7 @@
 #include "storage.h"
 #include "platform.h"
 #include "sprite_layout.h"
+#include "expansion.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -118,10 +119,25 @@ static void walking_direction(void)
     EXPECT(!game_actor_walk(&s,&actor,1,0,&barrier));
     EXPECT(actor.facing==FACE_UP && actor.walk_distance==held);
 }
+static void indoor_transition(const char *data)
+{
+    GameSession *s=(GameSession *)calloc(1,sizeof(*s));Villager *v;GameActor *a;Building *keep;
+    EXPECT(s!=NULL);if(!s)return;
+    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;
+    EXPECT(game_session_new(s,u8"실내 시험",17,1)==CORE_OK);
+    v=s->world->villagers[0];keep=world_keep(s->world);a=game_actor(s,v->id);
+    v->target=keep;v->at_target=1;v->inside_building=keep->id;a->indoor=0;
+    EXPECT(game_session_refresh(s)==CORE_OK);EXPECT(game_session_step(s,2)==CORE_OK);
+    EXPECT(a->indoor>0 && a->indoor<1 && a->facing==FACE_UP);
+    EXPECT(game_session_step(s,3)==CORE_OK);EXPECT(a->indoor==1);
+    v->inside_building=0;EXPECT(game_session_refresh(s)==CORE_OK);
+    EXPECT(game_session_step(s,2)==CORE_OK);EXPECT(a->indoor>0 && a->indoor<1 && a->facing==FACE_DOWN);
+    game_session_free(s);free(s);
+}
 int main(int argc,char **argv)
 {
     if (argc!=2) return 2;
-    paths(); settings(); sprite_layout(); walking_direction(); session(argv[1]);
+    paths(); settings(); sprite_layout(); walking_direction(); session(argv[1]);indoor_transition(argv[1]);
     if (!failed) puts("C native runtime tests passed");
     return failed?1:0;
 }

@@ -203,3 +203,205 @@ void test_expansion_alert_and_departure(void) {
     CHECK(v->home == NULL);
     core_destroy(w);
 }
+void test_expansion_shared_logging(void) {
+    World *w = expanded();
+    Building *a, *b;
+    CoreExpansionTileView *tree;
+    int i;
+    CHECK(w != NULL);
+    for (i = 0; i < w->expansion->cells; i++) {
+        w->expansion->tiles[i].tree_kind = 0;
+        w->expansion->tiles[i].tree_logs_milli = 0;
+    }
+    a = complete(w, CORE_BLD_LOGGING_SITE, 80, 80, 0);
+    b = complete(w, CORE_BLD_LOGGING_SITE, 84, 80, 0);
+    CHECK_EQ(entity_link_worker(a, w->villagers[0], 2), CORE_OK);
+    CHECK_EQ(entity_link_worker(b, w->villagers[1], 2), CORE_OK);
+    a->daily_work_milli = b->daily_work_milli = 1080000;
+    tree = &w->expansion->tiles[grid_index(&w->grid, 83, 81)];
+    tree->tree_kind = 2;
+    tree->tree_age = 48000;
+    tree->tree_logs_milli = 28000;
+    w->bank.amount[CORE_RES_LOGS] = 0;
+    expansion_daily(w);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_LOGS), 800);
+    CHECK_EQ(tree->tree_used_milli, 800);
+    CHECK_EQ(tree->tree_logs_milli, 27200);
+    core_destroy(w);
+}
+void test_expansion_protected_gate(void) {
+    World *w = expanded();
+    Building *gate = NULL;
+    int x, y;
+    CHECK(w != NULL);
+    for (y = 75; y <= 81; y++)
+        for (x = 75; x <= 81; x++)
+            if (x == 75 || x == 81 || y == 75 || y == 81) {
+                Building *b =
+                    complete(w, x == 78 && y == 81 ? CORE_BLD_PALISADE_GATE : CORE_BLD_PALISADE, x, y, 0);
+                if (x == 78 && y == 81)
+                    gate = b;
+            }
+    expansion_rebuild(w);
+    CHECK(w->expansion->protected_cells[grid_index(&w->grid, 78, 78)]);
+    CHECK_EQ(w->grid.block[grid_index(&w->grid, 78, 81)], GRID_BLOCK_GATE);
+    gate->state = CORE_BSTATE_CONSTRUCTING;
+    expansion_rebuild(w);
+    CHECK(!w->expansion->protected_cells[grid_index(&w->grid, 78, 78)]);
+    gate->state = CORE_BSTATE_RUINED;
+    expansion_rebuild(w);
+    CHECK(!w->expansion->protected_cells[grid_index(&w->grid, 78, 78)]);
+    core_destroy(w);
+}
+void test_expansion_candidates_and_housing(void) {
+    World *w = expanded();
+    Building *home, *well;
+    CoreCandidateView saved[15];
+    CHECK(w != NULL);
+    memcpy(saved, w->expansion->candidates, sizeof(saved));
+    home = complete(w, CORE_BLD_SHACK, 80, 80, 0);
+    well = complete(w, CORE_BLD_WELL, 83, 80, 0);
+    expansion_rebuild(w);
+    expansion_water_supply(w);
+    CHECK_EQ(expansion_available_housing(w), 1);
+    well->state = CORE_BSTATE_RUINED;
+    expansion_rebuild(w);
+    CHECK_EQ(expansion_available_housing(w), 0);
+    home->state = CORE_BSTATE_RUINED;
+    expansion_rebuild(w);
+    expansion_candidates(w);
+    CHECK_EQ(memcmp(saved, w->expansion->candidates, sizeof(saved)), 0);
+    core_destroy(w);
+}
+void test_expansion_feed_before_output(void) {
+    World *w = expanded();
+    Building *a, *b;
+    int32_t rc;
+    CHECK(w != NULL);
+    a = complete(w, CORE_BLD_RANCH, 80, 80, 0);
+    b = complete(w, CORE_BLD_RANCH, 84, 80, 0);
+    w->bank.amount[CORE_RES_GOLD] = 1000;
+    CHECK_EQ(core_expansion_buy_animal(w, a->id, 7), CORE_OK);
+    CHECK_EQ(core_expansion_buy_animal(w, b->id, 7), CORE_OK);
+    CHECK_EQ(entity_link_worker(a, w->villagers[0], 3), CORE_OK);
+    CHECK_EQ(entity_link_worker(b, w->villagers[1], 3), CORE_OK);
+    a->daily_work_milli = b->daily_work_milli = w->defs.buildings[CORE_BLD_RANCH].worker_slots * 540000;
+    w->bank.amount[CORE_RES_FOOD] = 0;
+    w->expansion->fractional[CORE_RES_FOOD] = 600;
+    expansion_animal_daily(w);
+    /* 첫 소의 산출물을 두 번째 소의 당일 사료로 쓸 수 없습니다. */
+    CHECK_EQ(w->expansion->animals[w->expansion->animal_count - 1].starve_days, 1);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), 1000);
+    rc = core_expansion_damage_animal(w, w->expansion->animals[w->expansion->animal_count - 1].id, 50);
+    CHECK_EQ(rc, CORE_ERR_REJECTED);
+    w->expansion->animals[w->expansion->animal_count - 1].alive = 0;
+    w->bank.amount[CORE_RES_FOOD] = 0;
+    w->expansion->fractional[CORE_RES_FOOD] = 300;
+    expansion_animal_daily(w);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), 500);
+    core_destroy(w);
+}
+void test_expansion_xp_and_stock(void) {
+    World *w = expanded();
+    Villager *v;
+    int initial;
+    CHECK(w != NULL);
+    v = w->villagers[0];
+    initial = v->initial_stats[0];
+    expansion_add_xp(v, 0, 1000000);
+    CHECK_EQ(v->stats.strength, initial + 3 > 10 ? 10 : initial + 3);
+    w->bank.amount[CORE_RES_FOOD] = 500;
+    CHECK_EQ(expansion_bank_add(w, CORE_RES_FOOD, -1200, CORE_LEDGER_CONSUMPTION), -1200);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), 498800);
+    CHECK_EQ(expansion_bank_add(w, CORE_RES_FOOD, 5000, CORE_LEDGER_PRODUCTION), 0);
+    core_destroy(w);
+}
+void test_expansion_allocation_failures(void) {
+    CoreNewGameParams p = {0};
+    long limit, start = mem_test_live_blocks();
+    int success = 0;
+    strcpy(p.castle_name, u8"할당 시험");
+    p.seed = 7;
+    p.difficulty = 1;
+    p.ruleset = 1;
+    for (limit = 0; limit < 4096; limit++) {
+        World *w = NULL;
+        int rc;
+        mem_test_fail_after(limit);
+        rc = core_create(&p, NULL, &w);
+        mem_test_fail_after(-1);
+        if (rc == CORE_OK) {
+            core_destroy(w);
+            success = 1;
+            break;
+        }
+        CHECK_EQ(rc, CORE_ERR_OUT_OF_MEMORY);
+        CHECK(w == NULL);
+        CHECK_EQ(mem_test_live_blocks(), start);
+    }
+    CHECK(success);
+    CHECK_EQ(mem_test_live_blocks(), start);
+}
+void test_expansion_validation_bounds(void) {
+    World *w = expanded();
+    int count;
+    CHECK(w != NULL);
+    count = w->expansion->candidate_count;
+    w->expansion->candidate_count = 100000;
+    CHECK(expansion_validate(w) > 0);
+    w->expansion->candidate_count = count;
+    w->expansion->candidates[0].stats[0] = 11;
+    CHECK(expansion_validate(w) > 0);
+    core_destroy(w);
+}
+void test_expansion_contract_deadline(void) {
+    World *w = expanded();
+    Villager *v;
+    int id, person;
+    CHECK(w != NULL);
+    v = w->villagers[0];
+    id = v->id;
+    person = v->personal_id;
+    v->contract_end_tick = w->clock.tick + 20;
+    v->state = CORE_VS_LEAVING;
+    v->target = NULL;
+    v->target_x = 0;
+    v->target_y = 96;
+    v->at_target = 0;
+    CHECK_EQ(core_villager_arrived(w, id, v->intent_rev), CORE_OK);
+    CHECK(entity_find_villager(w, id) != NULL);
+    CHECK(v->intent_flags & CORE_INTENT_HOLD);
+    CHECK_EQ(core_tick(w, 19), CORE_OK);
+    CHECK(entity_find_villager(w, id) != NULL);
+    CHECK_EQ(core_tick(w, 1), CORE_OK);
+    CHECK(entity_find_villager(w, id) == NULL);
+    CHECK_EQ(w->expansion->archive_count, 1);
+    CHECK_EQ(w->expansion->archive[0].person_id, person);
+    CHECK_EQ(core_validate(w), 0);
+    core_destroy(w);
+}
+void test_expansion_magic_consumption(void) {
+    World *w = expanded();
+    Building *tower, *keep;
+    int hp;
+    CHECK(w != NULL);
+    tower = complete(w, CORE_BLD_ARCANE_TOWER, 80, 80, 0);
+    keep = world_keep(w);
+    CHECK_EQ(entity_link_worker(tower, w->villagers[0], 3), CORE_OK);
+    w->research.done = (1u << 21) | (1u << 22);
+    w->research.done_count = 2;
+    w->bank.amount[CORE_RES_MANA] = 0;
+    w->expansion->fractional[CORE_RES_MANA] = 900;
+    CHECK_EQ(core_expansion_fire(w, tower->id), CORE_OK);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_MANA), 0);
+    tower->state = CORE_BSTATE_RUINED;
+    CHECK_EQ(core_expansion_fire(w, tower->id), CORE_ERR_REJECTED);
+    CHECK_EQ(threat_debug_raid(w, CORE_THREAT_BANDITS, CORE_DIR_NORTH, 3), CORE_OK);
+    w->expansion->protected_cells[grid_index(&w->grid, keep->x, keep->y)] = 1;
+    w->expansion->fractional[CORE_RES_MANA] = 900;
+    hp = keep->hp;
+    CHECK_EQ(core_report_building_damage(w, w->threat.raid.id, keep->id, 100), CORE_OK);
+    CHECK_EQ(keep->hp, hp - 85);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_MANA), 0);
+    core_destroy(w);
+}

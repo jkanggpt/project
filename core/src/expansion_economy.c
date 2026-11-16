@@ -105,11 +105,12 @@ static void logging(World *w, Building *b, int factor) {
             w->expansion->magic_logs_milli += take;
         if (!t->tree_logs_milli) {
             static const int lo[4] = {8, 12, 20, 35}, hi[4] = {16, 24, 35, 60};
-            t->regrow_day = exp_day(w) + rng_range(&w->rng, lo[kind - 1], hi[kind - 1]);
+            t->regrow_milli = rng_range(&w->rng, lo[kind - 1], hi[kind - 1]) * 1000;
             t->tree_age = 0;
             w->grid.terrain[i] = CORE_TERRAIN_GRASS;
-            if (kind == 4)
-                (void)expansion_bank_add(w, CORE_RES_HERBS, 1000, CORE_LEDGER_PRODUCTION);
+            if (rng_range(&w->rng, 0, 99) < (int[]){20, 10, 25, 25}[kind - 1])
+                (void)expansion_bank_add(w, kind == 4 ? CORE_RES_HERBS : CORE_RES_FOOD,
+                                         kind == 3 ? 2000 : 1000, CORE_LEDGER_PRODUCTION);
         }
     }
 }
@@ -155,31 +156,40 @@ static void mining(World *w, Building *b, int factor) {
         t->ore_milli -= take;
     }
 }
-static int water_for(const World *w, const Building *b, int radius) {
-    int x, y, best = 0, area = 0;
-    for (y = b->y - radius; y < b->y + b->h + radius; y++)
-        for (x = b->x - radius; x < b->x + b->w + radius; x++)
-            if (grid_in_bounds(&w->grid, x, y)) {
-                int id = w->expansion->tiles[grid_index(&w->grid, x, y)].water_id;
-                if (id && w->expansion->water_area[id - 1] > area) {
-                    area = w->expansion->water_area[id - 1];
-                    best = id;
-                }
-            }
-    return best;
-}
 static int fish_request(const World *w, const Building *b, int *water) {
-    int x, y, near = 0, desire;
-    *water = water_for(w, b, b->type == CORE_BLD_PORT ? 2 : 5);
-    if (!*water)
+    int *counts = w->grid.scratch_queue, water_count = w->expansion->water_count, x, y, id, chosen = 0,
+        best = 0, desire;
+    int port = b->type == CORE_BLD_PORT, radius = port ? 1 : 5, cx = b->x + b->w / 2, cy = b->y + b->h / 2;
+    *water = 0;
+    if (!water_count || !b->operating)
         return 0;
-    for (y = b->y - 5; y <= b->y + 5; y++)
-        for (x = b->x - 5; x <= b->x + 5; x++)
-            if (grid_in_bounds(&w->grid, x, y) &&
-                w->expansion->tiles[grid_index(&w->grid, x, y)].water_id == *water)
-                near++;
-    desire = b->type == CORE_BLD_PORT ? exp_clamp(3000 + w->expansion->water_area[*water - 1] * 120, 0, 15000)
-                                      : exp_clamp(near * 250, 0, 5000);
+    if (w->nature.event == CORE_NATURE_COLD_SNAP && exp_season(w) == 3)
+        return 0;
+    memset(counts, 0, (size_t)water_count * sizeof(*counts));
+    for (y = b->y - radius; y < b->y + b->h + radius; y++)
+        for (x = b->x - radius; x < b->x + b->w + radius; x++) {
+            int dx = x < b->x ? b->x - x : x >= b->x + b->w ? x - (b->x + b->w - 1) : 0;
+            int dy = y < b->y ? b->y - y : y >= b->y + b->h ? y - (b->y + b->h - 1) : 0;
+            if (!grid_in_bounds(&w->grid, x, y) ||
+                (port ? dx + dy != 1 : (x - cx) * (x - cx) + (y - cy) * (y - cy) > 25))
+                continue;
+            id = w->expansion->tiles[grid_index(&w->grid, x, y)].water_id;
+            if (id)
+                counts[id - 1]++;
+        }
+    for (id = 1; id <= water_count; id++)
+        if (counts[id - 1]) {
+            int score = port ? w->expansion->water_area[id - 1] : counts[id - 1];
+            if (score > best) {
+                best = score;
+                chosen = id;
+            }
+        }
+    if (!chosen)
+        return 0;
+    *water = chosen;
+    desire = port ? exp_clamp(3000 + w->expansion->water_area[chosen - 1] * 120, 0, 15000)
+                  : exp_clamp(counts[chosen - 1] * 250, 0, 5000);
     return desire * labor(w, b) / 1000 * logistics(w, b) / 100;
 }
 static void fishing(World *w) {
@@ -343,7 +353,9 @@ void expansion_daily(World *w) {
         s = expansion_spec(b->type);
         b->blocked_reason = 0;
         b->operating = expansion_qualified(w, b);
-        if (s->upkeep) {
+        if ((b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) && !b->operating)
+            b->blocked_reason = CORE_DENY_REQUIREMENTS;
+        if (s->upkeep && !((b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) && !b->operating)) {
             if (w->bank.amount[CORE_RES_GOLD] >= s->upkeep)
                 (void)expansion_bank_add(w, CORE_RES_GOLD, -s->upkeep * 1000, CORE_LEDGER_WAGES);
             else {
@@ -352,7 +364,7 @@ void expansion_daily(World *w) {
             }
         }
         b->flags &= ~CORE_BF_COLD;
-        if (exp_season(w) == 3 && s->heating_milli) {
+        if (exp_season(w) == 3 && s->heating_milli && (!s->residents || b->resident_count)) {
             int fuel = s->heating_milli * (expansion_has_research(w, 19) ? 80 : 100) / 100;
             if (expansion_fuel(w, 0, 0) < fuel)
                 b->flags |= CORE_BF_COLD;
@@ -382,15 +394,19 @@ void expansion_daily(World *w) {
                     (void)expansion_bank_add(w, res, 1000, CORE_LEDGER_PRODUCTION);
                 }
             } else if (s->field == 5) {
-                b->hunts_milli += factor;
+                b->hunts_milli = exp_clamp(b->hunts_milli + (b->type == CORE_BLD_HUNTER_CAMP ? 4000 : 9000) *
+                                                                factor / 1000,
+                                           0, 30000);
                 for (i = 0; i < w->expansion->animal_count && b->hunts_milli >= 1000; i++) {
                     CoreAnimalView *a = &w->expansion->animals[i];
                     if (a->alive && !a->owner &&
                         exp_dist(a->x_milli / 1000, a->y_milli / 1000, b->x, b->y) <= s->radius) {
                         static const int meat[16] = {2, 10, 7, 2, 3, 7, 9, 30, 12, 18, 2, 5, 20, 10, 22, 1},
                                          leather[16] = {0, 2, 2, 0, 1, 2, 3, 6, 3, 3, 0, 2, 6, 4, 5, 0};
+                        if (b->hunts_milli < meat[a->kind] * 1000)
+                            continue;
                         a->alive = 0;
-                        b->hunts_milli -= 1000;
+                        b->hunts_milli -= meat[a->kind] * 1000;
                         (void)expansion_bank_add(w, CORE_RES_FOOD, meat[a->kind] * 1000,
                                                  CORE_LEDGER_PRODUCTION);
                         (void)expansion_bank_add(w, CORE_RES_LEATHER, leather[a->kind] * 1000,
@@ -423,10 +439,11 @@ void expansion_growth(World *w) {
                 break;
             }
         }
-        if (t->regrow_day) {
-            if (exp_day(w) < t->regrow_day)
+        if (t->regrow_milli) {
+            t->regrow_milli = exp_clamp(t->regrow_milli - (boost > 1000 ? 2000 : 1000), 0, 60000);
+            if (t->regrow_milli)
                 continue;
-            t->regrow_day = 0;
+            t->regrow_milli = 0;
             t->tree_age = 1000;
             t->tree_logs_milli = logs[t->tree_kind - 1];
             w->grid.terrain[i] = CORE_TERRAIN_FOREST;

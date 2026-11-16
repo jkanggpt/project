@@ -26,7 +26,7 @@ static void help(void)
     puts("Magic Castle - C / raylib\ncastle_game [--data dir] [--assets dir] [--save-dir dir]\n"
          "  --smoke-test [--days 20] [--seed 42]  C runtime test without a window\n"
          "  --stress | --stress-probe              150 villagers + 40 enemies\n"
-         "  --screenshot file.png [--screen title|game|villagers|research|rank|market|load]\n"
+         "  --screenshot file.png [--screen title|game|villagers|rotations|research|rank|market|load]\n"
          "  --frames N --autoplay --no-audio --width 1440 --height 900\n"
          "  --difficulty peaceful|normal|harsh (or 0|1|2)");
 }
@@ -59,7 +59,7 @@ static int options(int argc,char **argv,Options *o)
             else if (!number(d,0,2,&o->difficulty)) return 0;
         } else return 0;
     }
-    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load")) return 0;
+    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"rotations") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load")) return 0;
     return 1;
 }
 void game_app_notice(GameApp *a,const char *text)
@@ -94,7 +94,7 @@ void game_app_close(GameApp *a)
 static void enter_game(GameApp *a)
 {
     a->in_game=1; a->panel=PANEL_NONE; a->return_panel=PANEL_NONE; a->panel_depth=0; a->speed=1;
-    a->selected_building=0; a->selected_villager=0; a->build_type=-1; a->demolish=0; a->dragging=0;
+    a->selected_building=0; a->selected_villager=0; a->build_type=-1; a->demolish=0; a->dragging=0; a->inspector_scroll=0;
     a->shown_outcome=a->session.summary.outcome==CORE_OUTCOME_WON?CORE_OUTCOME_WON:CORE_OUTCOME_NONE;
     a->camera.target=(Vector2){a->session.summary.keep_x*16.0f,a->session.summary.keep_y*16.0f};
     a->camera.zoom=3; a->accumulator=0; a->autosave_day=a->session.summary.day; a->autosave_pending=0; a->notice_count=0;
@@ -219,9 +219,40 @@ static void screenshot_screen(GameApp *a,const Options *o)
 {
     if (!strcmp(o->screen,"title")) { a->panel=PANEL_TITLE; a->in_game=0; return; }
     (void)game_session_new(&a->session,u8"바람언덕",o->seed,o->difficulty); enter_game(a);
-    (void)core_debug_stress(a->session.world,25,0); (void)game_session_refresh(&a->session);
-    (void)game_session_step(&a->session,180);
+    if(!strcmp(o->screen,"villagers") || !strcmp(o->screen,"rotations")){a->speed=0;return;}
+    {
+        int day;
+        for(day=0;day<16;day++){
+            (void)sim_expansion_bot_daily(a->session.world);
+            (void)game_session_step(&a->session,1440);
+        }
+        {
+            int x,y,placed=0;int32_t id=0,reason=0;
+            for(y=a->session.summary.keep_y-7;y<=a->session.summary.keep_y+7 && !placed;y++)
+                for(x=a->session.summary.keep_x-7;x<=a->session.summary.keep_x+7 && !placed;x++){
+                    CorePlacementView p;
+                    (void)core_can_place_rotated(a->session.world,CORE_BLD_GARDEN,x,y,0,&p);
+                    if(p.result==CORE_PLACE_OK && core_place_rotated(a->session.world,CORE_BLD_GARDEN,x,y,0,&id,&reason)==CORE_OK){
+                        (void)core_set_auto_assign(a->session.world,id,0);placed=1;
+                    }
+                }
+            (void)game_session_step(&a->session,360);
+            (void)game_session_step(&a->session,(float)((660-a->session.summary.minute_of_day+1440)%1440));
+        }
+        (void)game_session_refresh(&a->session);
+    }
     game_session_events(&a->session); a->notice_count=0; a->message[0]='\0';
+    if(!strcmp(o->screen,"game")){
+        int b,v;
+        for(b=0;b<a->session.building_count;b++)if(a->session.buildings[b].type==CORE_BLD_GARDEN){
+            int id=a->session.buildings[b].id;
+            (void)core_set_auto_assign(a->session.world,id,0);
+            for(v=0;v<a->session.villager_count;v++)if(a->session.villagers[v].workplace_id==id)
+                (void)core_unassign_worker(a->session.world,a->session.villagers[v].id);
+            break;
+        }
+        (void)game_session_refresh(&a->session);
+    }
     a->speed=0;
     if (!strcmp(o->screen,"research")) a->panel=PANEL_RESEARCH;
     else if (!strcmp(o->screen,"rank")) a->panel=PANEL_RANK;
@@ -294,6 +325,7 @@ static int run(int argc,char **argv)
         ui_begin(&a->ui,&a->assets,a->settings.ui_scale==2?24.0f:20.0f,a->settings.sfx_volume);
         BeginDrawing(); ClearBackground(UI_BG);
         if (o.screenshot && !strcmp(o.screen,"villagers")) game_render_villager_preview(a);
+        else if (o.screenshot && !strcmp(o.screen,"rotations")) game_render_rotation_preview(a);
         else { game_render_world(a); game_render_interface(a); }
         EndDrawing();
         /* 일시정지 중의 명령도 다음 프레임 전에 스냅숏에 반영합니다. */

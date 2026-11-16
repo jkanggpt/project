@@ -53,7 +53,7 @@ static const Field VILLAGER[] = {
 static const Field TILE[] = {
     F(CoreExpansionTileView, biome, 1),           F(CoreExpansionTileView, tree_kind, 1),
     F(CoreExpansionTileView, tree_age, 1),        F(CoreExpansionTileView, tree_logs_milli, 1),
-    F(CoreExpansionTileView, tree_used_milli, 1), F(CoreExpansionTileView, regrow_day, 1),
+    F(CoreExpansionTileView, tree_used_milli, 1), F(CoreExpansionTileView, regrow_milli, 1),
     F(CoreExpansionTileView, ore_kind, 1),        F(CoreExpansionTileView, ore_milli, 1),
     F(CoreExpansionTileView, water_id, 1),        F(CoreExpansionTileView, explored, 1)};
 static const Field ANIMAL[] = {F(CoreAnimalView, id, 1),          F(CoreAnimalView, kind, 1),
@@ -274,8 +274,9 @@ int expansion_validate(const World *w) {
         return 1;
     bad += e->tax < 1 || e->tax > 4 || e->fuel_milli < 0 || e->fuel_milli >= 2000 ||
            e->magic_logs_milli < 0 || e->magic_logs_milli > expansion_bank_have(w, CORE_RES_LOGS);
-    bad += e->animal_count < 0 || e->animal_count > 300 || e->candidate_count < 0 ||
-           e->candidate_count > 15 || e->archive_count < 0 || e->archive_count > 64;
+    if (e->animal_count < 0 || e->animal_count > 300 || e->candidate_count < 0 || e->candidate_count > 15 ||
+        e->archive_count < 0 || e->archive_count > 64)
+        return bad + 1;
     bad += e->starter_waves < 0 || e->starter_waves > 2 || e->immigration_day < 0 ||
            e->immigration_day > CLOCK_MAX_DAYS || e->next_person_id < 1 || e->next_animal_id < 1 ||
            e->trade_used < 0 || e->trade_used > 260;
@@ -286,9 +287,9 @@ int expansion_validate(const World *w) {
         const CoreExpansionTileView *t = &e->tiles[i];
         bad += t->biome < 0 || t->biome > 7 || t->tree_kind < 0 || t->tree_kind > 4 || t->tree_age < 0 ||
                t->tree_age > 112000 || t->tree_logs_milli < 0 || t->tree_logs_milli > 50000 ||
-               t->tree_used_milli < 0 || t->tree_used_milli > 1000 || t->ore_kind < -1 || t->ore_kind >= 15 ||
-               t->ore_milli < 0 || t->ore_milli > 1800000 || t->explored < 0 || t->explored > 1 ||
-               w->grid.road[i] > 3;
+               t->regrow_milli < 0 || t->regrow_milli > 60000 || t->tree_used_milli < 0 ||
+               t->tree_used_milli > 1000 || t->ore_kind < -1 || t->ore_kind >= 15 || t->ore_milli < 0 ||
+               t->ore_milli > 1800000 || t->explored < 0 || t->explored > 1 || w->grid.road[i] > 3;
     }
     for (i = 0; i < w->building_count; i++) {
         const Building *b = w->buildings[i];
@@ -341,6 +342,14 @@ int expansion_validate(const World *w) {
         bad += a->kind < 0 || a->kind > 15 || a->id <= 0 || a->alive < 0 || a->alive > 1 || a->x_milli < 0 ||
                a->y_milli < 0 || a->x_milli >= w->grid.width * 1000 || a->y_milli >= w->grid.height * 1000 ||
                (a->owner && !entity_find_building(w, a->owner));
+        if (a->kind >= 0 && a->kind < 16) {
+            bad += a->hp < 0 ||
+                   a->hp > (int[]){12, 30, 28, 10, 22, 32, 38, 65, 28, 36, 9, 36, 120, 80, 95, 16}[a->kind] ||
+                   (a->alive && a->hp < 1);
+        }
+        bad += a->id >= e->next_animal_id || a->age < 0 || a->starve_days < 0 || a->breed_day < 0;
+        for (j = i + 1; j < e->animal_count; j++)
+            bad += a->id == e->animals[j].id;
     }
     if (w->research.done & 0xff000000u)
         bad++;

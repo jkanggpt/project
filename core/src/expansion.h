@@ -50,6 +50,9 @@ void expansion_initialize_villager(World *world, Villager *v);
 void expansion_add_xp(Villager *villager, int stat, int amount);
 void expansion_assign(World *world);
 void expansion_water_supply(World *world);
+int expansion_available_housing(World *world);
+void expansion_candidate_price(const World *world, CoreCandidateView *candidate);
+int expansion_edge(World *world,int near_x,int near_y,int *x,int *y);
 int expansion_work_percent(const World *world, const Villager *v, int type);
 int expansion_qualified(const World *world, const Building *b);
 void expansion_rebuild(World *world);
@@ -89,6 +92,7 @@ int expansion_setup_research(World *world);
 void expansion_apply_research(World *world);
 int expansion_mood(const World *world, const Villager *v);
 void expansion_animals_tick(World *world);
+int expansion_wild_kind(World *world, int x, int y);
 void expansion_animal_daily(World *world);
 int expansion_market_level(const World *world);
 #endif

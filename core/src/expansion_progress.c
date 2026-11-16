@@ -162,7 +162,7 @@ CORE_API int32_t core_expansion_rank(const CoreWorld *w, CoreExpansionRankView *
                      roads[6] = {0, 10, 35, 90, 170, 280}, areas[6] = {0, 0, 25, 120, 300, 600},
                      protected_pct[6] = {0, 0, 15, 35, 55, 75}, gold[6] = {0, 20, 70, 240, 520, 950},
                      mana[6] = {0, 0, 0, 0, 20, 110}, research[6] = {0, 0, 0, 0, 2, 6},
-                     fooddays[6] = {0, 8, 8, 10, 12, 12};
+                     fooddays[6] = {0, 8, 0, 0, 0, 0};
     int target, i, permanent = 0, mood = 0, facilities = 1;
     if (!w || !out)
         return CORE_ERR_NULL_ARG;
@@ -227,10 +227,10 @@ CORE_API int32_t core_expansion_rank(const CoreWorld *w, CoreExpansionRankView *
         if (expansion_spec(i)->rank == target)
             out->unlocks[i / 64] |= UINT64_C(1) << (i % 64);
     strcpy(out->requirements, target == 1   ? u8"정상 우물 · 식량 8일분"
-                              : target == 2 ? u8"저장고 · 경작지 · 경비 시설 · 식량 8일분"
-                              : target == 3 ? u8"제재소 · 가마 또는 제련소 · 시장 · 식량 10일분"
-                              : target == 4 ? u8"광산 · 기초 연구 2개 · 식량 12일분"
-                                            : u8"병영 · 상급 방어탑 · 연구 6개 · 식량 12일분");
+                              : target == 2 ? u8"저장고 · 경작지 · 경비 시설"
+                              : target == 3 ? u8"제재소 · 가마 또는 제련소 · 시장"
+                              : target == 4 ? u8"광산 · 기초 연구 2개"
+                                            : u8"병영 · 상급 방어탑 · 연구 6개");
     return CORE_OK;
 }
 int expansion_rank_up(World *w, int *reason) {
@@ -345,6 +345,31 @@ CORE_API int32_t core_expansion_market_stock(const CoreWorld *w, int32_t resourc
         return CORE_ERR_INVALID_ARG;
     return w->expansion->trade_stock[resource];
 }
+void expansion_candidate_price(const World *w, CoreCandidateView *c) {
+    Villager v = {0};
+    int type = -1, j, eff, quality;
+    v.stats.strength = c->stats[0];
+    v.stats.agility = c->stats[1];
+    v.stats.vitality = c->stats[2];
+    v.stats.dexterity = c->stats[3];
+    v.stats.intellect = c->stats[4];
+    v.health = 100;
+    v.mood = 50;
+    v.traits[0] = v.traits[1] = -1;
+    memcpy(v.skill_minutes, c->skills, sizeof(c->skills));
+    for (j = 1; j < CORE_BLD_COUNT; j++)
+        if (expansion_spec(j)->field == c->field && expansion_spec(j)->workers &&
+            (type < 0 || w->defs.buildings[j].wage < w->defs.buildings[type].wage))
+            type = j;
+    eff = type < 0 ? 100 : expansion_work_percent(w, &v, type);
+    quality = exp_clamp(1000 + 3 * (eff - 100) +
+                            (c->skills[c->field] >= 75 * 540   ? 600
+                             : c->skills[c->field] >= 30 * 540 ? 400
+                             : c->skills[c->field] >= 8 * 540  ? 200
+                                                               : 0),
+                        800, 2600);
+    c->fee = (18 * (type < 0 ? 1 : w->defs.buildings[type].wage) * quality + 999) / 1000 + 5;
+}
 void expansion_candidates(World *w) {
     ExpansionState *e = w->expansion;
     int period = (exp_day(w) - 1) / 3, level = expansion_market_level(w), count = 15, i;
@@ -358,7 +383,7 @@ void expansion_candidates(World *w) {
     for (i = 0; i < count; i++) {
         CoreCandidateView *c = &e->candidates[i];
         Villager temporary;
-        int j, quality, eff;
+        int j;
         memset(&temporary, 0, sizeof(temporary));
         temporary.loc_x = w->keep_x;
         temporary.loc_y = w->keep_y;
@@ -375,32 +400,17 @@ void expansion_candidates(World *w) {
         c->skills[c->field] = rng_range(&w->rng, 0, 75 * 540);
         c->traits[0] = c->traits[1] = -1;
         strcpy(c->name, w->defs.names[rng_range(&w->rng, 0, w->defs.name_count - 1)].text);
-        temporary.skill_minutes[c->field] = c->skills[c->field];
-        eff = 100;
-        for (j = 1; j < CORE_BLD_COUNT; j++)
-            if (expansion_spec(j)->field == c->field) {
-                eff = expansion_work_percent(w, &temporary, j);
-                break;
-            }
-        quality = exp_clamp(1000 + 3 * (eff - 100) +
-                                (c->skills[c->field] >= 75 * 540   ? 600
-                                 : c->skills[c->field] >= 30 * 540 ? 400
-                                 : c->skills[c->field] >= 8 * 540  ? 200
-                                                                   : 0),
-                            800, 2600);
-        c->fee = (12 *
-                      (w->rank <= 1   ? 1
-                       : w->rank <= 3 ? 2
-                       : w->rank == 4 ? 3
-                                      : 4) *
-                      15 * quality +
-                  9999) /
-                     10000 +
-                 5;
+        expansion_candidate_price(w, c);
     }
     /* 떠난 계약 주민은 같은 개인 기록으로 다시 고용할 수 있습니다. */
-    for (i = 0; i < e->archive_count && i < count; i++)
+    for (i = 0; i < e->archive_count && i < count; i++) {
+        int j;
         e->candidates[i] = e->archive[e->archive_count - 1 - i];
+        expansion_candidate_price(w, &e->candidates[i]);
+        for (j = 0; j < w->villager_count; j++)
+            if (w->villagers[j]->personal_id == e->candidates[i].person_id)
+                e->candidates[i].hired = 1;
+    }
 }
 CORE_API int32_t core_expansion_copy_candidates(const CoreWorld *w, CoreCandidateView *out, int32_t capacity,
                                                 int32_t *count) {
@@ -415,14 +425,15 @@ CORE_API int32_t core_expansion_copy_candidates(const CoreWorld *w, CoreCandidat
         return CORE_ERR_BUFFER_TOO_SMALL;
     if (*count && !out)
         return CORE_ERR_NULL_ARG;
-    memcpy(out, w->expansion->candidates, (size_t)*count * sizeof(*out));
+    if (*count)
+        memcpy(out, w->expansion->candidates, (size_t)*count * sizeof(*out));
     return CORE_OK;
 }
 CORE_API int32_t core_expansion_hire(CoreWorld *w, int32_t person_id, int32_t *villager_id) {
     ExpansionState *e;
     CoreCandidateView *c = NULL;
     Villager *v;
-    int i, count = 0, level;
+    int i, count = 0, level, x = 0, y = 0, free_housing = 0;
     if (!w)
         return CORE_ERR_NULL_ARG;
     if (!w->expansion)
@@ -443,7 +454,11 @@ CORE_API int32_t core_expansion_hire(CoreWorld *w, int32_t person_id, int32_t *v
         return CORE_ERR_NOT_FOUND;
     if (c->hired || w->bank.amount[CORE_RES_GOLD] < c->fee)
         return CORE_ERR_REJECTED;
-    v = population_create(w, w->keep_x, 0);
+    free_housing = expansion_available_housing(w);
+    if (free_housing < 1 || expansion_bank_have(w, CORE_RES_FOOD) < 1200 ||
+        !expansion_edge(w, w->keep_x, 0, &x, &y))
+        return CORE_ERR_REJECTED;
+    v = population_create(w, x, y);
     if (!v)
         return CORE_ERR_OUT_OF_MEMORY;
     (void)expansion_bank_add(w, CORE_RES_GOLD, -c->fee * 1000, CORE_LEDGER_WAGES);

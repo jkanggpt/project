@@ -42,6 +42,7 @@ int game_app_latest(GameApp *app);
 void game_app_slot_path(GameApp *app,int slot,int backup,char path[GAME_PATH_BYTES]);
 void game_render_world(GameApp *app);
 void game_render_villager_preview(GameApp *app);
+void game_render_rotation_preview(GameApp *app);
 void game_render_free(GameApp *app);
 void game_render_interface(GameApp *app);
 void game_world_input(GameApp *app,float delta);

@@ -1,6 +1,7 @@
 /* expansion_world.c — 확장 월드·생물군계·자원 은행과 저빈도 시계 */
 #include "expansion.h"
 #include "mem.h"
+#include "nature.h"
 #include "placement.h"
 #include "population.h"
 #include "rank.h"
@@ -220,7 +221,7 @@ int expansion_new_world(World *w) {
                 break;
         }
         a->id = e->next_animal_id++;
-        a->kind = rng_range(&w->rng, 0, 15);
+        a->kind = expansion_wild_kind(w, x, y);
         if (a->kind == 10)
             a->kind = 0;
         if (exp_dist(x, y, w->keep_x, w->keep_y) < 12 && a->kind >= 11)
@@ -360,6 +361,7 @@ void expansion_tick(World *w) {
     expansion_collect_harvest(w);
     if (minute == 0) {
         eco_roll_ledger(&w->ledger);
+        nature_daily(w);
         expansion_growth(w);
         expansion_daily(w);
         expansion_people_daily(w);

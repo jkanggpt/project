@@ -7,15 +7,19 @@
 
 #define GAME_MAX_ENEMIES 64
 #define GAME_MAX_PROJECTILES 512
-typedef struct GamePoint { float x, y; } GamePoint;
+typedef struct GamePoint {
+    float x, y;
+} GamePoint;
 typedef struct GameActor {
     int id, revision, grid_revision, next, target_x, target_y;
     GamePoint position;
     GamePath path;
-    float cooldown,walk_distance;
+    float cooldown, walk_distance;
     int facing;
     float indoor;
     int indoor_building;
+    int chasing;
+    GamePoint chase_goal;
 } GameActor;
 typedef struct GameEnemy {
     GameActor actor;
@@ -25,10 +29,13 @@ typedef struct GameEnemy {
 } GameEnemy;
 typedef struct GameProjectile {
     GamePoint from, to;
-    float elapsed, duration;
+    float elapsed, duration, radius;
     int raid_id, target_id, target_kind, damage;
 } GameProjectile;
-typedef struct GameTower { int id; float cooldown; } GameTower;
+typedef struct GameTower {
+    int id;
+    float cooldown;
+} GameTower;
 typedef void (*GameEventFn)(void *context, const CoreEventView *event);
 typedef struct GameSession {
     CoreWorld *world;
@@ -43,7 +50,7 @@ typedef struct GameSession {
     CoreExpansionTileView *exp_tiles;
     uint8_t *visibility;
     CoreAnimalView animals[CORE_EXP_MAX_ANIMALS];
-    int animal_count,ruleset,exp_tick;
+    int animal_count, ruleset, exp_tick;
     int cells, grid_revision;
     GameActor *actors;
     int actor_count, actor_capacity;
@@ -51,6 +58,8 @@ typedef struct GameSession {
     CoreRaidView raid;
     GameEnemy enemies[GAME_MAX_ENEMIES];
     int enemy_count, raid_id;
+    int alarm_seen_id;
+    float dispatch_delay;
     GameTower *towers;
     int tower_count, tower_capacity;
     GameProjectile projectiles[GAME_MAX_PROJECTILES];

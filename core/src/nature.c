@@ -2,6 +2,14 @@
  * nature.c — 날씨, 자연 사건, 난방, 병 (설명은 nature.h)
  */
 #include "nature.h"
+#include "expansion.h"
+
+static int season_now(const World *world) {
+    return world->expansion ? exp_season(world) : clock_season(&world->clock);
+}
+static int day_in_season(const World *world) {
+    return world->expansion ? (exp_day(world) - 1) % 12 + 1 : clock_day_of_season(&world->clock);
+}
 
 #include <stdlib.h>
 
@@ -11,7 +19,8 @@
 #include "world.h"
 
 #define SEASON_BIT(season) (1 << (season))
-#define ALL_BUT_WINTER (SEASON_BIT(CORE_SEASON_SPRING) | SEASON_BIT(CORE_SEASON_SUMMER) | SEASON_BIT(CORE_SEASON_AUTUMN))
+#define ALL_BUT_WINTER                                                                                       \
+    (SEASON_BIT(CORE_SEASON_SPRING) | SEASON_BIT(CORE_SEASON_SUMMER) | SEASON_BIT(CORE_SEASON_AUTUMN))
 
 /* 계절별 농장 생산 % (봄, 여름, 가을, 겨울). 겨울에는 농장이 멈춥니다 → 가을에 비축 */
 static const int32_t FARM_SEASON_PERCENT[CORE_SEASON_COUNT] = {100, 120, 110, 0};
@@ -26,19 +35,18 @@ static const int32_t WET_CHANCE[CORE_SEASON_COUNT] = {350, 150, 400, 550};
 typedef void (*NatureHandler)(World *world);
 
 typedef struct NatureEventDef {
-    int32_t season_mask;   /* 일어날 수 있는 계절 (비트) */
-    int32_t chance;        /* 하루에 예보될 확률 (천분율, 보통 난이도) */
+    int32_t season_mask; /* 일어날 수 있는 계절 (비트) */
+    int32_t chance;      /* 하루에 예보될 확률 (천분율, 보통 난이도) */
     int32_t min_days;
     int32_t max_days;
-    int32_t weather;       /* 사건 동안의 날씨 (-1 = 평소대로) */
+    int32_t weather;        /* 사건 동안의 날씨 (-1 = 평소대로) */
     NatureHandler on_start; /* 시작하는 날 아침 */
     NatureHandler on_day;   /* 이어지는 날마다 아침 (시작한 날 포함) */
     NatureHandler on_end;   /* 끝나는 날 아침 */
 } NatureEventDef;
 
 /* 역병: 처음에 주민 여덟 명 중 한 명꼴이 앓습니다 */
-static void plague_start(World *world)
-{
+static void plague_start(World *world) {
     int32_t count = world->villager_count / 8 + 1;
     int32_t tries = world->villager_count * 2;
     while (count > 0 && tries-- > 0 && world->villager_count > 0) {
@@ -50,8 +58,7 @@ static void plague_start(World *world)
 }
 
 /* 역병이 도는 동안: 아픈 주민마다 하루에 한 번, 다른 주민에게 옮길 수 있습니다 */
-static void plague_day(World *world)
-{
+static void plague_day(World *world) {
     int32_t chance = 300 * difficulty_preset(world->difficulty)->nature_pct / 100;
     int32_t sick = 0;
     int32_t i;
@@ -67,8 +74,7 @@ static void plague_day(World *world)
 }
 
 /* 폭풍: 건물 몇 채가 부서집니다 (성채, 성벽, 성문은 튼튼해서 버팀) */
-static void storm_start(World *world)
-{
+static void storm_start(World *world) {
     int32_t hits = 1 + world->building_count / 10;
     int32_t tries = world->building_count * 2;
     if (hits > 4) {
@@ -78,11 +84,12 @@ static void storm_start(World *world)
         Building *building = world->buildings[rng_range(&world->rng, 0, world->building_count - 1)];
         const BuildingDef *def = world_building_def(world, building->type);
         int32_t damage;
-        if (building->type == CORE_BLD_KEEP || building->type == CORE_BLD_WALL || building->type == CORE_BLD_GATE ||
-            building->state != CORE_BSTATE_ACTIVE) {
+        if (building->type == CORE_BLD_KEEP || building->type == CORE_BLD_WALL ||
+            building->type == CORE_BLD_GATE || building->state != CORE_BSTATE_ACTIVE) {
             continue;
         }
-        damage = def->max_hp * rng_range(&world->rng, 25, 60) / 100 * difficulty_preset(world->difficulty)->nature_pct / 100;
+        damage = def->max_hp * rng_range(&world->rng, 25, 60) / 100 *
+                 difficulty_preset(world->difficulty)->nature_pct / 100;
         placement_damage(world, building, damage);
         hits--;
     }
@@ -95,11 +102,11 @@ static const NatureEventDef NATURE_EVENTS[CORE_NATURE_COUNT] = {
     /* 역병 */ {ALL_BUT_WINTER, 35, 4, 6, -1, plague_start, plague_day, NULL},
     /* 폭풍 */ {ALL_BUT_WINTER, 50, 1, 1, CORE_WEATHER_STORM, storm_start, NULL, NULL},
     /* 혹한 */ {SEASON_BIT(CORE_SEASON_WINTER), 120, 2, 4, CORE_WEATHER_SNOW, NULL, NULL, NULL},
-    /* 풍년 */ {SEASON_BIT(CORE_SEASON_SUMMER) | SEASON_BIT(CORE_SEASON_AUTUMN), 50, 3, 4, -1, NULL, NULL, NULL},
+    /* 풍년 */
+    {SEASON_BIT(CORE_SEASON_SUMMER) | SEASON_BIT(CORE_SEASON_AUTUMN), 50, 3, 4, -1, NULL, NULL, NULL},
 };
 
-void nature_init(Nature *nature)
-{
+void nature_init(Nature *nature) {
     nature->weather = CORE_WEATHER_CLEAR;
     nature->event = CORE_NATURE_NONE;
     nature->event_days = 0;
@@ -111,9 +118,8 @@ void nature_init(Nature *nature)
 
 /* ---- 효과 질문 -------------------------------------------------------- */
 
-int32_t nature_farm_percent(const World *world)
-{
-    int32_t percent = FARM_SEASON_PERCENT[clock_season(&world->clock)];
+int32_t nature_farm_percent(const World *world) {
+    int32_t percent = FARM_SEASON_PERCENT[season_now(world)];
     if (world->nature.weather == CORE_WEATHER_RAIN) {
         percent = percent * 110 / 100;
     }
@@ -125,8 +131,7 @@ int32_t nature_farm_percent(const World *world)
     return percent;
 }
 
-int32_t nature_walk_percent(const World *world)
-{
+int32_t nature_walk_percent(const World *world) {
     switch (world->nature.weather) {
     case CORE_WEATHER_SNOW:
         return 85;
@@ -137,9 +142,8 @@ int32_t nature_walk_percent(const World *world)
     }
 }
 
-int32_t nature_heating_per_house(const World *world)
-{
-    int32_t wood = HEATING_BY_SEASON[clock_season(&world->clock)];
+int32_t nature_heating_per_house(const World *world) {
+    int32_t wood = HEATING_BY_SEASON[season_now(world)];
     if (world->nature.event == CORE_NATURE_COLD_SNAP) {
         wood += 1;
     }
@@ -148,14 +152,13 @@ int32_t nature_heating_per_house(const World *world)
 }
 
 /* 난방이 필요한 집 (다 지었고 누가 사는 집) */
-static int needs_heating(const Building *building)
-{
-    return building->type == CORE_BLD_HOUSE && building->state == CORE_BSTATE_ACTIVE && building->resident_count > 0;
+static int needs_heating(const Building *building) {
+    return building->type == CORE_BLD_HOUSE && building->state == CORE_BSTATE_ACTIVE &&
+           building->resident_count > 0;
 }
 
-void nature_winter_needs(const World *world, int32_t *out_food, int32_t *out_wood)
-{
-    int32_t season = clock_season(&world->clock);
+void nature_winter_needs(const World *world, int32_t *out_food, int32_t *out_wood) {
+    int32_t season = season_now(world);
     int32_t days;
     int32_t houses = 0;
     int32_t i;
@@ -164,7 +167,7 @@ void nature_winter_needs(const World *world, int32_t *out_food, int32_t *out_woo
     if (season == CORE_SEASON_AUTUMN) {
         days = CLOCK_DAYS_PER_SEASON; /* 겨울 내내 */
     } else if (season == CORE_SEASON_WINTER) {
-        days = CLOCK_DAYS_PER_SEASON - clock_day_of_season(&world->clock) + 1; /* 남은 겨울 (오늘 포함) */
+        days = CLOCK_DAYS_PER_SEASON - day_in_season(world) + 1; /* 남은 겨울 (오늘 포함) */
     } else {
         return;
     }
@@ -177,17 +180,15 @@ void nature_winter_needs(const World *world, int32_t *out_food, int32_t *out_woo
 
 /* ---- 하루 결산 -------------------------------------------------------- */
 
-static void set_weather(World *world, int32_t weather)
-{
+static void set_weather(World *world, int32_t weather) {
     if (world->nature.weather != weather) {
         world->nature.weather = weather;
         events_push_count(&world->events, CORE_EVT_WEATHER_CHANGED, weather);
     }
 }
 
-static void roll_weather(World *world)
-{
-    int32_t season = clock_season(&world->clock);
+static void roll_weather(World *world) {
+    int32_t season = season_now(world);
     const NatureEventDef *def = &NATURE_EVENTS[world->nature.event];
     int32_t weather = CORE_WEATHER_CLEAR;
     if (world->nature.event != CORE_NATURE_NONE && def->weather >= 0) {
@@ -199,8 +200,7 @@ static void roll_weather(World *world)
 }
 
 /* 지난밤 난방: 집마다 목재를 쓰고, 모자란 집은 춥습니다 (그 집 주민의 기분이 떨어짐) */
-static void heat_houses(World *world)
-{
+static void heat_houses(World *world) {
     int32_t per_house = nature_heating_per_house(world);
     int32_t cold = 0;
     int32_t i;
@@ -224,14 +224,13 @@ static void heat_houses(World *world)
 }
 
 /* 진행 중인 사건을 하루 진행하고, 예보된 사건을 시작합니다 */
-static void advance_events(World *world)
-{
+static void advance_events(World *world) {
     Nature *nature = &world->nature;
     if (nature->event != CORE_NATURE_NONE) {
         const NatureEventDef *def = &NATURE_EVENTS[nature->event];
         nature->event_days--;
         /* 계절이 바뀌어 그 사건이 있을 수 없는 계절이 되면 끝냅니다 (겨울의 풍년 같은 일이 없게) */
-        if (!(def->season_mask & SEASON_BIT(clock_season(&world->clock)))) {
+        if (!(def->season_mask & SEASON_BIT(season_now(world)))) {
             nature->event_days = 0;
         }
         if (nature->event_days <= 0) {
@@ -266,8 +265,7 @@ static void advance_events(World *world)
 }
 
 /* 내일의 사건을 고릅니다: 내일 계절에 일어날 수 있는 사건들의 확률을 차례로 더해 한 번 굴립니다 */
-static void forecast_tomorrow(World *world)
-{
+static void forecast_tomorrow(World *world) {
     Nature *nature = &world->nature;
     int32_t tomorrow_season;
     int32_t roll;
@@ -277,9 +275,9 @@ static void forecast_tomorrow(World *world)
         nature->calm_days < NATURE_CALM_DAYS || clock_day(&world->clock) < NATURE_GRACE_DAYS) {
         return;
     }
-    tomorrow_season = clock_day_of_season(&world->clock) == CLOCK_DAYS_PER_SEASON
-                          ? (clock_season(&world->clock) + 1) % CORE_SEASON_COUNT
-                          : clock_season(&world->clock);
+    tomorrow_season = day_in_season(world) == (world->expansion ? 12 : CLOCK_DAYS_PER_SEASON)
+                          ? (season_now(world) + 1) % CORE_SEASON_COUNT
+                          : season_now(world);
     roll = rng_range(&world->rng, 0, 999);
     for (event = 1; event < CORE_NATURE_COUNT; event++) {
         const NatureEventDef *def = &NATURE_EVENTS[event];
@@ -297,12 +295,11 @@ static void forecast_tomorrow(World *world)
 }
 
 /* 가을 첫날과 닷새째: 겨울을 나기에 모자라면 미리 알립니다 */
-static void warn_winter(World *world)
-{
+static void warn_winter(World *world) {
     int32_t food;
     int32_t wood;
-    int32_t day = clock_day_of_season(&world->clock);
-    if (clock_season(&world->clock) != CORE_SEASON_AUTUMN || (day != 1 && day != 5)) {
+    int32_t day = day_in_season(world);
+    if (season_now(world) != CORE_SEASON_AUTUMN || (day != 1 && day != 5)) {
         return;
     }
     nature_winter_needs(world, &food, &wood);
@@ -311,25 +308,28 @@ static void warn_winter(World *world)
     }
 }
 
-void nature_daily(World *world)
-{
+void nature_daily(World *world) {
     advance_events(world);
     roll_weather(world);
-    heat_houses(world);
-    warn_winter(world);
+    if (!world->expansion) {
+        heat_houses(world);
+        warn_winter(world);
+    } else if (world->nature.event != CORE_NATURE_NONE && world->nature.event != CORE_NATURE_BUMPER) {
+        world->expansion->disaster_day = exp_day(world);
+    }
     forecast_tomorrow(world);
 }
 
 /* ---- 병 -------------------------------------------------------------- */
 
-int nature_make_sick(World *world, Villager *villager)
-{
+int nature_make_sick(World *world, Villager *villager) {
     if (villager->sick_ticks > 0 || villager->state == CORE_VS_LEAVING) {
         return 0;
     }
     /* 체력이 좋을수록 빨리 낫습니다: 체력 1 → 1.4배, 5 → 1배, 10 → 0.5배 */
     villager->sick_ticks = NATURE_SICK_TICKS * (15 - villager->stats.vitality) / 10;
-    villager->sick_ticks = villager->sick_ticks * (100 - world->research.healing_pct) / 100; /* 연구 "약초 마법" */
+    villager->sick_ticks =
+        villager->sick_ticks * (100 - world->research.healing_pct) / 100; /* 연구 "약초 마법" */
     if (villager->sick_ticks < 1) {
         villager->sick_ticks = 1;
     }
@@ -339,8 +339,7 @@ int nature_make_sick(World *world, Villager *villager)
     return 1;
 }
 
-void nature_cure(World *world, Villager *villager, int by_healer)
-{
+void nature_cure(World *world, Villager *villager, int by_healer) {
     villager->sick_ticks = 0;
     villager->heal_ticks = 0;
     villager->flags &= ~CORE_VF_SICK;
@@ -350,8 +349,7 @@ void nature_cure(World *world, Villager *villager, int by_healer)
     events_push_villager(&world->events, CORE_EVT_VILLAGER_CURED, villager->id, by_healer, 0, villager->name);
 }
 
-void nature_sick_tick(World *world, Villager *villager)
-{
+void nature_sick_tick(World *world, Villager *villager) {
     if (villager->sick_ticks <= 0) {
         return;
     }
@@ -365,8 +363,7 @@ void nature_sick_tick(World *world, Villager *villager)
     }
 }
 
-Building *nature_open_healer(const World *world, const Villager *villager)
-{
+Building *nature_open_healer(const World *world, const Villager *villager) {
     Building *best = NULL;
     int32_t best_distance = 0;
     int32_t i;

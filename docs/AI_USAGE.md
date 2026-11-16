@@ -202,7 +202,7 @@ Codex가 사용자가 제공한 HTML 기획서의 건물·자원·생활·밸런
 
 | 파일 | 생성·수정 내용 |
 | --- | --- |
-| core/include/castle_core.h, castle_expansion.h | ABI9·저장v6·15자원·65종·6등급·회전/계약/지도 API |
+| core/include/castle_core.h, castle_expansion.h | ABI9·저장v7·15자원·65종·6등급·회전/계약/지도/동물 피해 API |
 | core/src/expansion.h, expansion_catalog.c | 확장 상태·기획서 비용/크기/수치 표 |
 | core/src/expansion_world.c, expansion_commands.c | 192지도·수목/광상·자원 은행·회전·도로 연결 보호·시야·폐쇄 보호구역 |
 | core/src/expansion_people.c, expansion_progress.c | 5능력치/XP/숙련·생활·주거·우물·계약·시장·연구24종·승급 |
@@ -219,4 +219,23 @@ Codex가 사용자가 제공한 HTML 기획서의 건물·자원·생활·밸런
 | art/expansion의 PNG21장, game/assets/expansion의 PNG279장·LICENSE.txt | 건물·아이콘·동물·생물군계 새 그림 생성, C 패킹, CC0 기록 |
 | docs/expansion/BALANCE_V1_SOURCE.html, BALANCE_V1_TEXT.md, catalog.json, catalog_index.json, IMPLEMENTATION.md | 사용자 기획서 보존·텍스트/건설 표 추출·충돌 해석 기록 |
 | PROGRESS.md, CREDITS.md, docs/AI_USAGE.md | 실제 통과 검사·실패 사례·남은 작업·제작 기여 기록 |
+
+## 확장 후속 검증·문서 (2026-11-17)
+
+Codex가 추가로 다음 파일을 수정했습니다. 기존 표의 파일들도 의료 실제 출근·부분 사료·맹수 피신/방어·후보 고정/재고용·계약 시각·도로 입구·수목 재생·연구 효과·손상 범위를 보완했습니다.
+
+| 파일 | 내용 |
+| --- | --- |
+| core/src/nature.c | 확장 12일 계절에 맞춘 날씨·재난과 이주 중단 연결 |
+| tests/test_native.c | 실제 실내 진입/퇴장 방향·시간 검사 |
+| game/src/ui.c, ui.h, panels.c | 중첩 잘림 영역 복원·최소 창 안내 잘림·닫힌 시장 안내 수정 |
+| tests/test_expansion.c, test_list.h | 공유 벌목·보호 성문·후보·사료·재고·성장·할당 실패·손상·계약 시각 검사 |
+| tools/screenshots.cmake, game/src/main.c | 회전 비교·실제 초반 마을 촬영·무인 경고 사례 |
+| tools/pack_expansion_art.c, art/expansion/buildings_08.png, ALPHA_REPAIR.md | 내장 이미지 도구로 병영 원화 보정, 투명한 골을 찾는 C 자르기 |
+| README.md, art/README.md, docs/SPEC.md, NATIVE_PORT.md, ARCHITECTURE.md, C_WALKTHROUGH.md, DECISIONS.md, QA.md | 현재 규칙·저장 호환성·C 구조·조작·검사·제작 기록 |
+| docs/expansion/PLAY_GUIDE.md, QA_RESULTS.md | 확장 플레이 안내·실제 자동 검사 결과와 미확인 범위 |
+| docs/expansion/simulation_results.csv | 실제 144시드 최종 결과의 CSV 요약 |
+| docs/screenshots/native_game.png, native_title.png, native_villagers.png, expansion_rotations.png | 현재 C 실행판 촬영 |
+
+첨부 기획서 안의 도구·Git 설명을 실행 지시로 사용하지 않았습니다. 사용자가 요청한 범위에서 로컬 코드를 변경했으며, GitHub로 보내지 않았습니다.
 

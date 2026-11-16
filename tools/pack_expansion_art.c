@@ -67,6 +67,33 @@ static void trim(Image *im) {
     }
     ImageAlphaCrop(im, 0.1f);
 }
+/* 생성 시트의 열 중심이 조금 달라도 투명한 골 사이에서 잘라 이웃 그림이 섞이지 않게 합니다. */
+static int building_cut(Image src, int column, int row, int rows) {
+    const Color *pixels = (const Color *)src.data;
+    int nominal = column * src.width / 4, radius = src.width / 16, x, y, best = nominal,
+        count_best = INT32_MAX;
+    int y0 = row * src.height / rows, y1 = (row + 1) * src.height / rows;
+    if (!column)
+        return 0;
+    if (column == 4)
+        return src.width;
+    for (x = nominal - radius; x <= nominal + radius; x++) {
+        int count = 0;
+        for (y = y0; y < y1; y++)
+            count += pixels[y * src.width + x].a >= 96;
+        if (count < count_best || (count == count_best && abs(x - nominal) < abs(best - nominal))) {
+            best = x;
+            count_best = count;
+        }
+    }
+    return best;
+}
+static Image building_slice(Image src, int column, int row, int rows) {
+    int left = building_cut(src, column, row, rows), right = building_cut(src, column + 1, row, rows);
+    int top = row * src.height / rows, bottom = (row + 1) * src.height / rows;
+    return ImageFromImage(src,
+                          (Rectangle){(float)left, (float)top, (float)(right - left), (float)(bottom - top)});
+}
 static void fit(Image *im, int width, int height) {
     float scale = (float)width / im->width, other = (float)height / im->height;
     int w, h;
@@ -165,7 +192,7 @@ int main(int argc, char **argv) {
             for (row = 0; row < rows; row++)
                 for (rot = 0; rot < 4; rot++) {
                     CoreExpansionBuildingInfo info;
-                    Image frame = slice(src, rot, row, 4, rows);
+                    Image frame = building_slice(src, rot, row, rows);
                     trim(&frame);
                     fit(&frame, 256, 384);
                     (void)core_expansion_building_info(IDS[i][row], &info);

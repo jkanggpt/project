@@ -1,5 +1,11 @@
 # Build prompt — 마법성채 키우기 (complete game)
 
+> **2026-11-17 통합 확장 기획서 v1.0을 적용했습니다.**
+> 최신 규칙은 `docs/expansion/BALANCE_V1_TEXT.md`와 `IMPLEMENTATION.md`를 참고합니다.
+> C/raylib 새 게임은 192지도·15자원·건설64종+시작 성채·6등급·연구24종·12일 계절/48일 연도이며 저장은 v7/ABI9입니다.
+> 건물 65종×4방향 PNG, 밭 전용 농장, 실내 출입, 무인/욕구/작업 말풍선을 사용합니다.
+> 아래 Godot 원문의 이전 수치와 충돌하면 학생의 확장 기획서 및 최신 요청을 우선합니다.
+
 > **2026-11-14 학생 요청으로 기술 구성을 C11 + raylib 5.5로 변경했습니다.**
 > 현재 구현·빌드·검사 기준은 `docs/NATIVE_PORT.md`, `docs/ARCHITECTURE.md`, `README.md`입니다.
 > 아래 원문의 Godot/C#/.NET·P/Invoke·장면·Python 도구 지시는 전환 이전 설계 기록입니다.

@@ -1,6 +1,6 @@
 # 마법성채 키우기
 
-성채를 촌락에서 왕성으로 성장시키는 2D 중세 판타지 경영 게임입니다.
+개척지를 촌락·마을·도시·성채·왕성으로 성장시키는 2D 중세 판타지 경영 게임입니다.
 **게임 규칙·화면·입력·이동·전투·메뉴·저장을 C로 구현**하며 그래픽·창·소리는 raylib 5.5를 사용합니다.
 Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 
@@ -8,6 +8,11 @@ Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 건물은 지붕을 위에서 내려다보는 약 45도 구도이며, 주민은 머리색별 남녀 8외형과 정면·측면·뒷면 걷기를 제공합니다. 외형은 직업을 바꿔도 유지됩니다.
 주민은 1×1칸 판정에 약 1.5칸 높이이며, 높은 건물과 수관은 뒤의 칸과 주민을 가립니다.
 점유 칸과 그림 높이·앞뒤 정렬 설명, 원본과 C 패킹 방법은 [art/README.md](art/README.md)입니다.
+
+통합 확장 v1.0: 192×192 지도, 15자원, 건설 64종과 시작 성채, 연구 24종을 제공합니다.
+건물 65종은 정면·후면·양옆 260개 그림으로 회전하며, 농장류는 밭·작물만 표시합니다.
+주민은 지붕이 있는 건물 안으로 들어갑니다. 무인 시설의 빨간 느낌표, 주민 욕구와 건물 작업 아이콘이 말풍선으로 표시됩니다.
+규칙과 문서 충돌의 해석은 [확장 구현 기록](docs/expansion/IMPLEMENTATION.md), 장기 검사 결과는 [확장 QA](docs/expansion/QA_RESULTS.md)에 기록합니다.
 
 ![C 실행판 게임 화면](docs/screenshots/native_game.png)
 ![C 실행판 제목 화면](docs/screenshots/native_title.png)
@@ -66,13 +71,15 @@ ctest --preset linux-debug -j8
 | 아래쪽 건설 분류·건물 버튼 | 건설 도구 선택 |
 | 왼쪽 클릭 / 도로·성벽 드래그 | 건설·선택 / 줄 놓기 |
 | 오른쪽 클릭 / X | 도구 취소 / 철거 |
+| R | 건설 미리보기 또는 선택한 건물 회전 |
 | V / F1 | 주민 목록 / 도움말 |
 | Esc | 열린 창 → 도구 → 선택 순으로 닫고 메뉴 |
 
-농장과 벌목장, 주택을 먼저 지으세요. 일터에 도착한 주민만 생산하며 도로는 이동 시간을 줄입니다.
-겨울에는 농장이 멈추므로 식량과 난방 목재를 비축하세요.
-예고된 습격 방향에 탑·성벽·성문을 마련하고 병영에 경비병을 배치하세요.
-마을에서 광산, 요새에서 마탑이 열립니다. 연구와 승급을 거쳐 왕성이 되면 승리합니다.
+막사·텃밭·채집장·벌목지와 우물을 마련하세요. 원목과 가공 목재는 별개이며, 제재소에서 목재를 만듭니다.
+일터에 도착해 실제로 일한 시간만 생산에 반영됩니다. 경작지·농장은 봄·여름 노동을 모아 25일째 오전 8시에 한 번 수확합니다.
+1년은 48일, 계절은 12일, 보통 배속의 하루는 120초입니다. 겨울 식량과 석탄·원목·목재 연료를 비축하세요.
+촌락부터 새 시설 입구는 성채 입구와 이어진 도로에 붙여야 합니다. 적은 실제 시야에 들어왔을 때 경보가 울립니다.
+성벽으로 주거를 감싸고 경비병과 방어탑에 일꾼을 배치하세요. 마탑 이전에도 도시의 도서관·마법 공방에서 기초 연구를 시작할 수 있습니다.
 
 주민·건물 검사창, 직접 일꾼 배치, 시장·상인, 연구, 승급, 장부, 정렬 가능한 주민 목록,
 초반 목표·승패 화면, 이름·시드·난이도, 설정·슬롯 메뉴를 제공합니다.
@@ -82,10 +89,10 @@ ctest --preset linux-debug -j8
 
 - Windows: `%APPDATA%/MagicCastle/saves/`, 설정은 상위 폴더의 `settings.cfg`.
 - Linux: `$XDG_DATA_HOME/magic-castle/` 또는 `~/.local/share/magic-castle/`.
-- 자동 저장과 슬롯 1~3, 원자적 저장과 `.bak` 복구. 세이브 v5·API ABI 8 유지.
+- 자동 저장과 슬롯 1~3, 원자적 저장과 `.bak` 복구. 현재 세이브 v7·API ABI 9.
 - 습격 중에는 저장·수리를 막으며 자동 저장을 습격 종료 뒤로 미룹니다.
 - 자동 검사는 실행 파일 옆 `saves_automated/` 또는 지정한 `--save-dir`를 사용합니다.
-- 기존 v5 세이브는 새 저장 폴더로 복사하거나 `--save-dir <기존 폴더>`로 읽을 수 있습니다.
+- 확장 전 v5와 개발 중 v6 저장은 호환되지 않습니다. 기존 파일은 지우지 않으며 새 게임을 시작해야 합니다.
 - 실행 파일·`data/`·`assets/`·라이선스를 함께 배포합니다. 별도 코어 DLL은 필요하지 않습니다.
 
 ## 검사와 C 도구
@@ -103,12 +110,15 @@ ctest --preset linux-debug -j8
 # Python 대신 C로 구현한 밸런스 집계
 ./build/windows-msvc/bin/Release/castle_balance.exe --seeds 16 --days 100
 
+# 현재 확장 규칙: 실제 이동·전투, 일별 CSV와 저장 왕복
+./build/windows-msvc/bin/Release/castle_expansion_balance.exe --days 200 --seeds 48 --out artifacts/expansion/quality-final
+
 # C 콘솔판과 장시간 검사
 ./build/windows-msvc/bin/Release/castle_cli.exe
 ./build/windows-msvc/bin/Release/castle_cli.exe --soak 400 --seeds 20
 ```
 
-`castle_game --screenshot <파일.png> --screen title|game|villagers|research|rank|market|load --no-audio`로 화면을 촬영합니다.
+`castle_game --screenshot <파일.png> --screen title|game|villagers|rotations|research|rank|market|load --no-audio`로 화면을 촬영합니다.
 `tools/screenshots.cmake`, `tools/smoke_test.cmake`로도 실행할 수 있습니다.
 각 실행 파일은 `--help`를 제공합니다.
 
@@ -117,6 +127,7 @@ ctest --preset linux-debug -j8
 | 위치 | 역할 |
 | --- | --- |
 | core/ | C11 상태·게임 규칙·정의·저장·검증 |
+| core/src/expansion_*.c | 현재 확장 카탈로그·지도·생산·생활·동물·시장·연구·저장 |
 | game/src/session.c | 뷰 동기화·고정 틱·주민 이동 |
 | game/src/path.c | 가중치 격자 A* |
 | game/src/combat.c | 적·경비병·탑·투사체·결과 보고 |
@@ -126,6 +137,7 @@ ctest --preset linux-debug -j8
 | game/data/, game/assets/ | 기존 정의와 CC0/OFL 리소스 |
 | cli/ | 콘솔판·공용 C 봇·CSV·간이 전투·소크 |
 | tools/balance.c | C 밸런스 결과 집계 |
+| tools/expansion_balance.c, pack_expansion_art.c | 확장 장기 검사·65종 회전 그림 패킹 |
 | tests/ | 코어·CLI·새 실행 계층 검사 |
 | docs/ | 구조·전환 범위·발표·QA·AI 기록 |
 

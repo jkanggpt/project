@@ -26,7 +26,7 @@ typedef struct CoreExpansionBuildingInfo {
     char key[CORE_KEY_BYTES], name[CORE_NAME_BYTES], description[256];
 } CoreExpansionBuildingInfo;
 typedef struct CoreExpansionTileView {
-    int32_t biome, tree_kind, tree_age, tree_logs_milli, tree_used_milli, regrow_day;
+    int32_t biome, tree_kind, tree_age, tree_logs_milli, tree_used_milli, regrow_milli;
     int32_t ore_kind, ore_milli, water_id, explored;
 } CoreExpansionTileView;
 typedef struct CoreAnimalView {
@@ -70,6 +70,7 @@ CORE_API int32_t core_expansion_set_tax(CoreWorld *world, int32_t tax);
 CORE_API int32_t core_expansion_set_smelter(CoreWorld *world, int32_t id, int32_t mode);
 CORE_API int32_t core_expansion_hire(CoreWorld *world, int32_t person_id, int32_t *villager_id);
 CORE_API int32_t core_expansion_buy_animal(CoreWorld *world, int32_t building_id, int32_t kind);
+CORE_API int32_t core_expansion_damage_animal(CoreWorld *world, int32_t animal_id, int32_t damage);
 CORE_API int32_t core_expansion_rank(const CoreWorld *world, CoreExpansionRankView *out);
 CORE_API int32_t core_expansion_spotted(CoreWorld *world, int32_t x, int32_t y);
 CORE_API int32_t core_expansion_fire(CoreWorld *world, int32_t building_id);
