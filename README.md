@@ -4,6 +4,10 @@
 **게임 규칙·화면·입력·이동·전투·메뉴·저장을 C로 구현**하며 그래픽·창·소리는 raylib 5.5를 사용합니다.
 Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 
+주민·적·건물·수목·광석·지면·도로·자원 아이콘을 새 중세 판타지 픽셀아트로 제작했습니다.
+주민은 1×1칸 판정에 약 1.5칸 높이이며, 높은 건물과 수관은 뒤의 칸과 주민을 가립니다.
+점유 칸과 그림 높이·앞뒤 정렬 설명, 원본과 C 패킹 방법은 [art/README.md](art/README.md)입니다.
+
 ![C 실행판 게임 화면](docs/screenshots/native_game.png)
 ![C 실행판 제목 화면](docs/screenshots/native_title.png)
 

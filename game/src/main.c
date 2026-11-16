@@ -212,6 +212,7 @@ static void screenshot_screen(GameApp *a,const Options *o)
     if (!strcmp(o->screen,"title")) { a->panel=PANEL_TITLE; a->in_game=0; return; }
     (void)game_session_new(&a->session,u8"바람언덕",o->seed,o->difficulty); enter_game(a);
     (void)core_debug_stress(a->session.world,25,0); (void)game_session_refresh(&a->session);
+    (void)game_session_step(&a->session,180);
     game_session_events(&a->session); a->notice_count=0; a->message[0]='\0';
     a->speed=0;
     if (!strcmp(o->screen,"research")) a->panel=PANEL_RESEARCH;
@@ -291,7 +292,7 @@ static int run(int argc,char **argv)
     }
     if (o.probe) printf("STRESS: frames=%d avg_ms=%.3f max_ms=%.3f villagers=%d enemies=%d\n",frame-120,frame>120?frame_total/(frame-120):0,frame_max,a->session.villager_count,a->session.enemy_count);
     if (!a->automated) { (void)game_make_dirs(a->user_dir); (void)game_settings_save(&a->settings,a->settings_path); }
-    game_assets_free(&a->assets); CloseWindow(); game_session_free(&a->session); free(a);
+    game_render_free(a); game_assets_free(&a->assets); CloseWindow(); game_session_free(&a->session); free(a);
     return status<0?1:status;
 }
 

@@ -2,6 +2,7 @@
 #include "session.h"
 #include "storage.h"
 #include "platform.h"
+#include "sprite_layout.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,10 +66,26 @@ static void session(const char *data)
     game_session_free(s); free(s);
     (void)platform_remove_file("native_roundtrip.sav");
 }
+static void sprite_layout(void)
+{
+    GameSpriteBox actor=game_actor_sprite(120,160,GAME_ACTOR_HEIGHT);
+    GameSpriteBox keep=game_building_sprite(CORE_BLD_KEEP,10,10,3,3,256,256);
+    GameSpriteBox tower=game_building_sprite(CORE_BLD_TOWER,10,10,1,1,128,256);
+    GameDrawItem order[4]={{209,DRAW_VILLAGER,0,5},{208,DRAW_BUILDING,0,1},{150,DRAW_VILLAGER,1,2},{160,DRAW_PROP,0,0}};
+    EXPECT(actor.h==1.5f*GAME_TILE_SIZE && actor.y+actor.h==160);
+    EXPECT(keep.y<10*GAME_TILE_SIZE && keep.y+keep.h==13*GAME_TILE_SIZE);
+    EXPECT(fabsf((keep.x+keep.w/2)-11.5f*GAME_TILE_SIZE)<0.001f);
+    EXPECT(fabsf(keep.w/keep.h-1)<0.001f);
+    EXPECT(tower.h>=3*GAME_TILE_SIZE && tower.y+tower.h==11*GAME_TILE_SIZE);
+    qsort(order,4,sizeof(order[0]),game_draw_compare);
+    /* 뒤 주민 → 나무 → 건물 → 앞 주민: 큰 지붕에도 점유·정렬 기준은 발밑입니다. */
+    EXPECT(order[0].key==2 && order[1].kind==DRAW_PROP && order[2].kind==DRAW_BUILDING && order[3].key==5);
+    EXPECT(game_villager_art(CORE_BLD_FARM)==1 && game_villager_art(CORE_BLD_BARRACKS)==6 && game_villager_art(-1)==0);
+}
 int main(int argc,char **argv)
 {
     if (argc!=2) return 2;
-    paths(); settings(); session(argv[1]);
+    paths(); settings(); sprite_layout(); session(argv[1]);
     if (!failed) puts("C native runtime tests passed");
     return failed?1:0;
 }

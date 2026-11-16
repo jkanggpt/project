@@ -41,6 +41,11 @@ game_session_step(게임 속 분)은 최대 2분씩 이동·전투를 나눕니�
 
 ## 파일과 메모리
 
+그림은 `assets/painted/`를 사용합니다. 16픽셀 논리 타일의 점유·경로와 그림 영역은 별개입니다.
+`sprite_layout.c`가 발밑을 기준으로 주민 24픽셀(1.5타일), 건물은 원본 비율을 유지한 높은 그림 영역을 계산합니다.
+`render.c`는 지면 뒤에 수목·건물·주민·적을 한 목록으로 모아 발밑 y로 정렬합니다.
+정렬 버퍼는 필요할 때만 늘리고 종료 때 해제하며, 생성 이미지 원본·프롬프트·C 패킹 규칙은 ../art/README.md에 있습니다.
+
 새 게임·로드는 후보 월드의 스냅숏까지 성공한 뒤 현재 월드를 교체합니다. 실패하면 현재 게임을 유지합니다.
 game_session_free는 경로·배열·월드·정의를 모두 해제합니다.
 유닛·경로 버퍼·투사체 풀을 재사용하고, 이벤트는 알림·소리에만 사용합니다.
@@ -57,6 +62,7 @@ game_session_free는 경로·배열·월드·정의를 모두 해제합니다.
 - castle_game: raylib를 연결한 그래픽 게임.
 - castle_cli: 콘솔판·C 봇·간이 전투·CSV·장시간 검사.
 - castle_balance: C 시뮬레이터 직접 호출과 중앙값 집계.
+- castle_art: 생성 그림 원본을 자르고 기준점을 맞추는 C 도구와 PNG 검사 (raylib 빌드 시).
 - castle_tests / castle_native_tests: 기존 코어·CLI와 새 C 실행 계층 검사.
 - castle_core: CASTLE_BUILD_SHARED=ON일 때만 만드는 선택적 공유 라이브러리.
 

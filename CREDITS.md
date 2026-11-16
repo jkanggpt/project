@@ -4,6 +4,14 @@
 
 ## 그래픽
 
+현재 화면은 `game/assets/painted/`의 새 그림을 사용합니다. 아래 Kenney 그림과 이전 합성 PNG는 원본 출처 기록과 보관용이며 현재 C 렌더러에서는 불러오지 않습니다.
+
+| 현재 에셋 | 제작 방법 | 라이선스 | 원본·프롬프트 |
+| --- | --- | --- | --- |
+| painted/의 29 PNG: 주민 8종·적 6종 각 4프레임, 건물 15종·공사장, 수목·돌·광석·풀 12종, 지면·눈·도로, 자원 6종·화살 | 학생 요청과 첨부 화풍을 참고해 내장 image_gen으로 새로 생성, tools/pack_art.c로 자르기·알파 정리·크기 정렬 | 프로젝트 보유 권리를 CC0 1.0 헌정 (painted/LICENSE.txt) | art/generated/*.png, art/PROMPTS.md |
+
+참고 첨부 이미지는 시각적 방향에만 사용했으며 게임·배포본에 복사하지 않았습니다. 원본 생성 파일도 같은 CC0 헌정 범위입니다. 생성 AI 사용은 docs/AI_USAGE.md에 별도로 표시합니다.
+
 | 에셋 | 제작 | 라이선스 | 위치 |
 | --- | --- | --- | --- |
 | [Tiny Town](https://kenney.nl/assets/tiny-town) | Kenney | CC0 | `game/assets/third_party/kenney/tiny-town/` |
@@ -50,4 +58,4 @@ npm 패키지 `galmuri` 에서 받았습니다 (`npm pack galmuri`). 글꼴 파�
 
 - raylib 5.5 — Ramon Santamaria 및 기여자, zlib/libpng 라이선스. https://github.com/raysan5/raylib/tree/5.5
 - raylib가 포함하는 GLFW — zlib/libpng 라이선스. 배포 시 raylib와 GLFW 라이선스를 licenses/에 포함합니다.
-- 이미지·글꼴·효과음은 위의 기존 CC0/OFL 파일을 계속 사용합니다. Python 합성기는 C 전환에서 제거했고 생성된 PNG의 제작 출처 기록은 유지합니다.
+- 현재 이미지는 2026-11-16 새 생성 그림으로 교체했습니다. 글꼴·효과음은 기존 CC0/OFL 파일을 사용합니다. 이전 Python 합성 그림의 제작 출처 기록은 보관합니다.

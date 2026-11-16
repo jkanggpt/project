@@ -2,3 +2,11 @@
 add_executable(castle_balance balance.c)
 target_include_directories(castle_balance PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 target_link_libraries(castle_balance PRIVATE castle_cli_support castle_frontend castle_warnings)
+
+if(TARGET raylib)
+  add_executable(castle_art pack_art.c)
+  target_link_libraries(castle_art PRIVATE castle_frontend raylib castle_warnings)
+  if(CASTLE_BUILD_TESTS)
+    add_test(NAME native_art_assets COMMAND castle_art --check "${PROJECT_SOURCE_DIR}/game/assets/painted")
+  endif()
+endif()

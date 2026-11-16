@@ -5,6 +5,7 @@
 #include "storage.h"
 #include "assets.h"
 #include "ui.h"
+#include "sprite_layout.h"
 typedef enum GamePanel {
     PANEL_NONE,PANEL_TITLE,PANEL_NEW,PANEL_PAUSE,PANEL_SAVE,PANEL_LOAD,PANEL_SETTINGS,
     PANEL_HELP,PANEL_RESEARCH,PANEL_RANK,PANEL_MARKET,PANEL_MERCHANT,PANEL_VILLAGERS,
@@ -25,6 +26,8 @@ typedef struct GameApp {
     char castle_name[CORE_NAME_BYTES],seed_text[32],message[512],confirm_text[512];
     char user_dir[GAME_PATH_BYTES],save_dir[GAME_PATH_BYTES],settings_path[GAME_PATH_BYTES];
     GameNotice notices[8]; int notice_count;
+    GameDrawItem *draw_items; int draw_capacity;
+    unsigned char *decor_blocked; int decor_capacity;
     double accumulator;
 } GameApp;
 void game_app_notice(GameApp *app,const char *text);
@@ -37,6 +40,7 @@ int game_app_load(GameApp *app,int slot,int backup);
 int game_app_latest(GameApp *app);
 void game_app_slot_path(GameApp *app,int slot,int backup,char path[GAME_PATH_BYTES]);
 void game_render_world(GameApp *app);
+void game_render_free(GameApp *app);
 void game_render_interface(GameApp *app);
 void game_world_input(GameApp *app,float delta);
 #endif

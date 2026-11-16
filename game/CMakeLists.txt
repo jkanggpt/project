@@ -1,5 +1,5 @@
 # 화면과 분리된 C 실행 계층은 그래픽 라이브러리 없이도 테스트합니다.
-add_library(castle_frontend STATIC src/path.c src/session.c src/combat.c src/storage.c)
+add_library(castle_frontend STATIC src/path.c src/session.c src/combat.c src/storage.c src/sprite_layout.c)
 target_include_directories(castle_frontend PUBLIC src PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 target_link_libraries(castle_frontend PUBLIC castle_core_static PRIVATE castle_warnings)
 if(NOT WIN32)
@@ -62,6 +62,7 @@ if(CASTLE_BUILD_GAME)
   install(DIRECTORY data assets DESTINATION . PATTERN "*.import" EXCLUDE PATTERN ".gdignore" EXCLUDE)
   install(FILES ${PROJECT_SOURCE_DIR}/CREDITS.md ${PROJECT_SOURCE_DIR}/README.md DESTINATION .)
   install(FILES ${PROJECT_SOURCE_DIR}/PROGRESS.md DESTINATION .)
+  install(FILES ${PROJECT_SOURCE_DIR}/art/README.md ${PROJECT_SOURCE_DIR}/art/PROMPTS.md DESTINATION art)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/NATIVE_PORT.md ${PROJECT_SOURCE_DIR}/docs/ARCHITECTURE.md
     ${PROJECT_SOURCE_DIR}/docs/QA.md DESTINATION docs)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/native_title.png

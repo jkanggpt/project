@@ -1,0 +1,11 @@
+마법성채 키우기 — 2026-11-16 새 픽셀아트
+
+이 폴더의 PNG는 학생 요청에 따라 OpenAI 내장 image_gen 도구로 새로 생성한
+원본 그림을 C 에셋 도구로 자르고 정렬한 결과입니다.
+프로젝트가 이 그림에 보유하는 권리는 가능한 범위에서 CC0 1.0으로 헌정합니다.
+개인·교육·상업 프로젝트에서 복사·수정·재배포할 수 있습니다.
+
+CC0 1.0 Universal: https://creativecommons.org/publicdomain/zero/1.0/
+제작 프롬프트와 원본: 저장소 art/PROMPTS.md, art/generated/
+사용자 첨부 참고 이미지는 배포물에 포함하지 않았습니다.
+Galmuri 글꼴과 Kenney 효과음은 각자의 별도 라이선스를 따릅니다.

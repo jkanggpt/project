@@ -149,3 +149,26 @@
 최종 검증에서 한국어 C 문자열을 C11 `u8` 리터럴로 명시하고, 구형 Windows SDK 헤더의 C5105 경고를 해당 include에만 한정 처리했습니다.
 `docs/screenshots/native_title.png`, `native_game.png`는 배포본이 직접 렌더링한 화면입니다. README와 CMake 배포 규칙에 연결했습니다.
 배포본·검사 로그·ZIP은 artifacts/에만 두고 Git에 넣지 않습니다. GitHub 인증 취소 후 학생 지시에 따라 로컬 커밋으로 마무리합니다.
+
+## 2026-11-16 — 새 픽셀아트와 높이 표현
+
+학생 요청: 첨부 주민·병영 화풍을 참고해 모든 그림을 새로 제작하고, 판정 칸을 유지하면서 주민 1.5타일·건물과 나무의 높이 및 가림을 적용.
+내장 image_gen 도구를 사용했습니다. 생성 프롬프트 6개 전문은 art/PROMPTS.md에 보관합니다. 첨부 참고 그림 자체는 저장소·배포본에 넣지 않았습니다.
+
+| 파일 | 생성·수정 내용 |
+| --- | --- |
+| art/generated/villagers.png, enemies.png | 주민 8직업·적 6종, 각각 걷기 4프레임 생성 |
+| art/generated/buildings.png | 성채·주택·농장·채집·벌목·채석·광산·창고·시장·병영·탑·벽·문·치료소·마탑·공사장 생성 |
+| art/generated/props.png, ground.png, icons.png | 계절 수목·돌·광맥·풀, 지면 5종·눈, 자원·화살·포장길 생성 |
+| game/assets/painted/*.png (29개), LICENSE.txt | C 도구로 원본 자르기·알파 정리·크기와 발밑 정렬, 새 그림의 CC0 헌정 기록 |
+| tools/pack_art.c, tools/CMakeLists.txt | Python 없이 PNG 패킹·크기/알파 검사하는 C 도구 생성·빌드 등록 |
+| game/src/sprite_layout.c, sprite_layout.h | 점유와 별개인 비율 유지 건물 영역·1.5타일 주민·발밑 비교·직업 매핑 생성 |
+| game/src/render.c | 지면/소품 분리, 수목·건물·주민·적 통합 정렬, 걷기, 큰 건설 미리보기·공사장·화살, 좌표 해시·점유 마스크 |
+| game/src/assets.c, assets.h | 새 PNG 로딩·해제, 누락 리소스 오류 처리 |
+| game/src/app.h, main.c | 정렬·점유 마스크 버퍼 수명 관리, 촬영 마을 주민의 3시간 실제 이동 |
+| game/CMakeLists.txt, tests/test_native.c | 화면과 분리된 높이·지면 기준점·가림 순서·직업 검사 |
+| art/README.md, PROMPTS.md, README.md, CREDITS.md, CLAUDE.md | 제작 경로·프롬프트·라이선스·재패킹·현재 그림 설명 |
+| docs/ARCHITECTURE.md, DECISIONS.md, QA.md, C_WALKTHROUGH.md, SPEC.md, AI_USAGE.md, PROGRESS.md | 구현·판정 유지·검증·한계 기록 |
+| docs/screenshots/native_game.png, native_title.png | 새 C 실행판에서 직접 촬영한 현재 그림으로 갱신 |
+
+이미지 생성 외에 C 코드와 문서는 Codex가 작성했습니다. 글꼴·효과음은 기존 외부 에셋이며 새로 생성하지 않았습니다.

@@ -19,6 +19,7 @@ main에 푸시하거나 PR을 병합하지 않습니다. 한국어 UI·문서·�
 - 전체 촬영: `cmake -DGAME=<실행파일 절대경로> -DOUT=<출력폴더> -P tools/screenshots.cmake`
 - 소크: `<bin>/castle_cli --soak 400 --seeds 20`
 - 밸런스: `<bin>/castle_balance --data game/data --seeds 16 --days 100`
+- 새 그림 패킹: `<bin>/castle_art art/generated game/assets/painted`, 검사: `<bin>/castle_art --check game/assets/painted`
 - 배포: `cmake --install <빌드폴더> --prefix <배포폴더>`
 
 CMake 설정은 CASTLE_BUILD_GAME=OFF로 외부 그래픽 의존성 없이 빌드할 수 있습니다.

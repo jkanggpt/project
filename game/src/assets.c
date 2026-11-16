@@ -40,13 +40,14 @@ int game_assets_load(GameAssets *a,const char *dir,int audio)
     free(codepoints); free(bytes);
     if (!a->font.texture.id) return 0;
     SetTextureFilter(a->font.texture,TEXTURE_FILTER_POINT);
-    a->terrain=texture(a,dir,"tiles/terrain.png"); a->roads=texture(a,dir,"tiles/roads.png"); a->snow=texture(a,dir,"tiles/snow.png");
-    a->villagers=texture(a,dir,"units/villagers.png"); a->enemies=texture(a,dir,"units/enemies.png"); a->arrow=texture(a,dir,"units/arrow.png");
+    a->terrain=texture(a,dir,"painted/terrain.png"); a->roads=texture(a,dir,"painted/roads.png"); a->snow=texture(a,dir,"painted/snow.png");
+    a->props=texture(a,dir,"painted/props.png"); a->construction=texture(a,dir,"painted/construction.png");
+    a->villagers=texture(a,dir,"painted/villagers.png"); a->enemies=texture(a,dir,"painted/enemies.png"); a->arrow=texture(a,dir,"painted/arrow.png");
     for (i=0;i<CORE_BLD_COUNT-1;i++) {
-        (void)snprintf(name,sizeof(name),"buildings/%s.png",buildings[i]); a->buildings[i]=texture(a,dir,name);
+        (void)snprintf(name,sizeof(name),"painted/%s.png",buildings[i]); a->buildings[i]=texture(a,dir,name);
     }
     for (i=0;i<CORE_RES_COUNT;i++) {
-        (void)snprintf(name,sizeof(name),"ui/res_%s.png",resources[i]); a->resources[i]=texture(a,dir,name);
+        (void)snprintf(name,sizeof(name),"painted/res_%s.png",resources[i]); a->resources[i]=texture(a,dir,name);
     }
     if (audio) {
         InitAudioDevice(); a->audio_ready=IsAudioDeviceReady();
@@ -59,7 +60,8 @@ int game_assets_load(GameAssets *a,const char *dir,int audio)
             if (wave.data) { a->sounds[i]=LoadSoundFromWave(wave); UnloadWave(wave); }
         }
     }
-    return 1;
+    if (a->missing) fprintf(stderr,"Missing art assets: %d\n",a->missing);
+    return a->missing==0;
 }
 void game_assets_free(GameAssets *a)
 {
@@ -67,6 +69,8 @@ void game_assets_free(GameAssets *a)
     if (a->terrain.id) UnloadTexture(a->terrain);
     if (a->roads.id) UnloadTexture(a->roads);
     if (a->snow.id) UnloadTexture(a->snow);
+    if (a->props.id) UnloadTexture(a->props);
+    if (a->construction.id) UnloadTexture(a->construction);
     if (a->villagers.id) UnloadTexture(a->villagers);
     if (a->enemies.id) UnloadTexture(a->enemies);
     if (a->arrow.id) UnloadTexture(a->arrow);
