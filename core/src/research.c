@@ -2,6 +2,7 @@
  * research.c — 연구 (설명은 research.h)
  */
 #include "research.h"
+#include "expansion.h"
 
 #include <string.h>
 
@@ -176,6 +177,7 @@ static const ResearchEffectFn RESEARCH_EFFECTS[CORE_EFFECT_COUNT] = {
 
 void research_reapply(World *world)
 {
+    if(world->expansion){expansion_apply_research(world);return;}
     ResearchState *state = &world->research;
     int32_t i;
     memcpy(world->defs.buildings, world->base_buildings, sizeof(world->defs.buildings));

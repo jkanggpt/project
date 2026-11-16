@@ -1,0 +1,2807 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>마법성채 통합 확장 밸런스 기획서 v1.0</title><style>
+:root {color-scheme: light;}
+*{box-sizing:border-box}body{margin:0;background:#f7f9fc;color:#182033;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;line-height:1.75}
+header{background:#102d42;color:white;padding:28px max(32px, calc((100vw - 1180px)/2));border-bottom:5px solid #3d9f9b}
+header .eyebrow{font-size:13px;color:#a9d6d5;letter-spacing:.1em;font-weight:700}
+header h1{margin:5px 0 2px;font-size:25px;line-height:1.4}header p{margin:0;color:#d1dde6}
+main{max-width:1240px;margin:0 auto;padding:30px 32px 96px;background:white;box-shadow:0 10px 26px #15223509}
+h1{font-size:28px;line-height:1.4;color:#0d304a;margin:24px 0}h2{margin:62px 0 20px;border-bottom:2px solid #cfe4e5;padding-bottom:12px;color:#0d304a;font-size:24px}h3{margin:38px 0 14px;color:#17546e;font-size:20px}
+p,li{font-size:15px}blockquote{background:#eaf5f3;border-left:5px solid #2e9890;margin:10px 0 22px;padding:8px 20px;font-size:14px}
+strong{color:#11506b}table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px;line-height:1.55;margin:18px 0 28px;overflow-wrap:anywhere}
+th{text-align:left;background:#17435b;color:white;position:sticky;top:0;padding:10px 9px;white-space:nowrap}td{border-bottom:1px solid #e0e8ed;padding:8px 9px;vertical-align:top}
+tr:nth-child(even) td{background:#f4f8fb}tr:hover td{background:#e9f3f5}code{background:#e9eef1;padding:2px 5px;border-radius:3px;font-family:Consolas,monospace;white-space:normal}a{color:#147c83}hr{border:none;border-top:1px solid #d9e5ea}
+@media(max-width:800px){main{padding:18px 14px}header{padding:24px 16px}table{font-size:12px}td,th{padding:6px 5px}h2{font-size:21px}}
+@media print{body{background:white}main{box-shadow:none;padding:0}header{padding:15px;background:white;color:#16344b}header p{color:#16344b}th{background:#ddd!important;color:black}h2,h3{break-after:avoid}tr{break-inside:avoid}}
+</style></head><body><header><div class="eyebrow">DESIGN DOCUMENT • PROPOSED BALANCE</div><h1>마법성채 키우기 — 통합 확장 기획</h1><p>64종 건물 · 15종 자원 · 5능력치 주민 성장 · 192×192 월드 · 6등급</p></header><main><h1>마법성채 키우기 — 통합 확장 밸런스 기획서 v1.0</h1>
+<p><strong>작성:</strong> 2026-11-16 · <strong>기준:</strong> 사용자의 최신 확정 지시 및 직전 v0.9 기획서 · <strong>상태:</strong> 코드 미반영, 밸런스 초기안</p>
+<blockquote>
+<p><strong>수치의 성격:</strong> 능력치 출현확률, 종별 건물 크기·해금, 계약기간 등 사용자 지정 값은 그대로 유지했습니다. 아래의 생산성·고용료·광물가치·동물 사료량 등 세부 수치는 일관성을 위해 정한 <strong>구현용 제안값</strong>이며 실기기 플레이/장기 시뮬레이션으로 검증된 값은 아닙니다. 원본 GitHub 및 업로드 ZIP은 수정하지 않았습니다.</p>
+<p><strong>이번 버전 우선 결정:</strong> 파종 삭제 · 작물 수확=가을 전 누적 유효 노동시간 · 과수원 최초 24일 미생산 · 광업 자동 복수 광물 채굴 · 성목별 일일 원목 추출 한도 · 수역 공유 어획량 배분 · 자동 감지/병영 출동 · 끊어지는 도로 철거 금지 · 치료소/병원 의료 자격 강화 · 능력치 성장 XP 상향 · 시작 주민 4명 · 세금 1~4 · 채용 후보 3일 갱신 · 성채 승급 연구 2개 필수 · 유적 및 확장 후보 건물 제외.</p>
+</blockquote>
+<h2>1. 월드·시간·영지 기본 규칙</h2>
+<table>
+<thead>
+<tr>
+  <th>항목</th>
+  <th>v1.0 기준</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>영지 등급</td>
+  <td>개척지 → 촌락 → 마을 → 도시 → 성채 → 왕성</td>
+</tr>
+<tr>
+  <td>건설 대상</td>
+  <td>사용자 확정 64종만; 추가 후보 건물은 <strong>범위에서 제외</strong></td>
+</tr>
+<tr>
+  <td>지도</td>
+  <td>192×192 = 36,864타일; 8종 생물군계; 특수 유적 없음</td>
+</tr>
+<tr>
+  <td>시간</td>
+  <td>하루 144틱(게임10분/틱), 1배속 현실 120초/일; 계절당12일·연48일</td>
+</tr>
+<tr>
+  <td>연간 계절</td>
+  <td>봄 1~12일, 여름 13~24일, 가을 25~36일, 겨울 37~48일(해당 연도 기준)</td>
+</tr>
+<tr>
+  <td>장기 목표</td>
+  <td>왕성 도달 약 145~190일(3~4게임년)</td>
+</tr>
+<tr>
+  <td>시작 인구(보통)</td>
+  <td><strong>영구 주민 4명</strong>; 시작 성채 및 우물 1개 제공</td>
+</tr>
+<tr>
+  <td>취사/난방·산업 연료</td>
+  <td>고정 자동 소비 순서: <strong>석탄 → 원목 → 목재</strong>; 플레이어 연료 선택 없음</td>
+</tr>
+<tr>
+  <td>건설 조건</td>
+  <td>촌락 이상 일반 건물은 성채 연결도로와 출입구 4방향 인접; 도로 연결을 잃게 하는 철거 불가</td>
+</tr>
+<tr>
+  <td>시야·적</td>
+  <td>미탐험/기억/현재 가시 3단계; 사전 습격 예고 없음; 실제 감지 시 알림·병영 자동 출동</td>
+</tr>
+<tr>
+  <td>경제 모드</td>
+  <td>광업·채집·임업·목축·수렵·어업은 자동 운영; <strong>제련소 철/금 모드와 세율 1~4만 직접 설정</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>표 읽는 법:</strong> 건설비=일회성 자원 소모, 건설시간=게임 속 시간, 유지=근무 임금과 별도로 매일 소비하는 금화, 소비=가동 중 사라지는 자원, 생산=새로 생기는 자원, 효과=인원 수용·감시·방어·주변 보너스. <code>FU</code>는 연료단위입니다. 건물의 명목 생산은 정원 충족·표준 능력치 효율 1.0·초보 숙련·완전한 자원 공급·통근 손실이 없는 경우의 <strong>시설 전체 수치</strong>입니다.</p>
+<h2>2. 자원 15종, 거래·연료·저장</h2>
+<table>
+<thead>
+<tr>
+  <th>자원</th>
+  <th>코드</th>
+  <th>기능</th>
+  <th style="text-align:right">성채 기본 저장 한도</th>
+  <th style="text-align:right">구매가(금/개)</th>
+  <th style="text-align:right">판매가(금/개)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>금화</td>
+  <td>G</td>
+  <td>세금·구매·고용·공물</td>
+  <td style="text-align:right">무제한</td>
+  <td style="text-align:right">-</td>
+  <td style="text-align:right">-</td>
+</tr>
+<tr>
+  <td>마정석</td>
+  <td>M</td>
+  <td>마법·연구·승급·마도 포탑</td>
+  <td style="text-align:right">200</td>
+  <td style="text-align:right">45</td>
+  <td style="text-align:right">25</td>
+</tr>
+<tr>
+  <td>식량</td>
+  <td>F</td>
+  <td>주민·가축 사료</td>
+  <td style="text-align:right">250</td>
+  <td style="text-align:right">2</td>
+  <td style="text-align:right">1</td>
+</tr>
+<tr>
+  <td>약초</td>
+  <td>H</td>
+  <td>질병 치료</td>
+  <td style="text-align:right">100</td>
+  <td style="text-align:right">6</td>
+  <td style="text-align:right">3</td>
+</tr>
+<tr>
+  <td>원목</td>
+  <td>L</td>
+  <td>초기 건설·연료·제재</td>
+  <td style="text-align:right">200</td>
+  <td style="text-align:right">5</td>
+  <td style="text-align:right">2</td>
+</tr>
+<tr>
+  <td>목재</td>
+  <td>W</td>
+  <td>가공 건설재·비상 연료</td>
+  <td style="text-align:right">150</td>
+  <td style="text-align:right">8</td>
+  <td style="text-align:right">4</td>
+</tr>
+<tr>
+  <td>돌</td>
+  <td>S</td>
+  <td>성벽·기초 건설</td>
+  <td style="text-align:right">150</td>
+  <td style="text-align:right">6</td>
+  <td style="text-align:right">3</td>
+</tr>
+<tr>
+  <td>점토</td>
+  <td>C</td>
+  <td>벽돌 원료</td>
+  <td style="text-align:right">100</td>
+  <td style="text-align:right">5</td>
+  <td style="text-align:right">2</td>
+</tr>
+<tr>
+  <td>벽돌</td>
+  <td>B</td>
+  <td>상급 건설</td>
+  <td style="text-align:right">100</td>
+  <td style="text-align:right">11</td>
+  <td style="text-align:right">5</td>
+</tr>
+<tr>
+  <td>철광석</td>
+  <td>O</td>
+  <td>철괴 제련</td>
+  <td style="text-align:right">100</td>
+  <td style="text-align:right">9</td>
+  <td style="text-align:right">4</td>
+</tr>
+<tr>
+  <td>석탄</td>
+  <td>K</td>
+  <td>연료(1개=2FU)</td>
+  <td style="text-align:right">100</td>
+  <td style="text-align:right">7</td>
+  <td style="text-align:right">3</td>
+</tr>
+<tr>
+  <td>철괴</td>
+  <td>I</td>
+  <td>군사·상급 건설</td>
+  <td style="text-align:right">100</td>
+  <td style="text-align:right">22</td>
+  <td style="text-align:right">12</td>
+</tr>
+<tr>
+  <td>금광석</td>
+  <td>Q</td>
+  <td>금괴 제련</td>
+  <td style="text-align:right">60</td>
+  <td style="text-align:right">30</td>
+  <td style="text-align:right">18</td>
+</tr>
+<tr>
+  <td>금괴</td>
+  <td>A</td>
+  <td>고가 거래·공물</td>
+  <td style="text-align:right">60</td>
+  <td style="text-align:right">60</td>
+  <td style="text-align:right">40</td>
+</tr>
+<tr>
+  <td>가죽</td>
+  <td>V</td>
+  <td>병영·방어탑·학술시설 건축 재료</td>
+  <td style="text-align:right">100</td>
+  <td style="text-align:right">12</td>
+  <td style="text-align:right">6</td>
+</tr>
+</tbody>
+</table>
+<p><strong>연료 소모(확정 규칙):</strong> 석탄 1개=2FU, 원목 1개=1FU, 목재 1개=1FU. 모든 겨울 난방 및 가마·제련소·온실·목욕탕에서 <strong>석탄을 먼저 소모하고</strong>, 부족할 때 <strong>원목</strong>, 그것도 부족할 때만 <strong>목재</strong>를 사용합니다. 목재는 원목보다 가공 가치가 높아 마지막 수단입니다. 석탄은 건설재료를 대체하지 않습니다. 1FU 미만 또는 홀수 FU를 위해 석탄 한 개를 소모하면 잔여 FU를 세계 공용 연료 잔량으로 이월해 낭비하지 않습니다. 사료와 건물 유지비는 이 연료 계산에 포함하지 않습니다.</p>
+<p><strong>기본 저장:</strong> 위 자원별 상한에 저장고·창고·물류창고의 추가분을 합산합니다. 상한 초과 시 신규 생산은 보류(가을 수확 처리 특칙은 §4), 원료가 사라지는 일은 없습니다. 금괴의 화폐화는 판매를 통해서만 처리합니다.</p>
+<h2>3. 확정된 64종 건물 — 비용·크기·인원·소모·생산·효과</h2>
+<p>다음 표에서 <strong>일일 유지 금화는 인건비를 포함하지 않습니다</strong>. 연료·원료·사료·마정석은 <code>운영 중 자원 소모</code>에만 기록합니다. 산출과 효과를 분리하므로 자원이 실제로 증가하는지, 수치 보너스만 적용되는지를 한눈에 구분할 수 있습니다. 단순 방어시설은 산출 없음, 효과가 전투 스탯입니다.</p>
+<h3>주거 (4종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>막사</td>
+  <td>개척지</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">3</td>
+  <td>금2·원목4</td>
+  <td style="text-align:right">0</td>
+  <td>겨울밤 0.5FU/동</td>
+  <td>없음</td>
+  <td>주거 1명; 기분 −7</td>
+</tr>
+<tr>
+  <td>오두막</td>
+  <td>촌락</td>
+  <td>1×2</td>
+  <td>0</td>
+  <td style="text-align:right">5</td>
+  <td>금6·원목9</td>
+  <td style="text-align:right">0</td>
+  <td>겨울밤 0.75FU/동</td>
+  <td>없음</td>
+  <td>주거 2명; 기분 −2</td>
+</tr>
+<tr>
+  <td>주택</td>
+  <td>마을</td>
+  <td>2×2</td>
+  <td>0</td>
+  <td style="text-align:right">10</td>
+  <td>금20·목재16·돌5</td>
+  <td style="text-align:right">1</td>
+  <td>겨울밤 1.5FU/동</td>
+  <td>없음</td>
+  <td>주거 4명; 기분 +6</td>
+</tr>
+<tr>
+  <td>저택</td>
+  <td>도시</td>
+  <td>4×2</td>
+  <td>0</td>
+  <td style="text-align:right">24</td>
+  <td>금100·목재35·돌25·벽돌18·철괴4</td>
+  <td style="text-align:right">3</td>
+  <td>겨울밤 3.5FU/동</td>
+  <td>없음</td>
+  <td>주거 10명; 기분 +13</td>
+</tr>
+</tbody>
+</table>
+<h3>농업 (7종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>텃밭</td>
+  <td>개척지</td>
+  <td>2×2</td>
+  <td>1</td>
+  <td style="text-align:right">4</td>
+  <td>금3·원목4</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>식량 2.5/일(봄·여름·가을), 1.25/일(겨울)</td>
+  <td>주기적 생산; 노동효율 반영</td>
+</tr>
+<tr>
+  <td>경작지</td>
+  <td>촌락</td>
+  <td>3×2</td>
+  <td>2</td>
+  <td style="text-align:right">8</td>
+  <td>금12·원목10</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>식량 명목 360/년(가을 1회)</td>
+  <td>누적 유효 근무시간으로 결정; 기준 432유효인시/년</td>
+</tr>
+<tr>
+  <td>농장</td>
+  <td>마을</td>
+  <td>3×3</td>
+  <td>3</td>
+  <td style="text-align:right">14</td>
+  <td>금28·목재18·돌5</td>
+  <td style="text-align:right">1</td>
+  <td>없음</td>
+  <td>식량 명목 600/년(가을 1회)</td>
+  <td>누적 유효 근무시간으로 결정; 기준 648유효인시/년</td>
+</tr>
+<tr>
+  <td>과수원</td>
+  <td>마을</td>
+  <td>3×2</td>
+  <td>2</td>
+  <td style="text-align:right">10</td>
+  <td>금25·원목12·목재8</td>
+  <td style="text-align:right">1</td>
+  <td>없음</td>
+  <td>조성 후 24일 경과 시 여름·가을 식량 12/일</td>
+  <td>조성 완료일부터 24일간 생산 0; 이후 주기적 생산</td>
+</tr>
+<tr>
+  <td>온실</td>
+  <td>도시</td>
+  <td>3×2</td>
+  <td>3</td>
+  <td style="text-align:right">24</td>
+  <td>금85·목재25·벽돌20·철괴4</td>
+  <td style="text-align:right">3</td>
+  <td>겨울 1FU/일</td>
+  <td>식량 10/일</td>
+  <td>사계절 연속 생산; 연료 부족 시 겨울 생산 정지</td>
+</tr>
+<tr>
+  <td>관개농장</td>
+  <td>성채</td>
+  <td>5×3</td>
+  <td>5</td>
+  <td style="text-align:right">36</td>
+  <td>금175·목재35·돌40·벽돌30·철괴12</td>
+  <td style="text-align:right">5</td>
+  <td>없음</td>
+  <td>식량 명목 1,300/년(가을 1회)</td>
+  <td>기준 1,080유효인시/년; 물가 2칸 이내; 가뭄 보정90%</td>
+</tr>
+<tr>
+  <td>풍차</td>
+  <td>왕성</td>
+  <td>3×3</td>
+  <td>1</td>
+  <td style="text-align:right">36</td>
+  <td>금270·목재60·돌70·벽돌20·철괴22</td>
+  <td style="text-align:right">6</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>반경10 농업 산출+40%; 중첩 불가; 1명 근무 필요</td>
+</tr>
+</tbody>
+</table>
+<h3>목축 (2종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>목축장</td>
+  <td>마을</td>
+  <td>4×2</td>
+  <td>3</td>
+  <td style="text-align:right">16</td>
+  <td>금45·원목10·목재20·돌6</td>
+  <td style="text-align:right">1</td>
+  <td>종별 가축 사료 소비(6마리 상한)</td>
+  <td>종별 상시 식량 산출+자동 도축 시 식량·가죽</td>
+  <td>가축 구매·포획·번식; 축종별 수치 §4 참조</td>
+</tr>
+<tr>
+  <td>방목장</td>
+  <td>성채</td>
+  <td>6×4</td>
+  <td>4</td>
+  <td style="text-align:right">40</td>
+  <td>금220·목재60·돌36·철괴10</td>
+  <td style="text-align:right">3</td>
+  <td>종별 가축 사료 소비(16마리 상한)</td>
+  <td>종별 상시 식량 산출+자동 도축 시 식량·가죽</td>
+  <td>초원 인접 시 계절별 사료 절약; 축종별 수치 §4 참조</td>
+</tr>
+</tbody>
+</table>
+<h3>임업 (3종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>벌목지</td>
+  <td>개척지</td>
+  <td>2×2</td>
+  <td>2</td>
+  <td style="text-align:right">5</td>
+  <td>금5·원목4</td>
+  <td style="text-align:right">0</td>
+  <td>성목 잔여 원목량 감소</td>
+  <td>원목 최대 5/일</td>
+  <td>반경3; 성목별 1일 채취한도 공유</td>
+</tr>
+<tr>
+  <td>벌목장</td>
+  <td>촌락</td>
+  <td>2×2</td>
+  <td>3</td>
+  <td style="text-align:right">9</td>
+  <td>금28·목재12</td>
+  <td style="text-align:right">1</td>
+  <td>성목 잔여 원목량 감소</td>
+  <td>원목 최대 9/일</td>
+  <td>반경5; 성목별 1일 채취한도 공유</td>
+</tr>
+<tr>
+  <td>조림지</td>
+  <td>도시</td>
+  <td>3×3</td>
+  <td>4</td>
+  <td style="text-align:right">28</td>
+  <td>금100·목재24·돌8</td>
+  <td style="text-align:right">3</td>
+  <td>없음</td>
+  <td>원목 직접 생산 없음</td>
+  <td>반경8 성장+80%; 적합 빈 칸 묘목 최대 3그루/일</td>
+</tr>
+</tbody>
+</table>
+<h3>광업 (3종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>채석장</td>
+  <td>촌락</td>
+  <td>2×2</td>
+  <td>3</td>
+  <td style="text-align:right">12</td>
+  <td>금20·원목10·목재4</td>
+  <td style="text-align:right">1</td>
+  <td>광상 돌 매장량 감소</td>
+  <td>채굴가치 8/일 → 돌(가치1)</td>
+  <td>반경3; 자동 채굴; 돌만 채굴 가능</td>
+</tr>
+<tr>
+  <td>광산</td>
+  <td>마을</td>
+  <td>2×2</td>
+  <td>4</td>
+  <td style="text-align:right">20</td>
+  <td>금60·목재18·돌8</td>
+  <td style="text-align:right">2</td>
+  <td>광상 매장량 감소</td>
+  <td>총 채굴가치 24/일 → 돌·석탄·철광석 모두</td>
+  <td>반경5; 자원별 가치 분배; 채굴 대상 선택 없음</td>
+</tr>
+<tr>
+  <td>심층 광산</td>
+  <td>도시</td>
+  <td>2×2</td>
+  <td>4</td>
+  <td style="text-align:right">32</td>
+  <td>금145·목재36·돌28·철괴10</td>
+  <td style="text-align:right">4</td>
+  <td>광상 매장량 감소</td>
+  <td>총 채굴가치 50/일 → 돌·석탄·철광석·금광석·마정석 모두</td>
+  <td>반경7; 모든 광물 자동 채굴</td>
+</tr>
+</tbody>
+</table>
+<h3>어업 (2종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>낚시터</td>
+  <td>개척지</td>
+  <td>2×1</td>
+  <td>2</td>
+  <td style="text-align:right">5</td>
+  <td>금8·원목5</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>식량 최대 5/일</td>
+  <td>반경5 수역 접근; 수역별 공동한도 차감</td>
+</tr>
+<tr>
+  <td>항구</td>
+  <td>도시</td>
+  <td>2×2</td>
+  <td>4</td>
+  <td style="text-align:right">30</td>
+  <td>금125·목재35·돌35·철괴8</td>
+  <td style="text-align:right">3</td>
+  <td>없음</td>
+  <td>식량 최대 15/일</td>
+  <td>직접 인접한 연결 수역 전체; 공동한도 차감</td>
+</tr>
+</tbody>
+</table>
+<h3>방어벽 (4종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>목책</td>
+  <td>개척지</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">1</td>
+  <td>원목2</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP 90; 보호구역 벽(1칸)</td>
+</tr>
+<tr>
+  <td>방벽</td>
+  <td>촌락</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">2</td>
+  <td>금1·원목2·돌2</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP 180; 보호구역 벽(1칸)</td>
+</tr>
+<tr>
+  <td>성벽</td>
+  <td>마을</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">3</td>
+  <td>금2·목재1·돌6</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP 360; 보호구역 벽(1칸)</td>
+</tr>
+<tr>
+  <td>철벽</td>
+  <td>성채</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">5</td>
+  <td>금6·돌8·철괴3</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP 700; 보호구역 벽(1칸)</td>
+</tr>
+</tbody>
+</table>
+<h3>성문 (4종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>목책문</td>
+  <td>개척지</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">4</td>
+  <td>금3·원목5</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP 110; 아군 통행 및 폐쇄 구역 경계</td>
+</tr>
+<tr>
+  <td>석조문</td>
+  <td>촌락</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">6</td>
+  <td>금8·원목4·돌8</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP 250; 아군 통행 및 폐쇄 구역 경계</td>
+</tr>
+<tr>
+  <td>성문</td>
+  <td>마을</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">9</td>
+  <td>금15·목재6·돌14·철괴2</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP 430; 아군 통행 및 폐쇄 구역 경계</td>
+</tr>
+<tr>
+  <td>철갑문</td>
+  <td>성채</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">15</td>
+  <td>금32·목재5·돌20·철괴12</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP 800; 아군 통행 및 폐쇄 구역 경계</td>
+</tr>
+</tbody>
+</table>
+<h3>방어탑 (6종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>초소</td>
+  <td>개척지</td>
+  <td>1×1</td>
+  <td>1</td>
+  <td style="text-align:right">5</td>
+  <td>금12·원목8</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP110; 시야6·사거리4; 공격 3/30게임분</td>
+</tr>
+<tr>
+  <td>망루</td>
+  <td>촌락</td>
+  <td>1×1</td>
+  <td>1</td>
+  <td style="text-align:right">9</td>
+  <td>금35·원목10·목재8</td>
+  <td style="text-align:right">1</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP200; 시야10·사거리5; 공격 5/25게임분</td>
+</tr>
+<tr>
+  <td>감시탑</td>
+  <td>마을</td>
+  <td>1×1</td>
+  <td>1</td>
+  <td style="text-align:right">14</td>
+  <td>금65·목재16·돌18</td>
+  <td style="text-align:right">1</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP300; 시야12·사거리6; 공격 8/20게임분</td>
+</tr>
+<tr>
+  <td>쇠뇌탑</td>
+  <td>도시</td>
+  <td>2×2</td>
+  <td>1</td>
+  <td style="text-align:right">22</td>
+  <td>금130·목재22·돌28·철괴12·가죽6</td>
+  <td style="text-align:right">2</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP390; 시야9·사거리5; 공격 12/10게임분</td>
+</tr>
+<tr>
+  <td>포탑</td>
+  <td>성채</td>
+  <td>2×2</td>
+  <td>1</td>
+  <td style="text-align:right">34</td>
+  <td>금260·목재35·돌40·철괴28·가죽8</td>
+  <td style="text-align:right">4</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>HP550; 시야9·사거리6; 광역 공격 35/45게임분</td>
+</tr>
+<tr>
+  <td>마도 포탑</td>
+  <td>왕성</td>
+  <td>3×3</td>
+  <td>1</td>
+  <td style="text-align:right">48</td>
+  <td>금700·목재70·돌70·철괴45·마정석45·가죽12</td>
+  <td style="text-align:right">8</td>
+  <td>마정석 1/3회 발사</td>
+  <td>없음</td>
+  <td>HP750; 시야14·사거리8; 광역 공격 60/40게임분</td>
+</tr>
+</tbody>
+</table>
+<h3>군사 (1종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>병영</td>
+  <td>마을</td>
+  <td>3×2</td>
+  <td>4</td>
+  <td style="text-align:right">18</td>
+  <td>금85·목재20·돌35·철괴4·가죽4</td>
+  <td style="text-align:right">2</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>최대 4명; 적 발견 시 자동 출동; 7피해/15게임분</td>
+</tr>
+</tbody>
+</table>
+<h3>시장 (3종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>노점</td>
+  <td>촌락</td>
+  <td>2×2</td>
+  <td>1</td>
+  <td style="text-align:right">8</td>
+  <td>금16·원목6</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>일일 거래상한 20; 계약직 1명 고용 가능</td>
+</tr>
+<tr>
+  <td>시장</td>
+  <td>마을</td>
+  <td>4×2</td>
+  <td>2</td>
+  <td style="text-align:right">20</td>
+  <td>금70·목재20·돌12</td>
+  <td style="text-align:right">2</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>일일 거래상한 80; 계약직 3명 고용 가능</td>
+</tr>
+<tr>
+  <td>교역소</td>
+  <td>왕성</td>
+  <td>5×3</td>
+  <td>4</td>
+  <td style="text-align:right">48</td>
+  <td>금370·목재90·돌65·벽돌30·철괴40·마정석8</td>
+  <td style="text-align:right">7</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>일일 거래상한 260; 계약직 8명 고용 가능</td>
+</tr>
+</tbody>
+</table>
+<h3>저장 (3종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>저장고</td>
+  <td>촌락</td>
+  <td>2×2</td>
+  <td>0</td>
+  <td style="text-align:right">8</td>
+  <td>금18·원목12</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>식량 저장상한 +650</td>
+</tr>
+<tr>
+  <td>창고</td>
+  <td>마을</td>
+  <td>3×2</td>
+  <td>0</td>
+  <td style="text-align:right">18</td>
+  <td>금70·목재24·돌15</td>
+  <td style="text-align:right">1</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>식량 +500, 각 비식량 자원 +250</td>
+</tr>
+<tr>
+  <td>물류창고</td>
+  <td>도시</td>
+  <td>4×3</td>
+  <td>0</td>
+  <td style="text-align:right">32</td>
+  <td>금195·목재50·돌30·철괴14</td>
+  <td style="text-align:right">4</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>식량 +2,000, 각 비식량 자원 +750; 물류 효율 증가</td>
+</tr>
+</tbody>
+</table>
+<h3>가공 (3종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>제재소</td>
+  <td>촌락</td>
+  <td>2×2</td>
+  <td>1</td>
+  <td style="text-align:right">12</td>
+  <td>금20·원목12</td>
+  <td style="text-align:right">1</td>
+  <td>원목 8/일</td>
+  <td>목재 8/일</td>
+  <td>원목 출처가 마력수면 10원목 가공당 마정석1 추가</td>
+</tr>
+<tr>
+  <td>가마</td>
+  <td>촌락</td>
+  <td>2×2</td>
+  <td>1</td>
+  <td style="text-align:right">12</td>
+  <td>금25·원목8·돌10</td>
+  <td style="text-align:right">1</td>
+  <td>점토 6 + 연료 3FU/일</td>
+  <td>벽돌 4/일</td>
+  <td>연료 자동 우선순위 적용</td>
+</tr>
+<tr>
+  <td>제련소</td>
+  <td>마을</td>
+  <td>2×2</td>
+  <td>2</td>
+  <td style="text-align:right">24</td>
+  <td>금100·목재20·돌25·벽돌10</td>
+  <td style="text-align:right">3</td>
+  <td>철: 철광석8+4FU/일; 금: 금광석4+4FU/일</td>
+  <td>철 모드: 철괴4/일; 금 모드: 금괴2/일</td>
+  <td>철/금 가공만 수동 선택 허용; 하루 1회 변경</td>
+</tr>
+</tbody>
+</table>
+<h3>생활 (4종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>우물</td>
+  <td>개척지</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">5</td>
+  <td>금6·원목5</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>반경8 이내 주거 인원 최대 18명 물 공급</td>
+</tr>
+<tr>
+  <td>치료소</td>
+  <td>마을</td>
+  <td>2×2</td>
+  <td>1</td>
+  <td style="text-align:right">18</td>
+  <td>금45·목재14·약초4</td>
+  <td style="text-align:right">2</td>
+  <td>환자 1명당 약초1</td>
+  <td>환자 치료 최대 2명/일</td>
+  <td>지능≥4 치료사 1명 필수</td>
+</tr>
+<tr>
+  <td>목욕탕</td>
+  <td>도시</td>
+  <td>3×2</td>
+  <td>1</td>
+  <td style="text-align:right">28</td>
+  <td>금95·목재20·벽돌18</td>
+  <td style="text-align:right">4</td>
+  <td>연료 1FU/일</td>
+  <td>없음</td>
+  <td>최대 12명/일 이용; 위생·행복 보너스</td>
+</tr>
+<tr>
+  <td>병원</td>
+  <td>성채</td>
+  <td>3×3</td>
+  <td>3</td>
+  <td style="text-align:right">40</td>
+  <td>금220·목재35·벽돌30·철괴8·약초12</td>
+  <td style="text-align:right">8</td>
+  <td>환자 1명당 약초1</td>
+  <td>환자 치료 최대 8명/일(정원 3명)</td>
+  <td>근무 최소2명; ≥6 지능자 1명 이상; 근무자 지능 합≥10</td>
+</tr>
+</tbody>
+</table>
+<h3>문화 (6종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>주점</td>
+  <td>마을</td>
+  <td>2×2</td>
+  <td>1</td>
+  <td style="text-align:right">18</td>
+  <td>금60·목재18·돌6</td>
+  <td style="text-align:right">2</td>
+  <td>식량 2/일</td>
+  <td>없음</td>
+  <td>이용 8명/일; 최근 이용자 기분 +6(2일)</td>
+</tr>
+<tr>
+  <td>학교</td>
+  <td>도시</td>
+  <td>4×2</td>
+  <td>2</td>
+  <td style="text-align:right">30</td>
+  <td>금140·목재30·벽돌18</td>
+  <td style="text-align:right">3</td>
+  <td>없음</td>
+  <td>학생에게 지능 XP +3/이용일</td>
+  <td>최대 8명/일 교육; 교원 2명</td>
+</tr>
+<tr>
+  <td>도서관</td>
+  <td>도시</td>
+  <td>3×3</td>
+  <td>2</td>
+  <td style="text-align:right">30</td>
+  <td>금155·목재26·벽돌24·철괴3·가죽4</td>
+  <td style="text-align:right">4</td>
+  <td>없음</td>
+  <td>연구점수 4/일 + 학생 지능XP 2/이용일</td>
+  <td>학생 최대 6명/일; 경제·방어 기초연구</td>
+</tr>
+<tr>
+  <td>극장</td>
+  <td>성채</td>
+  <td>3×3</td>
+  <td>3</td>
+  <td style="text-align:right">42</td>
+  <td>금250·목재40·벽돌35·철괴8</td>
+  <td style="text-align:right">6</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>이용 15명/일; 이용자 기분 +10(2일)</td>
+</tr>
+<tr>
+  <td>교회</td>
+  <td>성채</td>
+  <td>3×3</td>
+  <td>3</td>
+  <td style="text-align:right">42</td>
+  <td>금220·목재40·벽돌35·철괴7</td>
+  <td style="text-align:right">5</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>이용 12명/일; 이용자 기분 +7(2일)</td>
+</tr>
+<tr>
+  <td>학술원</td>
+  <td>왕성</td>
+  <td>4×4</td>
+  <td>4</td>
+  <td style="text-align:right">60</td>
+  <td>금460·목재65·벽돌60·철괴25·마정석18·가죽8</td>
+  <td style="text-align:right">10</td>
+  <td>없음</td>
+  <td>연구점수 8/일 + 학생 지능XP 4/이용일</td>
+  <td>학생 최대 12명/일</td>
+</tr>
+</tbody>
+</table>
+<h3>마법 (3종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>마법 공방</td>
+  <td>도시</td>
+  <td>1×1</td>
+  <td>1</td>
+  <td style="text-align:right">20</td>
+  <td>금100·목재16·철괴4·마정석8</td>
+  <td style="text-align:right">3</td>
+  <td>마정석 1/일</td>
+  <td>연구점수 3/일</td>
+  <td>반경6 생산시설 생산+10%; 마정석 없으면 양쪽 효과 정지</td>
+</tr>
+<tr>
+  <td>마탑</td>
+  <td>성채</td>
+  <td>2×2</td>
+  <td>2</td>
+  <td style="text-align:right">36</td>
+  <td>금180·목재22·벽돌24·마정석10·가죽3</td>
+  <td style="text-align:right">5</td>
+  <td>마정석 1/일</td>
+  <td>연구점수 10/일(정원 2명)</td>
+  <td>마법 포함 모든 분야 연구 진행</td>
+</tr>
+<tr>
+  <td>대마탑</td>
+  <td>왕성</td>
+  <td>3×3</td>
+  <td>5</td>
+  <td style="text-align:right">72</td>
+  <td>금560·목재100·벽돌70·철괴50·마정석80·가죽10</td>
+  <td style="text-align:right">15</td>
+  <td>마정석 3/일</td>
+  <td>연구점수 40/일(정원 5명)</td>
+  <td>세계 최대 3개 건설</td>
+</tr>
+</tbody>
+</table>
+<h3>수렵·채집 (3종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>채집장</td>
+  <td>개척지</td>
+  <td>2×2</td>
+  <td>2</td>
+  <td style="text-align:right">6</td>
+  <td>금8·원목6</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>4회/일 확률 채집: 식량·약초·점토</td>
+  <td>지역별 자동 확률표; 작업 선택 없음</td>
+</tr>
+<tr>
+  <td>야영지</td>
+  <td>촌락</td>
+  <td>2×2</td>
+  <td>2</td>
+  <td style="text-align:right">10</td>
+  <td>금22·원목12</td>
+  <td style="text-align:right">1</td>
+  <td>동물 개체 수 소모</td>
+  <td>식량 최대4/일 + 사냥 시 가죽</td>
+  <td>반경6; 야생동물 실제 개체 기반</td>
+</tr>
+<tr>
+  <td>수렵기지</td>
+  <td>마을</td>
+  <td>3×3</td>
+  <td>4</td>
+  <td style="text-align:right">22</td>
+  <td>금90·목재20·돌15</td>
+  <td style="text-align:right">2</td>
+  <td>동물 개체 수 소모</td>
+  <td>식량 최대9/일 + 사냥 시 가죽</td>
+  <td>반경12; 정찰 시야8; 자동 수렵</td>
+</tr>
+</tbody>
+</table>
+<h3>도로 (3종)</h3>
+<table>
+<thead>
+<tr>
+  <th>건물</th>
+  <th>해금</th>
+  <th>크기</th>
+  <th>인원</th>
+  <th style="text-align:right">건설시간(h)</th>
+  <th><strong>건설비(일회)</strong></th>
+  <th style="text-align:right">유지(금/일)</th>
+  <th><strong>가동 자원 소비</strong></th>
+  <th><strong>자원·연구 생산</strong></th>
+  <th><strong>기능·제약</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>흙길</td>
+  <td>개척지</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">1</td>
+  <td>원목1</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>주민 이동속도×1.5; 1칸</td>
+</tr>
+<tr>
+  <td>돌길</td>
+  <td>마을</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">2</td>
+  <td>돌3·목재1</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>주민 이동속도×2.0; 1칸</td>
+</tr>
+<tr>
+  <td>교량</td>
+  <td>도시</td>
+  <td>1×1</td>
+  <td>0</td>
+  <td style="text-align:right">3</td>
+  <td>금3·목재3·철괴1</td>
+  <td style="text-align:right">0</td>
+  <td>없음</td>
+  <td>없음</td>
+  <td>수면 위 건설; 이동속도×1.5; 1칸</td>
+</tr>
+</tbody>
+</table>
+<h3>건물 표의 자동 운영 원칙</h3>
+<ul>
+<li><strong>운영상 선택지가 없는 시설:</strong> 임업은 성목 자동 벌목, 광업은 채굴 가능한 모든 광물 자동 배분, 채집장은 확률 자동 채집, 어업은 수역 공동 한도 자동 배분, 가축은 종별 자동 생산·번식·초과개체 자동 도축, 병영은 적을 감지하면 자동 출동합니다.</li>
+<li><strong>설정 가능 항목:</strong> 제련소의 철괴/금괴 생산 모드(하루에 한 번 변경), 영지 세율 1~4(하루에 한 번 변경). 신규 건물 후보나 별도 탐험 시설은 포함하지 않습니다.</li>
+<li><strong>운영 필요 인원:</strong> 의료시설·마법시설 등 최소 근로자 요건이 별도로 있으면 충족하기 전에는 자원 소비와 산출 모두 발생하지 않습니다. 일반 건물은 실제 유효 노동시간 비율로 산출합니다.</li>
+<li><strong>자동 가공:</strong> 제재소는 원목이 있으면 가공, 가마는 점토+연료가 있으면 자동 가공합니다. 제련소만 철/금 레시피를 유저가 지정합니다.</li>
+</ul>
+<h3>시장 거래·계약직 고용 시설</h3>
+<table>
+<thead>
+<tr>
+  <th>시설</th>
+  <th>구매/판매 대상</th>
+  <th style="text-align:right">거래 가능 총량/일</th>
+  <th style="text-align:right">계약직 동시 상한(영지 전체)</th>
+  <th>후보 인원·갱신</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>노점</td>
+  <td>식량·약초·원목·돌·가죽</td>
+  <td style="text-align:right">20</td>
+  <td style="text-align:right">1</td>
+  <td>3명, <strong>3일마다</strong></td>
+</tr>
+<tr>
+  <td>시장</td>
+  <td>노점 품목 + 목재·점토·벽돌·철광석·석탄·철괴</td>
+  <td style="text-align:right">80</td>
+  <td style="text-align:right">3</td>
+  <td>8명, <strong>3일마다</strong></td>
+</tr>
+<tr>
+  <td>교역소</td>
+  <td>금화 이외 전체 14종 자원</td>
+  <td style="text-align:right">260</td>
+  <td style="text-align:right">8</td>
+  <td>15명, <strong>3일마다</strong></td>
+</tr>
+</tbody>
+</table>
+<p>상기 일일 거래량은 <strong>모든 시장시설을 합산한 상한이 아니라 영지에서 운영하는 최고 등급 시장의 상한</strong>입니다. 동시 계약직 상한도 영지 전체에 적용됩니다. 품목별 구매 가능 재고는 6일마다 자동 충전되며, 후보자 갱신과는 별개입니다. 금화는 매수·매도하지 않습니다.</p>
+<h3>방어탑·병영 실제 운영</h3>
+<table>
+<thead>
+<tr>
+  <th>시설</th>
+  <th style="text-align:right">방어 점수(제안)</th>
+  <th>작동 조건</th>
+  <th>자동 대응</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>초소 / 망루 / 감시탑</td>
+  <td style="text-align:right">1 / 2 / 3</td>
+  <td>근무자 1명 필수; 무인 시 공격0·시야2</td>
+  <td>자동 감시·공격·발견 알림</td>
+</tr>
+<tr>
+  <td>쇠뇌탑 / 포탑 / 마도 포탑</td>
+  <td style="text-align:right">3 / 4 / 5</td>
+  <td>근무자 1명 필수; 마도는 발사할 마정석 필요</td>
+  <td>자동 목표 선택·공격</td>
+</tr>
+<tr>
+  <td>병영</td>
+  <td style="text-align:right">건물 2 + 경비병 1인당 1</td>
+  <td>근무 경비병 1~4명</td>
+  <td><strong>감시 또는 주민 시야로 적을 발견하면 경로를 따라 자동 출동</strong></td>
+</tr>
+<tr>
+  <td>성벽·문</td>
+  <td style="text-align:right">방어 점수 0</td>
+  <td>벽체·문이 연결되어 보호구역 구성</td>
+  <td>적 이동 차단·아군 문 통행</td>
+</tr>
+</tbody>
+</table>
+<p>병영 출동 명령 버튼은 제공하지 않습니다. 병영에 일하는 주민은 적 발견 시 가장 긴급한 <strong>가시 적군</strong>의 위치로 자동 이동하고, 이동시간이 소모됩니다. 다른 적군도 발견되면 위험도·거리에 따라 자동으로 목표를 다시 배정합니다. 미발견 적은 추적하지 않습니다. 이전에 제안했던 수동 전투 태세·출동 명령은 이번 범위에서 제외합니다.</p>
+<h2>4. 생산·소비 규칙 — 예외 없는 상세 명세</h2>
+<h3>4.1 가을 일괄 수확: 파종·종자 소비 없음</h3>
+<p><strong>경작지, 농장, 관개농장</strong>은 매년 봄·여름 <strong>24일(1~24일)</strong> 동안 누적한 <strong>실제 유효 노동시간</strong>으로 그해 수확량을 결정합니다. 파종 행동·파종률·파종비·종자 식량 지출은 <strong>전부 삭제</strong>합니다. 가을 첫날(그해 <strong>25일 08:00</strong>)에 해당 연도의 수확량을 <strong>한 번에</strong> 산정합니다. 가을에는 해당 작기의 노동이 더 이상 누적되지 않습니다.</p>
+<ul>
+<li><code>기준 유효 인시 H0 = 근로정원 × 9시간 × 24일</code>. 경작지 <strong>432</strong>, 농장 <strong>648</strong>, 관개농장 <strong>1,080</strong> 유효 인시.</li>
+<li>한 주민의 매 근무시간 기여는 <code>실제 근무시간 × 그 시점 실제 노동효율</code>입니다. 행복·건강·5능력치·분야 숙련·특성·관련 연구 및 재해가 효율에 반영됩니다. 직업 배정만 하고 실근무하지 않았다면 <strong>0시간</strong>입니다.</li>
+<li><code>명목 수확 Q0</code> = 경작지 <strong>식량 360</strong>, 농장 <strong>600</strong>, 관개농장 <strong>1,300</strong>.</li>
+<li><strong>최종 수확량</strong> <code>floor(Q0 × clamp(H_eff / H0, 0, 2.5) × 가뭄계수 × 풍차계수)</code>; 기준 일반 노동자(효율1.0) 전원이 24일간 빠짐없이 하루9시간 근무하고 가뭄 없고 풍차 없을 때 <strong>정확히 Q0</strong>가 수확됩니다. 능력치·숙련도가 우수하면 Q0를 초과할 수 있습니다.</li>
+<li><strong>가뭄계수:</strong> 경작지·농장 0.55, 관개농장 0.90, 가뭄 없음 1.0. 풍차 반경10 건물의 산출 ×1.40(다수 풍차 중첩 없음). 풍차 효과는 수확 순간 적용합니다.</li>
+<li>가뭄과 풍차는 유효 노동시간에 넣지 않고 <strong>수확 순간에만 한 번</strong> 적용합니다(중복 보정 방지). 봄/여름 중간에 건설된 농장은 완성된 시점부터 실근무시간만 누적합니다. 25일 이후 새로 완공된 농장은 다음 해 작기에 합류합니다. 건물 철거 시 해당 연도 누적 노동은 소멸합니다.</li>
+<li>식량 저장 공간이 수확량보다 작으면 <strong>가을 첫날 한 번에 수확은 확정</strong>하되 초과분은 해당 농장에 <code>미반입 수확물</code>로 최대 4일 보관합니다. 저장 공간 확보 시 자동 반입하며, 4일 뒤 남은 미반입분은 부패·소실됩니다. 별도의 추가 수확 노동은 요구하지 않습니다.</li>
+<li>텃밭은 주기 생산이고, 온실은 사계절 생산입니다. 과수원은 완공 후 <strong>24일간 생산 0</strong>; 25일째부터 <strong>여름·가을에는 식량 12/일</strong>을 주기적으로 생산하고 봄·겨울에는 생산하지 않습니다. 최초 조성 후 1년 미수확 규칙은 폐지합니다.</li>
+</ul>
+<p><strong>예시:</strong> 정원 3명의 농장에 봄/여름 총 실노동이 모두 합쳐 486유효 인시 쌓이고, 해당 연도 가뭄이 없으면 <code>600×486/648 = 450 식량</code>을 가을 첫날 수확합니다. 인력 부족에 따른 노동 손실은 이미 시간 합산에 반영되므로 별도 충원율 패널티를 <strong>한 번 더 곱하지 않습니다</strong>.</p>
+<h3>4.2 가축 4종: 사료 입력·지속 생산·자동 도축 구분</h3>
+<p>가축은 <strong>소·돼지·양·닭 4종만 사육</strong>합니다. 모두 목축장(최대6마리) 또는 방목장(최대16마리)의 같은 수용 칸을 사용합니다. 동물별 상품은 기존 자원 <strong>식량·가죽</strong>에만 반영하고 새로운 우유·달걀 자원은 만들지 않습니다. 아래 표의 지속 생산은 우유·달걀 등의 식품을 <strong>식량으로 환산한 양</strong>입니다.</p>
+<table>
+<thead>
+<tr>
+  <th>가축</th>
+  <th style="text-align:right">1마리 하루 <strong>사료 소비(식량)</strong></th>
+  <th style="text-align:right">1마리 하루 <strong>식량 생산</strong></th>
+  <th style="text-align:right">도축 시 <strong>식량 생산</strong></th>
+  <th style="text-align:right">도축 시 <strong>가죽 생산</strong></th>
+  <th>새끼 성장</th>
+  <th>번식(성목 2마리/주기)</th>
+  <th style="text-align:right">기본 구매가</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>소</td>
+  <td style="text-align:right">0.60</td>
+  <td style="text-align:right">1.00</td>
+  <td style="text-align:right">30</td>
+  <td style="text-align:right">6</td>
+  <td>24일</td>
+  <td>24일마다 1마리</td>
+  <td style="text-align:right">금35</td>
+</tr>
+<tr>
+  <td>돼지</td>
+  <td style="text-align:right">0.70</td>
+  <td style="text-align:right">0.00</td>
+  <td style="text-align:right">18</td>
+  <td style="text-align:right">3</td>
+  <td>12일</td>
+  <td>12일마다 2마리</td>
+  <td style="text-align:right">금14</td>
+</tr>
+<tr>
+  <td>양</td>
+  <td style="text-align:right">0.35</td>
+  <td style="text-align:right">0.45</td>
+  <td style="text-align:right">12</td>
+  <td style="text-align:right">3</td>
+  <td>16일</td>
+  <td>16일마다 1마리</td>
+  <td style="text-align:right">금18</td>
+</tr>
+<tr>
+  <td>닭</td>
+  <td style="text-align:right">0.15</td>
+  <td style="text-align:right">0.35</td>
+  <td style="text-align:right">2</td>
+  <td style="text-align:right">0</td>
+  <td>8일</td>
+  <td>8일마다 2마리</td>
+  <td style="text-align:right">금5</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>표는 <strong>성체·정상 작동·정원 충족</strong> 기준이며 사료는 식량 재고에서 매일 자동으로 <strong>감소</strong>, 지속 생산물은 식량 재고에 <strong>증가</strong>합니다. 새끼는 성체가 될 때까지 지속 식량 생산 0, 사료는 성체의 50% 소비합니다.</li>
+<li><strong>자동 도축 규칙(설정 없음):</strong> 같은 종류 성체가 2마리 이상 남는다는 조건하에, 번식 후 수용량 초과로 생긴 성장 완료 개체부터 자동 도축합니다. 돼지는 지속 생산이 0이므로 번식·도축으로 식량과 가죽을 만듭니다. 플레이어가 축종별 도축 모드를 고르지 않습니다.</li>
+<li><strong>번식:</strong> 같은 종 성체가 2마리 이상이면 정해진 주기에 번식을 시도합니다. <strong>번식 직전에 수용 자리가 부족하면</strong> 해당 종 성체가 최소 2마리 남는 범위에서 번식용 최소 개체를 제외한 성체를 자동 도축해 자리를 먼저 확보합니다. 그래도 자리가 부족하면 번식을 <strong>이번 주기에는 건너뜁니다</strong>(대기 새끼나 초과 개체를 생성하지 않음). 태어난 새끼는 자리 1개를 사용하며 성장 후 자동 도축 규칙의 적용을 받습니다. 이 규칙은 모든 축종에 자동 적용됩니다.</li>
+<li><strong>방목장 초지 보너스:</strong> 6×4 건물 중심 반경3의 초원 타일이 12칸 이상이면 봄·여름·가을 <strong>소·양 사료 소비 50% 감소</strong>; 겨울 또는 초지 부족 시 위 표 원래 소비량. 돼지·닭은 초지 감면 없음. 목축장은 감면 없음.</li>
+<li>사료가 부족한 날에는 모든 가축 생산량이 사료 충족률만큼 감소하며, 연속 2일 사료 부족이면 건강 감소 및 사망 위험이 발생합니다. 사료보다 생산이 많더라도 <strong>당일 공급량 부족 판정은 전일 보유 식량</strong>을 기준으로 하여 자기 생산으로 같은 날 사료를 무한 조달하지 못하게 합니다.</li>
+<li>고용인 충원율과 실제 효율은 자동 생산·번식 처리 능력에 반영합니다. 가축 자체의 생산 테이블은 인원 정원이 채워진 상태의 수치이며, 일꾼이 0명일 때 사료 소비는 계속되지만 생산은 0입니다.</li>
+</ul>
+<h3>4.3 임업: 성목 1그루당 정확한 채취량과 공유 규칙</h3>
+<p>나무는 자작나무·소나무·참나무·마력수 네 종류이고 <strong>묘목 → 유목 → 성목</strong>으로 성장합니다. <strong>성목만 벌목 가능</strong>합니다. 같은 성목을 서로 다른 벌목시설이 겹쳐 이용하더라도 <strong>그 성목의 하루 추출 한도를 공유</strong>합니다.</p>
+<table>
+<thead>
+<tr>
+  <th>성목</th>
+  <th style="text-align:right">완전히 성장한 한 그루의 <strong>총 원목량</strong></th>
+  <th style="text-align:right">한 그루 하루 <strong>최대 원목 생산</strong></th>
+  <th style="text-align:right">묘목→성목 기본 성장 기간</th>
+  <th>완전히 벌목한 뒤 추가 드롭(확률)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>자작나무</td>
+  <td style="text-align:right">12</td>
+  <td style="text-align:right">0.60/일</td>
+  <td style="text-align:right">28일</td>
+  <td>식량1: 20%</td>
+</tr>
+<tr>
+  <td>소나무</td>
+  <td style="text-align:right">28</td>
+  <td style="text-align:right">0.80/일</td>
+  <td style="text-align:right">48일</td>
+  <td>식량1: 10%</td>
+</tr>
+<tr>
+  <td>참나무</td>
+  <td style="text-align:right">50</td>
+  <td style="text-align:right">1.00/일</td>
+  <td style="text-align:right">84일</td>
+  <td>식량2: 25%</td>
+</tr>
+<tr>
+  <td>마력수</td>
+  <td style="text-align:right">24</td>
+  <td style="text-align:right">0.40/일</td>
+  <td style="text-align:right">112일</td>
+  <td>약초1: 25%</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>벌목지:</strong> 반경3 안 성목 대상, 노동정원 2명 기준 건물 자체 한도 <strong>원목 5/일</strong>. <strong>벌목장:</strong> 반경5, 정원 3명 기준 건물 자체 한도 <strong>원목 9/일</strong>. <code>하루 실제 원목 = min(건물 근무효율 반영 한도, 해당 범위의 성목별 남은 일일 채취 한도 합계, 성목 잔량 합계)</code>로 계산합니다. 나무의 추가 드롭은 <strong>성목이 완전히 고갈될 때 한 번</strong>만 판정됩니다.</li>
+<li>예: 벌목지 반경3에 성목 소나무 3그루와 참나무 2그루가 있다면 나무 측 하루 공급 한도는 <code>3×0.8+2×1.0=4.4원목/일</code>. 건물 한도 5보다 작으므로 <strong>4.4/일</strong>을 추출하고 나무 재고도 4.4 감소합니다. 소수량은 누적해 자원 통계에 반영합니다.</li>
+<li>벌목시설이 다수이면 작업 시설 ID 순서로 각 성목의 <strong>공유 가능한 잔여 일일 한도</strong>를 배분하고, 결과는 일일 갱신 후 초기화합니다. 실제 재고 고갈까지 원목이 창조되지 않습니다.</li>
+<li>조림지는 반경8 내 나무 성장속도 <strong>+80%</strong>, 비어 있는 적합 타일에 하루 최대 <strong>3그루</strong> 묘목 자동 생성. 동일 위치 조림 보너스 중첩 없음. 작물·건물·도로·성벽 아래에 묘목 생성 불가.</li>
+<li>마력수 출처 원목은 내부적으로 분리 기록합니다. 제재소에서 마력수 원목 <strong>10개 소비 → 목재10개 + 마정석1개 생산</strong>; 마정석은 <strong>벌목할 때 즉시 나오지 않습니다</strong>.</li>
+</ul>
+<h3>4.4 광업: 광물별 채굴 가치 예산, 모든 적격 광물 자동 생산</h3>
+<p><strong>채굴 대상 수동 선택을 제거</strong>합니다. 광맥이 존재하고 건물 작업 반경에 있으면 <strong>채굴 가능한 모든 광물이 동시에 생산</strong>됩니다. 심층 광산은 <strong>돌·철광석·석탄·금광석·마정석을 모두</strong> 채굴합니다. 광물별 아래 가치는 <strong>시장 거래가격이 아닌 채굴 작업량 환산값</strong>입니다.</p>
+<table>
+<thead>
+<tr>
+  <th>광물</th>
+  <th style="text-align:right">채굴가치/개</th>
+  <th>채석장(반경3)</th>
+  <th>광산(반경5)</th>
+  <th>심층 광산(반경7)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>돌</td>
+  <td style="text-align:right">1</td>
+  <td>가능</td>
+  <td>가능</td>
+  <td>가능</td>
+</tr>
+<tr>
+  <td>석탄</td>
+  <td style="text-align:right">2</td>
+  <td>불가</td>
+  <td>가능</td>
+  <td>가능</td>
+</tr>
+<tr>
+  <td>철광석</td>
+  <td style="text-align:right">3</td>
+  <td>불가</td>
+  <td>가능</td>
+  <td>가능</td>
+</tr>
+<tr>
+  <td>금광석</td>
+  <td style="text-align:right">8</td>
+  <td>불가</td>
+  <td>불가</td>
+  <td>가능</td>
+</tr>
+<tr>
+  <td>마정석</td>
+  <td style="text-align:right">10</td>
+  <td>불가</td>
+  <td>불가</td>
+  <td>가능</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+  <th>시설</th>
+  <th style="text-align:right">정원 인원</th>
+  <th style="text-align:right"><strong>건물 전체 명목 채굴가치/일</strong></th>
+  <th>예시 산출(해당 광물 존재 시)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>채석장</td>
+  <td style="text-align:right">3</td>
+  <td style="text-align:right"><strong>8</strong></td>
+  <td>돌8 = 8가치</td>
+</tr>
+<tr>
+  <td>광산</td>
+  <td style="text-align:right">4</td>
+  <td style="text-align:right"><strong>24</strong></td>
+  <td>돌8 + 석탄5 + 철광석2 = 8+10+6=24가치</td>
+</tr>
+<tr>
+  <td>심층 광산</td>
+  <td style="text-align:right">4</td>
+  <td style="text-align:right"><strong>50</strong></td>
+  <td>돌8 + 석탄6 + 철광석4 + 금광석1 + 마정석1 = 8+12+12+8+10=50가치</td>
+</tr>
+</tbody>
+</table>
+<p><strong>자동 배분 알고리즘:</strong> 시설 반경 내 적격 광상들의 각 광물 잔여 재고를 집계합니다. 광물별 <code>공급 가중치 = 해당 광물 잔여 수량 × 광물의 채굴가치</code>; 건물의 그날 <strong>총 작업가치 예산(8/24/50×유효근무율)</strong>을 공급 가중치 비율로 자동 분배해 목표 출하량을 구합니다. 분배된 가치÷해당 광물 단가가 산출 수량이며, 소수점은 <strong>광물별 누적 장부에 남겨</strong> 다음 날 결산합니다. 매장량보다 더 캐지 않으며, 한 광상을 여러 광산이 공유할 때 해당 광상 잔여 매장량을 공통 차감합니다. 채굴 가능한 광물이 하나만 있으면 해당 광물에 예산 전체가 투입됩니다. <strong>수동 우선 채굴 버튼은 없습니다.</strong></p>
+<ul>
+<li>광상 매장량(소/중/대): 돌250/750/1,800; 철광석180/500/1,200; 석탄150/450/1,000; 금광석40/110/280; 마정석30/90/220. 재생 없음.</li>
+<li>같은 광상에 채석장과 심층 광산이 겹치면 먼저 정해진 채굴 예산과 추출 수량만큼 함께 소모합니다. 하루 예산이 남아도 해당 지역의 매장량이 없으면 생산 0입니다.</li>
+<li>자원이 있는 <code>돌/암석 타일</code>에도 <strong>일반 건물을 건설할 수 있습니다</strong>. 돌 지형은 건설 배치 금지 조건이 아닙니다. 지하 광상 데이터는 건물 배치와 분리해 보존하며, 주변 채굴시설에서 광상을 채굴할 수 있습니다. 수면 위 건물 건설은 교량 등 허용된 시설만 가능합니다.</li>
+</ul>
+<h3>4.5 어업: 수역 단위 공동 한도, 자동 공정 배분</h3>
+<p>물 타일이 4방향으로 연결된 각 덩어리를 <strong>수역 ID</strong>로 관리합니다. 어류 개체 재고는 감소하지 않습니다. 대신 <strong>수역 ID별 하루 전체 식량 생산량 한도</strong>가 존재합니다.</p>
+<ul>
+<li>수역 규모 <code>A=해당 ID 물 타일 수</code>, 기본한도 <code>C(A)=clamp(3+0.12×A, 8, 70)</code> 식량/일.</li>
+<li>계절 보정은 봄·가을 ×1.00, 여름 ×1.10, 겨울 ×0.75. 예: 50칸 수역 → 기본9/일, 200칸 →27/일, 400칸 →51/일.</li>
+<li><strong>낚시터</strong>는 건물에서 반경5 내 연결 수역 물타일 수 <code>A5</code>를 세고 <code>희망 어획 D낚시 = min(5, 0.25×A5) × 실제 노동효율</code>. <strong>항구</strong>는 건물에 직접 접한 수역 전체 A를 쓰고 <code>D항구=min(15, 3+0.12×A) × 실제 노동효율</code>.</li>
+<li>동일 수역을 이용하는 모든 시설의 <code>희망 어획</code>을 합산해 <code>D합계</code>로 두고, <code>공유 배율 r=min(1, 수역 당일 한도 / D합계)</code>를 적용합니다. <strong>시설 실제 생산량 = D시설×r</strong>. 따라서 같은 수역에 항구를 여러 개 건설해도 공동 한도를 초과하지 못합니다. 특정 시설이 먼저 점유해 독식하는 순서 의존성도 없습니다.</li>
+<li>예: A=200칸인 호수에서 항구 2개가 각각 15를 요청하면 합계30, 공동한도27이므로 양쪽 <strong>13.5식량/일</strong>. 항구 한 개와 낚시터 두 개(각5)면 총요청25로 한도27 이하여서 <strong>15+5+5=25</strong> 생산합니다.</li>
+<li>낚시터가 여러 수역을 접하면 반경5에 포함된 물타일이 가장 많은 수역을 자동 선정합니다(동률일 때 수역 ID 순). 항구도 인접한 수역 중 가장 면적이 큰 하나를 자동 선정합니다. <strong>수역 선택 UI 없음</strong>. 수역 한도는 매일 자정 초기화합니다.</li>
+<li>해당 수역이 얼거나 접근 불가능하면 당일 어획0. 계절 보정 이후 최종 산출량은 시설 자체 한도와 노동효율을 우회하지 않습니다.</li>
+</ul>
+<h3>4.6 채집·가공·연료: 입력과 출력 명확화</h3>
+<p>채집장은 목표 자원을 선택하지 않습니다. 정상 인력 2명 기준 하루 <strong>4회 독립 추첨</strong>하며, 추첨 1회당 해당 자원 1개가 생산됩니다.</p>
+<table>
+<thead>
+<tr>
+  <th>건물 위치</th>
+  <th style="text-align:right">식량 획득확률</th>
+  <th style="text-align:right">약초 획득확률</th>
+  <th style="text-align:right">점토 획득확률</th>
+  <th>1일 기대 산출</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>초원·혼합림·침엽수림·산악·설원·사막</td>
+  <td style="text-align:right">60%</td>
+  <td style="text-align:right">40%</td>
+  <td style="text-align:right">0%</td>
+  <td>식량2.4 + 약초1.6</td>
+</tr>
+<tr>
+  <td>습지/늪</td>
+  <td style="text-align:right">20%</td>
+  <td style="text-align:right">40%</td>
+  <td style="text-align:right">40%</td>
+  <td>식량0.8 + 약초1.6 + 점토1.6</td>
+</tr>
+</tbody>
+</table>
+<p>실제 작업효율에 따라 <code>하루 시도횟수=4×실효 근무율</code>의 소수를 누적합니다. <code>확률표 기반 자동 산출</code>이며 플레이어의 채집 목표 선택은 없습니다.</p>
+<table>
+<thead>
+<tr>
+  <th>가공시설</th>
+  <th>하루 <strong>투입·소비</strong></th>
+  <th>하루 <strong>출력·생산</strong></th>
+  <th>플레이어 설정</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>제재소</td>
+  <td>원목 8</td>
+  <td>목재 8(마력수 원목10가공당 마정석1 추가)</td>
+  <td>없음</td>
+</tr>
+<tr>
+  <td>가마</td>
+  <td>점토6 + 연료3FU</td>
+  <td>벽돌4</td>
+  <td>없음</td>
+</tr>
+<tr>
+  <td>제련소 <strong>철 모드</strong></td>
+  <td>철광석8 + 연료4FU</td>
+  <td>철괴4</td>
+  <td><strong>철/금 모드 전환 가능</strong></td>
+</tr>
+<tr>
+  <td>제련소 <strong>금 모드</strong></td>
+  <td>금광석4 + 연료4FU</td>
+  <td>금괴2</td>
+  <td><strong>철/금 모드 전환 가능</strong></td>
+</tr>
+</tbody>
+</table>
+<p>자원 부족 시 해당 제조 레시피는 투입 가능 비율만큼 가동하고, 입력·출력은 같은 비율로 감소합니다. 소수 산출은 누적 장부로 처리합니다. 제련소 모드 변경은 하루 한 번만 가능하고 진행 중인 그날의 작업시간은 선택한 모드에 일괄 귀속됩니다.</p>
+<h2>5. 월드 생성·수목·동물(유적 없음)</h2>
+<h3>5.1 생물군계 비율 및 시작 위치</h3>
+<table>
+<thead>
+<tr>
+  <th>지역</th>
+  <th style="text-align:right">맵 생성 비중(제안)</th>
+  <th>주요 자원</th>
+  <th>동물·환경</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>초원</td>
+  <td style="text-align:right">24%</td>
+  <td>적합 농지, 채집</td>
+  <td>토끼·사슴·버팔로·알파카</td>
+</tr>
+<tr>
+  <td>혼합림</td>
+  <td style="text-align:right">20%</td>
+  <td>참나무·자작나무</td>
+  <td>사슴·돼지·여우·곰</td>
+</tr>
+<tr>
+  <td>침엽수림</td>
+  <td style="text-align:right">14%</td>
+  <td>소나무·일부 마력수</td>
+  <td>늑대·곰·여우</td>
+</tr>
+<tr>
+  <td>산악</td>
+  <td style="text-align:right">14%</td>
+  <td>돌·철광석·석탄·드문 금광석</td>
+  <td>산양·뱀</td>
+</tr>
+<tr>
+  <td>습지/늪</td>
+  <td style="text-align:right">9%</td>
+  <td>점토·약초</td>
+  <td>오리·악어·뱀</td>
+</tr>
+<tr>
+  <td>설원</td>
+  <td style="text-align:right">6%</td>
+  <td>드문 광물·침엽수</td>
+  <td>늑대·산양·물개(물가)</td>
+</tr>
+<tr>
+  <td>사막</td>
+  <td style="text-align:right">5%</td>
+  <td>드문 금광석</td>
+  <td>뱀·제한된 초식동물</td>
+</tr>
+<tr>
+  <td>호수</td>
+  <td style="text-align:right">8%</td>
+  <td>어업 수역</td>
+  <td>오리·물개(차가운 수역)</td>
+</tr>
+</tbody>
+</table>
+<p>특수 유적·던전의 생성, 탐사, 보상, 연구 연계는 <strong>이번 문서에서 전부 제외</strong>합니다. 초기 맵에서는 성채 반경18 이내 기본 원목과 돌 확보를 보장하고, 철광맥을 반경40 안에 적어도 1개 생성합니다. 기본 시야는 성채 반경8입니다. 맵이 192×192로 커지는 만큼 원거리 동물 AI·광상·수목 생장은 일일/간소화 계산을 사용합니다.</p>
+<h3>5.2 야생동물·가축 종별 데이터</h3>
+<p><strong>비공격적/중립:</strong> 토끼·사슴·산양·오리·알파카·물개·여우(중립). <strong>가축:</strong> 소·돼지·양·닭. <strong>공격적:</strong> 늑대·곰·악어·버팔로·뱀. <code>가축</code> 4종은 사육 가능하며 닭을 이번 버전에 신규 추가했습니다. 이하 체력과 보상은 초기 제안값입니다.</p>
+<table>
+<thead>
+<tr>
+  <th>동물</th>
+  <th>분류</th>
+  <th style="text-align:right">체력</th>
+  <th>활동 지역</th>
+  <th style="text-align:right">처치·사냥 시 <strong>식량 생산</strong></th>
+  <th style="text-align:right">처치 시 <strong>가죽 생산</strong></th>
+  <th>특징</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>토끼</td>
+  <td>온순</td>
+  <td style="text-align:right">12</td>
+  <td>초원·혼합림</td>
+  <td style="text-align:right">2</td>
+  <td style="text-align:right">0</td>
+  <td>빠른 도주</td>
+</tr>
+<tr>
+  <td>사슴</td>
+  <td>온순</td>
+  <td style="text-align:right">30</td>
+  <td>초원·혼합림</td>
+  <td style="text-align:right">10</td>
+  <td style="text-align:right">2</td>
+  <td>도주</td>
+</tr>
+<tr>
+  <td>산양</td>
+  <td>온순</td>
+  <td style="text-align:right">28</td>
+  <td>산악·설원</td>
+  <td style="text-align:right">7</td>
+  <td style="text-align:right">2</td>
+  <td>험지 이동</td>
+</tr>
+<tr>
+  <td>오리</td>
+  <td>온순</td>
+  <td style="text-align:right">10</td>
+  <td>수역 주변</td>
+  <td style="text-align:right">2</td>
+  <td style="text-align:right">0</td>
+  <td>물가 도주</td>
+</tr>
+<tr>
+  <td>여우</td>
+  <td>중립</td>
+  <td style="text-align:right">22</td>
+  <td>숲·초원</td>
+  <td style="text-align:right">3</td>
+  <td style="text-align:right">1</td>
+  <td>먼저 공격하지 않음; 위협 시 도주</td>
+</tr>
+<tr>
+  <td>알파카</td>
+  <td>온순</td>
+  <td style="text-align:right">32</td>
+  <td>초원·산악 가장자리</td>
+  <td style="text-align:right">7</td>
+  <td style="text-align:right">2</td>
+  <td>느린 도주; <strong>가축 사육 불가</strong></td>
+</tr>
+<tr>
+  <td>물개</td>
+  <td>온순</td>
+  <td style="text-align:right">38</td>
+  <td>설원 해안·차가운 호수</td>
+  <td style="text-align:right">9</td>
+  <td style="text-align:right">3</td>
+  <td>수역 가장자리 활동</td>
+</tr>
+<tr>
+  <td>소</td>
+  <td>가축</td>
+  <td style="text-align:right">65</td>
+  <td>구매·드문 야생</td>
+  <td style="text-align:right">30</td>
+  <td style="text-align:right">6</td>
+  <td>사육 가능; §4 가축표 적용</td>
+</tr>
+<tr>
+  <td>양</td>
+  <td>가축</td>
+  <td style="text-align:right">28</td>
+  <td>구매·드문 야생</td>
+  <td style="text-align:right">12</td>
+  <td style="text-align:right">3</td>
+  <td>사육 가능</td>
+</tr>
+<tr>
+  <td>돼지</td>
+  <td>가축</td>
+  <td style="text-align:right">36</td>
+  <td>숲·구매</td>
+  <td style="text-align:right">18</td>
+  <td style="text-align:right">3</td>
+  <td>사육 가능</td>
+</tr>
+<tr>
+  <td>닭</td>
+  <td>가축</td>
+  <td style="text-align:right">9</td>
+  <td>구매</td>
+  <td style="text-align:right">2</td>
+  <td style="text-align:right">0</td>
+  <td>사육 가능; 알 식량 생산</td>
+</tr>
+<tr>
+  <td>늑대</td>
+  <td>공격적</td>
+  <td style="text-align:right">36</td>
+  <td>침엽수림</td>
+  <td style="text-align:right">5</td>
+  <td style="text-align:right">2</td>
+  <td>무리, 공격력5</td>
+</tr>
+<tr>
+  <td>곰</td>
+  <td>공격적</td>
+  <td style="text-align:right">120</td>
+  <td>깊은 숲·설원</td>
+  <td style="text-align:right">20</td>
+  <td style="text-align:right">6</td>
+  <td>공격력15</td>
+</tr>
+<tr>
+  <td>악어</td>
+  <td>공격적</td>
+  <td style="text-align:right">80</td>
+  <td>늪·수역 가장자리</td>
+  <td style="text-align:right">10</td>
+  <td style="text-align:right">4</td>
+  <td>공격력9</td>
+</tr>
+<tr>
+  <td>버팔로</td>
+  <td>공격적</td>
+  <td style="text-align:right">95</td>
+  <td>초원</td>
+  <td style="text-align:right">22</td>
+  <td style="text-align:right">5</td>
+  <td>접근 시 공격, 공격력12; <strong>사육 불가</strong></td>
+</tr>
+<tr>
+  <td>뱀</td>
+  <td>공격적</td>
+  <td style="text-align:right">16</td>
+  <td>사막·습지·산악</td>
+  <td style="text-align:right">1</td>
+  <td style="text-align:right">0</td>
+  <td>근접 위험, 공격력4; 짧은 독 피해</td>
+</tr>
+</tbody>
+</table>
+<p>야생동물은 지역별 수용량과 사냥 압력에 따라 자연 유입·번식합니다. 최초 동물 약 100~150마리, 활성 상한 300마리부터 성능 테스트를 시작합니다. 맵 전역에서 항상 풀 AI를 실행하지 않고 카메라와 주민 부근만 정밀 이동합니다. 맹수는 직접 주민을 위협할 수 있고, 시작 반경12에서는 최초 10일간 공격성 출현을 완충합니다.</p>
+<h3>5.3 산림·광물 재생 정책</h3>
+<p>수목은 §4.3의 성목별 일일 추출률·총 잔량을 사용합니다. 묘목 재출현 간격(고갈된 타일 기준): 자작나무 평균8~16일, 소나무12~24일, 참나무20~35일, 마력수35~60일. 조림지 내 재출현 평균 대기시간 50% 단축. 건물·도로·벽·수면에 묘목이 발생하지 않습니다. 광물은 §4.4 매장량을 공유하며 재생하지 않습니다.</p>
+<h2>6. 도로·배치·시야·보호구역·전투 자동화</h2>
+<h3>6.1 건설 위치와 연결 도로 보호</h3>
+<ul>
+<li>도로망은 <strong>상하좌우 4방향</strong>으로 연결합니다. 초기 성채 출입구와 닿는 도로를 주도로망으로 판정합니다. 도로·교량·성벽·문과 개척지 건물은 도로 인접 조건의 예외이고, <strong>촌락 이상 일반 건물</strong>은 출입구 앞 한 칸이 주도로망이어야 건설할 수 있습니다. 건물 회전(90°)과 출입구 방향 표시를 지원합니다.</li>
+<li><strong>도로 철거 보호(사용자 확정):</strong> 도로 타일 제거·철거·다른 시설로 덮어쓰기 전에 연결 컴포넌트를 다시 계산합니다. 현재 도로망에 연결된 완공 건물 <strong>한 곳이라도</strong> 성채 연결을 잃는다면 <strong>그 행위를 허용하지 않습니다</strong>. 단순 경고나 생산 페널티가 아니라 <strong>명령 자체를 거부</strong>합니다.</li>
+<li>예: 주택으로 이어진 유일한 흙길 1칸을 철거하려 하면 <code>연결된 건물 1곳의 도로가 끊어져 철거할 수 없습니다.</code>라고 표시합니다. 새 우회 도로를 먼저 건설해 연속 경로를 확보하면 기존 길을 철거할 수 있습니다.</li>
+<li><strong>흙길→돌길 교체는 원자적(한 틱 안에 연결 유지)</strong>으로 처리해 도로 연결이 끊기지 않습니다. 교량도 물 타일 도로로 취급합니다. 적은 도로 자체를 파괴하는 표적 우선순위를 가지지 않고, 도로의 일반적 내구도·자연 붕괴도 이번 범위에서 적용하지 않습니다.</li>
+<li><code>돌/암석 타일</code> 위에는 <strong>모든 일반 건물을 정상 배치 가능</strong>합니다. 암석은 건설 장애물이 아닙니다. 해당 타일의 지하 광상 매장량은 별도 계층에 보존되어 주변 광산이 채굴할 수 있습니다. 물 타일 위 일반 건물 배치는 계속 금지합니다.</li>
+</ul>
+<h3>6.2 도로 물류 효율(실운반이 아닌 연결망 보정)</h3>
+<table>
+<thead>
+<tr>
+  <th>최단 도로 거리(성채 문에서 건물 문까지)</th>
+  <th style="text-align:right">생산물 가용률</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>0~20칸</td>
+  <td style="text-align:right">100%</td>
+</tr>
+<tr>
+  <td>21~50칸</td>
+  <td style="text-align:right">95%</td>
+</tr>
+<tr>
+  <td>51~80칸</td>
+  <td style="text-align:right">85%</td>
+</tr>
+<tr>
+  <td>81칸 이상</td>
+  <td style="text-align:right">70%</td>
+</tr>
+</tbody>
+</table>
+<p>동일한 주도로망에 물류창고가 있고 해당 시설이 <strong>도로거리 15칸 이내</strong>이면 가용률 +20%p(상한100%). 물류창고는 본 기획의 확정 64종에 포함됩니다. 자원이 실제로 이동하는 마차 물류는 추가하지 않고, 가용률에 따라 <strong>그날 자원 생산 장부에 들어오는 양만 감산</strong>합니다. 건물이 연결된 도로는 철거로 끊을 수 없으므로 평상시 <code>연결 끊김</code> 운영 경고는 필요하지 않습니다.</p>
+<p><strong>승급용 유효 도로:</strong> 성채로 연결된 도로 중 실제 완공·운영 건물의 출입구를 서비스하는 데 필요한 경로상의 타일만 센다. 의미 없는 우회·무목적 도로 연장은 제외합니다.</p>
+<h3>6.3 성벽 보호구역</h3>
+<p>성벽/성문은 외부와 내부를 가르는 막힌 경계로 판정합니다. 맵 외곽에서 flood fill을 수행할 때 벽·정상 성문은 통과 불가, 실제 주민 이동에서는 성문 통과 가능. 파괴된 문·벽체로 누수가 발생하면 보호구역 면적과 보호 인구가 다시 계산됩니다. 주민은 위험 시 가까운 정상 보호구역으로 대피하고, 보호구역 거주 주민은 안전 욕구 +12. 승급에서는 보호 면적과 보호받는 <strong>영구 주민 비율</strong>을 함께 요구합니다. 계산은 도로·벽의 변화 때만 수행하며 매 프레임 재계산하지 않습니다.</p>
+<h3>6.4 안개, 탐색, 적 감지와 병영 자동 출동</h3>
+<ul>
+<li>시야는 <strong>미탐험 / 탐험했으나 현재 안 보임 / 현재 가시</strong> 세 단계입니다. 과거 발견한 지형·광상은 기억하지만 가시 범위 밖의 적·야생동물은 표시하지 않습니다.</li>
+<li>현재 시야 범위: 성채8, 연결도로1, 정상 운영 일반 건물2, 초소6, 망루10, 감시탑12, 쇠뇌탑·포탑9, 마도포탑14, 수렵기지8.</li>
+<li><strong>습격 발생 시각 사전 카운트다운 없음.</strong> 적이 위 시야 또는 주민 시야에 들어온 순간 발견 경보를 띄웁니다. 주민이 적을 뒤늦게 발견했다면 경보도 늦게 발생합니다.</li>
+<li>병영 경비병은 플레이어가 출동 명령을 내리지 않습니다. <strong>적이 발견되면 자동으로 가까운·위협도가 높은 가시 적군을 목표로 지정하고 경로를 따라 이동</strong>합니다. 여러 병영이 있다면 거리와 적 위협도를 기준으로 출동 인력을 분산합니다. 사거리 밖 추적 시 최종 발견 지점까지 이동 후 정상 순찰/귀환 상태가 됩니다.</li>
+<li>첫 대규모 습격은 보통 난이도 18일 이전 발생하지 않으며, 초반 두 차례는 적 3~5명 범위에서 시험합니다. 감시탑 1명 근무 필수, 무인 상태 공격0·시야2.</li>
+</ul>
+<h2>7. 주민 5능력치·성장 XP·12분야 숙련</h2>
+<h3>7.1 출생 확률·능력치 계수</h3>
+<table>
+<thead>
+<tr>
+  <th style="text-align:right">능력치</th>
+  <th style="text-align:right">처음 생성 확률</th>
+  <th style="text-align:right">작업 계수</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:right">1</td>
+  <td style="text-align:right">4%</td>
+  <td style="text-align:right">0.50</td>
+</tr>
+<tr>
+  <td style="text-align:right">2</td>
+  <td style="text-align:right">9%</td>
+  <td style="text-align:right">0.60</td>
+</tr>
+<tr>
+  <td style="text-align:right">3</td>
+  <td style="text-align:right">19%</td>
+  <td style="text-align:right">0.75</td>
+</tr>
+<tr>
+  <td style="text-align:right">4</td>
+  <td style="text-align:right">34%</td>
+  <td style="text-align:right">0.95</td>
+</tr>
+<tr>
+  <td style="text-align:right">5</td>
+  <td style="text-align:right">23%</td>
+  <td style="text-align:right">1.20</td>
+</tr>
+<tr>
+  <td style="text-align:right">6</td>
+  <td style="text-align:right">8%</td>
+  <td style="text-align:right">1.45</td>
+</tr>
+<tr>
+  <td style="text-align:right">7</td>
+  <td style="text-align:right">2.4%</td>
+  <td style="text-align:right">1.80</td>
+</tr>
+<tr>
+  <td style="text-align:right">8</td>
+  <td style="text-align:right">0.5%</td>
+  <td style="text-align:right">2.20</td>
+</tr>
+<tr>
+  <td style="text-align:right">9</td>
+  <td style="text-align:right">0.1%</td>
+  <td style="text-align:right">2.70</td>
+</tr>
+<tr>
+  <td style="text-align:right">10</td>
+  <td style="text-align:right">0%(성장만 가능)</td>
+  <td style="text-align:right">3.40</td>
+</tr>
+</tbody>
+</table>
+<p>힘·민첩·체력·손재주·지능 5개를 <strong>각각 독립적으로</strong> 추첨합니다. 초기값은 불변 참조값으로 기록하고 현재값은 성장에 따라 바뀝니다. <code>최대 성장 능력치 = min(10, 최초 능력치+3)</code>. 처음부터 능력치10인 주민은 없습니다. 직업별 가중합은 <code>각 능력치의 작업계수 × 직업별 가중치</code>를 합산합니다.</p>
+<table>
+<thead>
+<tr>
+  <th>분야</th>
+  <th>5능력치 가중치(합계 100%)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>농업</td>
+  <td>힘35·체력30·손재주20·지능15</td>
+</tr>
+<tr>
+  <td>임업</td>
+  <td>힘40·체력30·민첩20·손재주10</td>
+</tr>
+<tr>
+  <td>광업</td>
+  <td>힘40·체력35·손재주15·지능10</td>
+</tr>
+<tr>
+  <td>목축</td>
+  <td>체력30·손재주30·지능25·민첩15</td>
+</tr>
+<tr>
+  <td>어업</td>
+  <td>손재주40·민첩30·지능20·체력10</td>
+</tr>
+<tr>
+  <td>수렵</td>
+  <td>민첩40·손재주30·체력20·힘10</td>
+</tr>
+<tr>
+  <td>가공</td>
+  <td>손재주40·지능30·체력20·힘10</td>
+</tr>
+<tr>
+  <td>경비</td>
+  <td>힘35·민첩30·체력25·손재주10</td>
+</tr>
+<tr>
+  <td>감시·원거리</td>
+  <td>민첩40·손재주40·체력20</td>
+</tr>
+<tr>
+  <td>의료</td>
+  <td>지능50·손재주35·체력15</td>
+</tr>
+<tr>
+  <td>상업</td>
+  <td>지능50·손재주25·민첩25</td>
+</tr>
+<tr>
+  <td>연구·마법</td>
+  <td>지능70·손재주15·체력15</td>
+</tr>
+<tr>
+  <td>교육·문화</td>
+  <td>지능50·손재주30·민첩20</td>
+</tr>
+</tbody>
+</table>
+<h3>7.2 상향된 능력치 성장 XP(사용자 지정)</h3>
+<p>능력치 XP는 각 스탯별로 별도 보유합니다. 일한 실제 시간·학교·도서관·학술원 이용으로 획득하며 현재 능력치가 높을수록 증가가 어렵습니다. <strong>기존 v0.9의 <code>10+2s²</code> 공식은 폐지하고 아래 9구간 고정 테이블을 사용</strong>합니다.</p>
+<table>
+<thead>
+<tr>
+  <th>성장 구간</th>
+  <th style="text-align:right"><strong>필요 XP</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1→2</td>
+  <td style="text-align:right"><strong>12</strong></td>
+</tr>
+<tr>
+  <td>2→3</td>
+  <td style="text-align:right"><strong>24</strong></td>
+</tr>
+<tr>
+  <td>3→4</td>
+  <td style="text-align:right"><strong>40</strong></td>
+</tr>
+<tr>
+  <td>4→5</td>
+  <td style="text-align:right"><strong>66</strong></td>
+</tr>
+<tr>
+  <td>5→6</td>
+  <td style="text-align:right"><strong>90</strong></td>
+</tr>
+<tr>
+  <td>6→7</td>
+  <td style="text-align:right"><strong>124</strong></td>
+</tr>
+<tr>
+  <td>7→8</td>
+  <td style="text-align:right"><strong>172</strong></td>
+</tr>
+<tr>
+  <td>8→9</td>
+  <td style="text-align:right"><strong>236</strong></td>
+</tr>
+<tr>
+  <td>9→10</td>
+  <td style="text-align:right"><strong>300</strong></td>
+</tr>
+</tbody>
+</table>
+<p>기본 노동은 주력 능력치에 실근무 6시간당 1XP, 보조 능력치에는 가중치 비율로 XP를 지급합니다. 학교 지능+2XP/이용일, 도서관 지능+1XP/이용일, 학술원 지능+3XP/이용일. 연구는 XP 획득량에 보정 가능하되 <code>최초 능력치+3</code> 한도를 초과하지 못합니다. 경험치 보정은 연구 규칙이 있을 때에만 적용합니다.</p>
+<h3>7.3 숙련도 4단계(분야 공통)</h3>
+<table>
+<thead>
+<tr>
+  <th>단계</th>
+  <th>명칭</th>
+  <th style="text-align:right">실제 근무일 환산 누적</th>
+  <th style="text-align:right">숙련 보너스</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>0</td>
+  <td>초보</td>
+  <td style="text-align:right">0</td>
+  <td style="text-align:right">+0%</td>
+</tr>
+<tr>
+  <td>1</td>
+  <td>도제</td>
+  <td style="text-align:right">8</td>
+  <td style="text-align:right">+20%</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>직인</td>
+  <td style="text-align:right">30</td>
+  <td style="text-align:right">+50%</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>장인</td>
+  <td style="text-align:right">75</td>
+  <td style="text-align:right">+100%</td>
+</tr>
+</tbody>
+</table>
+<p>숙련 분야 12개: <strong>농업·임업·광업·목축·어업·수렵·가공·경비·의료·상업·학술·마법</strong>. 해당 분야의 모든 건물에 적용하고 다른 분야에는 적용하지 않습니다. 한 주민이 여러 숙련도를 동시에 보유할 수 있습니다. 단계 사이에서는 선형 보간해 증가하며 최고 +100%입니다. 실제 근무시간 9시간을 1일로 환산합니다.</p>
+<p><strong>작업능률 기준:</strong> <code>clamp(능력치 가중효율 × (1+숙련보너스) × 행복계수 × 특성계수 × 건강계수, 0.25, 4.0)</code>. 연구·풍차 효과는 건물 산출에 후행 반영하되 극단 조합에 대한 추가 상한은 장기 밸런스 테스트에서 검증합니다. 핵심은 고스탯/장인 주민의 희귀성과 전문성을 보존하면서 100명 이상의 경제가 지나치게 폭주하지 않도록 하는 것입니다.</p>
+<h2>8. 주민 생활·행복·의료·세율</h2>
+<h3>8.1 일상 스케줄</h3>
+<table>
+<thead>
+<tr>
+  <th>게임 시간</th>
+  <th>정상 행동</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>00~06</td>
+  <td>수면</td>
+</tr>
+<tr>
+  <td>06~08</td>
+  <td>식사·우물·준비</td>
+</tr>
+<tr>
+  <td>08~17</td>
+  <td>작업·교육(실제 근무시간만 XP/생산 반영)</td>
+</tr>
+<tr>
+  <td>17~21</td>
+  <td>주점·목욕탕·도서관·극장·교회 방문, 여가</td>
+</tr>
+<tr>
+  <td>21~24</td>
+  <td>귀가·취침</td>
+</tr>
+</tbody>
+</table>
+<p>경비병·치료 인력은 별도 근무 처리가 가능하며, 위험·질병·굶주림은 평상시 스케줄보다 우선합니다. 문화시설 보너스는 주민이 실제 방문해야 발생하고 2일 후 사라지며 무한 중첩되지 않습니다.</p>
+<h3>8.2 행복도 목표 계산</h3>
+<table>
+<thead>
+<tr>
+  <th>요인</th>
+  <th>세부 보정</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>기본 행복도(보통/평화/혹독)</td>
+  <td>23 / 31 / 15</td>
+</tr>
+<tr>
+  <td>배부름</td>
+  <td><code>clamp(0.30×(배부름−50), −15, +12)</code></td>
+</tr>
+<tr>
+  <td>휴식</td>
+  <td><code>clamp(0.23×(휴식−50), −12, +10)</code></td>
+</tr>
+<tr>
+  <td>안전</td>
+  <td><code>clamp(0.20×(안전−50), −10, +10)</code></td>
+</tr>
+<tr>
+  <td>주거</td>
+  <td>노숙−18, 막사−7, 오두막−2, 주택+6, 저택+13</td>
+</tr>
+<tr>
+  <td>우물</td>
+  <td>정상+6, 미공급−12</td>
+</tr>
+<tr>
+  <td>임금</td>
+  <td>정상+5, 체불−15, 실업−3</td>
+</tr>
+<tr>
+  <td><strong>세금 정책</strong></td>
+  <td>1금 +5 / <strong>2금 0(기본)</strong> / 3금 −6 / <strong>4금 −13(중과세)</strong></td>
+</tr>
+<tr>
+  <td>문화·여가</td>
+  <td>최근 시설 이용량에 따라 +0~+10(2일 유지)</td>
+</tr>
+<tr>
+  <td>목욕·위생</td>
+  <td>정상0~+6 / 위생불량−5~−12</td>
+</tr>
+<tr>
+  <td>통근</td>
+  <td>편도20칸 이상 −2, 35칸 이상 −5, 50칸 이상 −8</td>
+</tr>
+<tr>
+  <td>위기</td>
+  <td>질병−12, 난방부족−12, 주민 사망/재해 −3~−12</td>
+</tr>
+<tr>
+  <td>특성</td>
+  <td>기존 특성 기분 효과 합산 후 ±12 상한</td>
+</tr>
+</tbody>
+</table>
+<p>행복도는 0~100이고 매 게임 1시간마다 목표 기분 방향으로 최대2점씩 움직입니다. 일반 영지 목표 평균은 개척지·촌락 45~55, 마을50~60, 도시55~65, 성채60~70, 왕성65~75 정도입니다.</p>
+<h3>8.3 세금(선택 가능)</h3>
+<p>주민 1명당 <strong>일일 세금 1~4금</strong>, <strong>기본 2금</strong>입니다. <strong>4금은 명시적인 중과세</strong>로 주민 행복도 목표−13을 적용합니다. 세율 변경은 하루에 1회만 가능하며 다음 일일 정산부터 적용합니다. 세금 징수 대상은 <strong>주거가 확보된 영구 주민</strong>이고 계약직은 세금을 납부하지 않습니다. 주민 개인 자산을 도입하지 않은 기존 경제 구조를 유지하며 세금은 영지 금화 자원으로 들어옵니다. 임금은 기존 건물 해금 등급별 기본 1/1/2/2/3/4금/일이며 세금과 별개입니다.</p>
+<h3>8.4 의료 인력 자격(사용자 확정)</h3>
+<table>
+<thead>
+<tr>
+  <th>시설</th>
+  <th style="text-align:right">최대 직원</th>
+  <th style="text-align:right"><strong>최소 근무 인원</strong></th>
+  <th><strong>반드시 충족할 지능 조건</strong></th>
+  <th style="text-align:right">하루 치료 상한</th>
+  <th>운영 자원 소비</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>치료소</td>
+  <td style="text-align:right">1명</td>
+  <td style="text-align:right">1명</td>
+  <td><strong>담당자 지능 ≥4</strong></td>
+  <td style="text-align:right">2명/일</td>
+  <td>환자당 약초1</td>
+</tr>
+<tr>
+  <td>병원</td>
+  <td style="text-align:right">3명</td>
+  <td style="text-align:right"><strong>2명</strong></td>
+  <td><strong>근무자 중 지능≥6이 최소1명 AND 근무자 지능 총합≥10</strong></td>
+  <td style="text-align:right">8명/일(3명 충원)</td>
+  <td>환자당 약초1</td>
+</tr>
+</tbody>
+</table>
+<p>병원 근무자가 2명이고 지능 6·4라면 합계10이므로 운영 가능하고, 5·5라면 총합은 10이지만 지능6 이상 담당자가 없어 운영 불가능합니다. 근무자가 6·3이라면 최고 지능 조건은 충족하지만 총합9로 운영 불가능합니다. 2명 근무로 운영하면 기본 처리량은 <strong>하루 5명</strong>, 3명 정원일 때 <strong>하루 8명</strong>입니다. 자격을 충족하지 못하면 시설의 운영 소비·치료 모두 0이며 UI에 부족한 요건을 표시합니다.</p>
+<h2>9. 영구 이주·계약직 12일 고용</h2>
+<h3>9.1 영구 주민 유입</h3>
+<table>
+<thead>
+<tr>
+  <th>등급</th>
+  <th style="text-align:right">요구 평균 행복도</th>
+  <th>기본 식량 비축 조건</th>
+  <th>이주 간격</th>
+  <th>이주단 규모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>개척지</td>
+  <td style="text-align:right">≥35(특별 이주 2회)</td>
+  <td>현재 인구×1.2×5일</td>
+  <td>5~8일·10~13일 각각 1회</td>
+  <td>회당 2명(총 2회)</td>
+</tr>
+<tr>
+  <td>촌락</td>
+  <td style="text-align:right">≥48</td>
+  <td>현재 인구×1.2×8일</td>
+  <td>7일</td>
+  <td>2~3명</td>
+</tr>
+<tr>
+  <td>마을</td>
+  <td style="text-align:right">≥52</td>
+  <td>현재 인구×1.2×10일</td>
+  <td>6일</td>
+  <td>3~4명</td>
+</tr>
+<tr>
+  <td>도시</td>
+  <td style="text-align:right">≥55</td>
+  <td>현재 인구×1.2×12일</td>
+  <td>5일</td>
+  <td>3~5명</td>
+</tr>
+<tr>
+  <td>성채</td>
+  <td style="text-align:right">≥57</td>
+  <td>현재 인구×1.2×12일</td>
+  <td>5일</td>
+  <td>4~6명</td>
+</tr>
+<tr>
+  <td>왕성</td>
+  <td style="text-align:right">≥60</td>
+  <td>현재 인구×1.2×12일</td>
+  <td>4일</td>
+  <td>4~7명</td>
+</tr>
+</tbody>
+</table>
+<p>전제 조건: <strong>빈 영구 주거 자리, 우물 공급, 도로 접근, 심각한 전염병 부재</strong>. 겨울 이주단은 인원 50%(올림), 재난 직후 5일 이주 중단. <strong>시작 주민은 보통 난이도 기준 4명</strong>입니다. 계약직은 승급 인구 계산에 포함하지 않습니다.</p>
+<h3>9.2 계약직 고용</h3>
+<ul>
+<li>계약기간 <strong>정확히 12일</strong>; 가용 노동시간에서 입·출국 이동시간 소모.</li>
+<li>숙소·식량·우물이 필요. 계약직은 능력치·특성·숙련도를 가진 실제 주민 객체이지만 영구 인구/영구 주민 이주율에는 미포함.</li>
+<li>고용 즉시 12일분을 선불 결제하며 계약 기간 중 정규직 임금·세금 중복 계산을 하지 않습니다.</li>
+<li><strong>고용료:</strong> <code>ceil(12×해당 직업 기본일급×1.5×고용품질계수+5)</code>, 품질계수는 <code>clamp(1+0.30×(직업효율−1)+0.20×숙련단계, 0.8, 2.6)</code>.</li>
+<li><strong>고용후보 목록 갱신은 노점·시장·교역소 모두 고정 3일마다 00:00</strong>입니다(첫 등장 1일째, 이후 4·7·10일째). 개별 지원자의 능력치와 가격은 해당 갱신 기간에 고정되며 수동 재추첨 버튼 없음.</li>
+<li>후보 수는 노점3·시장8·교역소15. 영지 동시 고용 상한은 가장 높은 운영 시장 기준 1·3·8명. 고용 가능 후보는 해당 창구 운영 시에만 표시됩니다.</li>
+<li>계약 만료 시 귀향하고 재고용되면 이전 능력치·숙련도는 유지합니다. 계약 갱신도 12일치 신규 선불입니다.</li>
+</ul>
+<h3>9.3 시작 보통 난이도 초기상태</h3>
+<p>영구 주민 <strong>4명</strong>, 시작 성채·우물1개, 금화 <strong>160</strong>, 식량 <strong>125</strong>, 원목 <strong>65</strong>, 돌 <strong>12</strong>, 약초 <strong>5</strong>, 마정석 <strong>5</strong>, 나머지 0. 식량 소비 <strong>1.2/명/일</strong>이므로 생산이 완전히 없어도 초기 식량만으로 <strong>약 26일</strong>을 버틸 수 있습니다(4명×1.2=4.8/일, 부패 제외). 초반은 텃밭·채집장·낚시터 등으로 식량을 보충해야 합니다. 개척지에서는 노점이 아직 없어 계약직을 고용할 수 없으므로 <strong>개척지 특별 이주단을 2번(회당 2명, 총 4명)</strong> 보장해 4명→8명까지 도달 가능하게 합니다. 두 차례 모두 식량·숙소·우물·기분 요건은 만족해야 하며, 미충족 시 다음 날 다시 심사해 누락된 회차를 소멸시키지 않습니다. 두 이주가 완료되기 전에는 개척지의 일반 이주 타이머로 전환하지 않습니다.</p>
+<h2>10. 6단계 승급 — 성채 진입에도 연구 필요</h2>
+<table>
+<thead>
+<tr>
+  <th>목표 등급</th>
+  <th>목표 도달일(제안)</th>
+  <th style="text-align:right">영구 인구</th>
+  <th style="text-align:right">평균 행복도</th>
+  <th style="text-align:right">유효 도로</th>
+  <th>보호구역 면적/보호 인구율</th>
+  <th>공물</th>
+  <th>추가 시설·연구 조건</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>개척지</td>
+  <td>시작</td>
+  <td style="text-align:right"><strong>4</strong></td>
+  <td style="text-align:right">-</td>
+  <td style="text-align:right">-</td>
+  <td>-</td>
+  <td>-</td>
+  <td>시작 성채·기본 우물</td>
+</tr>
+<tr>
+  <td>촌락</td>
+  <td>16~25</td>
+  <td style="text-align:right">8</td>
+  <td style="text-align:right">≥35</td>
+  <td style="text-align:right">10</td>
+  <td>없음</td>
+  <td>금20</td>
+  <td>정상 우물·식량 8일분</td>
+</tr>
+<tr>
+  <td>마을</td>
+  <td>35~52</td>
+  <td style="text-align:right">18</td>
+  <td style="text-align:right">≥40</td>
+  <td style="text-align:right">35</td>
+  <td>25칸 / 15%</td>
+  <td>금70</td>
+  <td>저장고1·경작지1·경비시설1</td>
+</tr>
+<tr>
+  <td>도시</td>
+  <td>75~110</td>
+  <td style="text-align:right">40</td>
+  <td style="text-align:right">≥45</td>
+  <td style="text-align:right">90</td>
+  <td>120칸 / 35%</td>
+  <td>금240</td>
+  <td>제재소1·가마 또는 제련소1·시장1</td>
+</tr>
+<tr>
+  <td><strong>성채</strong></td>
+  <td>120~155</td>
+  <td style="text-align:right">70</td>
+  <td style="text-align:right">≥50</td>
+  <td style="text-align:right">170</td>
+  <td>300칸 / 55%</td>
+  <td>금520·마정석20</td>
+  <td>광산 또는 심층광산1 + <strong>완료 연구 2개</strong></td>
+</tr>
+<tr>
+  <td>왕성</td>
+  <td>160~190</td>
+  <td style="text-align:right">100</td>
+  <td style="text-align:right">≥55</td>
+  <td style="text-align:right">280</td>
+  <td>600칸 / 75%</td>
+  <td>금950·마정석110·금괴10</td>
+  <td>완료 연구6개·병영1·고급 방어탑1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>성채 진입의 연구 가능성:</strong> 도시에 해금되는 도서관(연구점수 4/일)과 마법 공방(연구점수 3/일)을 이용해 <strong>경제·방어 분야의 기초 연구를 최소 2개 완료</strong>할 수 있도록 합니다. 도시 시점부터 연구할 수 있으므로 <code>성채 해금 후에야 연구를 시작할 수 있는 교착</code>을 피합니다. 마법 연구는 성채 마탑 건설 후 본격적으로 접근합니다.</p>
+<p><strong>왕성 목표 검증:</strong> 시작 4명에서 영구 인구100명까지 최소96명 순증이 필요합니다. 180일 안에 달성하려면 장기 평균으로 약 <strong>1.875일마다 한 명의 영구 주민이 순유입</strong>되어야 합니다. 따라서 이주 조건을 강화하더라도 도시·성채 이후의 이주단 빈도와 빈 주거 공급이 이 속도를 감당하는지 장기 시뮬레이션을 돌려야 합니다. 왕성 승급 이후에도 왕성 해금 건물 사용이 가능하도록 계속 플레이합니다.</p>
+<p><strong>도로 조건과 성벽:</strong> 도로는 성채와 연결된 실제 건물 서비스 경로만 인정하고, 성벽은 닫힌 보호구역+영구 주민 보호율을 동시에 검사합니다. 계약직은 인구·보호비율 분모와 분자에서 제외합니다.</p>
+<h2>11. 연구 24종 재배치(기존 v0.9 초기 연구안 유지)</h2>
+<p>아래는 v0.9 연구 목록을 <strong>성채 진입에 연구 2개 요구</strong>하는 새 규칙에 맞춰 재배치한 제안표입니다. <strong>연구 점수는 자원 생산이 아닌 별도 연구 누적치</strong>이고, 연구 착수비는 소비·연구 효과는 지속 버프입니다.</p>
+<table>
+<thead>
+<tr>
+  <th>분야</th>
+  <th>연구</th>
+  <th>해금</th>
+  <th>착수 자원 <strong>소비</strong></th>
+  <th style="text-align:right">필요 연구점수</th>
+  <th>완료 효과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>경제</td>
+  <td>윤작</td>
+  <td>도시</td>
+  <td>금70</td>
+  <td style="text-align:right">80</td>
+  <td>가을 수확+12%</td>
+</tr>
+<tr>
+  <td>경제</td>
+  <td>작업 도구</td>
+  <td>도시</td>
+  <td>금90</td>
+  <td style="text-align:right">100</td>
+  <td>임업·광업 작업효율+10%</td>
+</tr>
+<tr>
+  <td>경제</td>
+  <td>수로 측량</td>
+  <td>도시</td>
+  <td>금100·마정석5</td>
+  <td style="text-align:right">120</td>
+  <td>관개농장 가뭄 수확계수0.90→0.95</td>
+</tr>
+<tr>
+  <td>경제</td>
+  <td>물류 배치</td>
+  <td>성채</td>
+  <td>금130·마정석10</td>
+  <td style="text-align:right">150</td>
+  <td>장거리 물류 가용률+15%p</td>
+</tr>
+<tr>
+  <td>경제</td>
+  <td>우수 종자</td>
+  <td>성채</td>
+  <td>금180·마정석15</td>
+  <td style="text-align:right">190</td>
+  <td>경작지·농장 가을 수확+15%(파종 행동 없음)</td>
+</tr>
+<tr>
+  <td>경제</td>
+  <td>정밀 제련</td>
+  <td>성채</td>
+  <td>금190·마정석18</td>
+  <td style="text-align:right">210</td>
+  <td>철 모드 제련소 생산 철괴4→5/일(투입 동일)</td>
+</tr>
+<tr>
+  <td>경제</td>
+  <td>창고 정리</td>
+  <td>왕성</td>
+  <td>금250·마정석25</td>
+  <td style="text-align:right">260</td>
+  <td>저장상한+20%</td>
+</tr>
+<tr>
+  <td>경제</td>
+  <td>왕립 교역</td>
+  <td>왕성</td>
+  <td>금320·마정석30</td>
+  <td style="text-align:right">300</td>
+  <td>시장 판매가+10%</td>
+</tr>
+<tr>
+  <td>방어</td>
+  <td>정찰 훈련</td>
+  <td>도시</td>
+  <td>금70</td>
+  <td style="text-align:right">80</td>
+  <td>초소·망루 시야+2</td>
+</tr>
+<tr>
+  <td>방어</td>
+  <td>장궁 제작</td>
+  <td>도시</td>
+  <td>금90</td>
+  <td style="text-align:right">100</td>
+  <td>망루·감시탑 공격력+15%</td>
+</tr>
+<tr>
+  <td>방어</td>
+  <td>성문 기술</td>
+  <td>도시</td>
+  <td>금100·마정석5</td>
+  <td style="text-align:right">120</td>
+  <td>모든 성문 HP+20%</td>
+</tr>
+<tr>
+  <td>방어</td>
+  <td>중장갑 훈련</td>
+  <td>성채</td>
+  <td>금150·마정석10</td>
+  <td style="text-align:right">160</td>
+  <td>경비병 피해 감소10%</td>
+</tr>
+<tr>
+  <td>방어</td>
+  <td>화약 공성</td>
+  <td>성채</td>
+  <td>금190·마정석15</td>
+  <td style="text-align:right">200</td>
+  <td>포탑 광역 반경+1</td>
+</tr>
+<tr>
+  <td>방어</td>
+  <td>성벽 보강</td>
+  <td>성채</td>
+  <td>금200·마정석20</td>
+  <td style="text-align:right">220</td>
+  <td>성벽 HP+25%</td>
+</tr>
+<tr>
+  <td>방어</td>
+  <td>전술 교본</td>
+  <td>왕성</td>
+  <td>금260·마정석25</td>
+  <td style="text-align:right">260</td>
+  <td>경비병 공격력+15%</td>
+</tr>
+<tr>
+  <td>방어</td>
+  <td>왕립 방어망</td>
+  <td>왕성</td>
+  <td>금340·마정석30</td>
+  <td style="text-align:right">310</td>
+  <td>감지된 적에 대한 자동 출동 지연−20%</td>
+</tr>
+<tr>
+  <td>마법</td>
+  <td>마력 탐지</td>
+  <td>성채</td>
+  <td>금100·마정석10</td>
+  <td style="text-align:right">120</td>
+  <td>마정석 광상 탐지반경+3</td>
+</tr>
+<tr>
+  <td>마법</td>
+  <td>풍요의 룬</td>
+  <td>성채</td>
+  <td>금140·마정석15</td>
+  <td style="text-align:right">150</td>
+  <td>마법 공방 시설 보너스+5%p</td>
+</tr>
+<tr>
+  <td>마법</td>
+  <td>치유의 빛</td>
+  <td>성채</td>
+  <td>금160·마정석20</td>
+  <td style="text-align:right">170</td>
+  <td>치료시설 처리량+25%</td>
+</tr>
+<tr>
+  <td>마법</td>
+  <td>따뜻한 불씨</td>
+  <td>성채</td>
+  <td>금180·마정석25</td>
+  <td style="text-align:right">190</td>
+  <td>겨울 난방 FU−20%</td>
+</tr>
+<tr>
+  <td>마법</td>
+  <td>마력 제어</td>
+  <td>성채</td>
+  <td>금220·마정석30</td>
+  <td style="text-align:right">240</td>
+  <td>마탑 연구점수+20%</td>
+</tr>
+<tr>
+  <td>마법</td>
+  <td>방어 결계</td>
+  <td>왕성</td>
+  <td>금260·마정석35</td>
+  <td style="text-align:right">280</td>
+  <td>마정석 소비 시 보호구역 피해−15%</td>
+</tr>
+<tr>
+  <td>마법</td>
+  <td>연금술</td>
+  <td>왕성</td>
+  <td>금300·마정석45</td>
+  <td style="text-align:right">320</td>
+  <td>마법 자원 소모−10%</td>
+</tr>
+<tr>
+  <td>마법</td>
+  <td>대마법</td>
+  <td>왕성</td>
+  <td>금400·마정석60</td>
+  <td style="text-align:right">400</td>
+  <td>대마탑 연구점수+20%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>연구 설비 출력을 구분:</strong> 도서관 → 연구점수 <strong>생산</strong> 4/일·지능XP 2/학생/일, 마법 공방 → 마정석 <strong>소모</strong>1/일·연구점수 <strong>생산</strong>3/일·반경 생산효과+10%, 마탑 → 마정석 <strong>소모</strong>1/일·연구점수 <strong>생산</strong>10/일, 대마탑 → 마정석 <strong>소모</strong>3/일·연구점수 <strong>생산</strong>40/일. 연구 한 건씩 진행하며 여러 시설의 점수를 합산합니다.</p>
+<h2>12. 수급·경제 밸런스 검산(수정안)</h2>
+<table>
+<thead>
+<tr>
+  <th>검산 대상</th>
+  <th>정량 기준</th>
+  <th>설계 함의</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>보통 시작</td>
+  <td>주민4명, 초기 식량125, 1일 소비4.8</td>
+  <td>무생산으로 약26일 버팀; 첫 가을(25일)까지 기본 완충</td>
+</tr>
+<tr>
+  <td>경작지 완전 근무</td>
+  <td>2명×9h×24일=432유효 인시</td>
+  <td>가을 식량360 1회 생산; 파종비 없음</td>
+</tr>
+<tr>
+  <td>농장 완전 근무</td>
+  <td>3명×9h×24일=648유효 인시</td>
+  <td>가을 식량600 1회 생산</td>
+</tr>
+<tr>
+  <td>관개농장 완전 근무</td>
+  <td>5명×9h×24일=1,080유효 인시</td>
+  <td>가을 식량1,300 1회 생산</td>
+</tr>
+<tr>
+  <td>농장 근무율 75%</td>
+  <td>648×0.75=486유효 인시</td>
+  <td>가뭄 없고 버프 없으면 가을 450식량</td>
+</tr>
+<tr>
+  <td>벌목지, 소나무 5그루</td>
+  <td>5×0.8=4원목/일 가능</td>
+  <td>건물 한도 5보다 수목 공급이 작음</td>
+</tr>
+<tr>
+  <td>광산, 복합광상</td>
+  <td>돌8+석탄5+철광석2</td>
+  <td>가치 8+10+6=24/일</td>
+</tr>
+<tr>
+  <td>심층광산, 5광물</td>
+  <td>돌8+석탄6+철광석4+금광석1+마정석1</td>
+  <td>가치8+12+12+8+10=50/일</td>
+</tr>
+<tr>
+  <td>200칸 호수+항구2개</td>
+  <td>시설 요청30, 수역한도27</td>
+  <td>각 시설13.5식량/일로 비례 배분</td>
+</tr>
+<tr>
+  <td>병원 근무 2인(지능6+4)</td>
+  <td>지능≥6인 1명, 합10</td>
+  <td>하루 최대5명 치료, 약초 최대5 소비</td>
+</tr>
+<tr>
+  <td>성채 진입 연구</td>
+  <td>도시 기초연구 2개, 합180점</td>
+  <td>도서관 4점/일만 이용하면 최소45일 필요</td>
+</tr>
+<tr>
+  <td>왕성 인구</td>
+  <td>시작4→100(순증96)</td>
+  <td>180일 목표면 평균 약1.875일당 순증1명 필요</td>
+</tr>
+</tbody>
+</table>
+<p><strong>중요 미검증 사항:</strong> 실제 노동 AI의 9h 무손실 기준은 이상적인 상황이며 식사·통근·피로로 수확량이 낮아질 수 있습니다. 겨울 식량·사료 및 연료가 장기 경제를 교착시키지 않는지, 세금 인상으로 영구 주민이 사라지는 악순환이 생기지 않는지, 채굴 가치 배분으로 고급 광물 유입량이 너무 많지 않은지를 48개 시드 이상에서 자동 검증해야 합니다.</p>
+<h2>13. 구현·데이터 이전 규칙</h2>
+<ul>
+<li><strong>C 공개 API:</strong> 6자원→15자원, 16건물→64건물, 5등급→6등급, 4능력치→5능력치. 건물 해금 비트셋을 32비트에서 64비트 이상으로 확장합니다. <code>CORE_ABI_VERSION</code>과 Godot C# <code>ExpectedAbiVersion</code>을 함께 올립니다.</li>
+<li><strong>저장:</strong> 작기별 농장 누적 유효 노동시간, 과수원 완공일, 각 나무 잔여 원목과 당일 채취 한도, 광물 광상별 매장량, 수역 ID/하루 어획 장부, 가축·동물, 세율, 계약직과 갱신일, 주민 초기 능력치·현재치·XP·숙련도, 의료 자격, 도로망/탐험 이력 등을 저장합니다.</li>
+<li><strong>도로 구조:</strong> 삭제 전 <em>연결 건물 보존 여부</em>를 검사. 경로 교체는 원자적으로 처리하고, 불가능한 철거는 아예 입력 거절. 도로 자체는 적의 파괴 대상이 아님. 길찾기 경로 캐시는 추가·교체 시 갱신합니다.</li>
+<li><strong>경제 장부:</strong> 개별 시설별로 <code>입력 자원 소비</code>, <code>산출 자원 생산</code>, <code>비소모 보너스</code>, <code>고정 금화 유지비</code>, <code>임금</code>, <code>연료 FU</code>를 분리 기록합니다. 하나의 수치를 소비와 생산에 동시에 표현하지 않습니다.</li>
+<li><strong>작기 연도:</strong> 봄1~여름24일간 노동을 모아 가을25일 한 번에 계산. 파종 상태·수동 노동 재배치·추가 가을 수확 근무를 만들지 않습니다.</li>
+<li><strong>마법 공방:</strong> 연구 점수는 단순 보너스가 아니라 연구 시스템에 누적되는 산출이고, 반경 생산 보너스는 별도 능력입니다. 마정석이 부족하면 둘 다 정지합니다.</li>
+<li><strong>기존 세이브:</strong> 기존 save v5의 건물 ID·자원 ID 최대한 보존. 신규 월드 스키마로 변환 지원 또는 신규 버전 분리; 버전 확인 없이 이전 데이터를 읽지 않습니다.</li>
+<li><strong>성능:</strong> 192×192에서 주민100~150명, 계약직8명, 동물300마리, 적40명 등으로 C틱·경로·렌더 성능 테스트. 수목 성장·광상·수역 어획 등은 저빈도/일일 결산 처리.</li>
+</ul>
+<h2>14. 단계별 테스트·승급 게이트</h2>
+<table>
+<thead>
+<tr>
+  <th>단계</th>
+  <th>검증 범위</th>
+  <th>필수 통과 조건</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>A. 스키마</td>
+  <td>신규 건물·자원·등급·세이브·ABI</td>
+  <td>기존 게임 핵심 동작 유지, 데이터 인덱스 안전</td>
+</tr>
+<tr>
+  <td>B. 농림광·수산</td>
+  <td>가을 유효 노동시간·자동 복합채굴·공유 성목/수역</td>
+  <td>작기 계정 일치, 광물·원목 중복 생산 없음</td>
+</tr>
+<tr>
+  <td>C. 생활</td>
+  <td>가축4종·채집 확률·의료 자격·세율</td>
+  <td>식량이 0 미만이 되지 않고 자격 위반 치료 없음</td>
+</tr>
+<tr>
+  <td>D. 도로·방어</td>
+  <td>연결도로 철거 거부·자동 출동·시야·성벽 보호</td>
+  <td>도로 단절 불가, 발견된 적에 자동 대응</td>
+</tr>
+<tr>
+  <td>E. 주민</td>
+  <td>확률형 스탯·XP 성장·숙련·계약직 3일 갱신</td>
+  <td>값 분포·상한·만료일·후보 갱신 정확성</td>
+</tr>
+<tr>
+  <td>F. 장기 밸런스</td>
+  <td>3난이도×48시드×200일</td>
+  <td>성채 진입 연구·왕성 인구·경제 지속성 검증</td>
+</tr>
+</tbody>
+</table>
+<p><strong>주의:</strong> 본 v1.0은 사용자가 확정한 수정 방향을 모두 반영한 <strong>구현 사양 및 초기 밸런스안</strong>입니다. 명목 생산량·동물 경제·광산 배분·연구값은 실제 코드와 자동 시뮬레이터가 업데이트된 뒤 조정해야 합니다. 아직 코드는 변경하지 않았습니다.</p>
+</main></body></html>

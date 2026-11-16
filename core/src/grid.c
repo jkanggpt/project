@@ -134,6 +134,7 @@ static uint8_t cell_cost(const Grid *grid, int32_t i)
     default:
         break;
     }
+    if(grid->road[i]==3)return GRID_COST_ROAD;
     if (base == GRID_COST_BLOCKED) {
         return GRID_COST_BLOCKED;
     }

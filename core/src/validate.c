@@ -2,6 +2,7 @@
  * validate.c — 불변 조건 검사기 (설명은 validate.h)
  */
 #include "validate.h"
+#include "expansion.h"
 
 #include <stddef.h>
 
@@ -369,6 +370,7 @@ int32_t validate_world(const World *world, ValidateReportFn report, void *contex
     expect(&checker, world->difficulty >= 0 && world->difficulty < CORE_DIFF_COUNT, "difficulty out of range");
     expect(&checker, world->seed >= 0, "seed negative");
     expect(&checker, world->clock.tick >= 0 && world->clock.tick <= CLOCK_MAX_TICK, "clock tick out of range");
+    if(world->expansion){expect(&checker,expansion_validate(world)==0,"expansion invariant failed");check_events(&checker,&world->events);return checker.violations;}
     expect(&checker, (world->rng.inc & 1u) == 1u, "rng increment must be odd");
     check_bank(&checker, &world->bank);
     check_grid(&checker, world);

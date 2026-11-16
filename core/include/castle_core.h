@@ -35,9 +35,9 @@ extern "C" {
 #endif
 
 /* 외부 호출자의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
-#define CORE_ABI_VERSION 8
+#define CORE_ABI_VERSION 9
 /* 지금 세이브 파일 형식의 버전 (첫 줄 "MAGICCASTLE_SAVE <버전>") */
-#define CORE_SAVE_VERSION 5
+#define CORE_SAVE_VERSION 6
 
 /* 성채·주민 이름 버퍼 크기 (UTF-8 바이트, 끝의 '\0' 포함) */
 #define CORE_NAME_BYTES 48
@@ -78,7 +78,16 @@ typedef enum CoreResource {
     CORE_RES_WOOD = 3,  /* 목재 */
     CORE_RES_STONE = 4, /* 석재 */
     CORE_RES_HERBS = 5, /* 약초 */
-    CORE_RES_COUNT = 6
+    CORE_RES_LOGS = 6,
+    CORE_RES_CLAY = 7,
+    CORE_RES_BRICKS = 8,
+    CORE_RES_IRON_ORE = 9,
+    CORE_RES_COAL = 10,
+    CORE_RES_IRON = 11,
+    CORE_RES_GOLD_ORE = 12,
+    CORE_RES_GOLD_BAR = 13,
+    CORE_RES_LEATHER = 14,
+    CORE_RES_COUNT = 15
 } CoreResource;
 
 typedef enum CoreSeason {
@@ -114,7 +123,56 @@ typedef enum CoreBuildingType {
     CORE_BLD_HEALER = 13,    /* 치료소 */
     CORE_BLD_MAGE_TOWER = 14,/* 마탑 */
     CORE_BLD_ROAD = 15,      /* 도로 */
-    CORE_BLD_COUNT = 16
+    CORE_BLD_SHACK = 16,
+    CORE_BLD_COTTAGE = 17,
+    CORE_BLD_MANSION = 18,
+    CORE_BLD_GARDEN = 19,
+    CORE_BLD_CROPLAND = 20,
+    CORE_BLD_ORCHARD = 21,
+    CORE_BLD_GREENHOUSE = 22,
+    CORE_BLD_IRRIGATED_FARM = 23,
+    CORE_BLD_WINDMILL = 24,
+    CORE_BLD_RANCH = 25,
+    CORE_BLD_PASTURE = 26,
+    CORE_BLD_LOGGING_SITE = 27,
+    CORE_BLD_FORESTRY = 28,
+    CORE_BLD_MINE = 29,
+    CORE_BLD_FISHING_SPOT = 30,
+    CORE_BLD_PORT = 31,
+    CORE_BLD_PALISADE = 32,
+    CORE_BLD_BARRIER = 33,
+    CORE_BLD_IRON_WALL = 34,
+    CORE_BLD_PALISADE_GATE = 35,
+    CORE_BLD_STONE_GATE = 36,
+    CORE_BLD_IRON_GATE = 37,
+    CORE_BLD_OUTPOST = 38,
+    CORE_BLD_WATCHTOWER = 39,
+    CORE_BLD_CROSSBOW_TOWER = 40,
+    CORE_BLD_CANNON_TOWER = 41,
+    CORE_BLD_ARCANE_TOWER = 42,
+    CORE_BLD_STALL = 43,
+    CORE_BLD_TRADING_POST = 44,
+    CORE_BLD_GRANARY = 45,
+    CORE_BLD_LOGISTICS = 46,
+    CORE_BLD_SAWMILL = 47,
+    CORE_BLD_KILN = 48,
+    CORE_BLD_SMELTER = 49,
+    CORE_BLD_WELL = 50,
+    CORE_BLD_BATHHOUSE = 51,
+    CORE_BLD_HOSPITAL = 52,
+    CORE_BLD_TAVERN = 53,
+    CORE_BLD_SCHOOL = 54,
+    CORE_BLD_LIBRARY = 55,
+    CORE_BLD_THEATRE = 56,
+    CORE_BLD_CHURCH = 57,
+    CORE_BLD_ACADEMY = 58,
+    CORE_BLD_MAGIC_WORKSHOP = 59,
+    CORE_BLD_GRAND_MAGE_TOWER = 60,
+    CORE_BLD_HUNTER_CAMP = 61,
+    CORE_BLD_HUNTING_LODGE = 62,
+    CORE_BLD_STONE_ROAD = 63,
+    CORE_BLD_BRIDGE = 64,
+    CORE_BLD_COUNT = 65
 } CoreBuildingType;
 
 typedef enum CoreBuildingState {
@@ -135,7 +193,18 @@ typedef enum CoreBuildCategory {
     CORE_CAT_DEFENSE = 4,   /* 방어 */
     CORE_CAT_SERVICE = 5,   /* 치료·마법 */
     CORE_CAT_ROAD = 6,      /* 도로 */
-    CORE_CAT_COUNT = 7
+    CORE_CAT_AGRICULTURE = 7,
+    CORE_CAT_LIVESTOCK = 8,
+    CORE_CAT_FORESTRY = 9,
+    CORE_CAT_MINING = 10,
+    CORE_CAT_FISHING = 11,
+    CORE_CAT_PROCESSING = 12,
+    CORE_CAT_CULTURE = 13,
+    CORE_CAT_MAGIC = 14,
+    CORE_CAT_HUNTING = 15,
+    CORE_CAT_TOWERS = 16,
+    CORE_CAT_MILITARY = 17,
+    CORE_CAT_COUNT = 18
 } CoreBuildCategory;
 
 /* 배치 규칙 (정의 파일의 placement 값) */
@@ -396,7 +465,7 @@ typedef enum CoreRank {
     CORE_RANK_FORTRESS = 2, /* 요새 */
     CORE_RANK_CASTLE = 3,   /* 성 */
     CORE_RANK_ROYAL = 4,    /* 왕성 (승리) */
-    CORE_RANK_COUNT = 5
+    CORE_RANK_COUNT = 6
 } CoreRank;
 
 /* 연구 갈래 */
@@ -474,6 +543,7 @@ typedef struct CoreNewGameParams {
     char castle_name[CORE_NAME_BYTES]; /* UTF-8, '\0'으로 끝남. 1바이트 이상, 제어 문자 없음 */
     int32_t seed;                      /* 0 이상. 같은 시드 → 같은 지도 */
     int32_t difficulty;                /* CoreDifficulty */
+    int32_t ruleset;                   /* 0=이전 규칙, 1=통합 확장 v1 */
 } CoreNewGameParams;
 
 /* 게임 전체에 고정된 설정값 (월드가 없어도 읽을 수 있음) */
@@ -558,6 +628,8 @@ typedef struct CoreSummaryView {
     int32_t resource_capacity[CORE_RES_COUNT]; /* 자원별 저장 한도. 0 이면 한도 없음 (금화, 마정석) */
     int32_t resource_delta[CORE_RES_COUNT];    /* 어제 하루 동안의 순변화 */
     char castle_name[CORE_NAME_BYTES];
+    int32_t ruleset,permanent_population,contractors,tax,valid_roads,protected_area,protected_population;
+    int32_t water_served,market_limit,market_used,candidate_count,animal_count;
 } CoreSummaryView;
 
 /* 피드백 이벤트 하나 (소리, 알림 문구용). 놓쳐도 상태가 어긋나지 않습니다. */
@@ -601,6 +673,8 @@ typedef struct CoreVillagerView {
     int32_t age;
     int32_t flags;            /* CORE_VF_* */
     int32_t walk_speed;       /* 이 주민이 보통 풀밭에서 한 틱에 걷는 거리 × 1000 */
+    int32_t agility,initial_stats[5],stat_xp[5],skill_minutes[12];
+    int32_t contract_end_tick,personal_id,water,hygiene,inside_building;
     char name[CORE_NAME_BYTES];
 } CoreVillagerView;
 
@@ -627,6 +701,8 @@ typedef struct CoreBuildingView {
     int32_t door_y;
     int32_t productivity;     /* 지형에 따른 생산성 % */
     int32_t flags;            /* 예약 */
+    int32_t rotation,kind_flags,job_field,completed_day,mode,upkeep,operating,blocked_reason;
+    int32_t crop_labor_milli,pending_harvest_milli;
 } CoreBuildingView;
 
 /* 건물 정의 (정의 파일에서 읽은 값 + 이 월드에서 지을 수 있는지) */
@@ -658,6 +734,8 @@ typedef struct CoreBuildingDefView {
     int32_t attack_cooldown;  /* 공격 사이 시간 (게임 속 분) */
     int32_t defense;          /* 방어 점수 (승급 조건) */
     int32_t count_terrain;    /* 생산성을 셀 때 작업 반경 안에서 세는 지형 (CoreTerrain, 없으면 -1). 건설 미리보기 겹쳐 그리기 */
+    int32_t kind_flags,job_field,upkeep;
+    char name[CORE_NAME_BYTES];
     char key[CORE_KEY_BYTES];
 } CoreBuildingDefView;
 
@@ -718,6 +796,7 @@ typedef struct CoreTraitDefView {
 
 /* 배치 미리보기 */
 typedef struct CorePlacementView {
+    int32_t w,h;            /* 회전한 점유 크기 */
     int32_t result;          /* CorePlaceResult */
     int32_t door_x;          /* 이 자리에 지으면 생길 문 앞 칸 (-1 = 없음) */
     int32_t door_y;
@@ -794,7 +873,7 @@ typedef struct CoreRankView {
     int32_t tribute_gold;    /* 오를 때 바치는 금화 */
     int32_t tribute_mana;    /* 오를 때 바치는 마정석 */
     int32_t ready;           /* 1 = 조건을 모두 채웠고 공물을 낼 수 있음 */
-    int32_t unlocks;         /* 다음 등급에서 풀리는 건물 비트 (1 << CoreBuildingType) */
+    uint64_t unlocks[2];     /* 성채 포함 65종의 해금 비트 */
     int32_t storage_bonus;   /* 다음 등급에서 늘어나는 저장 한도 */
     int32_t research_unlocks;/* 다음 등급에서 시작할 수 있게 되는 연구 수 */
 } CoreRankView;

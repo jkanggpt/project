@@ -2,6 +2,7 @@
  * population.c — 첫 주민, 이주, 떠남, 죽음 (설명은 population.h)
  */
 #include "population.h"
+#include "expansion.h"
 
 #include <string.h>
 
@@ -68,13 +69,14 @@ Villager *population_create(World *world, int32_t x, int32_t y)
     villager->target_y = y;
     villager->at_target = 1;
     villager->intent_rev = 1;
+    if(world->expansion)expansion_initialize_villager(world,villager);
     return villager;
 }
 
 int population_spawn_initial(World *world)
 {
     const Building *keep = world_keep(world);
-    int32_t count = difficulty_preset(world->difficulty)->start_villagers;
+    int32_t count = world->expansion?4:difficulty_preset(world->difficulty)->start_villagers;
     int32_t i;
     if (keep == NULL) {
         return CORE_ERR_INVALID_ARG;
@@ -180,6 +182,13 @@ void population_begin_leaving(World *world, Villager *villager)
 
 void population_remove_departed(World *world, Villager *villager)
 {
+    if(world->expansion && villager->contract_end_tick){
+        ExpansionState *e=world->expansion;CoreCandidateView *c;int j;
+        if(e->archive_count==64){memmove(e->archive,e->archive+1,63*sizeof(*e->archive));e->archive_count--;}
+        c=&e->archive[e->archive_count++];memset(c,0,sizeof(*c));c->person_id=villager->personal_id;c->age=villager->age;c->field=0;c->fee=30;strcpy(c->name,villager->name);
+        c->stats[0]=villager->stats.strength;c->stats[1]=villager->stats.agility;c->stats[2]=villager->stats.vitality;c->stats[3]=villager->stats.dexterity;c->stats[4]=villager->stats.intellect;
+        memcpy(c->initial,villager->initial_stats,sizeof(c->initial));memcpy(c->xp,villager->stat_xp,sizeof(c->xp));memcpy(c->skills,villager->skill_minutes,sizeof(c->skills));memcpy(c->traits,villager->traits,sizeof(c->traits));for(j=1;j<12;j++)if(c->skills[j]>c->skills[c->field])c->field=j;
+    }
     events_push_villager(&world->events, CORE_EVT_VILLAGER_LEFT, villager->id, 0, 0, villager->name);
     world->stats.villagers_left++;
     entity_remove_villager(world, villager);

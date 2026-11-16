@@ -2,6 +2,7 @@
  * rank.c — 등급과 승패 (설명은 rank.h)
  */
 #include "rank.h"
+#include "castle_expansion.h"
 
 #include <string.h>
 
@@ -54,7 +55,7 @@ void rank_fill_view(const World *world, CoreRankView *out)
     out->have_mood = average_mood(world);
     out->have_defense = rank_defense(world);
     out->have_research = world->research.done_count;
-    if (world->rank >= CORE_RANK_COUNT - 1) {
+    if (world->rank >= CORE_LEGACY_RANK_COUNT - 1) {
         out->next_rank = -1;
         return;
     }
@@ -70,7 +71,7 @@ void rank_fill_view(const World *world, CoreRankView *out)
     out->storage_bonus = next->storage;
     for (type = 0; type < CORE_BLD_COUNT; type++) {
         if (world->defs.buildings[type].required_rank == out->next_rank && type != CORE_BLD_KEEP) {
-            out->unlocks |= 1 << type;
+            out->unlocks[type/64] |= UINT64_C(1) << (type%64);
         }
     }
     for (i = 0; i < world->defs.research_count; i++) {
@@ -172,7 +173,7 @@ void rank_hourly(World *world)
         return;
     }
     /* 조건을 처음 채우면 한 번 알립니다 (같은 등급을 두 번 알리지 않음) */
-    if (world->rank_ready_announced <= world->rank && world->rank < CORE_RANK_COUNT - 1 && rank_is_ready(world)) {
+    if (world->rank_ready_announced <= world->rank && world->rank < CORE_LEGACY_RANK_COUNT - 1 && rank_is_ready(world)) {
         world->rank_ready_announced = world->rank + 1;
         events_push_progress(&world->events, CORE_EVT_RANK_READY, world->rank + 1, 0, 0, NULL);
     }

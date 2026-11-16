@@ -36,6 +36,7 @@
  * 끝에 불변 조건 검사기까지 통과해야 성공입니다.
  */
 #include "save.h"
+#include "expansion.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -57,7 +58,7 @@
 #define VILLAGER_INT_FIELDS 33
 
 /* 자원 키 이름 (순서는 CoreResource) */
-static const char *const RESOURCE_KEYS[CORE_RES_COUNT] = {"gold", "mana", "food", "wood", "stone", "herbs"};
+static const char *const RESOURCE_KEYS[CORE_RES_COUNT] = {"gold","mana","food","wood","stone","herbs","logs","clay","bricks","iron_ore","coal","iron","gold_ore","gold_bar","leather"};
 
 /* ====================================================================== */
 /* 쓰기                                                                    */
@@ -95,6 +96,7 @@ static void write_meta(FILE *file, const World *world)
     fprintf(file, "rank=%d\n", (int)world->rank);
     fprintf(file, "next_ids=%d,%d\n", (int)world->next_villager_id, (int)world->next_building_id);
     fprintf(file, "mourning=%d\n", (int)world->mourning);
+    fprintf(file,"ruleset=%d\n",world->ruleset);
     fputs("[clock]\n", file);
     fprintf(file, "tick=%d\n", (int)world->clock.tick);
     fputs("[rng]\nstate=", file);
@@ -138,7 +140,7 @@ static void write_map(FILE *file, const World *world)
     for (y = 0; y < grid->height; y++) {
         fputs("road=", file);
         for (x = 0; x < grid->width; x++) {
-            fputc(grid->road[grid_index(grid, x, y)] ? '1' : '0', file);
+            fputc('0'+grid->road[grid_index(grid, x, y)], file);
         }
         fputc('\n', file);
     }
@@ -315,6 +317,7 @@ static int write_world(FILE *file, const World *world)
     write_villagers(file, world);
     write_pressure(file, world);
     write_progress(file, world);
+    (void)expansion_save(file,world);
     fputs("[end]\n", file);
     return ferror(file) ? CORE_ERR_FILE_IO : CORE_OK;
 }
@@ -560,6 +563,10 @@ static int parse_hex64(const char *text, uint64_t *out)
 static int parse_meta(LoadState *state, const char *key, char *value)
 {
     World *world = state->world;
+    if(strcmp(key,"ruleset")==0 && mark_key(state,8)){
+        if(!parse_i32(value,0,1,&world->ruleset))return CORE_ERR_FORMAT;
+        return world->ruleset?expansion_allocate(world):CORE_OK;
+    }
     if (strcmp(key, "name") == 0 && mark_key(state, 0)) {
         return world_set_name(world, value) == CORE_OK ? CORE_OK : CORE_ERR_FORMAT;
     }
@@ -577,7 +584,7 @@ static int parse_meta(LoadState *state, const char *key, char *value)
         return parse_i32(value, 1, INT32_MAX - 1, &world->keep_id) ? CORE_OK : CORE_ERR_FORMAT;
     }
     if (strcmp(key, "rank") == 0 && mark_key(state, 5)) {
-        return parse_i32(value, 0, 4, &world->rank) ? CORE_OK : CORE_ERR_FORMAT;
+        return parse_i32(value, 0, 5, &world->rank) ? CORE_OK : CORE_ERR_FORMAT;
     }
     if (strcmp(key, "next_ids") == 0 && mark_key(state, 6)) {
         return parse_pair(value, 1, INT32_MAX - 1, &world->next_villager_id, &world->next_building_id)
@@ -663,7 +670,8 @@ static int parse_map(LoadState *state, const char *key, char *value)
         if (!parse_pair(value, GRID_MIN_SIZE, GRID_MAX_SIZE, &width, &height)) {
             return CORE_ERR_FORMAT;
         }
-        return grid_alloc(grid, width, height) == CORE_OK ? CORE_OK : CORE_ERR_OUT_OF_MEMORY;
+        if(grid_alloc(grid,width,height)!=CORE_OK)return CORE_ERR_OUT_OF_MEMORY;
+        return state->world->expansion?expansion_resize(state->world):CORE_OK;
     }
     if (grid->terrain == NULL || (int32_t)strlen(value) != grid->width) {
         return CORE_ERR_FORMAT; /* size 보다 먼저 나왔거나 길이가 틀림 */
@@ -687,10 +695,10 @@ static int parse_map(LoadState *state, const char *key, char *value)
             return CORE_ERR_FORMAT;
         }
         for (x = 0; x < grid->width; x++) {
-            if (value[x] != '0' && value[x] != '1') {
+            if (value[x]<'0' || value[x]>(state->world->expansion?'3':'1')) {
                 return CORE_ERR_FORMAT;
             }
-            grid->road[grid_index(grid, x, state->road_rows_read)] = (uint8_t)(value[x] == '1');
+            grid->road[grid_index(grid, x, state->road_rows_read)] = (uint8_t)(value[x]-'0');
         }
         state->road_rows_read++;
         return CORE_OK;
@@ -718,7 +726,7 @@ static int parse_building(LoadState *state, const char *key, char *value)
         entity_find_building(world, v[0]) != NULL || world->building_count >= SAVE_MAX_BUILDINGS) {
         return CORE_ERR_FORMAT; /* 종류 오류, id 범위 밖, id 중복, 너무 많음 */
     }
-    if (v[4] < 1 || v[4] > 4 || v[5] < 1 || v[5] > 4 || !grid_in_bounds(&world->grid, v[2], v[3]) ||
+    if (v[4] < 1 || v[4] > 8 || v[5] < 1 || v[5] > 8 || !grid_in_bounds(&world->grid, v[2], v[3]) ||
         !grid_in_bounds(&world->grid, v[2] + v[4] - 1, v[3] + v[5] - 1) || v[6] < CORE_BSTATE_CONSTRUCTING ||
         v[6] > CORE_BSTATE_RUINED || v[7] < 0 || v[7] > def->max_hp || v[8] < 0 ||
         !in_bounds_or_none(&world->grid, v[9], v[10]) || (v[11] != 0 && v[11] != 1) || v[12] < 0 || v[13] < 0 ||
@@ -1044,13 +1052,18 @@ static int parse_progress(LoadState *state, const char *key, char *value)
 #define SEC_MAP 5
 #define SEC_RESEARCH 12
 
+static int parse_expansion(LoadState *state,const char *key,char *value)
+{
+    return expansion_load_line(state->world,key,value);
+}
+
 /* 섹션 이름 → 해석 함수 표 */
 static const SectionDef SECTIONS[] = {
     {"meta", parse_meta, 0xFFu, 0},                                    /* 키 8개 */
     {"clock", parse_clock, 0x1u, 0},                                   /* tick */
     {"rng", parse_rng, 0x3u, 0},                                       /* state, inc */
-    {"resources", parse_resources, 0x7Fu, 0},                          /* capacity + 자원 6개 */
-    {"ledger", parse_ledger, 0xFFFu, 0},                               /* 오늘·어제 × 자원 6개 */
+    {"resources", parse_resources, 0xFFFFu, 0},                        /* capacity + 자원 15개 */
+    {"ledger", parse_ledger, 0x3FFFFFFFu, 0},                         /* 오늘·어제 × 자원 15개 */
     {"map", parse_map, 0x1u, 0},                                       /* size (줄 수는 따로 확인) */
     {"buildings", parse_building, 0u, (1u << SEC_META) | (1u << SEC_MAP) | (1u << SEC_RESEARCH)},
     {"villagers", parse_villager, 0u, (1u << SEC_META) | (1u << SEC_MAP) | (1u << 6)},
@@ -1060,6 +1073,7 @@ static const SectionDef SECTIONS[] = {
     {"threat", parse_threat, 0x3u, 0},                                 /* next_raid, raids_done (+ threat 줄) */
     {"research", parse_research, 0x7u, 0},                             /* done, active, progress (건물보다 먼저) */
     {"progress", parse_progress, 0x1Fu, 0},                            /* rank_ready, outcome, lose_reason, … */
+    {"expansion",parse_expansion,0u,(1u<<6)|(1u<<7)},
 };
 #define SECTION_COUNT ((int32_t)(sizeof(SECTIONS) / sizeof(SECTIONS[0])))
 
@@ -1101,6 +1115,7 @@ static int finish_sections(LoadState *state)
 {
     int32_t i;
     for (i = 0; i < SECTION_COUNT; i++) {
+        if(i==14 && !state->world->expansion)continue;
         if (!(state->sections_seen & (1u << i))) {
             return CORE_ERR_FORMAT;
         }
@@ -1251,8 +1266,8 @@ int save_read(const char *path, const Defs *defs, World **out_world, int32_t *ou
     }
     if (rc == CORE_OK) {
         /* 점유·문·막힘 층과 비용 격자는 저장하지 않고 건물 목록에서 다시 만듭니다 */
-        placement_rebuild_layers(state.world);
-        placement_refresh_productivity(state.world);
+        if(state.world->expansion)rc=expansion_finish_load(state.world);
+        else{placement_rebuild_layers(state.world);placement_refresh_productivity(state.world);}
         if (validate_world(state.world, NULL, NULL) != 0) {
             rc = CORE_ERR_FORMAT;
         }

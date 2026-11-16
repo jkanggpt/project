@@ -194,7 +194,7 @@ void test_rank_up_rules(void)
     CHECK_EQ(core_get_rank(world, &rank), CORE_OK);
     CHECK_EQ(rank.rank, CORE_RANK_HAMLET);
     CHECK_EQ(rank.next_rank, CORE_RANK_VILLAGE);
-    CHECK(rank.unlocks & (1 << CORE_BLD_BARRACKS));
+    CHECK(rank.unlocks[0] & (UINT64_C(1) << CORE_BLD_BARRACKS));
     CHECK(!rank.ready);
     /* 마을이 되기 전에는 병영을 지을 수 없음 */
     core_can_place(world, CORE_BLD_BARRACKS, world->keep_x + 6, world->keep_y + 6, &place);
@@ -254,7 +254,7 @@ void test_victory_at_royal_castle(void)
     int32_t reason = -1;
     int32_t rank;
     CHECK(world != NULL);
-    for (rank = 1; rank < CORE_RANK_COUNT; rank++) {
+    for (rank = 1; rank <= CORE_RANK_ROYAL; rank++) {
         RankDef *def = &world->defs.ranks[rank];
         def->population = 0;
         def->mood = 0;
@@ -263,7 +263,7 @@ void test_victory_at_royal_castle(void)
     }
     test_give(world, 2000);
     (void)count_events(world, CORE_EVT_NONE);
-    for (rank = 1; rank < CORE_RANK_COUNT; rank++) {
+    for (rank = 1; rank <= CORE_RANK_ROYAL; rank++) {
         CHECK_EQ(core_rank_up(world, &reason), CORE_OK);
         world->bank.amount[CORE_RES_GOLD] = 2000;
         world->bank.amount[CORE_RES_MANA] = 2000;

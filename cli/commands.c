@@ -660,7 +660,7 @@ static int cmd_rank_up(CliContext *context)
     printf(u8"  공물: 금화 %d, 마정석 %d\n", (int)rank.tribute_gold, (int)rank.tribute_mana);
     printf(u8"  오르면: 저장 한도 +%d", (int)rank.storage_bonus);
     for (type = 0; type < CORE_BLD_COUNT; type++) {
-        if (rank.unlocks & (1 << type)) {
+        if (rank.unlocks[type/64] & (UINT64_C(1) << (type%64))) {
             printf(", %s", fmt_building_name(type));
         }
     }

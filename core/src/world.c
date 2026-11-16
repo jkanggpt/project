@@ -2,6 +2,7 @@
  * world.c — 월드 생성·해제와 틱 진행 (설명은 world.h)
  */
 #include "world.h"
+#include "expansion.h"
 
 #include <string.h>
 
@@ -48,6 +49,7 @@ void world_destroy(World *world)
     if (world == NULL) {
         return;
     }
+    expansion_free(world);
     entity_free_all(world);
     threat_free(&world->threat);
     grid_free(&world->grid);
@@ -112,7 +114,7 @@ int world_create(const CoreNewGameParams *params, const Defs *defs, World **out)
     int32_t i;
 
     *out = NULL;
-    if (params->seed < 0 || params->difficulty < 0 || params->difficulty >= CORE_DIFF_COUNT ||
+    if (params->ruleset<0 || params->ruleset>1 || params->seed < 0 || params->difficulty < 0 || params->difficulty >= CORE_DIFF_COUNT ||
         !world_name_is_valid(params->castle_name, CORE_NAME_BYTES)) {
         return CORE_ERR_INVALID_ARG;
     }
@@ -128,8 +130,10 @@ int world_create(const CoreNewGameParams *params, const Defs *defs, World **out)
     /* 지도 생성과 게임 진행이 같은 난수 스트림을 쓰도록 시드로 초기화합니다 */
     rng_seed(&world->rng, (uint64_t)(uint32_t)params->seed, 0x4D43u);
     eco_bank_init(&world->bank, params->difficulty);
-
-    rc = grid_alloc(&world->grid, GRID_DEFAULT_SIZE, GRID_DEFAULT_SIZE);
+    world->ruleset=params->ruleset;
+    rc=world->ruleset?expansion_allocate(world):CORE_OK;
+    if(rc==CORE_OK)rc = grid_alloc(&world->grid, world->ruleset?192:GRID_DEFAULT_SIZE, world->ruleset?192:GRID_DEFAULT_SIZE);
+    if(rc==CORE_OK && world->ruleset)rc=expansion_resize(world);
     if (rc == CORE_OK) {
         world->keep_x = world->grid.width / 2;
         world->keep_y = world->grid.height / 2;
@@ -139,10 +143,13 @@ int world_create(const CoreNewGameParams *params, const Defs *defs, World **out)
         rc = place_keep(world);
     }
     if (rc == CORE_OK) {
+        if(world->ruleset)rc=expansion_new_world(world);
+    }
+    if (rc == CORE_OK) {
         rc = population_spawn_initial(world);
     }
     if (rc == CORE_OK) {
-        threat_start_game(world);
+        if(world->ruleset){expansion_assign(world);expansion_visibility(world);}else threat_start_game(world);
         world->stats.peak_population = world->villager_count;
     }
     if (rc != CORE_OK) {
@@ -184,6 +191,7 @@ static void world_step(World *world)
     int32_t i;
 
     world->clock.tick++;
+    if(world->ruleset){expansion_tick(world);return;}
     minute = clock_minute_of_day(&world->clock);
 
     if (minute == 0) {
@@ -242,7 +250,7 @@ int world_tick(World *world, int32_t ticks)
     for (i = 0; i < ticks && world->outcome != CORE_OUTCOME_LOST; i++) {
         world_step(world);
     }
-    return CORE_OK;
+    return world->expansion && world->expansion->error?world->expansion->error:CORE_OK;
 }
 
 /* ---- 상태 해시 (FNV-1a) ----------------------------------------------- */
@@ -424,5 +432,6 @@ uint64_t world_state_hash(const World *world)
     for (i = 0; i < world->villager_count; i++) {
         hash = hash_villager(hash, world->villagers[i]);
     }
+    if(world->expansion)hash=expansion_hash(world,hash);
     return hash;
 }

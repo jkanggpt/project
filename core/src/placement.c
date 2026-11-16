@@ -2,6 +2,7 @@
  * placement.c — 배치, 건설, 철거, 도로 (설명은 placement.h)
  */
 #include "placement.h"
+#include "expansion.h"
 
 #include <string.h>
 
@@ -504,6 +505,7 @@ static void mark_building(World *world, const Building *building, int add)
 
 void placement_rebuild_layers(World *world)
 {
+    if(world->expansion){expansion_rebuild(world);return;}
     Grid *grid = &world->grid;
     size_t cells = (size_t)grid->width * (size_t)grid->height;
     int32_t i;
@@ -568,6 +570,7 @@ static void relocate_villagers(World *world, const Building *building)
 /* 다 지어진 건물의 저장 한도를 합쳐 은행 한도를 다시 정합니다 */
 void placement_refresh_capacity(World *world)
 {
+    if(world->expansion){expansion_capacity(world);return;}
     int32_t total = rank_storage_bonus(world); /* 승급할 때마다 늘어난 저장 한도 */
     int32_t i;
     for (i = 0; i < world->building_count; i++) {

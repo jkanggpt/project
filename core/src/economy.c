@@ -14,6 +14,7 @@
 void eco_bank_init(ResourceBank *bank, int32_t difficulty)
 {
     int32_t i;
+    memset(bank,0,sizeof(*bank));
     if (difficulty < 0 || difficulty >= CORE_DIFF_COUNT) {
         difficulty = CORE_DIFF_NORMAL;
     }
@@ -31,6 +32,7 @@ int eco_is_stored_good(int32_t resource)
 
 int32_t eco_bank_limit(const ResourceBank *bank, int32_t resource)
 {
+    if (bank->individual_limits && resource>=0 && resource<CORE_RES_COUNT) return bank->limits[resource];
     return eco_is_stored_good(resource) ? bank->capacity : ECO_MAX_AMOUNT;
 }
 

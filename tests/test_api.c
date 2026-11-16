@@ -66,13 +66,13 @@ void test_api_struct_sizes_and_config(void)
     CHECK_EQ(sizes.summary_view, (int32_t)sizeof(CoreSummaryView));
     CHECK_EQ(sizes.event_view, 20 + 48);
     /* 외부 호출자 에서 같은 크기가 나와야 하는 값: int 55개 + 자원·한도·변화 6개씩 + 이름 48바이트 */
-    CHECK_EQ(sizes.summary_view, 55 * 4 + 18 * 4 + 48);
+    CHECK_EQ(sizes.summary_view, (55+3*CORE_RES_COUNT+12)*4+48);
     CHECK_EQ(sizes.config_view, 17 * 4);
-    CHECK_EQ(sizes.villager_view, 29 * 4 + 48);
-    CHECK_EQ(sizes.building_view, 21 * 4);
-    CHECK_EQ(sizes.building_def_view, 32 * 4 + 24);
+    CHECK_EQ(sizes.villager_view, 57*4+48);
+    CHECK_EQ(sizes.building_view, 31*4);
+    CHECK_EQ(sizes.building_def_view, 44*4+72);
     CHECK_EQ(sizes.trait_def_view, 6 * 4 + 24);
-    CHECK_EQ(sizes.placement_view, 11 * 4);
+    CHECK_EQ(sizes.placement_view, 22*4);
     CHECK_EQ(sizes.mood_term_view, 8);
     CHECK_EQ(sizes.ledger_view, 2 * CORE_RES_COUNT * CORE_LEDGER_COUNT * 4);
     CHECK_EQ(sizes.market_view, (2 + 4 * CORE_RES_COUNT) * 4);
@@ -82,7 +82,7 @@ void test_api_struct_sizes_and_config(void)
     CHECK_EQ(sizes.raid_view, 9 * 4);
     CHECK_EQ(sizes.enemy_view, 3 * 4);
     CHECK_EQ(sizes.research_view, 11 * 4 + 24);
-    CHECK_EQ(sizes.rank_view, 16 * 4);
+    CHECK_EQ(sizes.rank_view, 80);
     CHECK_EQ(sizes.run_stats_view, 12 * 4);
     CHECK_EQ(sizes.difficulty_view, (2 + CORE_RES_COUNT + 5) * 4);
     CHECK_EQ(sizes.save_info_view, 13 * 4 + CORE_NAME_BYTES);

@@ -26,6 +26,7 @@ typedef struct Stats {
     int32_t intellect; /* 지능 */
     int32_t dexterity; /* 손재주 */
     int32_t vitality;  /* 체력 */
+    int32_t agility;   /* 민첩 */
 } Stats;
 
 typedef struct Needs {
@@ -69,6 +70,10 @@ struct Villager {
     int32_t blocked_day;    /* 길 막힘 알림을 마지막으로 보낸 날 */
     int32_t sick_ticks;     /* 병이 저절로 낫기까지 남은 틱 (0 = 건강) */
     int32_t heal_ticks;     /* 치료소에서 치료받은 틱 */
+    int32_t initial_stats[5],stat_xp[5],skill_minutes[12];
+    int32_t contract_end_tick,personal_id,water,hygiene,culture_until,culture_bonus,visit_day;
+    int32_t inside_building,current_x_milli,current_y_milli,meal_day;
+    int32_t expansion_loaded;
 };
 
 struct Building {
@@ -87,6 +92,10 @@ struct Building {
     int32_t work_milli[2]; /* 생산 누적 (주 자원, 두 번째 자원) × 1000 */
     int32_t productivity;  /* 지형에 따른 생산성 % (지도에서 다시 계산하므로 저장하지 않음) */
     int32_t flags;         /* CORE_BF_* (난방 못 함 등) */
+    int32_t rotation,completed_day,mode,mode_day,operating,blocked_reason;
+    int32_t daily_work_milli,crop_labor_milli,crop_year,crop_drought,pending_harvest_milli,harvest_expiry;
+    int32_t processing_milli[CORE_RES_COUNT],hunts_milli,shots,visits_today;
+    int32_t expansion_loaded;
 
     Villager **workers;    /* 일꾼 (id 순으로 정렬) */
     int32_t worker_count;

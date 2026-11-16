@@ -7,6 +7,14 @@ set(CASTLE_CORE_SOURCES
   src/defs_builtin.c
   src/difficulty.c
   src/economy.c
+  src/expansion_catalog.c
+  src/expansion_world.c
+  src/expansion_commands.c
+  src/expansion_people.c
+  src/expansion_economy.c
+  src/expansion_progress.c
+  src/expansion_animals.c
+  src/expansion_save.c
   src/entity.c
   src/events.c
   src/grid.c

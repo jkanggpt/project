@@ -17,6 +17,7 @@
 typedef struct ResourceBank {
     int32_t amount[CORE_RES_COUNT];
     int32_t capacity; /* 물건 하나당 저장 한도 */
+    int32_t individual_limits,limits[CORE_RES_COUNT];
 } ResourceBank;
 
 /* 장부 항목은 공개 헤더의 CoreLedgerCategory (C 그래픽 프런트엔드 툴팁도 같은 번호를 씀) */

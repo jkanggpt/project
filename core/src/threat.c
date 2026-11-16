@@ -178,6 +178,7 @@ static void schedule(World *world, int32_t type, int32_t eta_tick)
 /* 다음 위협을 고릅니다: 첫 위협은 작은 도적 무리, 그 뒤로는 날짜에 맞는 종류 중 무작위 */
 static void schedule_next(World *world)
 {
+    if(world->ruleset)return;
     int32_t today = clock_day(&world->clock);
     int32_t type = CORE_THREAT_BANDITS;
     int32_t days;
@@ -241,7 +242,7 @@ static void start_raid(World *world, const Threat *threat)
     raid->stolen = 0;
     raid->fallen = 0;
     spawn_tile(world, threat->direction, &raid->spawn_x, &raid->spawn_y);
-    events_push_raid(&world->events, CORE_EVT_RAID_STARTED, raid->id, raid->type, raid->enemy_count, raid->direction);
+    if(!world->ruleset)events_push_raid(&world->events, CORE_EVT_RAID_STARTED, raid->id, raid->type, raid->enemy_count, raid->direction);
 }
 
 int threat_debug_raid(World *world, int32_t type, int32_t direction, int32_t count)

@@ -2,6 +2,7 @@
  * jobs.c — 일자리 (설명은 jobs.h)
  */
 #include "jobs.h"
+#include "expansion.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -305,6 +306,7 @@ void jobs_assign_housing(World *world)
 
 void jobs_on_buildings_changed(World *world)
 {
+    if(world->expansion){expansion_assign(world);world->expansion->dirty=1;return;}
     jobs_assign_housing(world);
     jobs_auto_assign(world);
 }

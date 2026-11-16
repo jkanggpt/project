@@ -13,6 +13,7 @@
  * 그래서 중간에 틀린 줄이 있어도 정의가 반쯤 바뀐 채로 남지 않습니다.
  */
 #include "defs.h"
+#include "expansion.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -24,10 +25,10 @@
 
 #define DEFS_LINE_MAX 256
 
-static const char *const RESOURCE_KEYS[CORE_RES_COUNT] = {"gold", "mana", "food", "wood", "stone", "herbs"};
+static const char *const RESOURCE_KEYS[CORE_RES_COUNT] = {"gold","mana","food","wood","stone","herbs","logs","clay","bricks","iron_ore","coal","iron","gold_ore","gold_bar","leather"};
 static const char *const PLACEMENT_KEYS[] = {"any", "near_forest", "adjacent_rock", "on_mana"};
 static const char *const CATEGORY_KEYS[CORE_CAT_COUNT] = {"special", "housing", "resource", "storage",
-                                                          "defense", "service", "road"};
+                                                          "defense","service","road","agriculture","livestock","forestry","mining","fishing","processing","culture","magic","hunting","towers","military"};
 static const char *const BEHAVIOR_KEYS[CORE_BEHAVIOR_COUNT] = {"thief", "raider", "monster"};
 static const char *const BRANCH_KEYS[CORE_BRANCH_COUNT] = {"economy", "defense", "magic"};
 /* 연구 효과 키 (순서는 CoreResearchEffect, 효과 함수는 research.c 의 RESEARCH_EFFECTS) */
@@ -205,6 +206,7 @@ int defs_init_builtin(Defs *defs)
 int defs_copy(Defs *dst, const Defs *src)
 {
     memset(dst, 0, sizeof(*dst));
+    dst->expanded=src->expanded;
     memcpy(dst->buildings, src->buildings, sizeof(dst->buildings));
     memcpy(dst->enemies, src->enemies, sizeof(dst->enemies));
     memcpy(dst->ranks, src->ranks, sizeof(dst->ranks));
@@ -267,14 +269,23 @@ typedef struct FieldDef {
 #define COST_FIELD(res) (offsetof(BuildingDef, cost) + (size_t)(res) * sizeof(int32_t))
 
 static const FieldDef BUILDING_FIELDS[] = {
-    {"width", offsetof(BuildingDef, w), FIELD_INT, 1, 4},
-    {"height", offsetof(BuildingDef, h), FIELD_INT, 1, 4},
+    {"width", offsetof(BuildingDef, w), FIELD_INT, 1, 8},
+    {"height", offsetof(BuildingDef, h), FIELD_INT, 1, 8},
     {"cost_gold", COST_FIELD(CORE_RES_GOLD), FIELD_INT, 0, 100000},
     {"cost_mana", COST_FIELD(CORE_RES_MANA), FIELD_INT, 0, 100000},
     {"cost_food", COST_FIELD(CORE_RES_FOOD), FIELD_INT, 0, 100000},
     {"cost_wood", COST_FIELD(CORE_RES_WOOD), FIELD_INT, 0, 100000},
     {"cost_stone", COST_FIELD(CORE_RES_STONE), FIELD_INT, 0, 100000},
     {"cost_herbs", COST_FIELD(CORE_RES_HERBS), FIELD_INT, 0, 100000},
+    {"cost_logs", COST_FIELD(CORE_RES_LOGS), FIELD_INT, 0, 100000},
+    {"cost_clay", COST_FIELD(CORE_RES_CLAY), FIELD_INT, 0, 100000},
+    {"cost_bricks", COST_FIELD(CORE_RES_BRICKS), FIELD_INT, 0, 100000},
+    {"cost_iron_ore", COST_FIELD(CORE_RES_IRON_ORE), FIELD_INT, 0, 100000},
+    {"cost_coal", COST_FIELD(CORE_RES_COAL), FIELD_INT, 0, 100000},
+    {"cost_iron", COST_FIELD(CORE_RES_IRON), FIELD_INT, 0, 100000},
+    {"cost_gold_ore", COST_FIELD(CORE_RES_GOLD_ORE), FIELD_INT, 0, 100000},
+    {"cost_gold_bar", COST_FIELD(CORE_RES_GOLD_BAR), FIELD_INT, 0, 100000},
+    {"cost_leather", COST_FIELD(CORE_RES_LEATHER), FIELD_INT, 0, 100000},
     {"build_ticks", offsetof(BuildingDef, build_ticks), FIELD_INT, 0, 10000},
     {"max_hp", offsetof(BuildingDef, max_hp), FIELD_INT, 1, 100000},
     {"workers", offsetof(BuildingDef, worker_slots), FIELD_INT, 0, 8},
@@ -284,12 +295,12 @@ static const FieldDef BUILDING_FIELDS[] = {
     {"rate", offsetof(BuildingDef, rate), FIELD_INT, 0, 100000},
     {"secondary", offsetof(BuildingDef, secondary), FIELD_RESOURCE, -1, CORE_RES_COUNT - 1},
     {"secondary_rate", offsetof(BuildingDef, secondary_rate), FIELD_INT, 0, 100000},
-    {"work_radius", offsetof(BuildingDef, work_radius), FIELD_INT, 0, 8},
+    {"work_radius", offsetof(BuildingDef, work_radius), FIELD_INT, 0, 20},
     {"placement", offsetof(BuildingDef, placement), FIELD_PLACEMENT, 0, 3},
     {"min_terrain", offsetof(BuildingDef, min_terrain), FIELD_INT, 0, 200},
     {"ideal_terrain", offsetof(BuildingDef, ideal_terrain), FIELD_INT, 1, 200},
     {"wage", offsetof(BuildingDef, wage), FIELD_INT, 0, 100},
-    {"required_rank", offsetof(BuildingDef, required_rank), FIELD_INT, 0, 4},
+    {"required_rank", offsetof(BuildingDef, required_rank), FIELD_INT, 0, CORE_RANK_COUNT-1},
     {"category", offsetof(BuildingDef, category), FIELD_CATEGORY, 0, CORE_CAT_COUNT - 1},
     {"attack", offsetof(BuildingDef, attack), FIELD_INT, 0, 1000},
     {"attack_range", offsetof(BuildingDef, attack_range), FIELD_INT, 0, 12},

@@ -24,11 +24,12 @@
 #include "validate.h"
 #include "villager_ai.h"
 #include "world.h"
+#include "expansion.h"
 
 /* 공개 헤더의 상수와 내부 상수가 어긋나면 컴파일 단계에서 막습니다 */
-_Static_assert(CORE_RES_COUNT == 6, u8"resource count changed: update save keys and 외부 호출자 views");
+_Static_assert(CORE_RES_COUNT == 15, u8"확장 자원 키와 뷰 크기를 맞춥니다");
 _Static_assert(sizeof(CoreSummaryView) % 4 == 0, u8"views must stay 4-byte aligned for 외부 호출자");
-_Static_assert(sizeof(CoreNewGameParams) == CORE_NAME_BYTES + 8, "unexpected padding in CoreNewGameParams");
+_Static_assert(sizeof(CoreNewGameParams) == CORE_NAME_BYTES + 12, "unexpected padding in CoreNewGameParams");
 _Static_assert(CORE_MOOD_TERM_COUNT == 10, u8"mood terms changed: update 외부 호출자 strings");
 _Static_assert(CORE_LEDGER_COUNT == 14, u8"ledger categories changed: update save format and 외부 호출자 strings");
 _Static_assert(CORE_MAX_RESEARCH <= 32, "research done flags are a 32-bit mask");
@@ -362,6 +363,7 @@ CORE_API int32_t core_get_summary(const CoreWorld *world, CoreSummaryView *out)
     /* 이름 버퍼는 크기가 같고 항상 '\0' 으로 끝나므로 통째로 복사합니다 */
     memcpy(out->castle_name, world->castle_name, CORE_NAME_BYTES);
     out->castle_name[CORE_NAME_BYTES - 1] = '\0';
+    if(world->expansion)expansion_read_summary(world,out);
     return CORE_OK;
 }
 
@@ -446,6 +448,7 @@ static void villager_to_view(const World *world, const Villager *v, CoreVillager
     out->walk_speed = vil_walk_speed(world, v);
     memcpy(out->name, v->name, CORE_NAME_BYTES);
     out->name[CORE_NAME_BYTES - 1] = '\0';
+    if(world->expansion)expansion_read_villager(world,v,out);
 }
 
 CORE_API int32_t core_copy_villagers(const CoreWorld *world, CoreVillagerView *out, int32_t capacity,
@@ -497,6 +500,7 @@ static void building_to_view(const World *world, const Building *b, CoreBuilding
     out->door_y = b->door_y;
     out->productivity = b->productivity;
     out->flags = b->flags;
+    if(world->expansion)expansion_read_building(world,b,out);
 }
 
 CORE_API int32_t core_copy_buildings(const CoreWorld *world, CoreBuildingView *out, int32_t capacity,
@@ -562,6 +566,7 @@ CORE_API int32_t core_get_building_def(const CoreWorld *world, int32_t type, Cor
     out->count_terrain = placement_counted_terrain(def);
     memcpy(out->key, def->key, CORE_KEY_BYTES);
     out->key[CORE_KEY_BYTES - 1] = '\0';
+    if(world->expansion){const ExpansionBuildingSpec *s=expansion_spec(type);out->kind_flags=s->flags;out->job_field=s->field;out->upkeep=s->upkeep;strcpy(out->name,s->name);}
     return CORE_OK;
 }
 
@@ -867,7 +872,7 @@ CORE_API int32_t core_can_place(const CoreWorld *world, int32_t type, int32_t x,
     if (world == NULL || out == NULL) {
         return CORE_ERR_NULL_ARG;
     }
-    placement_check(world, type, x, y, out);
+    if(world->expansion)expansion_place_check(world,type,x,y,0,0,out);else placement_check(world, type, x, y, out);
     return CORE_OK;
 }
 
@@ -880,7 +885,7 @@ CORE_API int32_t core_place_building(CoreWorld *world, int32_t type, int32_t x, 
     if (world == NULL) {
         return CORE_ERR_NULL_ARG;
     }
-    rc = placement_place(world, type, x, y, &id, &reason);
+    rc = world->expansion?expansion_place(world,type,x,y,0,&id,&reason):placement_place(world, type, x, y, &id, &reason);
     if (out_id != NULL) {
         *out_id = id;
     }
@@ -919,7 +924,7 @@ CORE_API int32_t core_demolish(CoreWorld *world, int32_t building_id)
     if (building == NULL) {
         return CORE_ERR_NOT_FOUND;
     }
-    return placement_demolish(world, building);
+    return world->expansion?expansion_demolish(world,building):placement_demolish(world, building);
 }
 
 CORE_API int32_t core_remove_road(CoreWorld *world, int32_t x, int32_t y)
@@ -927,7 +932,7 @@ CORE_API int32_t core_remove_road(CoreWorld *world, int32_t x, int32_t y)
     if (world == NULL) {
         return CORE_ERR_NULL_ARG;
     }
-    return placement_remove_road(world, x, y);
+    return world->expansion?expansion_remove_road(world,x,y):placement_remove_road(world, x, y);
 }
 
 CORE_API int32_t core_assign_worker(CoreWorld *world, int32_t villager_id, int32_t building_id)
@@ -1012,6 +1017,7 @@ CORE_API int32_t core_trade(CoreWorld *world, int32_t resource, int32_t lots, in
     if (world == NULL) {
         return CORE_ERR_NULL_ARG;
     }
+    if(world->expansion){int a,b;return expansion_trade(world,resource,lots,out_gold?out_gold:&a,out_reason?out_reason:&b);}
     if (resource < 0 || resource >= CORE_RES_COUNT || lots == 0 || lots < -CORE_MARKET_MAX_LOTS ||
         lots > CORE_MARKET_MAX_LOTS) {
         return CORE_ERR_INVALID_ARG;
@@ -1083,7 +1089,7 @@ CORE_API int32_t core_start_research(CoreWorld *world, int32_t index, int32_t *o
     if (defs_research(&world->defs, index) == NULL) {
         return CORE_ERR_NOT_FOUND;
     }
-    rc = research_start(world, index, &reason);
+    rc = world->expansion?expansion_start_research(world,index,&reason):research_start(world, index, &reason);
     if (out_reason != NULL) {
         *out_reason = reason;
     }
@@ -1100,7 +1106,7 @@ CORE_API int32_t core_rank_up(CoreWorld *world, int32_t *out_reason)
     if (world == NULL) {
         return CORE_ERR_NULL_ARG;
     }
-    rc = rank_up(world, &reason);
+    rc = world->expansion?expansion_rank_up(world,&reason):rank_up(world, &reason);
     if (out_reason != NULL) {
         *out_reason = reason;
     }

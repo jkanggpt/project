@@ -41,6 +41,8 @@ typedef struct RunStats {
 } RunStats;
 
 struct CoreWorld {
+    int32_t ruleset;
+    struct ExpansionState *expansion;
     char castle_name[CORE_NAME_BYTES]; /* UTF-8 */
     int32_t difficulty;                /* CoreDifficulty */
     int32_t seed;                      /* 새 게임 시드 (지도 생성에 씀) */

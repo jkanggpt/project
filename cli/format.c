@@ -2,13 +2,14 @@
  * format.c — CLI 용 한국어 문구 (설명은 format.h)
  */
 #include "format.h"
+#include "castle_expansion.h"
 
 #include <stdio.h>
 #include <string.h>
 
 static const char *const SEASON_NAMES[CORE_SEASON_COUNT] = {u8"봄", u8"여름", u8"가을", u8"겨울"};
 static const char *const DIFFICULTY_NAMES[CORE_DIFF_COUNT] = {u8"평화", u8"보통", u8"혹독"};
-static const char *const RESOURCE_NAMES[CORE_RES_COUNT] = {u8"금화", u8"마정석", u8"식량", u8"목재", u8"석재", u8"약초"};
+static const char *const RESOURCE_NAMES[CORE_RES_COUNT] = {u8"금화",u8"마정석",u8"식량",u8"목재",u8"석재",u8"약초",u8"원목",u8"점토",u8"벽돌",u8"철광석",u8"석탄",u8"철괴",u8"금광석",u8"금괴",u8"가죽"};
 static const char *const TERRAIN_NAMES[CORE_TERRAIN_COUNT] = {u8"풀밭", u8"숲", u8"바위", u8"물", u8"마정석 광맥"};
 static const char *const WEATHER_NAMES[CORE_WEATHER_COUNT] = {u8"맑음", u8"비", u8"눈", u8"폭풍"};
 static const char *const NATURE_NAMES[CORE_NATURE_COUNT] = {u8"없음", u8"가뭄", u8"역병", u8"폭풍", u8"혹한", u8"풍년"};
@@ -108,7 +109,7 @@ const char *fmt_josa(const char *word, const char *with_final, const char *witho
 
 const char *fmt_building_name(int32_t type)
 {
-    return (type >= 0 && type < CORE_BLD_COUNT) ? BUILDING_NAMES[type] : "?";
+    return type>=CORE_LEGACY_BLD_COUNT?core_expansion_building_name(type):((type>=0 && type<CORE_BLD_COUNT)?BUILDING_NAMES[type]:"?");
 }
 
 const char *fmt_place_result(int32_t result)

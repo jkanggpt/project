@@ -117,6 +117,7 @@ typedef struct DefWarning {
 } DefWarning;
 
 typedef struct Defs {
+    int32_t expanded;
     BuildingDef buildings[CORE_BLD_COUNT];
     EnemyDef enemies[DEFS_ENEMY_COUNT];
     TraitDef *traits;   /* 동적 배열 */
