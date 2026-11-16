@@ -17,8 +17,12 @@ Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 ![C 실행판 게임 화면](docs/screenshots/native_game.png)
 ![C 실행판 제목 화면](docs/screenshots/native_title.png)
 ![주민 외형 8종과 방향별 걷기](docs/screenshots/native_villagers.png)
+![새 건물 4방향 비교](docs/screenshots/expansion_rotations.png)
 
 ## Windows 빌드와 실행
+
+배포 ZIP을 받은 경우 압축을 풀고 `MagicCastle/castle_game.exe`를 실행하면 됩니다. `assets/`와 `data/` 폴더도 함께 두세요.
+아래 도구 설치는 직접 소스를 빌드할 때 필요합니다.
 
 준비물: CMake 3.21 이상과 Visual Studio 2022 C/C++ 개발 도구 또는 MinGW-w64 + Ninja.
 첫 그래픽 빌드 때 공식 raylib 소스를 내려받습니다. 버전과 SHA-256을 고정했으며 다음부터 빌드 캐시를 사용합니다.
