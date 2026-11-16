@@ -172,3 +172,27 @@
 | docs/screenshots/native_game.png, native_title.png | 새 C 실행판에서 직접 촬영한 현재 그림으로 갱신 |
 
 이미지 생성 외에 C 코드와 문서는 Codex가 작성했습니다. 글꼴·효과음은 기존 외부 에셋이며 새로 생성하지 않았습니다.
+
+## 2026-11-16 — 45도 구도와 외형별 방향 애니메이션
+
+학생 후속 요청: 건물 지붕 윗면이 더 보이는 약 45도 내려다보기 구도, 직업과 무관한 남녀 주민 8종,
+앞·옆 방향의 걷기 애니메이션. 후속 메시지의 제작 계속 지시에 따라 적용·검증·배포까지 진행했습니다.
+내장 image_gen으로 원본 6장을 새로 생성했으며 전문은 art/PROMPTS_OVERHEAD.md입니다.
+
+| 파일 | 생성·수정 내용 |
+| --- | --- |
+| art/generated/villagers_{brown,blond,black,red}.png | 머리색별 남녀 8종, 각 정면·오른쪽·뒷면 4프레임 생성 |
+| art/generated/buildings_overhead.png, props_overhead.png | 깊은 지붕·윗면이 보이는 건물 15종·공사장, 수목·돌·광석·풀 12종 생성 |
+| game/assets/painted/villagers.png, props.png, 건물 16 PNG, LICENSE.txt | 새 원본을 C로 패킹, 주민 12열×8행으로 재구성, 같은 CC0 헌정 기록 |
+| game/src/sprite_layout.c, sprite_layout.h | ID 기반 8외형, 이동 방향·거리별 프레임, 왼쪽 반전 선택 |
+| game/src/session.c, session.h | 실제 이동에서만 화면용 facing·walk_distance 갱신 |
+| game/src/render.c, app.h | 방향별 주민 표시·정지 자세, 8외형×4방향 비교 화면 |
+| game/src/main.c, assets.c | 비교 촬영 인자·그리기 분기, 새 주민 시트 크기 검증 |
+| tools/pack_art.c | 새 원본 9장 패킹, 주민 96프레임 내용·발밑·걷기 변화 검사 |
+| tests/test_native.c | 8외형·ID 반복·4방향·반전·중립 자세, 실제 경로의 방향 전환·정지·막힌 길 검사 |
+| game/CMakeLists.txt, tools/screenshots.cmake | 그림만 바뀐 빌드도 동기화, 비교 화면·프롬프트 배포·7화면 촬영 |
+| art/README.md, PROMPTS_OVERHEAD.md, README.md, CREDITS.md, CLAUDE.md | 현재 구도·외형·프롬프트·패킹·촬영·라이선스 기록 |
+| docs/ARCHITECTURE.md, C_WALKTHROUGH.md, DECISIONS.md, QA.md, SPEC.md, AI_USAGE.md, PROGRESS.md | 방향 상태·점유 유지·검증·범위 기록 |
+| docs/screenshots/native_game.png, native_title.png, native_villagers.png | 새 게임과 8종 방향 비교를 실제 C 실행판에서 촬영 |
+
+원본 참고 이미지를 저장소나 배포물에 복사하지 않았습니다. 정면/오른쪽/뒷면은 새 생성 그림이며 왼쪽은 오른쪽의 좌우 반전입니다. 세이브 v5·코어 ABI 8·기존 점유와 게임 규칙은 유지합니다.

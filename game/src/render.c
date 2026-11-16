@@ -67,9 +67,11 @@ static void building(GameApp *a,int index)
 static void villager(GameApp *a,int index)
 {
     CoreVillagerView *v=&a->session.villagers[index]; GameActor *unit=game_actor(&a->session,v->id);
-    Vector2 p=pixel(unit->position); int frame=!v->at_target?((int)(GetTime()*7)+v->id)%4:1;
+    Vector2 p=pixel(unit->position);
+    int moving=a->speed>0 && a->panel==PANEL_NONE && !v->at_target && !(v->intent_flags&CORE_INTENT_HOLD) && unit->next<unit->path.count;
+    GameSpriteFrame frame=game_villager_frame(v->id,unit->facing,unit->walk_distance,moving);
     Rectangle dest=box_rect(game_actor_sprite(p.x,p.y,GAME_ACTOR_HEIGHT));
-    sprite(a->assets.villagers,(Rectangle){frame*96.0f,game_villager_art(v->job)*96.0f,96,96},dest,WHITE);
+    sprite(a->assets.villagers,(Rectangle){frame.column*96.0f,frame.row*96.0f,frame.flip?-96.0f:96.0f,96},dest,WHITE);
     if (v->flags&CORE_VF_SICK) DrawCircleV((Vector2){p.x,dest.y-2},1.5f,PURPLE);
     else if (v->mood<30) DrawCircleV((Vector2){p.x,dest.y-2},1.5f,UI_BAD);
     else if (v->state==CORE_VS_SLEEP) DrawCircleV((Vector2){p.x,dest.y-2},1.5f,SKYBLUE);
@@ -179,6 +181,28 @@ void game_render_free(GameApp *a)
 {
     free(a->draw_items); a->draw_items=NULL; a->draw_capacity=0;
     free(a->decor_blocked); a->decor_blocked=NULL; a->decor_capacity=0;
+}
+void game_render_villager_preview(GameApp *a)
+{
+    static const char *const names[8]={u8"갈색 남성",u8"갈색 여성",u8"금발 남성",u8"금발 여성",u8"검은 머리 남성",u8"검은 머리 여성",u8"붉은 머리 남성",u8"붉은 머리 여성"};
+    static const char *const directions[4]={u8"정면",u8"오른쪽",u8"뒷면",u8"왼쪽"};
+    float gap=(GetScreenWidth()-150.0f)/8,row_height=(GetScreenHeight()-140.0f)/4;
+    int appearance,direction; Texture2D t=a->assets.villagers;
+    ClearBackground((Color){23,32,33,255});
+    ui_text(&a->ui,24,18,UI_GOLD,u8"주민 외형 8종 · 방향별 걷기");
+    ui_small(&a->ui,24,54,UI_TEXT,u8"직업을 바꿔도 외형 유지 · 주민 1×1칸 / 그림 1.5타일 높이");
+    for (appearance=0;appearance<8;appearance++) ui_small(&a->ui,140+appearance*gap,92,UI_GOLD,"%s",names[appearance]);
+    for (direction=0;direction<4;direction++) {
+        float top=140+direction*row_height;
+        ui_small(&a->ui,24,top+30,UI_TEXT,"%s",directions[direction]);
+        for (appearance=0;appearance<8;appearance++) {
+            float cx=140+appearance*gap+gap*0.35f,feet=top+100;
+            GameSpriteFrame frame=game_villager_frame(appearance+1,direction,(float)GetTime()*0.5f,1);
+            DrawRectangleLinesEx((Rectangle){cx-32,feet-32,64,64},1,(Color){65,81,75,255});
+            DrawEllipse((int)cx,(int)feet,16,5,(Color){0,0,0,70});
+            sprite(t,(Rectangle){frame.column*96.0f,frame.row*96.0f,frame.flip?-96.0f:96.0f,96},(Rectangle){cx-48,feet-96,96,96},WHITE);
+        }
+    }
 }
 static int world_mouse(GameApp *a,int *x,int *y)
 {

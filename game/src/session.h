@@ -11,7 +11,8 @@ typedef struct GameActor {
     int id, revision, grid_revision, next, target_x, target_y;
     GamePoint position;
     GamePath path;
-    float cooldown;
+    float cooldown,walk_distance;
+    int facing;
 } GameActor;
 typedef struct GameEnemy {
     GameActor actor;

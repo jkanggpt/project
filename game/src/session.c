@@ -1,5 +1,6 @@
 /* session.c — 스냅숏 동기화, 고정 틱, 주민의 실제 경로 이동 */
 #include "session.h"
+#include "sprite_layout.h"
 #include "storage.h"
 #include <stdlib.h>
 #include <string.h>
@@ -182,6 +183,7 @@ int game_actor_walk(GameSession *s, GameActor *a, float tiles, int enemy, int *b
         int cell=a->path.cells[a->next], c=game_path_cost(s->cost[cell],enemy);
         GamePoint goal={cell%w+0.5f,cell/w+0.5f};
         float distance=game_distance(a->position,goal), factor;
+        GamePoint before=a->position;
         if (!c) { a->grid_revision=-1; return 0; }
         if (enemy && (s->cost[cell]==CORE_COST_WALL || s->cost[cell]==CORE_COST_GATE)) {
             *barrier_id=game_building_at(s,cell%w,cell/w); return 0;
@@ -193,6 +195,9 @@ int game_actor_walk(GameSession *s, GameActor *a, float tiles, int enemy, int *b
             float t=tiles*factor/distance;
             a->position.x+=(goal.x-a->position.x)*t; a->position.y+=(goal.y-a->position.y)*t; tiles=0;
         }
+        a->facing=game_walk_facing(a->position.x-before.x,a->position.y-before.y,a->facing);
+        /* 실제 움직인 거리로만 프레임을 진행해 정지·일시정지 때 발이 미끄러지지 않습니다. */
+        a->walk_distance=fmodf(a->walk_distance+game_distance(before,a->position),0.8f);
     }
     return a->path.count > 0 && a->next >= a->path.count;
 }

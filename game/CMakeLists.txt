@@ -55,18 +55,22 @@ if(CASTLE_BUILD_GAME)
   if(MINGW)
     target_link_options(castle_game PRIVATE -static)
   endif()
-  add_custom_command(TARGET castle_game POST_BUILD
+  # C를 다시 컴파일하지 않아도 새 PNG와 정의 파일을 실행 폴더로 동기화합니다.
+  add_custom_target(castle_game_assets ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/data" "$<TARGET_FILE_DIR:castle_game>/data"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:castle_game>/assets")
+  add_dependencies(castle_game castle_game_assets)
   install(TARGETS castle_game RUNTIME DESTINATION .)
   install(DIRECTORY data assets DESTINATION . PATTERN "*.import" EXCLUDE PATTERN ".gdignore" EXCLUDE)
   install(FILES ${PROJECT_SOURCE_DIR}/CREDITS.md ${PROJECT_SOURCE_DIR}/README.md DESTINATION .)
   install(FILES ${PROJECT_SOURCE_DIR}/PROGRESS.md DESTINATION .)
-  install(FILES ${PROJECT_SOURCE_DIR}/art/README.md ${PROJECT_SOURCE_DIR}/art/PROMPTS.md DESTINATION art)
+  install(FILES ${PROJECT_SOURCE_DIR}/art/README.md ${PROJECT_SOURCE_DIR}/art/PROMPTS.md
+    ${PROJECT_SOURCE_DIR}/art/PROMPTS_OVERHEAD.md DESTINATION art)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/NATIVE_PORT.md ${PROJECT_SOURCE_DIR}/docs/ARCHITECTURE.md
     ${PROJECT_SOURCE_DIR}/docs/QA.md DESTINATION docs)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/native_title.png
-    ${PROJECT_SOURCE_DIR}/docs/screenshots/native_game.png DESTINATION docs/screenshots)
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/native_game.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/native_villagers.png DESTINATION docs/screenshots)
   if(DEFINED raylib_SOURCE_DIR)
     install(FILES "${raylib_SOURCE_DIR}/LICENSE" DESTINATION licenses RENAME raylib.txt)
     install(FILES "${raylib_SOURCE_DIR}/src/external/glfw/LICENSE.md" DESTINATION licenses RENAME GLFW.txt)

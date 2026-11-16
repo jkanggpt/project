@@ -16,6 +16,7 @@ main에 푸시하거나 PR을 병합하지 않습니다. 한국어 UI·문서·�
 - 긴 자동 플레이: `<bin>/castle_game --smoke-test --days 60 --seed 42`
 - 성능: `<bin>/castle_game --stress` 또는 `--stress-probe --no-audio`
 - 화면: `<bin>/castle_game --screenshot artifacts/title.png --screen title --no-audio`
+- 주민 외형·방향 비교: `<bin>/castle_game --screenshot artifacts/villagers.png --screen villagers --no-audio`
 - 전체 촬영: `cmake -DGAME=<실행파일 절대경로> -DOUT=<출력폴더> -P tools/screenshots.cmake`
 - 소크: `<bin>/castle_cli --soak 400 --seeds 20`
 - 밸런스: `<bin>/castle_balance --data game/data --seeds 16 --days 100`

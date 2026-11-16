@@ -80,12 +80,48 @@ static void sprite_layout(void)
     qsort(order,4,sizeof(order[0]),game_draw_compare);
     /* 뒤 주민 → 나무 → 건물 → 앞 주민: 큰 지붕에도 점유·정렬 기준은 발밑입니다. */
     EXPECT(order[0].key==2 && order[1].kind==DRAW_PROP && order[2].kind==DRAW_BUILDING && order[3].key==5);
-    EXPECT(game_villager_art(CORE_BLD_FARM)==1 && game_villager_art(CORE_BLD_BARRACKS)==6 && game_villager_art(-1)==0);
+    {
+        int i,seen=0;
+        for (i=1;i<=8;i++) seen|=1<<game_villager_art(i);
+        EXPECT(seen==255 && game_villager_art(9)==game_villager_art(1));
+        EXPECT(game_villager_art(-1)==0);
+    }
+    EXPECT(game_walk_facing(0,0,FACE_UP)==FACE_UP);
+    EXPECT(game_walk_facing(-1,0,FACE_DOWN)==FACE_LEFT);
+    EXPECT(game_walk_facing(0,-1,FACE_DOWN)==FACE_UP);
+    EXPECT(game_walk_facing(0,1,FACE_UP)==FACE_DOWN);
+    EXPECT(game_walk_frame(0.45f,1)==2 && game_walk_frame(0.45f,0)==1);
+    {
+        GameSpriteFrame right=game_villager_frame(8,FACE_RIGHT,0.45f,1);
+        GameSpriteFrame left=game_villager_frame(8,FACE_LEFT,0.45f,1);
+        GameSpriteFrame back=game_villager_frame(8,FACE_UP,0,0);
+        EXPECT(right.column==6 && right.row==7 && !right.flip);
+        EXPECT(left.column==right.column && left.row==right.row && left.flip);
+        EXPECT(back.column==9 && back.row==7);
+    }
+}
+static void walking_direction(void)
+{
+    uint8_t cost[25]; int cells[3]={12,13,8},barrier=0; GameSession s={0}; GameActor actor={0}; float held;
+    memset(cost,CORE_COST_NORMAL,sizeof(cost)); s.cost=cost; s.summary.map_width=5;
+    actor.position=(GamePoint){2.5f,2.5f}; actor.path.cells=cells; actor.path.count=3; actor.next=1;
+    EXPECT(!game_actor_walk(&s,&actor,0.5f,0,&barrier));
+    EXPECT(actor.facing==FACE_RIGHT && fabsf(actor.position.x-3.0f)<0.001f);
+    EXPECT(actor.walk_distance>0 && game_walk_frame(actor.walk_distance,1)==2);
+    EXPECT(!game_actor_walk(&s,&actor,0.5f,0,&barrier));
+    EXPECT(!game_actor_walk(&s,&actor,0.5f,0,&barrier));
+    EXPECT(actor.facing==FACE_UP && fabsf(actor.position.y-2.0f)<0.001f);
+    held=actor.walk_distance;
+    EXPECT(!game_actor_walk(&s,&actor,0,0,&barrier));
+    EXPECT(actor.facing==FACE_UP && actor.walk_distance==held);
+    cost[8]=CORE_COST_BLOCKED;
+    EXPECT(!game_actor_walk(&s,&actor,1,0,&barrier));
+    EXPECT(actor.facing==FACE_UP && actor.walk_distance==held);
 }
 int main(int argc,char **argv)
 {
     if (argc!=2) return 2;
-    paths(); settings(); sprite_layout(); session(argv[1]);
+    paths(); settings(); sprite_layout(); walking_direction(); session(argv[1]);
     if (!failed) puts("C native runtime tests passed");
     return failed?1:0;
 }

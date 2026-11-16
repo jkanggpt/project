@@ -65,7 +65,7 @@ static void characters(const char *in,const char *out,const char *name,int rows)
 }
 static void buildings(const char *in,const char *out)
 {
-    Image source=read_image(in,"buildings.png"); int i;
+    Image source=read_image(in,"buildings_overhead.png"); int i;
     if (!source.data) return;
     for (i=0;i<16;i++) {
         Image frame=cell(source,i%4,i/4,4,4); char name[64]; trim(&frame);
@@ -76,14 +76,28 @@ static void buildings(const char *in,const char *out)
     }
     UnloadImage(source);
 }
+static void villagers(const char *in,const char *out)
+{
+    static const char *const sources[4]={"villagers_brown.png","villagers_blond.png","villagers_black.png","villagers_red.png"};
+    Image atlas=GenImageColor(3*4*96,8*96,BLANK); int group,row,col;
+    for (group=0;group<4;group++) {
+        Image source=read_image(in,sources[group]);
+        if (!source.data) continue;
+        for (row=0;row<6;row++) for (col=0;col<4;col++) {
+            Image frame=cell(source,col,row,4,6); trim(&frame); fit(&frame,96,96);
+            int appearance=group*2+row/3,direction=row%3;
+            paste(&atlas,frame,(direction*4+col)*96+(96-frame.width)/2,(appearance+1)*96-frame.height); UnloadImage(frame);
+        }
+        UnloadImage(source);
+    }
+    write_image(out,"villagers.png",atlas); UnloadImage(atlas);
+}
 static void props(const char *in,const char *out)
 {
-    Image source=read_image(in,"props.png"),atlas=GenImageColor(4*256,3*256,BLANK); int i;
+    Image source=read_image(in,"props_overhead.png"),atlas=GenImageColor(4*256,3*256,BLANK); int i;
     if (!source.data) { UnloadImage(atlas); return; }
     for (i=0;i<12;i++) {
-        /* 원본 생성 결과의 실제 행 여백: 수관 / 광석 / 작은 풀 순서입니다. */
-        int top=i<4?0:(i<8?400:700),bottom=i<4?400:(i<8?700:1024);
-        Image frame=ImageFromImage(source,(Rectangle){(float)(i%4*source.width/4),top*(float)source.height/1024,source.width/4.0f,(bottom-top)*(float)source.height/1024});
+        Image frame=cell(source,i%4,i/4,4,3);
         trim(&frame); fit(&frame,256,256);
         paste(&atlas,frame,i%4*256+(256-frame.width)/2,(i/4+1)*256-frame.height); UnloadImage(frame);
     }
@@ -133,12 +147,33 @@ static void check_file(const char *dir,const char *name,int width,int height,int
 static void check(const char *dir)
 {
     int i; char name[64];
-    check_file(dir,"villagers.png",384,768,1); check_file(dir,"enemies.png",384,576,1);
+    check_file(dir,"villagers.png",1152,768,1); check_file(dir,"enemies.png",384,576,1);
     check_file(dir,"props.png",1024,768,1); check_file(dir,"terrain.png",256,320,0);
     check_file(dir,"snow.png",256,64,0); check_file(dir,"roads.png",128,64,0);
     for (i=0;i<16;i++) { (void)snprintf(name,sizeof(name),"%s.png",names[i]); check_file(dir,name,0,0,1); }
     for (i=0;i<6;i++) { (void)snprintf(name,sizeof(name),"res_%s.png",resources[i]); check_file(dir,name,0,0,1); }
     check_file(dir,"arrow.png",0,0,1);
+    {
+        Image image=read_image(dir,"villagers.png"); int row,direction,frame,x,y;
+        if (image.data && image.width==1152 && image.height==768) {
+            Color *pixels=(Color *)image.data;
+            for (row=0;row<8;row++) for (direction=0;direction<3;direction++) {
+                unsigned first=0; int distinct=0;
+                for (frame=0;frame<4;frame++) {
+                    int visible=0,feet=0; unsigned hash=2166136261u;
+                    for (y=0;y<96;y++) for (x=0;x<96;x++) {
+                        Color c=pixels[(row*96+y)*image.width+(direction*4+frame)*96+x];
+                        hash=(hash^ColorToInt(c))*16777619u;
+                        if (c.a) { visible++; if (y==95) feet++; }
+                    }
+                    if (visible<384 || !feet) { fprintf(stderr,"Empty or misaligned villager frame: %d/%d/%d\n",row,direction,frame); failures++; }
+                    if (!frame) first=hash; else if (hash!=first) distinct=1;
+                }
+                if (!distinct) { fprintf(stderr,"No walking animation: %d/%d\n",row,direction); failures++; }
+            }
+        }
+        if (image.data) UnloadImage(image);
+    }
 }
 int main(int argc,char **argv)
 {
@@ -148,7 +183,7 @@ int main(int argc,char **argv)
     if (args.count!=3) { fprintf(stderr,"castle_art <source> <output> | --check <output>\n"); game_arguments_free(&args); return 2; }
     if (!strcmp(args.values[1],"--check")) check(args.values[2]);
     else if (game_make_dirs(args.values[2])) {
-        characters(args.values[1],args.values[2],"villagers.png",8); characters(args.values[1],args.values[2],"enemies.png",6);
+        villagers(args.values[1],args.values[2]); characters(args.values[1],args.values[2],"enemies.png",6);
         buildings(args.values[1],args.values[2]); props(args.values[1],args.values[2]); ground(args.values[1],args.values[2]); icons(args.values[1],args.values[2]); check(args.values[2]);
     } else failures++;
     result=failures?1:0; if (!result) puts("ART PASS: 29 PNG assets, atlas dimensions and alpha checked");

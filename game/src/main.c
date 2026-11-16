@@ -26,7 +26,7 @@ static void help(void)
     puts("Magic Castle - C / raylib\ncastle_game [--data dir] [--assets dir] [--save-dir dir]\n"
          "  --smoke-test [--days 20] [--seed 42]  C runtime test without a window\n"
          "  --stress | --stress-probe              150 villagers + 40 enemies\n"
-         "  --screenshot file.png [--screen title|game|research|rank|market|load]\n"
+         "  --screenshot file.png [--screen title|game|villagers|research|rank|market|load]\n"
          "  --frames N --autoplay --no-audio --width 1440 --height 900\n"
          "  --difficulty peaceful|normal|harsh (or 0|1|2)");
 }
@@ -59,7 +59,7 @@ static int options(int argc,char **argv,Options *o)
             else if (!number(d,0,2,&o->difficulty)) return 0;
         } else return 0;
     }
-    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load")) return 0;
+    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load")) return 0;
     return 1;
 }
 void game_app_notice(GameApp *a,const char *text)
@@ -283,7 +283,10 @@ static int run(int argc,char **argv)
             a->shown_outcome=a->session.summary.outcome; game_app_open(a,PANEL_OUTCOME);
         }
         ui_begin(&a->ui,&a->assets,a->settings.ui_scale==2?24.0f:20.0f,a->settings.sfx_volume);
-        BeginDrawing(); ClearBackground(UI_BG); game_render_world(a); game_render_interface(a); EndDrawing();
+        BeginDrawing(); ClearBackground(UI_BG);
+        if (o.screenshot && !strcmp(o.screen,"villagers")) game_render_villager_preview(a);
+        else { game_render_world(a); game_render_interface(a); }
+        EndDrawing();
         /* 일시정지 중의 명령도 다음 프레임 전에 스냅숏에 반영합니다. */
         if (game_session_refresh(&a->session)!=CORE_OK) { status=1; break; }
         game_session_events(&a->session);

@@ -24,16 +24,25 @@ int game_draw_compare(const void *left,const void *right)
     if (a->kind!=b->kind) return a->kind<b->kind?-1:1;
     return (a->key>b->key)-(a->key<b->key);
 }
-int game_villager_art(int job)
+int game_villager_art(int id)
 {
-    switch (job) {
-        case CORE_BLD_FARM: return 1;
-        case CORE_BLD_GATHERER: case CORE_BLD_HEALER: return 2;
-        case CORE_BLD_LUMBER: return 3;
-        case CORE_BLD_QUARRY: case CORE_BLD_MANA_MINE: return 4;
-        case CORE_BLD_MARKET: return 5;
-        case CORE_BLD_BARRACKS: return 6;
-        case CORE_BLD_MAGE_TOWER: return 7;
-        default: return 0;
-    }
+    /* 직업과 분리해 저장·로드·일터 변경에도 같은 주민의 외형을 유지합니다. */
+    return id>0?(id-1)%GAME_VILLAGER_DESIGNS:0;
+}
+int game_walk_facing(float dx,float dy,int previous)
+{
+    if (fabsf(dx)+fabsf(dy)<0.0001f) return previous;
+    if (fabsf(dx)>=fabsf(dy)) return dx>0?FACE_RIGHT:FACE_LEFT;
+    return dy>0?FACE_DOWN:FACE_UP;
+}
+int game_walk_frame(float distance,int moving)
+{
+    if (!moving || !isfinite(distance) || distance<0) return 1;
+    return (int)(fmodf(distance,0.8f)*5.0f)%4;
+}
+GameSpriteFrame game_villager_frame(int id,int facing,float distance,int moving)
+{
+    int direction=facing==FACE_LEFT?FACE_RIGHT:facing;
+    if (direction<FACE_DOWN || direction>FACE_UP) direction=FACE_DOWN;
+    return (GameSpriteFrame){direction*4+game_walk_frame(distance,moving),game_villager_art(id),facing==FACE_LEFT};
 }

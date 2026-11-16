@@ -8,9 +8,12 @@
 
 | 현재 에셋 | 제작 방법 | 라이선스 | 원본·프롬프트 |
 | --- | --- | --- | --- |
-| painted/의 29 PNG: 주민 8종·적 6종 각 4프레임, 건물 15종·공사장, 수목·돌·광석·풀 12종, 지면·눈·도로, 자원 6종·화살 | 학생 요청과 첨부 화풍을 참고해 내장 image_gen으로 새로 생성, tools/pack_art.c로 자르기·알파 정리·크기 정렬 | 프로젝트 보유 권리를 CC0 1.0 헌정 (painted/LICENSE.txt) | art/generated/*.png, art/PROMPTS.md |
+| painted/의 29 PNG: 주민 8외형×3방향×4프레임·적 6종×4프레임, 건물 15종·공사장, 수목·돌·광석·풀 12종, 지면·눈·도로, 자원 6종·화살 | 학생 요청과 첨부 화풍을 참고해 내장 image_gen으로 새로 생성, tools/pack_art.c로 자르기·알파 정리·크기 정렬 | 프로젝트 보유 권리를 CC0 1.0 헌정 (painted/LICENSE.txt) | art/generated/*.png, art/PROMPTS.md, art/PROMPTS_OVERHEAD.md |
 
 참고 첨부 이미지는 시각적 방향에만 사용했으며 게임·배포본에 복사하지 않았습니다. 원본 생성 파일도 같은 CC0 헌정 범위입니다. 생성 AI 사용은 docs/AI_USAGE.md에 별도로 표시합니다.
+
+같은 날 후속 요청으로 현재 주민 그림을 갈색·금발·검은·붉은 머리 남녀 8종의 방향별 시트로 교체하고 건물도 약 45도 내려다보기로 다시 생성했습니다. 새 원본은 art/generated/villagers_{brown,blond,black,red}.png와 buildings_overhead.png, 프롬프트는 art/PROMPTS_OVERHEAD.md입니다. 직업별 주민·기존 건물 원본은 제작 이력으로만 보관합니다. 같은 CC0 헌정이 적용됩니다.
+수목·돌·광맥·풀도 윗면이 보이는 새 원본 art/generated/props_overhead.png를 사용합니다.
 
 | 에셋 | 제작 | 라이선스 | 위치 |
 | --- | --- | --- | --- |

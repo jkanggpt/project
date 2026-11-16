@@ -5,11 +5,13 @@
 Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 
 주민·적·건물·수목·광석·지면·도로·자원 아이콘을 새 중세 판타지 픽셀아트로 제작했습니다.
+건물은 지붕을 위에서 내려다보는 약 45도 구도이며, 주민은 머리색별 남녀 8외형과 정면·측면·뒷면 걷기를 제공합니다. 외형은 직업을 바꿔도 유지됩니다.
 주민은 1×1칸 판정에 약 1.5칸 높이이며, 높은 건물과 수관은 뒤의 칸과 주민을 가립니다.
 점유 칸과 그림 높이·앞뒤 정렬 설명, 원본과 C 패킹 방법은 [art/README.md](art/README.md)입니다.
 
 ![C 실행판 게임 화면](docs/screenshots/native_game.png)
 ![C 실행판 제목 화면](docs/screenshots/native_title.png)
+![주민 외형 8종과 방향별 걷기](docs/screenshots/native_villagers.png)
 
 ## Windows 빌드와 실행
 
@@ -106,7 +108,7 @@ ctest --preset linux-debug -j8
 ./build/windows-msvc/bin/Release/castle_cli.exe --soak 400 --seeds 20
 ```
 
-`castle_game --screenshot <파일.png> --screen title|game|research|rank|market|load --no-audio`로 화면을 촬영합니다.
+`castle_game --screenshot <파일.png> --screen title|game|villagers|research|rank|market|load --no-audio`로 화면을 촬영합니다.
 `tools/screenshots.cmake`, `tools/smoke_test.cmake`로도 실행할 수 있습니다.
 각 실행 파일은 `--help`를 제공합니다.
 

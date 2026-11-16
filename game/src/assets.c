@@ -43,6 +43,9 @@ int game_assets_load(GameAssets *a,const char *dir,int audio)
     a->terrain=texture(a,dir,"painted/terrain.png"); a->roads=texture(a,dir,"painted/roads.png"); a->snow=texture(a,dir,"painted/snow.png");
     a->props=texture(a,dir,"painted/props.png"); a->construction=texture(a,dir,"painted/construction.png");
     a->villagers=texture(a,dir,"painted/villagers.png"); a->enemies=texture(a,dir,"painted/enemies.png"); a->arrow=texture(a,dir,"painted/arrow.png");
+    if (a->villagers.id && (a->villagers.width!=1152 || a->villagers.height!=768)) {
+        fprintf(stderr,"Incompatible villager atlas: expected 1152x768\n"); a->missing++;
+    }
     for (i=0;i<CORE_BLD_COUNT-1;i++) {
         (void)snprintf(name,sizeof(name),"painted/%s.png",buildings[i]); a->buildings[i]=texture(a,dir,name);
     }
