@@ -196,3 +196,27 @@
 | docs/screenshots/native_game.png, native_title.png, native_villagers.png | 새 게임과 8종 방향 비교를 실제 C 실행판에서 촬영 |
 
 원본 참고 이미지를 저장소나 배포물에 복사하지 않았습니다. 정면/오른쪽/뒷면은 새 생성 그림이며 왼쪽은 오른쪽의 좌우 반전입니다. 세이브 v5·코어 ABI 8·기존 점유와 게임 규칙은 유지합니다.
+# 통합 확장 v1 구현 진행 (2026-11-16~17)
+
+Codex가 사용자가 제공한 HTML 기획서의 건물·자원·생활·밸런스 요구사항을 C 코드와 새 그림에 적용했습니다. 아래 작업은 확장 브랜치에서 계속 검증 중이며, 200일 왕성 도달 목표를 충족한 것으로 기록하지 않습니다.
+
+| 파일 | 생성·수정 내용 |
+| --- | --- |
+| core/include/castle_core.h, castle_expansion.h | ABI9·저장v6·15자원·65종·6등급·회전/계약/지도 API |
+| core/src/expansion.h, expansion_catalog.c | 확장 상태·기획서 비용/크기/수치 표 |
+| core/src/expansion_world.c, expansion_commands.c | 192지도·수목/광상·자원 은행·회전·도로 연결 보호·시야·폐쇄 보호구역 |
+| core/src/expansion_people.c, expansion_progress.c | 5능력치/XP/숙련·생활·주거·우물·계약·시장·연구24종·승급 |
+| core/src/expansion_economy.c, expansion_animals.c, expansion_save.c | 계절 수확·공유 자원·가공/연료·가축·직렬화/해시/검증 |
+| core/src/api.c, defs.c, defs.h, defs_builtin.c, entity.h, world.c, world.h | 기존 API·정의·엔티티·월드에 확장 규칙 연결 |
+| core/src/economy.c, economy.h, save.c, rank.c, research.c, population.c, placement.c, jobs.c, grid.c, threat.c, validate.c, villager_ai.c | 새 자원·규칙·저장·배정·경보 연결 및 이전 규칙 회귀 유지 |
+| cli/format.c, commands.c, sim.c, sim.h, expansion_bot.c | 확장 명칭·해금·공개 명령 기반 자동 운영 |
+| game/src/session.c, session.h, combat.c | 확장 스냅숏·실내 출입·실제 이동·가시 적 자동 방어 |
+| game/src/main.c, app.h, assets.c, assets.h, render.c, panels.c, sprite_layout.h | 새 게임 연결·260방향 그림·밭·상태 말풍선·15자원/건설/고용/시장/세금 메뉴 |
+| tools/pack_expansion_art.c, expansion_balance.c | C 이미지 패킹/투명도 검사·실제 이동을 포함한 장기 실행/저장 진단 |
+| tests/test_expansion.c, test_list.h, test_api.c, test_progress.c, test_save.c | 저장 왕복·수확·연료·의료 자격·도로 연결·경보 종료·스키마 검사 |
+| core/CMakeLists.txt, cli/CMakeLists.txt, game/CMakeLists.txt, tools/CMakeLists.txt, tests/CMakeLists.txt | 확장 모듈·도구·검사 빌드 연결 |
+| art/EXPANSION_PROMPTS.md, EXPANSION_ICONS_PROMPTS.md, expansion/manifest.json, ALPHA_REPAIR.md | 내장 이미지 도구의 전체 프롬프트·방향별 매핑·배경 보정 기록 |
+| art/expansion의 PNG21장, game/assets/expansion의 PNG279장·LICENSE.txt | 건물·아이콘·동물·생물군계 새 그림 생성, C 패킹, CC0 기록 |
+| docs/expansion/BALANCE_V1_SOURCE.html, BALANCE_V1_TEXT.md, catalog.json, catalog_index.json, IMPLEMENTATION.md | 사용자 기획서 보존·텍스트/건설 표 추출·충돌 해석 기록 |
+| PROGRESS.md, CREDITS.md, docs/AI_USAGE.md | 실제 통과 검사·실패 사례·남은 작업·제작 기여 기록 |
+

@@ -74,6 +74,7 @@ struct Villager {
     int32_t contract_end_tick,personal_id,water,hygiene,culture_until,culture_bonus,visit_day;
     int32_t inside_building,current_x_milli,current_y_milli,meal_day;
     int32_t expansion_loaded;
+    int32_t water_building;
 };
 
 struct Building {
@@ -95,6 +96,7 @@ struct Building {
     int32_t rotation,completed_day,mode,mode_day,operating,blocked_reason;
     int32_t daily_work_milli,crop_labor_milli,crop_year,crop_drought,pending_harvest_milli,harvest_expiry;
     int32_t processing_milli[CORE_RES_COUNT],hunts_milli,shots,visits_today;
+    int32_t water_served;
     int32_t expansion_loaded;
 
     Villager **workers;    /* 일꾼 (id 순으로 정렬) */

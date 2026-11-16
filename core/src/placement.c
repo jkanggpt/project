@@ -418,6 +418,7 @@ static int32_t check_rule(const World *world, const BuildingDef *def, int32_t x,
 
 void placement_check(const World *world, int32_t type, int32_t x, int32_t y, CorePlacementView *out)
 {
+    if(world->expansion){expansion_place_check(world,type,x,y,0,0,out);return;}
     const BuildingDef *def = world_building_def(world, type);
     int32_t result;
     int32_t i;
@@ -621,6 +622,7 @@ static int place_road(World *world, int32_t x, int32_t y)
 
 int placement_place(World *world, int32_t type, int32_t x, int32_t y, int32_t *out_id, int32_t *out_reason)
 {
+    if(world->expansion)return expansion_place(world,type,x,y,0,out_id,out_reason);
     CorePlacementView check;
     const BuildingDef *def;
     Building *building;

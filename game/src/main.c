@@ -171,7 +171,15 @@ static void event(void *context,const CoreEventView *e)
     case CORE_EVT_RESEARCH_DONE: case CORE_EVT_RANK_UP: case CORE_EVT_VICTORY: case CORE_EVT_TUTORIAL_DONE: sound=SND_FANFARE; break;
     default: break;
     }
-    fmt_event(e,text,sizeof(text));
+    if(a->session.summary.ruleset && (e->type==CORE_EVT_RANK_UP || e->type==CORE_EVT_RANK_READY || e->type==CORE_EVT_RESEARCH_STARTED || e->type==CORE_EVT_RESEARCH_DONE || e->type==CORE_EVT_TUTORIAL_STEP || e->type==CORE_EVT_TUTORIAL_DONE))text[0]='\0';
+    else fmt_event(e,text,sizeof(text));
+    if(a->session.summary.ruleset){
+        if(e->type==CORE_EVT_RANK_UP)(void)snprintf(text,sizeof(text),u8"영지가 %s(으)로 승급했습니다.",core_expansion_rank_name(e->a));
+        else if(e->type==CORE_EVT_RANK_READY)(void)snprintf(text,sizeof(text),u8"%s 승급 조건을 확인하세요.",core_expansion_rank_name(e->a));
+        else if(e->type==CORE_EVT_RESEARCH_STARTED || e->type==CORE_EVT_RESEARCH_DONE)(void)snprintf(text,sizeof(text),u8"%s 연구를 %s.",core_expansion_research_name(e->a),e->type==CORE_EVT_RESEARCH_DONE?u8"완료했습니다":u8"시작했습니다");
+        else if(e->type==CORE_EVT_TUTORIAL_STEP)(void)snprintf(text,sizeof(text),u8"기초 목표 완료: %s",core_expansion_goal_name(e->a));
+        else if(e->type==CORE_EVT_TUTORIAL_DONE)(void)snprintf(text,sizeof(text),u8"기초 목표를 모두 마쳤습니다. 다음 등급에 도전하세요.");
+    }
     if (text[0]) {
         game_app_notice(a,text);
         if (e->type==CORE_EVT_BUILDING_COMPLETED || e->type==CORE_EVT_BUILDING_PLACED || e->type==CORE_EVT_BUILDING_RUINED) {
@@ -228,7 +236,7 @@ static int run(int argc,char **argv)
     if (!options(argc,argv,&o)) { help(); return 2; }
     if (!game_executable_directory(exe,sizeof(exe),argv[0]) || !game_join_path(data,sizeof(data),exe,"data") || !game_join_path(assets,sizeof(assets),exe,"assets")) return 1;
     a=(GameApp *)calloc(1,sizeof(*a)); if (!a) return 1;
-    a->automated=o.smoke || o.screenshot || o.frames || o.probe; a->stress=o.stress; a->build_type=-1; a->category=CORE_CAT_RESOURCE;
+    a->automated=o.smoke || o.screenshot || o.frames || o.probe; a->stress=o.stress; a->build_type=-1; a->category=CORE_CAT_AGRICULTURE;
     a->difficulty=o.difficulty; strcpy(a->castle_name,u8"바람언덕");
     if (a->automated || o.stress) (void)snprintf(a->seed_text,sizeof(a->seed_text),"%d",o.seed);
     if (!game_user_directory(a->user_dir,sizeof(a->user_dir))) { free(a); return 1; }
@@ -238,6 +246,7 @@ static int run(int argc,char **argv)
     } else if (!game_join_path(a->save_dir,sizeof(a->save_dir),a->automated?exe:a->user_dir,a->automated?"saves_automated":"saves")) { free(a); return 1; }
     if (!game_join_path(a->settings_path,sizeof(a->settings_path),a->user_dir,"settings.cfg")) { free(a); return 1; }
     status=game_session_init(&a->session,o.data?o.data:data);
+    a->session.ruleset=CORE_RULES_EXPANSION;
     if (status!=CORE_OK) { fprintf(stderr,"C core initialization failed: %d\n",status); free(a); return 1; }
     a->session.on_event=event; a->session.event_context=a;
     game_settings_default(&a->settings);
@@ -270,7 +279,7 @@ static int run(int argc,char **argv)
         else game_world_input(a,delta);
         if (o.autoplay && a->in_game && a->session.summary.day!=last_bot_day) { last_bot_day=a->session.summary.day; (void)sim_bot_daily(a->session.world,"reasonable"); }
         if (a->in_game && a->panel==PANEL_NONE && a->speed>0 && a->session.summary.outcome!=CORE_OUTCOME_LOST) {
-            float minutes=delta*a->speed*1000/a->session.config.real_ms_per_tick*a->session.config.minutes_per_tick;
+            float minutes=a->session.summary.ruleset?delta*a->speed*12.0f:delta*a->speed*1000/a->session.config.real_ms_per_tick*a->session.config.minutes_per_tick;
             status=game_session_step(&a->session,minutes);
             if (status!=CORE_OK && status!=CORE_ERR_REJECTED) { game_app_result(a,status,0,0); a->speed=0; }
             if (!a->automated && !a->stress && a->session.summary.day!=a->autosave_day) {

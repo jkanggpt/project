@@ -230,6 +230,7 @@ static int fill_up_to(World *world, Building *building, int32_t limit)
  */
 void jobs_auto_assign(World *world)
 {
+    if(world->expansion){expansion_assign(world);world->expansion->dirty=1;return;}
     int staffed[CORE_BLD_COUNT];
     int32_t i;
     memset(staffed, 0, sizeof(staffed));
@@ -325,6 +326,7 @@ int jobs_assign_manual(World *world, Villager *villager, Building *building)
     rc = entity_link_worker(building, villager, def->worker_slots);
     if (rc == CORE_OK) {
         villager->flags |= CORE_VF_MANUAL;
+        if(world->expansion)world->expansion->dirty=1;
         events_push_villager(&world->events, CORE_EVT_STORY, villager->id, CORE_STORY_NEW_JOB, building->type,
                              villager->name);
     }
@@ -333,6 +335,7 @@ int jobs_assign_manual(World *world, Villager *villager, Building *building)
 
 void jobs_unassign_manual(World *world, Villager *villager)
 {
+    if(world->expansion)world->expansion->dirty=1;
     (void)world;
     entity_unlink_worker(villager);
     villager->flags |= CORE_VF_MANUAL; /* 자동 배치가 다시 넣지 않도록 */

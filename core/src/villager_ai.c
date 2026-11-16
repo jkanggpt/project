@@ -2,6 +2,7 @@
  * villager_ai.c — 주민의 하루 (설명은 villager_ai.h)
  */
 #include "villager_ai.h"
+#include "expansion.h"
 
 #include <stdlib.h>
 
@@ -555,6 +556,7 @@ int vil_arrived(World *world, Villager *villager, int32_t intent_rev)
     villager->loc_x = villager->target_x;
     villager->loc_y = villager->target_y;
     villager->intent_flags &= ~CORE_INTENT_SPAWN_EDGE;
+    if(world->expansion && villager->target && villager->state!=CORE_VS_GUARD_POST && !(expansion_spec(villager->target->type)->flags&CORE_EXP_OUTDOOR))villager->inside_building=villager->target->id;
     switch (villager->state) {
     case CORE_VS_LEAVING:
         population_remove_departed(world, villager);

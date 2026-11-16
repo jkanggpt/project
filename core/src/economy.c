@@ -52,7 +52,8 @@ int32_t eco_bank_add(ResourceBank *bank, int32_t resource, int32_t amount)
         after = 0;
     }
     if (after > limit) {
-        after = limit;
+        if(!bank->individual_limits)after=limit;
+        else if(amount>0)after=before>limit?before:limit;
     }
     bank->amount[resource] = (int32_t)after;
     return (int32_t)(after - before);

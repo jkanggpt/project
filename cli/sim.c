@@ -563,6 +563,7 @@ int sim_bot_daily(CoreWorld *world, const char *bot_name)
     memset(&context, 0, sizeof(context));
     context.world = world;
     if (core_get_summary(world, &context.summary) != CORE_OK) return CORE_ERR_INVALID_ARG;
+    if(context.summary.ruleset && strcmp(bot_name,"idle")!=0)return sim_expansion_bot_daily(world);
     bot->on_new_day(&context);
     free(context.buildings);
     return CORE_OK;

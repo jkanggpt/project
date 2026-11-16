@@ -2,6 +2,7 @@
 #ifndef CASTLE_GAME_SESSION_H
 #define CASTLE_GAME_SESSION_H
 #include "castle_core.h"
+#include "castle_expansion.h"
 #include "path.h"
 
 #define GAME_MAX_ENEMIES 64
@@ -13,6 +14,8 @@ typedef struct GameActor {
     GamePath path;
     float cooldown,walk_distance;
     int facing;
+    float indoor;
+    int indoor_building;
 } GameActor;
 typedef struct GameEnemy {
     GameActor actor;
@@ -37,6 +40,10 @@ typedef struct GameSession {
     CoreVillagerView *villagers;
     int building_count, building_capacity, villager_count, villager_capacity;
     uint8_t *terrain, *roads, *cost;
+    CoreExpansionTileView *exp_tiles;
+    uint8_t *visibility;
+    CoreAnimalView animals[CORE_EXP_MAX_ANIMALS];
+    int animal_count,ruleset,exp_tick;
     int cells, grid_revision;
     GameActor *actors;
     int actor_count, actor_capacity;

@@ -732,6 +732,7 @@ CORE_API int32_t core_get_market(const CoreWorld *world, CoreMarketView *out)
         return CORE_ERR_NULL_ARG;
     }
     memset(out, 0, sizeof(*out));
+    if(world->expansion){expansion_read_market(world,out);return CORE_OK;}
     out->open = market_is_open(world, &reason);
     out->closed_reason = reason;
     for (i = 0; i < CORE_RES_COUNT; i++) {

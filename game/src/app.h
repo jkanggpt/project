@@ -21,7 +21,8 @@ typedef struct GameApp {
     GamePanel panel,return_panel;
     GamePanel panel_stack[8]; int panel_depth;
     int in_game,speed,saved_speed,build_type,category,demolish,selected_building,selected_villager;
-    int drag_x,drag_y,dragging,scroll,sort_column,sort_reverse,difficulty,quit,automated,stress;
+    int drag_x,drag_y,dragging,scroll,sort_column,sort_reverse,difficulty,quit,automated,stress,rotation;
+    int inspector_scroll;
     int autosave_day,autosave_pending,shown_outcome,save_count,backup_slot,confirm_action;
     char castle_name[CORE_NAME_BYTES],seed_text[32],message[512],confirm_text[512];
     char user_dir[GAME_PATH_BYTES],save_dir[GAME_PATH_BYTES],settings_path[GAME_PATH_BYTES];

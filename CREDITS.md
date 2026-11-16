@@ -62,3 +62,9 @@ npm 패키지 `galmuri` 에서 받았습니다 (`npm pack galmuri`). 글꼴 파�
 - raylib 5.5 — Ramon Santamaria 및 기여자, zlib/libpng 라이선스. https://github.com/raysan5/raylib/tree/5.5
 - raylib가 포함하는 GLFW — zlib/libpng 라이선스. 배포 시 raylib와 GLFW 라이선스를 licenses/에 포함합니다.
 - 현재 이미지는 2026-11-16 새 생성 그림으로 교체했습니다. 글꼴·효과음은 기존 CC0/OFL 파일을 사용합니다. 이전 Python 합성 그림의 제작 출처 기록은 보관합니다.
+# 통합 확장 v1 그림 (2026-11-17)
+
+`art/expansion/buildings_00.png`~`buildings_15.png`, `keep_turns.png`, `status_icons.png`, `resource_icons.png`, `animals.png`, `biomes.png`는 내장 image_gen으로 이 프로젝트를 위해 제작했습니다. 건물 65종의 정면·오른쪽·후면·왼쪽을 각각 생성했습니다. 밭에는 별도 주거 건물을 넣지 않았습니다.
+
+`game/assets/expansion`의 방향별 건물 260장·아틀라스 4장·개별 자원 15장은 이 원본을 C 도구로 잘라 만든 파일입니다. 프로젝트가 보유하는 권리는 CC0 1.0으로 헌정합니다. 제작 프롬프트와 투명 배경 보정 기록은 `art/EXPANSION_PROMPTS.md`, `art/EXPANSION_ICONS_PROMPTS.md`, `art/expansion/ALPHA_REPAIR.md`에 있습니다. 참고용 첨부 이미지는 저장소·배포물에 포함하지 않았습니다.
+

@@ -10,7 +10,7 @@
 typedef enum GameFacing { FACE_DOWN,FACE_RIGHT,FACE_UP,FACE_LEFT } GameFacing;
 typedef struct GameSpriteFrame { int column,row,flip; } GameSpriteFrame;
 typedef struct GameSpriteBox { float x,y,w,h; } GameSpriteBox;
-typedef enum GameDrawKind { DRAW_PROP,DRAW_BUILDING,DRAW_VILLAGER,DRAW_ENEMY } GameDrawKind;
+typedef enum GameDrawKind { DRAW_PROP,DRAW_BUILDING,DRAW_VILLAGER,DRAW_ENEMY,DRAW_ANIMAL } GameDrawKind;
 typedef struct GameDrawItem { float depth; int kind,index,key; } GameDrawItem;
 
 GameSpriteBox game_building_sprite(int type,int x,int y,int w,int h,int image_w,int image_h);
