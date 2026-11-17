@@ -62,6 +62,8 @@ CORE_API int32_t core_place_line_rotated(CoreWorld *world, int32_t type, int32_t
 CORE_API int32_t core_expansion_copy_tiles(const CoreWorld *world, CoreExpansionTileView *out,
                                            int32_t capacity);
 CORE_API int32_t core_expansion_copy_visibility(const CoreWorld *world, uint8_t *out, int32_t capacity);
+/* 지도 크기만큼 행 우선으로 복사합니다. 정상 벽·문에 닫힌 내부 칸은1, 나머지는0입니다. */
+CORE_API int32_t core_expansion_copy_protection(const CoreWorld *world, uint8_t *out, int32_t capacity);
 CORE_API int32_t core_expansion_copy_animals(const CoreWorld *world, CoreAnimalView *out, int32_t capacity,
                                              int32_t *count);
 CORE_API int32_t core_expansion_copy_candidates(const CoreWorld *world, CoreCandidateView *out,

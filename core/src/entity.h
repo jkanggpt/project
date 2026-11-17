@@ -75,6 +75,7 @@ struct Villager {
     int32_t inside_building,current_x_milli,current_y_milli,meal_day;
     int32_t expansion_loaded;
     int32_t water_building;
+    int32_t refuge_revision;
 };
 
 struct Building {

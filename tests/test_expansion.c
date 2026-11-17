@@ -405,3 +405,115 @@ void test_expansion_magic_consumption(void) {
     CHECK_EQ(expansion_bank_have(w, CORE_RES_MANA), 0);
     core_destroy(w);
 }
+void test_expansion_gate_connectivity(void) {
+    World *w = expanded();
+    Building *gate, *home;
+    int x;
+    int32_t amount;
+    CHECK(w != NULL);
+    gate = complete(w, CORE_BLD_PALISADE_GATE, 98, 100, 0);
+    home = complete(w, CORE_BLD_COTTAGE, 100, 101, 2);
+    home->door_x = 100;
+    home->door_y = 100;
+    w->grid.road[grid_index(&w->grid, 96, 98)] = 1;
+    w->grid.road[grid_index(&w->grid, 96, 99)] = 1;
+    for (x = 96; x <= 100; x++)
+        if (x != 98)
+            w->grid.road[grid_index(&w->grid, x, 100)] = 1;
+    expansion_rebuild(w);
+    CHECK(w->expansion->connected[grid_index(&w->grid, 100, 100)]);
+    amount = w->bank.amount[CORE_RES_LOGS];
+    CHECK_EQ(core_demolish(w, gate->id), CORE_ERR_REJECTED);
+    CHECK_EQ(w->bank.amount[CORE_RES_LOGS], amount);
+    CHECK(entity_find_building(w, gate->id) == gate);
+    home->state = CORE_BSTATE_RUINED;
+    expansion_rebuild(w);
+    CHECK_EQ(expansion_remove_road(w, 97, 100), CORE_ERR_REJECTED);
+    home->state = CORE_BSTATE_ACTIVE;
+    for (x = 97; x <= 99; x++)
+        w->grid.road[grid_index(&w->grid, x, 99)] = 1;
+    expansion_rebuild(w);
+    CHECK_EQ(core_demolish(w, gate->id), CORE_OK);
+    CHECK(w->expansion->connected[grid_index(&w->grid, 100, 100)]);
+    core_destroy(w);
+}
+void test_expansion_nearest_refuge(void) {
+    World *w = expanded();
+    Building *near_gate = NULL;
+    Villager *v, *other;
+    int x, y, ring;
+    CHECK(w != NULL);
+    for (y = 70; y <= 90; y++)
+        for (x = 70; x <= 120; x++)
+            w->grid.terrain[grid_index(&w->grid, x, y)] = CORE_TERRAIN_GRASS;
+    for (ring = 0; ring < 2; ring++) {
+        int left = 75 + ring * 36;
+        for (y = 75; y <= 81; y++)
+            for (x = left; x <= left + 6; x++)
+                if (x == left || x == left + 6 || y == 75 || y == 81) {
+                    Building *wall = complete(
+                        w, x == left + 6 && y == 78 ? CORE_BLD_PALISADE_GATE : CORE_BLD_PALISADE, x, y, 0);
+                    if (!ring && x == left + 6 && y == 78)
+                        near_gate = wall;
+                }
+    }
+    expansion_rebuild(w);
+    v = w->villagers[0];
+    other = w->villagers[1];
+    v->current_x_milli = 84500;
+    v->current_y_milli = 78500;
+    v->state = CORE_VS_IDLE;
+    other->current_x_milli = 84500;
+    other->current_y_milli = 78500;
+    w->expansion->alarm = 1;
+    w->clock.tick = 72;
+    expansion_people_tick(w);
+    CHECK_EQ(v->state, CORE_VS_FLEE);
+    CHECK_EQ(v->target_x, 80);
+    CHECK_EQ(v->target_y, 78);
+    CHECK(v->target == NULL);
+    v->current_x_milli = 80500;
+    v->current_y_milli = 78500;
+    v->needs.safety = other->needs.safety = 50;
+    expansion_people_tick(w);
+    CHECK(v->needs.safety > other->needs.safety);
+    near_gate->state = CORE_BSTATE_RUINED;
+    expansion_rebuild(w);
+    expansion_people_tick(w);
+    CHECK(v->target_x > 100);
+    CHECK(w->expansion->protected_cells[grid_index(&w->grid, v->target_x, v->target_y)]);
+    core_destroy(w);
+}
+void test_expansion_guaranteed_starter_waves(void) {
+    World *w = expanded();
+    int day, last = 4, first = 0, second = 0, i;
+    CHECK(w != NULL);
+    w->buildings[1]->state = CORE_BSTATE_RUINED;
+    expansion_rebuild(w);
+    for (day = 1; day <= 14; day++) {
+        w->clock.tick = (day - 1) * 144;
+        w->expansion->disaster_day = day;
+        w->bank.amount[CORE_RES_FOOD] = 0;
+        for (i = 0; i < w->villager_count; i++) {
+            Villager *v = w->villagers[i];
+            v->mood = 0;
+            v->low_mood_ticks = 0;
+            v->needs.hunger = 100;
+        }
+        expansion_people_daily(w);
+        if (w->villager_count != last) {
+            CHECK_EQ(w->villager_count, last + 2);
+            if (!first)
+                first = day;
+            else
+                second = day;
+            last = w->villager_count;
+        }
+    }
+    CHECK(first >= 5 && first <= 8);
+    CHECK(second >= 10 && second <= 13);
+    CHECK_EQ(w->villager_count, 8);
+    CHECK_EQ(w->expansion->starter_waves, 2);
+    CHECK_EQ(core_validate(w), 0);
+    core_destroy(w);
+}

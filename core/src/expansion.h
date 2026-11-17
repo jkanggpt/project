@@ -86,6 +86,8 @@ void expansion_read_market(const World *world, CoreMarketView *out);
 void expansion_read_building(const World *world, const Building *b, CoreBuildingView *out);
 void expansion_read_villager(const World *world, const Villager *v, CoreVillagerView *out);
 void expansion_people_tick(World *world);
+Building *expansion_refuge(World *world, const Villager *villager, int *x, int *y);
+int expansion_person_protected(const World *world, const Villager *villager);
 void expansion_people_daily(World *world);
 void expansion_candidates(World *world);
 int expansion_setup_research(World *world);

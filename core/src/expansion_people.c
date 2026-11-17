@@ -393,6 +393,9 @@ void expansion_people_tick(World *w) {
             }
         }
         if (minute % 60 == 0) {
+            int safe = expansion_person_protected(w, v);
+            int desired = safe ? 100 : w->expansion->alarm ? 30 : v->inside_building ? 75 : 60;
+            v->needs.safety += exp_clamp(desired - v->needs.safety, -4, safe ? 8 : 3);
             int target = expansion_mood(w, v);
             v->mood += exp_clamp(target - v->mood, -2, 2);
             v->needs.hunger = exp_clamp(v->needs.hunger - 3, 0, 100);
@@ -404,17 +407,25 @@ void expansion_people_tick(World *w) {
             if (job && job->type == CORE_BLD_BARRACKS) {
                 v->inside_building = 0;
                 to_building(w, v, CORE_VS_GUARD_POST, job, keep);
-            } else
-                to_building(w, v, CORE_VS_FLEE, w->expansion->alarm ? keep : v->home, keep);
+            } else if (v->state != CORE_VS_FLEE ||
+                       (v->refuge_revision != w->grid.cost_rev &&
+                        !(grid_in_bounds(&w->grid, v->target_x, v->target_y) &&
+                          w->expansion->protected_cells[grid_index(&w->grid, v->target_x, v->target_y)]))) {
+                int x, y;
+                Building *refuge = expansion_refuge(w, v, &x, &y);
+                if (refuge)
+                    to_building(w, v, CORE_VS_FLEE, refuge, keep);
+                else
+                    intent(v, CORE_VS_FLEE, NULL, x, y);
+                v->refuge_revision = w->grid.cost_rev;
+            }
             if (v->at_target && v->meal_day < exp_day(w) && expansion_bank_have(w, CORE_RES_FOOD) >= 1200) {
                 (void)expansion_bank_add(w, CORE_RES_FOOD, -1200, CORE_LEDGER_CONSUMPTION);
                 v->meal_day = exp_day(w);
                 v->needs.hunger = 100;
             }
-            v->needs.safety = exp_clamp(v->needs.safety + (v->inside_building ? 2 : -1), 0, 100);
             continue;
         }
-        v->needs.safety = exp_clamp(v->needs.safety + 1, 0, 100);
         if (minute < 360 || minute >= 1260) {
             to_building(w, v, CORE_VS_SLEEP, v->home, keep);
             if (v->at_target)
@@ -544,6 +555,36 @@ void expansion_people_tick(World *w) {
         to_building(w, v, CORE_VS_IDLE, NULL, keep);
     }
 }
+static int immigrate(World *w, int count) {
+    Villager *created[8] = {0};
+    int x = 0, y = 0, i;
+    if (!expansion_edge(w, w->keep_x, 0, &x, &y)) {
+        Building *keep = world_keep(w);
+        x = keep->door_x;
+        y = keep->door_y;
+    }
+    for (i = 0; i < count; i++) {
+        created[i] = population_create(w, x, y);
+        if (!created[i]) {
+            while (i > 0)
+                entity_remove_villager(w, created[--i]);
+            w->expansion->error = CORE_ERR_OUT_OF_MEMORY;
+            return 0;
+        }
+    }
+    for (i = 0; i < count; i++) {
+        Villager *v = created[i];
+        Building *keep = world_keep(w);
+        v->intent_flags |= CORE_INTENT_SPAWN_EDGE;
+        v->at_target = 0;
+        v->target_x = keep->door_x;
+        v->target_y = keep->door_y;
+        events_push_villager(&w->events, CORE_EVT_IMMIGRANT, v->id, 0, 0, v->name);
+    }
+    expansion_assign(w);
+    w->expansion->dirty = 1;
+    return 1;
+}
 void expansion_people_daily(World *w) {
     ExpansionState *e = w->expansion;
     int i, mood = 0, pop = 0, free_slots = 0, day = exp_day(w), water = 0;
@@ -599,53 +640,37 @@ void expansion_people_daily(World *w) {
     free_slots = expansion_available_housing(w);
     if (pop)
         mood /= pop;
+    if (w->rank == 0) {
+        uint32_t schedule = (uint32_t)w->seed * UINT32_C(2654435761);
+        int due = e->starter_waves == 0 ? 5 + (int)((schedule >> 8) & 3u) : 10 + (int)((schedule >> 14) & 3u);
+        /* 특별 이주는 주거·행복·식량·물·재난과 무관한 확정 이벤트입니다. */
+        if (e->starter_waves < 2 && day >= due && immigrate(w, 2)) {
+            e->starter_waves++;
+            e->immigration_day = day + 7;
+        }
+        return;
+    }
     if (day < e->immigration_day || day < e->disaster_day + 5 || free_slots <= 0 || water < pop)
         return;
     {
         static const int moods[6] = {35, 48, 52, 55, 57, 60}, fooddays[6] = {5, 8, 10, 12, 12, 12},
                          interval[6] = {5, 7, 6, 5, 5, 4};
-        int count = w->rank == 0 ? 2
-                                 : rng_range(&w->rng,
-                                             w->rank == 1  ? 2
-                                             : w->rank < 4 ? 3
-                                                           : 4,
-                                             w->rank == 1   ? 3
-                                             : w->rank == 2 ? 4
-                                             : w->rank == 3 ? 5
-                                             : w->rank == 4 ? 6
-                                                            : 7);
-        if (w->rank == 0 && (e->starter_waves >= 2 || (e->starter_waves == 0 && day < 5) ||
-                             (e->starter_waves == 1 && day < 10)))
-            return;
+        int count = rng_range(&w->rng,
+                              w->rank == 1  ? 2
+                              : w->rank < 4 ? 3
+                                            : 4,
+                              w->rank == 1   ? 3
+                              : w->rank == 2 ? 4
+                              : w->rank == 3 ? 5
+                              : w->rank == 4 ? 6
+                                             : 7);
         if (mood < moods[w->rank] || expansion_bank_have(w, CORE_RES_FOOD) < pop * 1200 * fooddays[w->rank])
-            return;
-        if (w->rank == 0 && free_slots < 2)
             return;
         if (exp_season(w) == 3)
             count = (count + 1) / 2;
         if (count > free_slots)
             count = free_slots;
-        {
-            int x = 0, y = 0;
-            if (!expansion_edge(w, w->keep_x, 0, &x, &y))
-                return;
-            for (i = 0; i < count; i++) {
-                Villager *v = population_create(w, x, y);
-                if (!v) {
-                    e->error = CORE_ERR_OUT_OF_MEMORY;
-                    break;
-                }
-                v->intent_flags |= CORE_INTENT_SPAWN_EDGE;
-                v->at_target = 0;
-                v->target_x = w->keep_x;
-                v->target_y = w->keep_y + 2;
-                events_push_villager(&w->events, CORE_EVT_IMMIGRANT, v->id, 0, 0, v->name);
-            }
-        }
-        if (w->rank == 0)
-            e->starter_waves++;
-        e->immigration_day = day + interval[w->rank];
-        expansion_assign(w);
-        e->dirty = 1;
+        if (immigrate(w, count))
+            e->immigration_day = day + interval[w->rank];
     }
 }

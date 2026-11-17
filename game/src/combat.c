@@ -75,9 +75,9 @@ int game_combat_sync(GameSession *s) {
 static int guard(const CoreVillagerView *v) {
     return v->state == CORE_VS_GUARD_POST && v->at_target && v->health > 0;
 }
-static int exposed(const CoreVillagerView *v) {
+static int exposed(const GameSession *s,const CoreVillagerView *v) {
     return v->health > 0 && !v->inside_building && v->state != CORE_VS_LEAVING &&
-           !(v->state == CORE_VS_FLEE && v->at_target);
+           (s->summary.ruleset || !(v->state == CORE_VS_FLEE && v->at_target));
 }
 static GamePoint center(const CoreBuildingView *b) {
     return (GamePoint){b->x + b->w * 0.5f, b->y + b->h * 0.5f};
@@ -327,7 +327,7 @@ static void guards_step(GameSession *s, float minutes) {
 static int target_valid(GameSession *s, const GameEnemy *e) {
     if (e->target_kind == TARGET_VILLAGER) {
         CoreVillagerView *v = game_villager(s, e->target_id);
-        return v && exposed(v);
+        return v && exposed(s,v);
     }
     if (e->target_kind == TARGET_BUILDING) {
         CoreBuildingView *b = game_building(s, e->target_id);
@@ -344,7 +344,7 @@ static void choose_target(GameSession *s, GameEnemy *e) {
         CoreVillagerView *v = &s->villagers[i];
         GameActor *a = game_actor(s, v->id);
         float distance;
-        if (!a || !exposed(v) || (!guard(v) && e->def.behavior != CORE_BEHAVIOR_MONSTER))
+        if (!a || !exposed(s,v) || (!guard(v) && e->def.behavior != CORE_BEHAVIOR_MONSTER))
             continue;
         distance = game_distance(e->actor.position, a->position);
         if (distance <= best) {

@@ -179,7 +179,7 @@ void expansion_rebuild(World *w) {
         }
     }
     for (i = 0; i < e->cells; i++)
-        if (g->scratch_mark[i] && g->road[i])
+        if (g->scratch_mark[i] && road_cell(w, i))
             e->effective_roads++;
     e->protected_population = 0;
     for (i = 0; i < w->villager_count; i++) {
@@ -203,7 +203,7 @@ void expansion_rebuild(World *w) {
         reveal(w, b->x + b->w / 2, b->y + b->h / 2, sight, e->static_visible);
     }
     for (i = 0; i < e->cells; i++)
-        if (g->road[i] && e->connected[i])
+        if (road_cell(w, i) && e->connected[i])
             reveal(w, i % g->width, i / g->width, 1, e->static_visible);
     expansion_water_supply(w);
     e->dirty = 0;
@@ -375,43 +375,126 @@ int expansion_place(World *w, int type, int x, int y, int rotation, int *id, int
     events_push_building(&w->events, CORE_EVT_BUILDING_PLACED, *id, type, x, y);
     return CORE_OK;
 }
-int expansion_remove_road(World *w, int x, int y) {
+static int service_cell(const World *w, const Building *b) {
+    if (expansion_spec(b->type)->flags & CORE_EXP_GATE)
+        return grid_index(&w->grid, b->x, b->y);
+    if (expansion_spec(b->type)->flags & CORE_EXP_WALL)
+        return -1;
+    return grid_in_bounds(&w->grid, b->door_x, b->door_y) ? grid_index(&w->grid, b->door_x, b->door_y) : -1;
+}
+static int connection_removal_allowed(World *w, int road, Building *gate) {
     ExpansionState *e = w->expansion;
-    int i, p, old, reject = 0;
     uint8_t *before;
-    if (!grid_in_bounds(&w->grid, x, y))
-        return CORE_ERR_INVALID_ARG;
-    p = grid_index(&w->grid, x, y);
-    old = w->grid.road[p];
-    if (!old)
-        return CORE_ERR_NOT_FOUND;
+    int i, old = road >= 0 ? w->grid.road[road] : 0, state = gate ? gate->state : 0, reject = 0;
     before = (uint8_t *)mem_calloc((size_t)w->building_count, 1);
     if (!before)
         return CORE_ERR_OUT_OF_MEMORY;
     for (i = 0; i < w->building_count; i++) {
         Building *b = w->buildings[i];
-        if (b->state == CORE_BSTATE_ACTIVE && grid_in_bounds(&w->grid, b->door_x, b->door_y))
-            before[i] = e->connected[grid_index(&w->grid, b->door_x, b->door_y)];
+        int cell = service_cell(w, b);
+        if (b != gate && b->state == CORE_BSTATE_ACTIVE && cell >= 0)
+            before[i] = e->connected[cell];
     }
+    if (road >= 0)
+        w->grid.road[road] = 0;
+    if (gate)
+        gate->state = CORE_BSTATE_RUINED;
+    expansion_rebuild(w);
+    for (i = 0; i < w->building_count; i++)
+        if (before[i]) {
+            int cell = service_cell(w, w->buildings[i]);
+            if (cell < 0 || !e->connected[cell])
+                reject = 1;
+        }
+    if (road >= 0)
+        w->grid.road[road] = (uint8_t)old;
+    if (gate)
+        gate->state = state;
+    expansion_rebuild(w);
+    mem_free(before);
+    return reject ? CORE_ERR_REJECTED : CORE_OK;
+}
+int expansion_remove_road(World *w, int x, int y) {
+    int p, rc;
+    if (!grid_in_bounds(&w->grid, x, y))
+        return CORE_ERR_INVALID_ARG;
+    p = grid_index(&w->grid, x, y);
+    if (!w->grid.road[p])
+        return CORE_ERR_NOT_FOUND;
+    rc = connection_removal_allowed(w, p, NULL);
+    if (rc != CORE_OK)
+        return rc;
     w->grid.road[p] = 0;
     expansion_rebuild(w);
-    for (i = 0; i < w->building_count; i++) {
-        Building *b = w->buildings[i];
-        if (before[i] && !e->connected[grid_index(&w->grid, b->door_x, b->door_y)])
-            reject++;
+    return CORE_OK;
+}
+int expansion_person_protected(const World *w, const Villager *v) {
+    const Building *inside = v->inside_building ? entity_find_building(w, v->inside_building) : NULL;
+    int x = inside ? inside->x : v->current_x_milli / 1000,
+        y = inside ? inside->y : v->current_y_milli / 1000;
+    return grid_in_bounds(&w->grid, x, y) && w->expansion->protected_cells[grid_index(&w->grid, x, y)];
+}
+Building *expansion_refuge(World *w, const Villager *v, int *x, int *y) {
+    ExpansionState *e = w->expansion;
+    Grid *g = &w->grid;
+    Building *keep = world_keep(w);
+    int head = 0, tail = 0, start, i;
+    *x = keep ? keep->door_x : w->keep_x;
+    *y = keep ? keep->door_y : w->keep_y;
+    if (!e->protected_area)
+        return keep;
+    if (!grid_in_bounds(g, v->current_x_milli / 1000, v->current_y_milli / 1000))
+        return keep;
+    start = grid_index(g, v->current_x_milli / 1000, v->current_y_milli / 1000);
+    memset(g->scratch_mark, 0, (size_t)e->cells);
+    g->scratch_mark[start] = 1;
+    g->scratch_queue[tail++] = start;
+    while (head < tail) {
+        int p = g->scratch_queue[head++], k;
+        if (e->protected_cells[p] && g->cost[p] && g->block[p] != GRID_BLOCK_WALL) {
+            *x = p % g->width;
+            *y = p / g->width;
+            for (i = 0; i < w->building_count; i++) {
+                Building *b = w->buildings[i];
+                if (b->state == CORE_BSTATE_ACTIVE &&
+                    !(expansion_spec(b->type)->flags & (CORE_EXP_OUTDOOR | CORE_EXP_WALL | CORE_EXP_GATE)) &&
+                    b->door_x == *x && b->door_y == *y)
+                    return b;
+            }
+            return NULL;
+        }
+        for (k = 0; k < 4; k++) {
+            int xx = p % g->width + DX[k], yy = p / g->width + DY[k], n;
+            if (!grid_in_bounds(g, xx, yy))
+                continue;
+            n = grid_index(g, xx, yy);
+            if (!g->scratch_mark[n] && g->cost[n] && g->block[n] != GRID_BLOCK_WALL) {
+                g->scratch_mark[n] = 1;
+                g->scratch_queue[tail++] = n;
+            }
+        }
     }
-    mem_free(before);
-    if (reject) {
-        w->grid.road[p] = (uint8_t)old;
-        expansion_rebuild(w);
-        return CORE_ERR_REJECTED;
-    }
+    return keep;
+}
+CORE_API int32_t core_expansion_copy_protection(const CoreWorld *w, uint8_t *out, int32_t capacity) {
+    if (!w || !out)
+        return CORE_ERR_NULL_ARG;
+    if (!w->expansion)
+        return CORE_ERR_INVALID_ARG;
+    if (capacity < w->expansion->cells)
+        return CORE_ERR_BUFFER_TOO_SMALL;
+    memcpy(out, w->expansion->protected_cells, (size_t)w->expansion->cells);
     return CORE_OK;
 }
 int expansion_demolish(World *w, Building *b) {
     int r;
     if (b->type == CORE_BLD_KEEP)
         return CORE_ERR_REJECTED;
+    if (expansion_spec(b->type)->flags & CORE_EXP_GATE) {
+        int rc = connection_removal_allowed(w, -1, b);
+        if (rc != CORE_OK)
+            return rc;
+    }
     for (r = 0; r < CORE_RES_COUNT; r++)
         (void)expansion_bank_add(w, r, w->defs.buildings[b->type].cost[r] * 500, CORE_LEDGER_CONSTRUCTION);
     for (r = 0; r < w->expansion->animal_count; r++)
