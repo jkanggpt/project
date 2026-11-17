@@ -57,3 +57,12 @@
 핵심 구현은 `game/src/sprite_layout.c`, `session.c`, `render.c`, `assets.c`입니다. `native_runtime`은 높이·기준점·앞뒤 순서·외형·실제 이동 중 방향과 정지를, `native_art_assets`는 PNG 크기·내용·투명도와 주민 96프레임 각각의 발밑·내용·걷기 변화 여부를 검사합니다.
 
 `castle_game --screenshot artifacts/villagers.png --screen villagers --no-audio`로 게임과 같은 선택 함수를 쓰는 8외형×4방향 비교 화면을 촬영할 수 있습니다.
+
+## 2026-11-17 성벽 연결과 동물 걷기
+
+내장 image_gen으로 `art/expansion/animal_walk_0~3.png`, `wall_modules.png`를 새로 제작했습니다. 전체 프롬프트는 [TOPOLOGY_ANIMATION_PROMPTS.md](TOPOLOGY_ANIMATION_PROMPTS.md)에 있습니다. C 패커는 원화를 잘라 `game/assets/expansion/animal_walk.png`(16종×4프레임)와 `wall_links.png`(4재료×16연결)를 만듭니다. 새 그림도 CC0입니다.
+
+동물의 코어 좌표·판정은 유지하고 화면 위치를 보간합니다. 실제 움직인 거리로 걷기 프레임을 바꾸고, 왼쪽 이동은 같은 옆모습을 반전합니다. 정지·일시정지 중에는 걷기를 진행하지 않습니다.
+성벽은 회전과 관계없이 상·우·하·좌의 정상 벽/문을 검사해 직선·모서리·T·교차 그림을 고릅니다. 모든 방향은 같은 중심 기둥과 반쪽 연결 부재를 사용합니다.
+확장 건물의 그림 높이·발밑은 유지하고 너비를 점유 너비의1.1배+4논리 픽셀 이내로 제한합니다. 밭은 그대로 점유 칸에 맞춥니다.
+`castle_expansion_art --check game/assets/expansion`은64동물 프레임의 내용·발밑·변화,64벽 연결의 가장자리와 투명도를 검사합니다. `--screen connections`로 실제 게임의 그림 선택을 확인할 수 있습니다.

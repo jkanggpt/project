@@ -164,6 +164,149 @@ static void resource_files(const char *in, const char *out) {
     }
     UnloadImage(src);
 }
+static void check_animation_assets(const char *out) {
+    Image animal = read_png(out, "animal_walk.png"), wall = read_png(out, "wall_links.png");
+    int row, col, x, y;
+    if (animal.data) {
+        if (animal.width != 384 || animal.height != 1536)
+            failures++;
+        else
+            for (row = 0; row < 16; row++) {
+                unsigned first = 0;
+                int changed = 0;
+                for (col = 0; col < 4; col++) {
+                    unsigned hash = 2166136261u;
+                    int solid = 0, feet = 0;
+                    for (y = 0; y < 96; y++)
+                        for (x = 0; x < 96; x++) {
+                            Color p = ((Color *)animal.data)[(row * 96 + y) * animal.width + col * 96 + x];
+                            solid += p.a != 0;
+                            feet += p.a != 0 && y >= 89;
+                            hash = (hash ^ (unsigned)ColorToInt(p)) * 16777619u;
+                        }
+                    if (solid < 150 || !feet) {
+                        fprintf(stderr, "Empty/misaligned animal %d frame %d\n", row, col);
+                        failures++;
+                    }
+                    if (!col)
+                        first = hash;
+                    else
+                        changed |= hash != first;
+                }
+                if (!changed) {
+                    fprintf(stderr, "Static animal row %d\n", row);
+                    failures++;
+                }
+            }
+        UnloadImage(animal);
+    }
+    if (wall.data) {
+        if (wall.width != 2048 || wall.height != 512)
+            failures++;
+        else
+            for (row = 0; row < 4; row++)
+                for (col = 0; col < 16; col++) {
+                    int solid = 0, edges[4] = {0};
+                    for (y = 0; y < 128; y++)
+                        for (x = 0; x < 128; x++) {
+                            Color p = ((Color *)wall.data)[(row * 128 + y) * wall.width + col * 128 + x];
+                            if (!p.a)
+                                continue;
+                            solid++;
+                            edges[0] += y == 0;
+                            edges[1] += x == 127;
+                            edges[2] += y == 127;
+                            edges[3] += x == 0;
+                        }
+                    if (solid < 500)
+                        failures++;
+                    for (x = 0; x < 4; x++)
+                        if ((col & (1 << x)) && !edges[x]) {
+                            fprintf(stderr, "Disconnected wall %d mask %d edge %d\n", row, col, x);
+                            failures++;
+                        }
+                }
+        UnloadImage(wall);
+    }
+}
+static void animation_assets(const char *in, const char *out) {
+    Image dst = GenImageColor(384, 1536, BLANK);
+    int group, row, col;
+    for (group = 0; group < 4; group++) {
+        char name[64];
+        Image src;
+        (void)snprintf(name, sizeof(name), "animal_walk_%d.png", group);
+        src = read_png(in, name);
+        if (!src.data)
+            continue;
+        for (row = 0; row < 4; row++) {
+            Image frames[4];
+            int maxw = 0, maxh = 0;
+            for (col = 0; col < 4; col++) {
+                frames[col] = slice(src, col, row, 4, 4);
+                trim(&frames[col]);
+                if (frames[col].width > maxw)
+                    maxw = frames[col].width;
+                if (frames[col].height > maxh)
+                    maxh = frames[col].height;
+            }
+            for (col = 0; col < 4; col++) {
+                float scale = 92.0f / (maxw > maxh ? maxw : maxh);
+                int w = (int)(frames[col].width * scale), h = (int)(frames[col].height * scale);
+                ImageResizeNN(&frames[col], w ? w : 1, h ? h : 1);
+                ImageDraw(&dst, frames[col],
+                          (Rectangle){0, 0, (float)frames[col].width, (float)frames[col].height},
+                          (Rectangle){col * 96.0f + (96 - w) / 2.0f, (group * 4 + row + 1) * 96.0f - h,
+                                      (float)w, (float)h},
+                          WHITE);
+                UnloadImage(frames[col]);
+            }
+        }
+        UnloadImage(src);
+    }
+    write_png(out, "animal_walk.png", dst);
+    UnloadImage(dst);
+    {
+        Image src = read_png(in, "wall_modules.png"), links = GenImageColor(2048, 512, BLANK);
+        if (src.data) {
+            for (row = 0; row < 4; row++) {
+                Image post = slice(src, 0, row, 4, 4), horizontal = slice(src, 1, row, 4, 4),
+                      vertical = slice(src, 2, row, 4, 4);
+                trim(&post);
+                trim(&horizontal);
+                trim(&vertical);
+                ImageResizeNN(&post, 64, 64);
+                ImageResizeNN(&horizontal, 128, 64);
+                ImageResizeNN(&vertical, 64, 128);
+                for (col = 0; col < 16; col++) {
+                    Image tile = GenImageColor(128, 128, BLANK);
+                    if (col & 1)
+                        ImageDraw(&tile, vertical, (Rectangle){0, 0, 64, 64}, (Rectangle){32, 0, 64, 64},
+                                  WHITE);
+                    if (col & 2)
+                        ImageDraw(&tile, horizontal, (Rectangle){64, 0, 64, 64}, (Rectangle){64, 32, 64, 64},
+                                  WHITE);
+                    if (col & 4)
+                        ImageDraw(&tile, vertical, (Rectangle){0, 64, 64, 64}, (Rectangle){32, 64, 64, 64},
+                                  WHITE);
+                    if (col & 8)
+                        ImageDraw(&tile, horizontal, (Rectangle){0, 0, 64, 64}, (Rectangle){0, 32, 64, 64},
+                                  WHITE);
+                    ImageDraw(&tile, post, (Rectangle){0, 0, 64, 64}, (Rectangle){32, 32, 64, 64}, WHITE);
+                    ImageDraw(&links, tile, (Rectangle){0, 0, 128, 128},
+                              (Rectangle){col * 128.0f, row * 128.0f, 128, 128}, WHITE);
+                    UnloadImage(tile);
+                }
+                UnloadImage(post);
+                UnloadImage(horizontal);
+                UnloadImage(vertical);
+            }
+            UnloadImage(src);
+        }
+        write_png(out, "wall_links.png", links);
+        UnloadImage(links);
+    }
+}
 int main(int argc, char **argv) {
     GameArguments args;
     int check, i, row, rot;
@@ -208,6 +351,7 @@ int main(int argc, char **argv) {
         atlas(in, out, "animals.png", 4, 4, 96, 1);
         atlas(in, out, "biomes.png", 4, 8, 64, 0);
         resource_files(in, out);
+        animation_assets(in, out);
     }
     for (i = 0; i < 65; i++)
         for (rot = 0; rot < 4; rot++) {
@@ -220,7 +364,12 @@ int main(int argc, char **argv) {
     check_png(out, "resource_icons.png", 1);
     check_png(out, "animals.png", 1);
     check_png(out, "biomes.png", 0);
+    check_png(out, "animal_walk.png", 1);
+    check_png(out, "wall_links.png", 1);
+    check_animation_assets(out);
     game_arguments_free(&args);
-    fprintf(stdout, "Expansion art: 260 building views and 4 atlases, %d errors\n", failures);
+    fprintf(stdout,
+            "Expansion art: 260 building views, 6 atlases, 64 animal poses, 64 wall masks, %d errors\n",
+            failures);
     return failures ? 1 : 0;
 }

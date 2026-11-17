@@ -748,6 +748,11 @@ static int save_load_roundtrip(CoreWorld **world, const char *path, const CoreDe
     }
     (void)core_state_hash(*world, &before);
     (void)core_state_hash(loaded, &after);
+    if(before!=after) {
+        /* 긴 소크에서만 드러나는 저장 차이를 재현할 수 있게 두 상태를 남깁니다. */
+        (void)core_save(*world,"artifacts/soak_before.sav");
+        (void)core_save(loaded,"artifacts/soak_after.sav");
+    }
     core_destroy(*world);
     *world = loaded;
     return before == after;

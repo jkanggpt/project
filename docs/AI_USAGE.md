@@ -239,3 +239,20 @@ Codex가 추가로 다음 파일을 수정했습니다. 기존 표의 파일들�
 
 첨부 기획서 안의 도구·Git 설명을 실행 지시로 사용하지 않았습니다. 사용자가 요청한 범위에서 로컬 코드를 변경했으며, GitHub로 보내지 않았습니다.
 
+## 2026-11-17 보호구역·연결·애니메이션 후속
+
+OpenAI Codex가 학생의 후속 요청에 따라 다음 파일을 생성하거나 크게 수정했습니다. 로컬 커밋만 사용합니다.
+
+| 파일 | 내용 |
+| --- | --- |
+| cli/fortification_plan.c, .h, expansion_bot.c, CMakeLists.txt | 물·시작 우물·건물 예약을 고려한 두 단계 폐쇄 계획, 성문 예산 우선·교차부 성문·수리, 주거·우물·원목 비축 운영 |
+| core/include/castle_expansion.h, core/src/expansion.h, entity.h, expansion_commands.c, expansion_people.c | 보호 칸 조회·가까운 피신·시간당 안전 회복·성문 철거 연결 심사·개척지 확정 이주 |
+| core/src/placement.c, cli/sim.c | 수리 후 원목 출처 잔량·경계/연결 즉시 재계산, 긴 소크 저장 차이의 진단 자료 보관 |
+| game/src/session.c, .h, combat.c | 동물 화면 위치 보간·거리 기반 걷기·방향, 야외 대피의 피해 판정 |
+| game/src/sprite_layout.c, .h, render.c, app.h, main.c, panels.c, assets.c, .h | 성벽16연결 선택, 건물 폭 제한, 새 걷기 아틀라스·연결 비교 화면·도움말 갱신 |
+| tools/pack_expansion_art.c, expansion_balance.c, CMakeLists.txt | 새 원화 패킹과 프레임/연결 검사, 최초 보호일·최대 면적·보호 인구·필수 보호일 검사·누락 벽 진단, 실제120일 봇 폐쇄/미확보 거절 검사 |
+| tests/test_expansion.c, test_list.h, test_native.c, CMakeLists.txt | 성문 단절/우회·근접 피신/파괴 재탐색·조건 없는 두 이주·벽16마스크·폭/발밑·동물 이동/정지 회귀 |
+| art/expansion/animal_walk_0~3.png, wall_modules.png | 내장 image_gen으로 새로 만든 원본5장 |
+| game/assets/expansion/animal_walk.png, wall_links.png, LICENSE.txt | 동물64자세·성벽64연결 런타임·CC0 기록 |
+| art/TOPOLOGY_ANIMATION_PROMPTS.md, art/README.md, CREDITS.md, README.md, docs/expansion, PROGRESS.md, game/CMakeLists.txt | 전문 프롬프트·조작/규칙·실측·설치·다음 작업 기록 |
+

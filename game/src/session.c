@@ -25,6 +25,7 @@ static void clear_world(GameSession *s) {
     s->exp_tiles = NULL;
     s->visibility = NULL;
     s->animal_count = 0;
+    memset(s->animal_actors, 0, sizeof(s->animal_actors));
     s->world = NULL;
     s->actors = NULL;
     s->villagers = NULL;
@@ -217,6 +218,54 @@ static int sync_actors(GameSession *s) {
     }
     return CORE_OK;
 }
+static void sync_animals(GameSession *s) {
+    GameAnimalActor next[CORE_EXP_MAX_ANIMALS];
+    int i, j;
+    for (i = 0; i < s->animal_count; i++) {
+        const CoreAnimalView *view = &s->animals[i];
+        GameAnimalActor *old = NULL;
+        GamePoint target = {view->x_milli / 1000.0f, view->y_milli / 1000.0f};
+        if (s->animal_actors[i].id == view->id)
+            old = &s->animal_actors[i];
+        else
+            for (j = 0; j < CORE_EXP_MAX_ANIMALS; j++)
+                if (s->animal_actors[j].id == view->id) {
+                    old = &s->animal_actors[j];
+                    break;
+                }
+        if (old) {
+            next[i] = *old;
+            if (game_distance(target, old->goal) > 0.01f) {
+                next[i].goal = target;
+                next[i].remaining = 24.0f;
+            }
+        } else {
+            memset(&next[i], 0, sizeof(next[i]));
+            next[i].id = view->id;
+            next[i].position = next[i].goal = target;
+            next[i].facing = 1;
+        }
+    }
+    memset(s->animal_actors, 0, sizeof(s->animal_actors));
+    memcpy(s->animal_actors, next, (size_t)s->animal_count * sizeof(*next));
+}
+static void walk_animals(GameSession *s, float minutes) {
+    int i;
+    for (i = 0; i < s->animal_count; i++) {
+        GameAnimalActor *a = &s->animal_actors[i];
+        GamePoint before = a->position;
+        float factor;
+        if (a->remaining <= 0)
+            continue;
+        factor = fminf(1, minutes / a->remaining);
+        a->position.x += (a->goal.x - a->position.x) * factor;
+        a->position.y += (a->goal.y - a->position.y) * factor;
+        a->remaining = fmaxf(0, a->remaining - minutes);
+        if (fabsf(a->position.x - before.x) > 0.001f)
+            a->facing = a->position.x > before.x ? 1 : -1;
+        a->walk_distance = fmodf(a->walk_distance + game_distance(before, a->position), 0.8f);
+    }
+}
 int game_session_refresh(GameSession *s) {
     int rc, i, cells;
     if (!s->world)
@@ -278,6 +327,7 @@ int game_session_refresh(GameSession *s) {
         rc = core_expansion_copy_animals(s->world, s->animals, CORE_EXP_MAX_ANIMALS, &s->animal_count);
         if (rc != CORE_OK)
             return rc;
+        sync_animals(s);
         s->exp_tick = s->summary.tick;
     }
     rc = sync_actors(s);
@@ -399,6 +449,7 @@ int game_session_step(GameSession *s, float minutes) {
         if (rc != CORE_OK)
             return rc;
         walk_villagers(s, slice);
+        walk_animals(s, slice);
         game_combat_step(s, slice);
         if (s->last_error)
             return s->last_error;

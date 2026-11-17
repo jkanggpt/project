@@ -1,5 +1,6 @@
 /* expansion_bot.c — 공개 명령만으로 확장 경제를 운영하는 검사 봇 */
 #include "castle_expansion.h"
+#include "fortification_plan.h"
 #include "path.h"
 #include "sim.h"
 #include <stdlib.h>
@@ -11,7 +12,8 @@ typedef struct ExpansionBot {
     CoreBuildingView *buildings;
     CoreVillagerView *villagers;
     CoreExpansionTileView *tiles;
-    uint8_t *cost;
+    uint8_t *cost, *terrain, *roads;
+    BotFortificationPlan fort;
     int buildings_count, villagers_count, cells;
     GamePathfinder finder;
 } ExpansionBot;
@@ -41,18 +43,22 @@ static int afford(const ExpansionBot *bot, int type) {
             return 0;
     return 1;
 }
-static int connect(ExpansionBot *bot, int x, int y) {
+static int connect(ExpansionBot *bot, int x, int y, int reserve) {
     GamePath path = {0};
-    int rc, i, limit = bot->summary.resources[CORE_RES_LOGS] > 60 ? 60 : 20;
+    int rc, i;
     rc = game_path_find(&bot->finder, bot->cost, bot->summary.map_width, bot->summary.map_height,
                         bot->summary.keep_x, bot->summary.keep_y + 2, x, y, 0, &path);
     if (rc <= 0) {
         game_path_free(&path);
         return 0;
     }
-    for (i = 0; i < path.count && i < limit; i++) {
+    for (i = 0; i < path.count; i++) {
         int cell = path.cells[i], xx = cell % bot->summary.map_width, yy = cell / bot->summary.map_width;
         int32_t id = 0, reason = 0;
+        CoreSummaryView live;
+        (void)core_get_summary(bot->world, &live);
+        if (live.resources[CORE_RES_LOGS] <= reserve)
+            break;
         if (!occupied(bot, xx, yy))
             (void)core_place_rotated(bot->world, CORE_BLD_ROAD, xx, yy, 0, &id, &reason);
     }
@@ -73,9 +79,7 @@ static int build(ExpansionBot *bot, int type) {
                     xx, yy, valid = 1;
                 if (abs(dx) != radius && abs(dy) != radius)
                     continue;
-                /* 영구 성벽 자리를 건물로 막지 않습니다. */
-                if ((dx <= 14 && dx + info.w > 14) || (dx <= -14 && dx + info.w > -14) ||
-                    (dy <= 14 && dy + info.h > 14) || (dy <= -14 && dy + info.h > -14))
+                if (bot_fortification_reserved(&bot->fort, x, y, info.w, info.h))
                     continue;
                 if (x < 2 || y < 2 || x + info.w >= bot->summary.map_width - 1 ||
                     y + info.h >= bot->summary.map_height - 1)
@@ -109,12 +113,38 @@ static int build(ExpansionBot *bot, int type) {
                                     score += 150;
                             }
                 }
+                if (info.residents && bot_fortification_inside(&bot->fort, x, y, info.w, info.h, 0))
+                    score += 1200;
+                else if (info.residents && bot_fortification_inside(&bot->fort, x, y, info.w, info.h, 1))
+                    score += 400;
+                if (type == CORE_BLD_OUTPOST) {
+                    int b;
+                    for (b = 0; b < bot->buildings_count; b++)
+                        if (bot->buildings[b].type == CORE_BLD_LOGGING_SITE) {
+                            int d =
+                                abs(bot->buildings[b].door_x - x) + abs(bot->buildings[b].door_y - (y + 1));
+                            score -= d * 100;
+                            if (d <= 4)
+                                score += 4000;
+                        }
+                }
                 if (type == CORE_BLD_WELL) {
                     int h;
                     for (h = 0; h < bot->buildings_count; h++) {
                         const CoreBuildingView *home = &bot->buildings[h];
-                        if (home->resident_slots && abs(home->x - x) + abs(home->y - y) <= 8)
-                            score += 120 + home->residents * 100;
+                        int j, supplied = 0;
+                        if (!home->resident_slots || home->state == CORE_BSTATE_RUINED)
+                            continue;
+                        for (j = 0; j < bot->buildings_count; j++) {
+                            const CoreBuildingView *well = &bot->buildings[j];
+                            if (well->type == CORE_BLD_WELL && well->state != CORE_BSTATE_RUINED &&
+                                abs(well->x - home->x) + abs(well->y - home->y) <= 8) {
+                                supplied = 1;
+                                break;
+                            }
+                        }
+                        if (!supplied && abs(home->x - x) + abs(home->y - y) <= 8)
+                            score += 2000 + home->residents * 200;
                     }
                 }
                 if (score > best) {
@@ -127,26 +157,114 @@ static int build(ExpansionBot *bot, int type) {
             }
     if (best == -100000)
         return 0;
-    (void)connect(bot, bx + info.w / 2, by + info.h);
+    (void)connect(bot, bx + info.w / 2, by + info.h, 6);
     {
         int32_t id = 0, reason = 0;
         return core_place_rotated(bot->world, type, bx, by, 0, &id, &reason) == CORE_OK;
     }
 }
+static int fortify(ExpansionBot *bot, int ring) {
+    const int *bounds = bot->fort.bounds[ring];
+    int pass, x, y, placed = 0, pending_gates = 0, reserve = 6;
+    if (!bot->fort.valid[ring])
+        return 0;
+    for (pass = 0; pass < 2 && placed < 10; pass++) {
+        for (y = bounds[1]; y <= bounds[3] && placed < 10; y++)
+            for (x = bounds[0]; x <= bounds[2] && placed < 10; x++) {
+                int gate, owner, type, rot = 0;
+                int32_t id = 0, reason = 0;
+                CoreSummaryView live;
+                CorePlacementView preview;
+                if (!bot_fortification_boundary(&bot->fort, x, y, ring))
+                    continue;
+                gate = ((x == bounds[0] || x == bounds[2]) && y == bot->summary.keep_y) ||
+                       ((y == bounds[1] || y == bounds[3]) && x == bot->summary.keep_x);
+                gate |= bot->roads[y * bot->summary.map_width + x] != 0;
+                if (!gate) {
+                    (void)core_can_place_rotated(bot->world, CORE_BLD_PALISADE, x, y, 0, &preview);
+                    gate = preview.result == CORE_PLACE_BLOCKS_DOOR;
+                }
+                if (gate != (pass == 0))
+                    continue;
+                owner = occupied(bot, x, y);
+                if (owner) {
+                    int i;
+                    for (i = 0; i < bot->buildings_count; i++)
+                        if (bot->buildings[i].id == owner && bot->buildings[i].state == CORE_BSTATE_RUINED)
+                            (void)core_repair(bot->world, owner, &reason);
+                    continue;
+                }
+                (void)core_get_summary(bot->world, &live);
+                if (live.resources[CORE_RES_LOGS] < (gate ? 5 : 2) + reserve) {
+                    pending_gates |= gate;
+                    continue;
+                }
+                type = gate ? CORE_BLD_PALISADE_GATE : CORE_BLD_PALISADE;
+                if (gate && (x == bounds[0] || x == bounds[2]))
+                    rot = 1;
+                (void)core_can_place_rotated(bot->world, type, x, y, rot, &preview);
+                if (preview.result == CORE_PLACE_BLOCKS_DOOR) {
+                    type = CORE_BLD_PALISADE_GATE;
+                    gate = 1;
+                    (void)core_can_place_rotated(bot->world, type, x, y, rot, &preview);
+                }
+                if (preview.result == CORE_PLACE_OK) {
+                    if (core_place_rotated(bot->world, type, x, y, rot, &id, &reason) == CORE_OK)
+                        placed++;
+                } else if (preview.result == CORE_PLACE_UNREACHABLE) {
+                    int xx = x == bounds[0] ? x + 1 : x == bounds[2] ? x - 1 : x;
+                    int yy = y == bounds[1] ? y + 1 : y == bounds[3] ? y - 1 : y;
+                    (void)connect(bot, xx, yy, 6);
+                    pending_gates |= gate;
+                } else
+                    pending_gates |= gate;
+            }
+        /* 비싼 문을 모으는 동안 싼 벽이 잔고를 먼저 쓰는 영구 지연을 막습니다. */
+        if (!pass && pending_gates)
+            break;
+    }
+    return placed;
+}
+static int needs_well(const ExpansionBot *bot) {
+    int i, j;
+    for (i = 0; i < bot->buildings_count; i++) {
+        const CoreBuildingView *home = &bot->buildings[i];
+        int supplied = 0;
+        if (!home->resident_slots || home->state == CORE_BSTATE_RUINED)
+            continue;
+        for (j = 0; j < bot->buildings_count; j++) {
+            const CoreBuildingView *well = &bot->buildings[j];
+            if (well->type == CORE_BLD_WELL && well->state != CORE_BSTATE_RUINED &&
+                abs(well->x - home->x) + abs(well->y - home->y) <= 8) {
+                supplied = 1;
+                break;
+            }
+        }
+        if (!supplied)
+            return 1;
+    }
+    return bot->summary.water_served < bot->summary.permanent_population;
+}
 static void staffing(ExpansionBot *bot) {
     int priorities[32], n = 0, i, j;
     priorities[n++] = CORE_BLD_LOGGING_SITE;
-    priorities[n++] = CORE_BLD_STALL;
-    if (bot->summary.resources[CORE_RES_WOOD] < 35 && bot->summary.resources[CORE_RES_LOGS] > 15)
-        priorities[n++] = CORE_BLD_SAWMILL;
-    if (bot->summary.resources[CORE_RES_STONE] < 35)
-        priorities[n++] = CORE_BLD_QUARRY;
+    priorities[n++] = CORE_BLD_OUTPOST;
+    if (bot->summary.resources[CORE_RES_LOGS] < 40 && bot->summary.population >= 6)
+        priorities[n++] = CORE_BLD_LOGGING_SITE;
+    if (bot->summary.population >= 7 || bot->summary.resources[CORE_RES_FOOD] > 120)
+        priorities[n++] = CORE_BLD_STALL;
+    if (bot->summary.raid_id || bot->summary.population >= 12)
+        priorities[n++] = CORE_BLD_BARRACKS;
     priorities[n++] = CORE_BLD_GATHERER;
     priorities[n++] = CORE_BLD_GARDEN;
     if (bot->summary.season < 2) {
         priorities[n++] = CORE_BLD_CROPLAND;
         priorities[n++] = CORE_BLD_FARM;
     }
+    if (bot->summary.resources[CORE_RES_WOOD] < 35 && bot->summary.resources[CORE_RES_LOGS] > 15)
+        priorities[n++] = CORE_BLD_SAWMILL;
+    if (bot->summary.resources[CORE_RES_STONE] < 35)
+        priorities[n++] = CORE_BLD_QUARRY;
     priorities[n++] = CORE_BLD_LUMBER;
     priorities[n++] = CORE_BLD_MINE;
     priorities[n++] = CORE_BLD_SMELTER;
@@ -195,7 +313,9 @@ int sim_expansion_bot_daily(CoreWorld *world) {
     bot.villagers = (CoreVillagerView *)calloc((size_t)bot.summary.population + 8, sizeof(*bot.villagers));
     bot.tiles = (CoreExpansionTileView *)calloc((size_t)bot.cells, sizeof(*bot.tiles));
     bot.cost = (uint8_t *)calloc((size_t)bot.cells, 1);
-    if (!bot.buildings || !bot.villagers || !bot.tiles || !bot.cost) {
+    bot.terrain = (uint8_t *)calloc((size_t)bot.cells, 1);
+    bot.roads = (uint8_t *)calloc((size_t)bot.cells, 1);
+    if (!bot.buildings || !bot.villagers || !bot.tiles || !bot.cost || !bot.terrain || !bot.roads) {
         rc = CORE_ERR_OUT_OF_MEMORY;
         goto done;
     }
@@ -205,6 +325,13 @@ int sim_expansion_bot_daily(CoreWorld *world) {
     bot.villagers_count = count;
     (void)core_expansion_copy_tiles(world, bot.tiles, bot.cells);
     (void)core_copy_cost_grid(world, bot.cost, bot.cells, NULL);
+    (void)core_copy_terrain(world, bot.terrain, bot.cells);
+    (void)core_copy_roads(world, bot.roads, bot.cells);
+    if (!bot_fortification_plan(bot.terrain, bot.summary.map_width, bot.summary.map_height,
+                                bot.summary.keep_x, bot.summary.keep_y, &bot.fort)) {
+        rc = CORE_ERR_OUT_OF_MEMORY;
+        goto done;
+    }
     /* 길을 깔 경로는 야외 밭·우물의 점유 칸도 돌아갑니다. 주민의 보행 격자와 구별합니다. */
     for (i = 0; i < bot.buildings_count; i++) {
         const CoreBuildingView *b = &bot.buildings[i];
@@ -215,28 +342,37 @@ int sim_expansion_bot_daily(CoreWorld *world) {
             for (x = b->x; x < b->x + b->w; x++)
                 bot.cost[y * bot.summary.map_width + x] = 0;
     }
-    if (bot.summary.housing_capacity > 0 && bot.summary.water_served < bot.summary.permanent_population &&
-        afford(&bot, CORE_BLD_WELL))
-        (void)build(&bot, CORE_BLD_WELL);
-    else if (!count_type(&bot, CORE_BLD_LOGGING_SITE)) {
-        (void)connect(&bot, bot.summary.keep_x + 10, bot.summary.keep_y + 2);
+    if (!count_type(&bot, CORE_BLD_LOGGING_SITE)) {
         (void)build(&bot, CORE_BLD_LOGGING_SITE);
     } else if (!count_type(&bot, CORE_BLD_GATHERER))
         (void)build(&bot, CORE_BLD_GATHERER);
-    else if (count_type(&bot, CORE_BLD_GARDEN) < (bot.summary.population + 2) / 3)
+    else if (count_type(&bot, CORE_BLD_GARDEN) < (bot.summary.population + 1) / 2)
         (void)build(&bot, CORE_BLD_GARDEN);
+    else if (!count_type(&bot, CORE_BLD_OUTPOST))
+        (void)build(&bot, CORE_BLD_OUTPOST);
+    else if (bot.summary.housing_capacity <
+             (bot.summary.rank ? bot.summary.population + (bot.summary.protected_area >= 25 ? 2 : 0) : 8)) {
+        int housing = bot.summary.rank >= 3 && afford(&bot, CORE_BLD_MANSION)   ? CORE_BLD_MANSION
+                      : bot.summary.rank >= 2 && afford(&bot, CORE_BLD_HOUSE)   ? CORE_BLD_HOUSE
+                      : bot.summary.rank >= 1 && afford(&bot, CORE_BLD_COTTAGE) ? CORE_BLD_COTTAGE
+                                                                                : CORE_BLD_SHACK;
+        (void)build(&bot, housing);
+    } else if (bot.summary.housing_capacity > 0 && needs_well(&bot) && afford(&bot, CORE_BLD_WELL))
+        (void)build(&bot, CORE_BLD_WELL);
     else if (bot.summary.rank >= 1 && !count_type(&bot, CORE_BLD_STALL))
         (void)build(&bot, CORE_BLD_STALL);
     else if (bot.summary.rank >= 1 && !count_type(&bot, CORE_BLD_GRANARY))
         (void)build(&bot, CORE_BLD_GRANARY);
-    else if (bot.summary.rank >= 1 && !count_type(&bot, CORE_BLD_SAWMILL))
+    else if (bot.summary.rank == 1 && bot.summary.protected_area >= 25 &&
+             count_type(&bot, CORE_BLD_COTTAGE) * 2 < bot.summary.population && bot.summary.average_mood < 52)
+        (void)build(&bot, CORE_BLD_COTTAGE);
+    else if (bot.summary.rank >= 1 && bot.summary.protected_area < 25) {
+        /* 첫 폐쇄가 끝날 때까지 가공·상급 시설로 원목을 분산하지 않습니다. */
+    } else if (bot.summary.rank >= 1 && !count_type(&bot, CORE_BLD_SAWMILL))
         (void)build(&bot, CORE_BLD_SAWMILL);
-    else if (bot.summary.housing_capacity < (bot.summary.rank ? bot.summary.population + 4 : 8)) {
-        int housing = bot.summary.rank >= 3 && afford(&bot, CORE_BLD_MANSION) ? CORE_BLD_MANSION
-                      : bot.summary.rank >= 2 && afford(&bot, CORE_BLD_HOUSE) ? CORE_BLD_HOUSE
-                      : bot.summary.rank >= 1                                 ? CORE_BLD_COTTAGE
-                                                                              : CORE_BLD_SHACK;
-        (void)build(&bot, housing);
+    else if (bot.summary.rank >= 1 &&
+             bot.summary.resource_capacity[CORE_RES_FOOD] < (bot.summary.population + 8) * 144 / 10 + 300) {
+        (void)build(&bot, CORE_BLD_GRANARY);
     } else if (bot.summary.rank >= 1) {
         const int essentials[] = {
             CORE_BLD_GRANARY,  CORE_BLD_SAWMILL, CORE_BLD_QUARRY,     CORE_BLD_CROPLAND,
@@ -255,29 +391,24 @@ int sim_expansion_bot_daily(CoreWorld *world) {
         int32_t reason = 0;
         (void)core_rank_up(world, &reason);
     }
-    if (bot.summary.rank >= 1 && count_type(&bot, CORE_BLD_GRANARY) && count_type(&bot, CORE_BLD_SAWMILL) &&
-        bot.summary.resources[CORE_RES_LOGS] > 70) {
-        int placed = 0, d;
-        for (d = -14; d <= 14 && placed < 12; d++) {
-            int side;
-            for (side = 0; side < 4 && placed < 12; side++) {
-                int x = bot.summary.keep_x + (side < 2    ? d
-                                              : side == 2 ? -14
-                                                          : 14),
-                    y = bot.summary.keep_y + (side >= 2   ? d
-                                              : side == 0 ? -14
-                                                          : 14);
-                CorePlacementView p;
-                int32_t id = 0, reason = 0;
-                int type = (d == 0) ? CORE_BLD_PALISADE_GATE : CORE_BLD_PALISADE;
-                (void)core_can_place_rotated(world, type, x, y, 0, &p);
-                if (p.result == CORE_PLACE_OK &&
-                    core_place_rotated(world, type, x, y, 0, &id, &reason) == CORE_OK)
-                    placed++;
-                else if (p.result == CORE_PLACE_UNREACHABLE)
-                    (void)connect(&bot, x, y);
-            }
-        }
+    if (bot.summary.housing_capacity >= bot.summary.population && count_type(&bot, CORE_BLD_GARDEN) >= 2) {
+        (void)fortify(&bot, 0);
+        if (bot.summary.protected_area>=25 && (bot.summary.rank>=2 || bot.summary.population>=12))
+            (void)fortify(&bot, 1);
+    }
+    {
+        int required = (int[]){35, 48, 52, 55, 57, 60}[bot.summary.rank], tax = bot.summary.tax;
+        if (bot.summary.average_mood < required && bot.summary.resources[CORE_RES_GOLD] > 120)
+            tax = 1;
+        else if (bot.summary.resources[CORE_RES_GOLD] < 80 && tax == 1)
+            tax = 2;
+        else if (bot.summary.average_mood >= required + 10)
+            tax = 3;
+        else if (tax == 1 && bot.summary.average_mood >= required + 5)
+            tax = 2;
+        else if (tax == 3 && bot.summary.average_mood < required + 2)
+            tax = 2;
+        (void)core_expansion_set_tax(world, tax);
     }
     if (bot.summary.rank >= 3 && bot.summary.research_active < 0)
         for (i = 0; i < 24; i++) {
@@ -288,6 +419,11 @@ int sim_expansion_bot_daily(CoreWorld *world) {
                 break;
         }
     if (bot.summary.market_open) {
+        int32_t sale = 0, why = 0;
+        if (bot.summary.resources[CORE_RES_HERBS] > 25)
+            (void)core_trade(world, CORE_RES_HERBS, -10, &sale, &why);
+        else if (bot.summary.resources[CORE_RES_FOOD] > bot.summary.population * 10 + 100)
+            (void)core_trade(world, CORE_RES_FOOD, -10, &sale, &why);
         if (bot.summary.resources[CORE_RES_LOGS] < 20 && bot.summary.resources[CORE_RES_GOLD] > 45) {
             int32_t gold = 0, reason = 0;
             (void)core_trade(world, CORE_RES_LOGS, 10, &gold, &reason);
@@ -307,5 +443,7 @@ done:
     free(bot.villagers);
     free(bot.tiles);
     free(bot.cost);
+    free(bot.terrain);
+    free(bot.roads);
     return rc;
 }

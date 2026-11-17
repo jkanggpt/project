@@ -36,6 +36,11 @@ typedef struct GameTower {
     int id;
     float cooldown;
 } GameTower;
+typedef struct GameAnimalActor {
+    int id, facing;
+    GamePoint position, goal;
+    float remaining, walk_distance;
+} GameAnimalActor;
 typedef void (*GameEventFn)(void *context, const CoreEventView *event);
 typedef struct GameSession {
     CoreWorld *world;
@@ -50,6 +55,7 @@ typedef struct GameSession {
     CoreExpansionTileView *exp_tiles;
     uint8_t *visibility;
     CoreAnimalView animals[CORE_EXP_MAX_ANIMALS];
+    GameAnimalActor animal_actors[CORE_EXP_MAX_ANIMALS];
     int animal_count, ruleset, exp_tick;
     int cells, grid_revision;
     GameActor *actors;

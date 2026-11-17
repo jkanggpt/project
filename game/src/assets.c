@@ -84,6 +84,8 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
     }
     a->status_icons = texture(a, dir, "expansion/status_icons.png");
     a->animals = texture(a, dir, "expansion/animals.png");
+    a->animal_walk=texture(a,dir,"expansion/animal_walk.png");
+    a->wall_links=texture(a,dir,"expansion/wall_links.png");
     a->biomes = texture(a, dir, "expansion/biomes.png");
     for (i = 0; i < CORE_BLD_COUNT; i++) {
         CoreExpansionBuildingInfo info;
@@ -151,6 +153,8 @@ void game_assets_free(GameAssets *a) {
         UnloadTexture(a->status_icons);
     if (a->animals.id)
         UnloadTexture(a->animals);
+    if(a->animal_walk.id)UnloadTexture(a->animal_walk);
+    if(a->wall_links.id)UnloadTexture(a->wall_links);
     if (a->biomes.id)
         UnloadTexture(a->biomes);
     for (i = 0; i < CORE_RES_COUNT; i++)

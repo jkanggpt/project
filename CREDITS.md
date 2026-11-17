@@ -4,10 +4,11 @@
 
 ## 그래픽
 
-현재 화면은 `game/assets/painted/`의 새 그림을 사용합니다. 아래 Kenney 그림과 이전 합성 PNG는 원본 출처 기록과 보관용이며 현재 C 렌더러에서는 불러오지 않습니다.
+현재 화면은 `game/assets/painted/`와 `game/assets/expansion/`의 새 그림을 사용합니다. 아래 Kenney 그림과 이전 합성 PNG는 원본 출처 기록과 보관용이며 현재 C 렌더러에서는 불러오지 않습니다.
 
 | 현재 에셋 | 제작 방법 | 라이선스 | 원본·프롬프트 |
 | --- | --- | --- | --- |
+| expansion/animal_walk.png, wall_links.png: 동물16종×4걷기·성벽4재료×16연결 | 내장 image_gen 원화5장과 C 패커 | 프로젝트 보유 권리를 CC0 1.0 헌정 | art/expansion/animal_walk_0~3.png, wall_modules.png, art/TOPOLOGY_ANIMATION_PROMPTS.md |
 | painted/의 29 PNG: 주민 8외형×3방향×4프레임·적 6종×4프레임, 건물 15종·공사장, 수목·돌·광석·풀 12종, 지면·눈·도로, 자원 6종·화살 | 학생 요청과 첨부 화풍을 참고해 내장 image_gen으로 새로 생성, tools/pack_art.c로 자르기·알파 정리·크기 정렬 | 프로젝트 보유 권리를 CC0 1.0 헌정 (painted/LICENSE.txt) | art/generated/*.png, art/PROMPTS.md, art/PROMPTS_OVERHEAD.md |
 
 참고 첨부 이미지는 시각적 방향에만 사용했으며 게임·배포본에 복사하지 않았습니다. 원본 생성 파일도 같은 CC0 헌정 범위입니다. 생성 AI 사용은 docs/AI_USAGE.md에 별도로 표시합니다.

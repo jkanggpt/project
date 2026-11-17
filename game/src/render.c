@@ -7,6 +7,48 @@
 #include <string.h>
 
 static Vector2 pixel(GamePoint p) { return (Vector2){p.x * 16, p.y * 16}; }
+void game_render_connection_preview(GameApp *a) {
+    static const char *const walls[4] = {u8"목책", u8"방벽", u8"성벽", u8"철성벽"};
+    static const char *const animals[16] = {u8"토끼", u8"사슴", u8"산양",   u8"오리", u8"여우", u8"알파카",
+                                            u8"물범", u8"소",   u8"양",     u8"돼지", u8"닭",   u8"늑대",
+                                            u8"곰",   u8"악어", u8"버팔로", u8"뱀"};
+    float scale = fminf(GetScreenWidth() / 1440.0f, GetScreenHeight() / 900.0f);
+    Camera2D camera = {{0, 0}, {0, 0}, 0, scale};
+    int r, c, x, y;
+    BeginMode2D(camera);
+    ui_text(&a->ui, 28, 18, UI_GOLD, u8"자동 연결 성벽 · 동물 16종 걷기 4프레임");
+    ui_small(&a->ui, 28, 52, UI_MUTED,
+             u8"가로·세로·꺾임·교차를 이웃 칸에 맞춰 선택합니다. 동물은 이동 방향에 따라 좌우 반전합니다.");
+    for (r = 0; r < 4; r++) {
+        uint8_t cost[7 * 5];
+        memset(cost, CORE_COST_NORMAL, sizeof(cost));
+        for (y = 0; y < 5; y++)
+            for (x = 0; x < 7; x++)
+                if (x == 0 || x == 6 || y == 0 || y == 4 || x == 3)
+                    cost[y * 7 + x] = CORE_COST_WALL;
+        ui_small(&a->ui, 28 + r * 350.0f, 86, UI_GOLD, "%s", walls[r]);
+        for (y = 0; y < 5; y++)
+            for (x = 0; x < 7; x++) {
+                float xx = 28 + r * 350.0f + x * 40, yy = 126.0f + y * 32;
+                DrawRectangle((int)xx, (int)yy, 40, 32, (Color){48, 75, 46, 255});
+                if (cost[y * 7 + x] == CORE_COST_WALL) {
+                    int mask = game_wall_mask(cost, 7, 5, x, y);
+                    DrawTexturePro(a->assets.wall_links, (Rectangle){mask * 128.0f, r * 128.0f, 128, 128},
+                                   (Rectangle){xx, yy - 8, 40, 40}, (Vector2){0, 0}, 0, WHITE);
+                }
+            }
+    }
+    for (r = 0; r < 4; r++)
+        for (c = 0; c < 4; c++) {
+            int kind = r * 4 + c, frame;
+            float xx = 28 + c * 350.0f, yy = 327 + r * 140.0f;
+            ui_small(&a->ui, xx, yy, UI_TEXT, "%s", animals[kind]);
+            for (frame = 0; frame < 4; frame++)
+                DrawTexturePro(a->assets.animal_walk, (Rectangle){frame * 96.0f, kind * 96.0f, 96, 96},
+                               (Rectangle){xx + frame * 77, yy + 25, 74, 88}, (Vector2){0, 0}, 0, WHITE);
+        }
+    EndMode2D();
+}
 void game_render_rotation_preview(GameApp *a) {
     static const int types[6] = {CORE_BLD_KEEP,     CORE_BLD_HOUSE, CORE_BLD_FARM,
                                  CORE_BLD_BARRACKS, CORE_BLD_PORT,  CORE_BLD_MAGE_TOWER};
@@ -115,20 +157,26 @@ static void terrain(GameApp *a) {
 }
 static Rectangle box_rect(GameSpriteBox b) { return (Rectangle){b.x, b.y, b.w, b.h}; }
 static Rectangle building_rect(const CoreBuildingView *b, Texture2D t) {
-    float width = b->w * 16.0f, height;
-    if (b->kind_flags & CORE_EXP_PLOT)
-        return (Rectangle){b->x * 16.0f, b->y * 16.0f, width, b->h * 16.0f};
-    height = b->h * 16.0f + (b->worker_slots || b->resident_slots || b->type == CORE_BLD_KEEP ? 24 : 10);
-    if (t.width && t.height) {
-        float scale = fmaxf(width / t.width, height / t.height);
-        width = t.width * scale;
-        height = t.height * scale;
+    return box_rect(game_expansion_building_sprite(b, t.width, t.height));
+}
+static Texture2D building_texture(const GameApp *a, const CoreBuildingView *b) {
+    return b->kind_flags & CORE_EXP_WALL ? a->assets.wall_links : a->assets.turns[b->type][b->rotation];
+}
+static Rectangle building_source(const GameApp *a, const CoreBuildingView *b, Texture2D t) {
+    if (b->kind_flags & CORE_EXP_WALL) {
+        int style = b->type == CORE_BLD_PALISADE    ? 0
+                    : b->type == CORE_BLD_BARRIER   ? 1
+                    : b->type == CORE_BLD_IRON_WALL ? 3
+                                                    : 2;
+        int mask = game_wall_mask(a->session.cost, a->session.summary.map_width,
+                                  a->session.summary.map_height, b->x, b->y);
+        return (Rectangle){mask * 128.0f, style * 128.0f, 128, 128};
     }
-    return (Rectangle){(b->x + b->w * 0.5f) * 16 - width / 2, (b->y + b->h) * 16 - height, width, height};
+    return (Rectangle){0, 0, (float)t.width, (float)t.height};
 }
 static void building(GameApp *a, int index) {
     CoreBuildingView *b = &a->session.buildings[index];
-    Texture2D t = a->assets.turns[b->type][b->rotation];
+    Texture2D t = building_texture(a, b);
     Rectangle dest = building_rect(b, t);
     Color tint = WHITE;
     float bar_x = b->x * 16.0f, bar_w = b->w * 16.0f;
@@ -136,7 +184,7 @@ static void building(GameApp *a, int index) {
         tint = (Color){105, 95, 103, 255};
     if (b->state == CORE_BSTATE_CONSTRUCTING)
         tint = (Color){185, 168, 126, 170};
-    sprite(t, (Rectangle){0, 0, (float)t.width, (float)t.height}, dest, tint);
+    sprite(t, building_source(a, b, t), dest, tint);
     if (b->state == CORE_BSTATE_CONSTRUCTING) {
         Texture2D scaffold = a->assets.construction;
         float size = fminf(bar_w, 24);
@@ -309,7 +357,8 @@ static int draw_queue(GameApp *a) {
         int xcell = animal->x_milli / 1000, ycell = animal->y_milli / 1000;
         if (s->visibility && s->visibility[ycell * w + xcell] < 2)
             continue;
-        a->draw_items[count++] = (GameDrawItem){animal->y_milli * 0.016f, DRAW_ANIMAL, i, animal->id};
+        a->draw_items[count++] =
+            (GameDrawItem){s->animal_actors[i].position.y * 16, DRAW_ANIMAL, i, animal->id};
     }
     qsort(a->draw_items, (size_t)count, sizeof(*a->draw_items), game_draw_compare);
     return count;
@@ -334,8 +383,12 @@ static void objects(GameApp *a) {
         case DRAW_ANIMAL: {
             CoreAnimalView *animal = &a->session.animals[item->index];
             float size = animal->kind == 12 ? 28.0f : animal->kind == 7 || animal->kind == 14 ? 24.0f : 16.0f;
-            float x = animal->x_milli * 0.016f, y = animal->y_milli * 0.016f;
-            sprite(a->assets.animals, (Rectangle){animal->kind % 4 * 96.0f, animal->kind / 4 * 96.0f, 96, 96},
+            GameAnimalActor *unit = &a->session.animal_actors[item->index];
+            float x = unit->position.x * 16, y = unit->position.y * 16;
+            int moving = unit->remaining > 0 && a->speed > 0 && a->panel == PANEL_NONE;
+            int frame = game_walk_frame(unit->walk_distance, moving);
+            sprite(a->assets.animal_walk,
+                   (Rectangle){frame * 96.0f, animal->kind * 96.0f, unit->facing < 0 ? -96.0f : 96.0f, 96},
                    (Rectangle){x - size / 2, y - size, size, size}, WHITE);
             break;
         }
@@ -444,8 +497,10 @@ static void overlay(GameApp *a) {
             temporary.kind_flags = d->kind_flags;
             temporary.worker_slots = d->worker_slots;
             temporary.resident_slots = d->resident_slots;
+            temporary.rotation = a->rotation;
+            t = building_texture(a, &temporary);
             ghost = building_rect(&temporary, t);
-            sprite(t, (Rectangle){0, 0, (float)t.width, (float)t.height}, ghost,
+            sprite(t, building_source(a, &temporary, t), ghost,
                    Fade(preview.result == CORE_PLACE_OK ? WHITE : UI_BAD, 0.65f));
         }
         DrawRectangleLines(x * 16, y * 16, bw * 16, bh * 16,
@@ -479,7 +534,7 @@ static void status_bubbles(GameApp *a) {
         if (b->state != CORE_BSTATE_ACTIVE ||
             (s->visibility && !s->visibility[b->y * s->summary.map_width + b->x]))
             continue;
-        if (b->worker_slots && (!b->workers || b->blocked_reason==CORE_DENY_REQUIREMENTS))
+        if (b->worker_slots && (!b->workers || b->blocked_reason == CORE_DENY_REQUIREMENTS))
             bubble(a, anchor, 20, 1);
         else if (b->working_now && b->job_field >= 0)
             bubble(a, anchor, b->job_field, 0);
@@ -493,7 +548,8 @@ static void status_bubbles(GameApp *a) {
             continue;
         p = pixel(actor->position);
         p.y -= GAME_ACTOR_HEIGHT;
-        if(v->state==CORE_VS_FLEE)icon=19;
+        if (v->state == CORE_VS_FLEE)
+            icon = 19;
         else if (v->hunger < 40)
             icon = 12;
         else if (v->flags & CORE_VF_SICK)
@@ -699,7 +755,7 @@ void game_world_input(GameApp *a, float delta) {
             float best = 8;
             a->selected_villager = 0;
             a->selected_building = id;
-            a->inspector_scroll=0;
+            a->inspector_scroll = 0;
             for (i = 0; i < s->actor_count; i++) {
                 CoreVillagerView *v = game_villager(s, s->actors[i].id);
                 float distance =

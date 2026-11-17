@@ -4,6 +4,7 @@
 #include "test_util.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 static World *expanded(void) {
     CoreNewGameParams p = {0};
@@ -514,6 +515,45 @@ void test_expansion_guaranteed_starter_waves(void) {
     CHECK(second >= 10 && second <= 13);
     CHECK_EQ(w->villager_count, 8);
     CHECK_EQ(w->expansion->starter_waves, 2);
+    CHECK_EQ(core_validate(w), 0);
+    core_destroy(w);
+}
+void test_expansion_repair_protection(void) {
+    World *w = expanded();
+    Building *broken = NULL;
+    int x, y;
+    int32_t why = 0;
+    uint8_t *mask;
+    CHECK(w != NULL);
+    for (y = 75; y <= 81; y++)
+        for (x = 75; x <= 81; x++) {
+            w->grid.terrain[grid_index(&w->grid, x, y)] = CORE_TERRAIN_GRASS;
+            if (x == 75 || x == 81 || y == 75 || y == 81) {
+                Building *b = complete(w, CORE_BLD_PALISADE, x, y, 0);
+                if (x == 75 && y == 78)
+                    broken = b;
+            }
+        }
+    expansion_rebuild(w);
+    CHECK_EQ(w->expansion->protected_area, 25);
+    broken->state = CORE_BSTATE_RUINED;
+    broken->hp = 0;
+    expansion_rebuild(w);
+    CHECK_EQ(w->expansion->protected_area, 0);
+    w->bank.amount[CORE_RES_LOGS] = 2;
+    w->expansion->fractional[CORE_RES_LOGS] = 400;
+    w->expansion->magic_logs_milli = 2400;
+    CHECK_EQ(core_repair(w, broken->id, &why), CORE_OK);
+    CHECK_EQ(w->expansion->protected_area, 25);
+    CHECK_EQ(w->grid.cost[grid_index(&w->grid, 75, 78)], CORE_COST_WALL);
+    CHECK_EQ(w->expansion->magic_logs_milli, 1400);
+    mask = (uint8_t *)malloc((size_t)w->expansion->cells);
+    CHECK(mask != NULL);
+    CHECK_EQ(core_expansion_copy_protection(w, NULL, 0), CORE_ERR_NULL_ARG);
+    CHECK_EQ(core_expansion_copy_protection(w, mask, 1), CORE_ERR_BUFFER_TOO_SMALL);
+    CHECK_EQ(core_expansion_copy_protection(w, mask, w->expansion->cells), CORE_OK);
+    CHECK_EQ(mask[grid_index(&w->grid, 78, 78)], 1);
+    free(mask);
     CHECK_EQ(core_validate(w), 0);
     core_destroy(w);
 }

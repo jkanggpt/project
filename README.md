@@ -14,10 +14,15 @@ Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 주민은 지붕이 있는 건물 안으로 들어갑니다. 무인 시설의 빨간 느낌표, 주민 욕구와 건물 작업 아이콘이 말풍선으로 표시됩니다.
 규칙과 문서 충돌의 해석은 [확장 구현 기록](docs/expansion/IMPLEMENTATION.md), 장기 검사 결과는 [확장 QA](docs/expansion/QA_RESULTS.md)에 기록합니다.
 
+성벽은 주변 벽·문에 맞춰 가로·세로·모서리가 자동 연결됩니다. 동물16종에는 옆모습4프레임 걷기를 적용했습니다.
+보호구역 안에서는 주민의 안전 욕구가 회복되고, 위험 시 걸어갈 수 있는 가까운 보호구역으로 대피합니다. 성문 철거에도 도로 연결 검사를 적용합니다.
+개척지에는 5~8일과 10~13일에 각각2명이 조건 없이 한 번씩 이주합니다. 건물 그림의 너비를 줄이고 높이와 점유 판정은 유지했습니다.
+
 ![C 실행판 게임 화면](docs/screenshots/native_game.png)
 ![C 실행판 제목 화면](docs/screenshots/native_title.png)
 ![주민 외형 8종과 방향별 걷기](docs/screenshots/native_villagers.png)
 ![새 건물 4방향 비교](docs/screenshots/expansion_rotations.png)
+![자동 연결 성벽과 동물 걷기](docs/screenshots/fortification_connections.png)
 
 ## Windows 빌드와 실행
 

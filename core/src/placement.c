@@ -869,7 +869,15 @@ int placement_repair(World *world, Building *building, int32_t *out_reason)
     building->state = CORE_BSTATE_ACTIVE;
     events_push_building(&world->events, CORE_EVT_BUILDING_REPAIRED, building->id, building->type, building->x,
                          building->y);
-    if (was_ruined) {
+    if (world->expansion) {
+        /* 수리비로 쓴 원목의 출처 잔량과 복구된 경계·도로를 즉시 맞춥니다. */
+        if (world->expansion->magic_logs_milli > expansion_bank_have(world, CORE_RES_LOGS))
+            world->expansion->magic_logs_milli = expansion_bank_have(world, CORE_RES_LOGS);
+        world->expansion->dirty = 1;
+        expansion_rebuild(world);
+        expansion_capacity(world);
+        expansion_assign(world);
+    } else if (was_ruined) {
         if (building->type == CORE_BLD_WALL || building->type == CORE_BLD_GATE) {
             placement_rebuild_layers(world); /* 다시 막힘 */
         }

@@ -26,7 +26,7 @@ static void help(void)
     puts("Magic Castle - C / raylib\ncastle_game [--data dir] [--assets dir] [--save-dir dir]\n"
          "  --smoke-test [--days 20] [--seed 42]  C runtime test without a window\n"
          "  --stress | --stress-probe              150 villagers + 40 enemies\n"
-         "  --screenshot file.png [--screen title|game|villagers|rotations|research|rank|market|load]\n"
+         "  --screenshot file.png [--screen title|game|villagers|rotations|connections|research|rank|market|load]\n"
          "  --frames N --autoplay --no-audio --width 1440 --height 900\n"
          "  --difficulty peaceful|normal|harsh (or 0|1|2)");
 }
@@ -59,7 +59,7 @@ static int options(int argc,char **argv,Options *o)
             else if (!number(d,0,2,&o->difficulty)) return 0;
         } else return 0;
     }
-    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"rotations") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load")) return 0;
+    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"rotations") && strcmp(o->screen,"connections") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load")) return 0;
     return 1;
 }
 void game_app_notice(GameApp *a,const char *text)
@@ -219,7 +219,7 @@ static void screenshot_screen(GameApp *a,const Options *o)
 {
     if (!strcmp(o->screen,"title")) { a->panel=PANEL_TITLE; a->in_game=0; return; }
     (void)game_session_new(&a->session,u8"바람언덕",o->seed,o->difficulty); enter_game(a);
-    if(!strcmp(o->screen,"villagers") || !strcmp(o->screen,"rotations")){a->speed=0;return;}
+    if(!strcmp(o->screen,"villagers") || !strcmp(o->screen,"rotations") || !strcmp(o->screen,"connections")){a->speed=0;return;}
     {
         int day;
         for(day=0;day<16;day++){
@@ -309,6 +309,7 @@ static int run(int argc,char **argv)
         if (a->panel!=PANEL_NONE && a->panel!=PANEL_TITLE && IsKeyPressed(KEY_ESCAPE)) game_app_close(a);
         else game_world_input(a,delta);
         if (o.autoplay && a->in_game && a->session.summary.day!=last_bot_day) { last_bot_day=a->session.summary.day; (void)sim_bot_daily(a->session.world,"reasonable"); }
+        if(o.autoplay && a->in_game && a->session.summary.rank_ready) {int32_t why=0;(void)core_rank_up(a->session.world,&why);}
         if (a->in_game && a->panel==PANEL_NONE && a->speed>0 && a->session.summary.outcome!=CORE_OUTCOME_LOST) {
             float minutes=a->session.summary.ruleset?delta*a->speed*12.0f:delta*a->speed*1000/a->session.config.real_ms_per_tick*a->session.config.minutes_per_tick;
             status=game_session_step(&a->session,minutes);
@@ -326,6 +327,7 @@ static int run(int argc,char **argv)
         BeginDrawing(); ClearBackground(UI_BG);
         if (o.screenshot && !strcmp(o.screen,"villagers")) game_render_villager_preview(a);
         else if (o.screenshot && !strcmp(o.screen,"rotations")) game_render_rotation_preview(a);
+        else if (o.screenshot && !strcmp(o.screen,"connections")) game_render_connection_preview(a);
         else { game_render_world(a); game_render_interface(a); }
         EndDrawing();
         /* 일시정지 중의 명령도 다음 프레임 전에 스냅숏에 반영합니다. */
