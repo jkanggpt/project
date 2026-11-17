@@ -1,5 +1,7 @@
 # 통합 확장 v1.0 검사 기록
 
+**보호구역·성문·개척지 이주·동물 걷기 후속 변경의 최신 측정은 [FORTIFICATION_QA.md](FORTIFICATION_QA.md)에 있습니다.** 아래144시드 수치는 후속 변경 이전의 비교 기준입니다.
+
 ## 환경과 방법
 
 - Windows, CMake4.3.2, MSVC19.29 / MinGW GCC16.1 Release, 자체 코드 경고를 오류로 처리합니다.
