@@ -1,4 +1,5 @@
 /* expansion_balance.c — 확장 저장 진단과 실제 C 이동을 포함한 장기 경제 검사 */
+#include "expansion_metrics.h"
 #include "fortification_plan.h"
 #include "platform.h"
 #include "session.h"
@@ -7,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 static void print_summary(CoreWorld *world) {
     CoreSummaryView s;
@@ -19,18 +21,22 @@ static void print_summary(CoreWorld *world) {
     (void)core_expansion_rank(world, &rank);
     printf("day=%d pop=%d permanent=%d mood=%d rank=%d roads=%d area=%d protected=%d housing=%d water=%d "
            "outcome=%d next_reason=%d\n",
-           s.day, s.population, s.permanent_population, s.average_mood, s.rank, s.valid_roads,
+           s.day, s.population, s.permanent_population, s.average_happiness, s.rank, s.valid_roads,
            s.protected_area, s.protected_population, s.housing_capacity, s.water_served, s.outcome,
            rank.reason);
+    printf("nature=%d disaster_day=%d alarm=%d\n", world->nature.event, world->expansion->disaster_day,
+           world->expansion->alarm);
     for (i = 0; i < 15; i++)
         printf("%s=%d (%+d) ", core_expansion_resource_key(i), s.resources[i], s.resource_delta[i]);
     puts("");
     (void)core_copy_buildings(world, buildings, 4096, &n);
     for (i = 0; i < n; i++)
-        printf("b=%d type=%d x=%d y=%d worker=%d/%d active=%d labor=%d pending=%d\n", buildings[i].id,
+        printf("b=%d type=%d x=%d y=%d worker=%d/%d active=%d labor=%d pending=%d door=%d,%d road=%d connected=%d\n", buildings[i].id,
                buildings[i].type, buildings[i].x, buildings[i].y, buildings[i].workers,
                buildings[i].worker_slots, buildings[i].state, buildings[i].crop_labor_milli,
-               buildings[i].pending_harvest_milli);
+               buildings[i].pending_harvest_milli, buildings[i].door_x, buildings[i].door_y,
+               world->grid.road[grid_index(&world->grid, buildings[i].door_x, buildings[i].door_y)],
+               world->expansion->connected[grid_index(&world->grid, buildings[i].door_x, buildings[i].door_y)]);
     (void)core_copy_villagers(world, villagers, 512, &n);
     for (i = 0; i < n; i++)
         printf("v=%d mood=%d health=%d hunger=%d home=%d job=%d state=%d at=%d inside=%d target=%d,%d\n",
@@ -44,7 +50,7 @@ static void print_summary(CoreWorld *world) {
         (void)core_copy_buildings(world, buildings, 4096, &n);
         if (terrain && core_copy_terrain(world, terrain, s.map_width * s.map_height) == CORE_OK &&
             bot_fortification_plan(terrain, s.map_width, s.map_height, s.keep_x, s.keep_y, &plan))
-            for (r = 0; r < 2; r++)
+            for (r = 0; r < 4; r++)
                 if (plan.valid[r]) {
                     printf("ring=%d bounds=%d,%d..%d,%d\n", r, plan.bounds[r][0], plan.bounds[r][1],
                            plan.bounds[r][2], plan.bounds[r][3]);
@@ -130,7 +136,10 @@ int main(int argc, char **argv) {
             for (i = 0; i < seeds; i++) {
                 GameSession *s = (GameSession *)calloc(1, sizeof(*s));
                 char path[GAME_PATH_BYTES], save[GAME_PATH_BYTES];
-                FILE *csv;
+                FILE *csv, *eventcsv;
+                MetricContext context = {0};
+                int logged_day = 0;
+                clock_t metric_started = clock();
                 int tick, last_day = 0, rc, first_protection = 0, peak_area = 0, peak_protected = 0;
                 uint64_t before = 0, after = 0;
                 if (!s) {
@@ -151,9 +160,23 @@ int main(int argc, char **argv) {
                     failures++;
                     continue;
                 }
-                fputs("day,population,mood,rank,roads,area,protected,food,gold,logs,wood,stone,research,"
-                      "outcome\n",
-                      csv);
+                snprintf(path, sizeof(path), "%s/d%d_seed%d.events.csv", out, d, first_seed + i);
+                eventcsv = platform_fopen_utf8(path, "wb");
+                context.events = eventcsv;
+                context.world = s->world;
+                if (!metric_open_details(&context, out, d, first_seed + i))
+                    failures++;
+                s->on_event = metric_event;
+                s->event_context = &context;
+                if (eventcsv)
+                    fputs("day,tick,event,entity,a,b,immigration_reasons,immigration_status,promotion_reason,"
+                          "arrivals,hub_visits,manor_visits,saved_travel_ticks,food_rate_bp,food_pressure_bp,"
+                          "no_progress_n_days,spawn_attempts,spawn_capacity_rejected,spawn_tile_rejected,"
+                          "spawn_species_rejected\n",
+                          eventcsv);
+                else
+                    failures++;
+                metric_header(csv);
                 for (tick = 0; tick < days * 144 && s->summary.outcome != CORE_OUTCOME_LOST; tick++) {
                     if (last_day != s->summary.day) {
                         CoreSummaryView *p = &s->summary;
@@ -168,10 +191,6 @@ int main(int argc, char **argv) {
                             peak_protected = p->protected_population;
                         if (!first_protection && p->protected_area >= 25 && p->protected_population > 0)
                             first_protection = p->day;
-                        fprintf(csv, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", p->day, p->population,
-                                p->average_mood, p->rank, p->valid_roads, p->protected_area,
-                                p->protected_population, p->resources[2], p->resources[0], p->resources[6],
-                                p->resources[3], p->resources[4], p->research_done, p->outcome);
                         if (sim_expansion_bot_daily(s->world) != CORE_OK) {
                             failures++;
                             break;
@@ -182,7 +201,16 @@ int main(int argc, char **argv) {
                         failures++;
                         break;
                     }
-                    /* 아침의 낮은 기분만 보지 않고 하루 중 충족한 승급을 실행합니다. */
+                    if (s->summary.minute_of_day >= 360 && logged_day != s->summary.day) {
+                        clock_t now = clock();
+                        metric_row(csv, s->world, (now - metric_started) * 1000.0 / CLOCKS_PER_SEC);
+                        metric_started = now;
+                        logged_day = s->summary.day;
+                        CoreEventView checkpoint = {0};
+                        checkpoint.type = -1;
+                        metric_event(&context, &checkpoint);
+                    }
+                    /* 하루 중 충족한 장기 행복도와 보호구역 조건으로 승급합니다. */
                     if (s->summary.rank_ready) {
                         int32_t why = 0;
                         if (core_rank_up(s->world, &why) == CORE_OK && game_session_refresh(s) != CORE_OK) {
@@ -192,6 +220,11 @@ int main(int argc, char **argv) {
                     }
                 }
                 fclose(csv);
+                if (eventcsv)
+                    fclose(eventcsv);
+                metric_close_details(&context);
+                s->on_event = NULL;
+                s->event_context = NULL;
                 (void)snprintf(save, sizeof(save), "%s/d%d_seed%d.sav", out, d, first_seed + i);
                 if (!s->raid_id) {
                     if (core_state_hash(s->world, &before) != CORE_OK ||

@@ -13,7 +13,7 @@
 
 typedef struct Options {
     const char *data,*assets,*save_dir,*screenshot,*screen;
-    int seed,difficulty,days,smoke,stress,probe,frames,no_audio,width,height,autoplay;
+    int seed, difficulty, days, smoke, stress, probe, frames, no_audio, width, height, autoplay, wildlife;
 } Options;
 static int number(const char *text,int min,int max,int *out)
 {
@@ -26,13 +26,21 @@ static void help(void)
     puts("Magic Castle - C / raylib\ncastle_game [--data dir] [--assets dir] [--save-dir dir]\n"
          "  --smoke-test [--days 20] [--seed 42]  C runtime test without a window\n"
          "  --stress | --stress-probe              150 villagers + 40 enemies\n"
-         "  --screenshot file.png [--screen title|game|villagers|rotations|connections|research|rank|market|load]\n"
+         "  --screenshot file.png [--screen title|game|villagers|population|rotations|connections|research|rank|market|load]\n"
          "  --frames N --autoplay --no-audio --width 1440 --height 900\n"
          "  --difficulty peaceful|normal|harsh (or 0|1|2)");
 }
 static int options(int argc,char **argv,Options *o)
 {
-    int i; memset(o,0,sizeof(*o)); o->seed=42; o->difficulty=1; o->days=20; o->width=1440; o->height=900; o->screen="title";
+    int i;
+    memset(o, 0, sizeof(*o));
+    o->seed = 42;
+    o->difficulty = 1;
+    o->days = 20;
+    o->width = 1440;
+    o->height = 900;
+    o->screen = "title";
+    o->wildlife = 180;
     for (i=1;i<argc;i++) {
         const char *arg=argv[i];
         if (!strcmp(arg,"--smoke-test") || !strcmp(arg,"--headless")) { o->smoke=1; continue; }
@@ -46,20 +54,34 @@ static int options(int argc,char **argv,Options *o)
         else if (!strcmp(arg,"--save-dir")) o->save_dir=argv[++i];
         else if (!strcmp(arg,"--screenshot")) o->screenshot=argv[++i];
         else if (!strcmp(arg,"--screen")) o->screen=argv[++i];
-        else if (!strcmp(arg,"--seed")) { if (!number(argv[++i],0,INT_MAX,&o->seed)) return 0; }
-        else if (!strcmp(arg,"--days")) { if (!number(argv[++i],1,10000,&o->days)) return 0; }
-        else if (!strcmp(arg,"--frames")) { if (!number(argv[++i],1,1000000,&o->frames)) return 0; }
-        else if (!strcmp(arg,"--width")) { if (!number(argv[++i],1024,3840,&o->width)) return 0; }
-        else if (!strcmp(arg,"--height")) { if (!number(argv[++i],720,2160,&o->height)) return 0; }
-        else if (!strcmp(arg,"--difficulty")) {
+        else if (!strcmp(arg, "--seed")) {
+            if (!number(argv[++i], 0, INT_MAX, &o->seed))
+                return 0;
+        } else if (!strcmp(arg, "--days")) {
+            if (!number(argv[++i], 1, 10000, &o->days))
+                return 0;
+        } else if (!strcmp(arg, "--frames")) {
+            if (!number(argv[++i], 1, 1000000, &o->frames))
+                return 0;
+        } else if (!strcmp(arg, "--stress-animals")) {
+            if (!number(argv[++i], 180, 300, &o->wildlife) || (o->wildlife != 180 && o->wildlife != 300))
+                return 0;
+        } else if (!strcmp(arg, "--width")) {
+            if (!number(argv[++i], 1024, 3840, &o->width))
+                return 0;
+        } else if (!strcmp(arg, "--height")) {
+            if (!number(argv[++i], 720, 2160, &o->height))
+                return 0;
+        } else if (!strcmp(arg, "--difficulty")) {
             const char *d=argv[++i];
             if (!strcmp(d,"peaceful")) o->difficulty=0;
             else if (!strcmp(d,"normal")) o->difficulty=1;
             else if (!strcmp(d,"harsh")) o->difficulty=2;
             else if (!number(d,0,2,&o->difficulty)) return 0;
-        } else return 0;
+        } else
+            return 0;
     }
-    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"rotations") && strcmp(o->screen,"connections") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load")) return 0;
+    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"population") && strcmp(o->screen,"rotations") && strcmp(o->screen,"connections") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load")) return 0;
     return 1;
 }
 void game_app_notice(GameApp *a,const char *text)
@@ -255,14 +277,21 @@ static void screenshot_screen(GameApp *a,const Options *o)
     }
     a->speed=0;
     if (!strcmp(o->screen,"research")) a->panel=PANEL_RESEARCH;
+    else if (!strcmp(o->screen,"population")) a->panel=PANEL_VILLAGERS;
     else if (!strcmp(o->screen,"rank")) a->panel=PANEL_RANK;
     else if (!strcmp(o->screen,"market")) a->panel=PANEL_MARKET;
     else if (!strcmp(o->screen,"load")) a->panel=PANEL_LOAD;
+}
+static int compare_double(const void *left, const void *right) {
+    double a = *(const double *)left, b = *(const double *)right;
+    return (a > b) - (a < b);
 }
 static int run(int argc,char **argv)
 {
     Options o; GameApp *a; char exe[GAME_PATH_BYTES],data[GAME_PATH_BYTES],assets[GAME_PATH_BYTES];
     int status=0,frame=0,last_bot_day=-1; double frame_total=0,frame_max=0;
+    double samples[600], sim_total = 0, render_total = 0;
+    int measured = 0, min_villagers = 100000, min_enemies = 100000, min_wild = 100000;
     if (argc>1 && (!strcmp(argv[1],"--help") || !strcmp(argv[1],"-h"))) { help(); return 0; }
     if (!options(argc,argv,&o)) { help(); return 2; }
     if (!game_executable_directory(exe,sizeof(exe),argv[0]) || !game_join_path(data,sizeof(data),exe,"data") || !game_join_path(assets,sizeof(assets),exe,"assets")) return 1;
@@ -274,7 +303,11 @@ static int run(int argc,char **argv)
     if (o.save_dir) {
         if (strlen(o.save_dir)>=sizeof(a->save_dir)) { free(a); return 2; }
         strcpy(a->save_dir,o.save_dir);
-    } else if (!game_join_path(a->save_dir,sizeof(a->save_dir),a->automated?exe:a->user_dir,a->automated?"saves_automated":"saves")) { free(a); return 1; }
+    } else if (!game_join_path(a->save_dir, sizeof(a->save_dir), a->automated ? exe : a->user_dir,
+                               a->automated ? "saves_v8_automated" : "saves_v8")) {
+        free(a);
+        return 1;
+    }
     if (!game_join_path(a->settings_path,sizeof(a->settings_path),a->user_dir,"settings.cfg")) { free(a); return 1; }
     status=game_session_init(&a->session,o.data?o.data:data);
     a->session.ruleset=CORE_RULES_EXPANSION;
@@ -283,8 +316,12 @@ static int run(int argc,char **argv)
     game_settings_default(&a->settings);
     if (o.smoke) { status=smoke(a,&o); game_session_free(&a->session); free(a); return status; }
     if (!a->automated) (void)game_settings_load(&a->settings,a->settings_path);
-    SetTraceLogLevel(LOG_WARNING); SetConfigFlags(FLAG_WINDOW_RESIZABLE|FLAG_VSYNC_HINT);
-    InitWindow(o.width,o.height,u8"마법성채 키우기 — C"); SetWindowMinSize(1024,720); SetExitKey(KEY_NULL); SetTargetFPS(60);
+    SetTraceLogLevel(LOG_WARNING);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | (o.probe ? 0 : FLAG_VSYNC_HINT));
+    InitWindow(o.width, o.height, u8"마법성채 키우기 — C");
+    SetWindowMinSize(1024, 720);
+    SetExitKey(KEY_NULL);
+    SetTargetFPS(o.probe ? 0 : 60);
     if (!IsWindowReady() || !game_assets_load(&a->assets,o.assets?o.assets:assets,!o.no_audio)) {
         fprintf(stderr,u8"게임 리소스를 읽지 못했습니다. --assets로 assets 폴더를 지정하세요.\n");
         game_assets_free(&a->assets); if (IsWindowReady()) CloseWindow(); game_session_free(&a->session); free(a); return 1;
@@ -295,15 +332,22 @@ static int run(int argc,char **argv)
     (void)game_session_new(&a->session,u8"바람언덕",42,1); a->panel=PANEL_TITLE;
     if (o.stress || (o.frames && !o.screenshot)) {
         (void)game_app_start(a);
-        if (o.stress) { (void)core_debug_stress(a->session.world,150,o.probe?0:40); (void)game_session_refresh(&a->session); a->camera.zoom=2; }
+        if (o.stress) {
+            (void)core_debug_stress(a->session.world, 150, 40);
+            if (o.wildlife == 300)
+                (void)core_expansion_debug_wildlife(a->session.world, 300);
+            (void)game_session_refresh(&a->session);
+            a->camera.zoom = 2;
+        }
     }
     if (o.screenshot) screenshot_screen(a,&o);
     while (!a->quit) {
-        float delta=fminf(GetFrameTime(),0.1f); int i; unsigned long shots=a->session.shots;
+        double frame_started = GetTime(), sim_ms = 0, render_started = 0, render_ms = 0;
+        float delta = o.probe ? 1.0f / 60 : fminf(GetFrameTime(), 0.1f);
+        int i;
+        unsigned long shots = a->session.shots;
         if (WindowShouldClose()) { if (!a->automated) (void)game_app_save(a,0); break; }
         frame++;
-        if (o.probe && frame==120) { (void)core_debug_stress(a->session.world,150,40); (void)game_session_refresh(&a->session); }
-        if (o.probe && frame>120) { double ms=GetFrameTime()*1000; frame_total+=ms; if (ms>frame_max) frame_max=ms; }
         a->camera.offset=(Vector2){(GetScreenWidth()-350)*0.5f,GetScreenHeight()*0.5f};
         for (i=0;i<a->notice_count;i++) a->notices[i].age+=delta;
         if (a->panel!=PANEL_NONE && a->panel!=PANEL_TITLE && IsKeyPressed(KEY_ESCAPE)) game_app_close(a);
@@ -312,7 +356,9 @@ static int run(int argc,char **argv)
         if(o.autoplay && a->in_game && a->session.summary.rank_ready) {int32_t why=0;(void)core_rank_up(a->session.world,&why);}
         if (a->in_game && a->panel==PANEL_NONE && a->speed>0 && a->session.summary.outcome!=CORE_OUTCOME_LOST) {
             float minutes=a->session.summary.ruleset?delta*a->speed*12.0f:delta*a->speed*1000/a->session.config.real_ms_per_tick*a->session.config.minutes_per_tick;
+            double sim_started = GetTime();
             status=game_session_step(&a->session,minutes);
+            sim_ms = (GetTime() - sim_started) * 1000;
             if (status!=CORE_OK && status!=CORE_ERR_REJECTED) { game_app_result(a,status,0,0); a->speed=0; }
             if (!a->automated && !a->stress && a->session.summary.day!=a->autosave_day) {
                 a->autosave_day=a->session.summary.day; (void)game_app_save(a,0);
@@ -324,19 +370,56 @@ static int run(int argc,char **argv)
             a->shown_outcome=a->session.summary.outcome; game_app_open(a,PANEL_OUTCOME);
         }
         ui_begin(&a->ui,&a->assets,a->settings.ui_scale==2?24.0f:20.0f,a->settings.sfx_volume);
+        render_started = GetTime();
         BeginDrawing(); ClearBackground(UI_BG);
         if (o.screenshot && !strcmp(o.screen,"villagers")) game_render_villager_preview(a);
         else if (o.screenshot && !strcmp(o.screen,"rotations")) game_render_rotation_preview(a);
         else if (o.screenshot && !strcmp(o.screen,"connections")) game_render_connection_preview(a);
         else { game_render_world(a); game_render_interface(a); }
         EndDrawing();
+        render_ms = (GetTime() - render_started) * 1000;
         /* 일시정지 중의 명령도 다음 프레임 전에 스냅숏에 반영합니다. */
         if (game_session_refresh(&a->session)!=CORE_OK) { status=1; break; }
         game_session_events(&a->session);
+        if (o.probe && frame > 120 && measured < 600) {
+            double ms = (GetTime() - frame_started) * 1000;
+            samples[measured++] = ms;
+            frame_total += ms;
+            sim_total += sim_ms;
+            render_total += render_ms;
+            if (ms > frame_max)
+                frame_max = ms;
+            if (a->session.villager_count < min_villagers)
+                min_villagers = a->session.villager_count;
+            int active_enemies = 0;
+            for (int n = 0; n < a->session.enemy_count; n++)
+                active_enemies += a->session.enemies[n].hp > 0;
+            if (active_enemies < min_enemies)
+                min_enemies = active_enemies;
+            if (a->session.summary.wild_count < min_wild)
+                min_wild = a->session.summary.wild_count;
+        }
         if (o.screenshot && frame==4) { status=game_screenshot(o.screenshot)?0:1; break; }
         if (o.frames && frame>=o.frames) break;
     }
-    if (o.probe) printf("STRESS: frames=%d avg_ms=%.3f max_ms=%.3f villagers=%d enemies=%d\n",frame-120,frame>120?frame_total/(frame-120):0,frame_max,a->session.villager_count,a->session.enemy_count);
+    if (o.probe) {
+        qsort(samples, (size_t)measured, sizeof(double), compare_double);
+        double avg = measured ? frame_total / measured : 0,
+               p95 = measured ? samples[(measured - 1) * 95 / 100] : 0,
+               p99 = measured ? samples[(measured - 1) * 99 / 100] : 0;
+        int conditions =
+            measured == 600 && min_villagers >= 150 && min_enemies >= 40 && min_wild >= o.wildlife;
+        int passed = conditions && (o.wildlife == 300 || (avg <= 16.67 && p95 <= 20 && p99 <= 33.3));
+        printf("STRESS: warmup=120 frames=%d avg_ms=%.3f p95_ms=%.3f p99_ms=%.3f max_ms=%.3f sim_ms=%.3f "
+               "render_ms=%.3f min_villagers=%d min_enemies=%d min_wild=%d livestock=%d mode=%s "
+               "conditions=%d passed=%d\n",
+               measured, avg, p95, p99, frame_max, measured ? sim_total / measured : 0,
+               measured ? render_total / measured : 0, min_villagers, min_enemies, min_wild,
+               a->session.summary.animal_count - a->session.summary.wild_count,
+               o.wildlife == 300 ? "debug300" : "normal180", conditions, passed);
+        if (!passed)
+            status = 1;
+    }
     if (!a->automated) { (void)game_make_dirs(a->user_dir); (void)game_settings_save(&a->settings,a->settings_path); }
     game_render_free(a); game_assets_free(&a->assets); CloseWindow(); game_session_free(&a->session); free(a);
     return status<0?1:status;

@@ -66,9 +66,9 @@ void test_api_struct_sizes_and_config(void)
     CHECK_EQ(sizes.summary_view, (int32_t)sizeof(CoreSummaryView));
     CHECK_EQ(sizes.event_view, 20 + 48);
     /* 외부 호출자 에서 같은 크기가 나와야 하는 값: int 55개 + 자원·한도·변화 6개씩 + 이름 48바이트 */
-    CHECK_EQ(sizes.summary_view, (55+3*CORE_RES_COUNT+12)*4+48);
+    CHECK_EQ(sizes.summary_view, (55 + 3 * CORE_RES_COUNT + 23) * 4 + 48);
     CHECK_EQ(sizes.config_view, 17 * 4);
-    CHECK_EQ(sizes.villager_view, 57*4+48);
+    CHECK_EQ(sizes.villager_view, 65 * 4 + 48);
     CHECK_EQ(sizes.building_view, 31*4);
     CHECK_EQ(sizes.building_def_view, 44*4+72);
     CHECK_EQ(sizes.trait_def_view, 6 * 4 + 24);

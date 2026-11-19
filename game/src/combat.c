@@ -76,7 +76,7 @@ static int guard(const CoreVillagerView *v) {
     return v->state == CORE_VS_GUARD_POST && v->at_target && v->health > 0;
 }
 static int exposed(const GameSession *s,const CoreVillagerView *v) {
-    return v->health > 0 && !v->inside_building && v->state != CORE_VS_LEAVING &&
+    return v->health > 0 && !v->inside_building && !v->incoming && v->state != CORE_VS_LEAVING &&
            (s->summary.ruleset || !(v->state == CORE_VS_FLEE && v->at_target));
 }
 static GamePoint center(const CoreBuildingView *b) {
@@ -199,7 +199,10 @@ static CoreAnimalView *nearest_animal(GameSession *s, GamePoint position, float 
         CoreAnimalView *a = &s->animals[i];
         int x = a->x_milli / 1000, y = a->y_milli / 1000;
         float distance;
-        if (!a->alive || a->owner || a->kind < 11 || s->visibility[y * s->summary.map_width + x] < 2)
+        CoreAnimalInfo info;
+        core_expansion_animal_info(a->kind, &info);
+        if (!a->alive || a->owner || (info.behavior != 2 && !a->retaliate_id) ||
+            s->visibility[y * s->summary.map_width + x] < 2)
             continue;
         distance = game_distance(position, (GamePoint){a->x_milli / 1000.0f, a->y_milli / 1000.0f});
         if (distance < range) {

@@ -10,4 +10,9 @@ art/TOPOLOGY_ANIMATION_PROMPTS.md
 배경 보정 기록: art/expansion/ALPHA_REPAIR.md
 패킹: tools/pack_expansion_art.c
 
+v1.1.1 추가 원본: art/v111 (수목, 영주관, 동물 걷기/수영/공격, 지면, 도로 7장)
+추가 프롬프트: art/V111_PROMPTS.md
+추가 패킹: tools/pack_v111_art.c
+이 추가 원화와 패킹 결과도 프로젝트가 보유하는 권리를 CC0 1.0 Universal로 헌정합니다.
+
 사용자가 첨부한 참고 그림은 이 배포물에 포함하지 않았습니다.

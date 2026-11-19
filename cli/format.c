@@ -9,7 +9,9 @@
 
 static const char *const SEASON_NAMES[CORE_SEASON_COUNT] = {u8"봄", u8"여름", u8"가을", u8"겨울"};
 static const char *const DIFFICULTY_NAMES[CORE_DIFF_COUNT] = {u8"평화", u8"보통", u8"혹독"};
-static const char *const RESOURCE_NAMES[CORE_RES_COUNT] = {u8"금화",u8"마정석",u8"식량",u8"목재",u8"석재",u8"약초",u8"원목",u8"점토",u8"벽돌",u8"철광석",u8"석탄",u8"철괴",u8"금광석",u8"금괴",u8"가죽"};
+static const char *const RESOURCE_NAMES[CORE_RES_COUNT] = {
+    u8"금화", u8"마정석", u8"식량", u8"목재", u8"돌",     u8"약초", u8"원목", u8"점토",
+    u8"벽돌", u8"철광석", u8"석탄", u8"철괴", u8"금광석", u8"금괴", u8"가죽"};
 static const char *const TERRAIN_NAMES[CORE_TERRAIN_COUNT] = {u8"풀밭", u8"숲", u8"바위", u8"물", u8"마정석 광맥"};
 static const char *const WEATHER_NAMES[CORE_WEATHER_COUNT] = {u8"맑음", u8"비", u8"눈", u8"폭풍"};
 static const char *const NATURE_NAMES[CORE_NATURE_COUNT] = {u8"없음", u8"가뭄", u8"역병", u8"폭풍", u8"혹한", u8"풍년"};
@@ -29,7 +31,7 @@ static const char *const DENY_REASONS[CORE_DENY_COUNT] = {
     u8"수리 비용이 모자랍니다",
     u8"습격 중입니다",
     u8"이미 가장 높은 등급입니다",
-    u8"승급 조건(인구·기분·방어·연구)이 모자랍니다",
+    u8"승급 조건(인구·행복도·방어·연구)이 모자랍니다",
     u8"마정석이 모자랍니다",
     u8"이미 다른 연구를 하는 중입니다",
     u8"이미 끝낸 연구입니다",
@@ -61,8 +63,8 @@ static const char *const EFFECT_TEXTS[CORE_EFFECT_COUNT][3] = {
     {u8"앓는 시간", "-", "%"},           {u8"집 한 채의 난방 목재", "-", ""}, {u8"습격 때 건물 피해", "-", "%"}};
 
 static const char *const BUILDING_NAMES[CORE_BLD_COUNT] = {
-    u8"성채", u8"주택", u8"농장", u8"채집 오두막", u8"벌목장", u8"채석장", u8"마정석 광산", u8"창고",
-    u8"시장", u8"병영", u8"감시탑", u8"성벽", u8"성문", u8"치료소", u8"마탑", u8"도로"};
+    u8"영주관", u8"주택", u8"농장",   u8"채집 오두막", u8"벌목장", u8"채석장", u8"마정석 광산", u8"창고",
+    u8"시장",   u8"병영", u8"감시탑", u8"성벽",        u8"성문",   u8"치료소", u8"마탑",        u8"도로"};
 
 static const char *const PLACE_RESULTS[CORE_PLACE_COUNT] = {
     u8"지을 수 있습니다", u8"지을 수 없는 종류입니다", u8"지도 밖입니다", u8"지도 가장자리에 너무 가깝습니다",
@@ -249,7 +251,8 @@ const char *fmt_result_message(int32_t code)
     case CORE_ERR_FORMAT:
         return u8"세이브 파일이 손상되었습니다.";
     case CORE_ERR_VERSION:
-        return u8"다른 버전의 세이브 파일입니다.";
+        return u8"다른 버전의 저장입니다. v1.1.1은 영주관 4×4·생태계 변경으로 저장 v8부터 지원합니다. 원본은 "
+               u8"보존됩니다.";
     case CORE_ERR_REJECTED:
         return u8"규칙상 할 수 없습니다.";
     case CORE_ERR_NOT_FOUND:

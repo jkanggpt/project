@@ -2,6 +2,7 @@
  * debug.c — 성능 측정용 큰 마을 (설명은 debug.h)
  */
 #include "debug.h"
+#include "expansion.h"
 
 #include "economy.h"
 #include "entity.h"
@@ -60,6 +61,8 @@ static int32_t build_ring(World *world, int32_t type, int32_t count)
 
 int debug_stress(World *world, int32_t villagers, int32_t enemies)
 {
+    if (world->expansion)
+        return expansion_debug_town(world, villagers, enemies);
     int32_t houses;
     int32_t farms;
     Building *keep = world_keep(world);

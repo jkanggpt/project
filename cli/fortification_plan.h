@@ -3,8 +3,8 @@
 #define CASTLE_FORTIFICATION_PLAN_H
 #include <stdint.h>
 typedef struct BotFortificationPlan {
-    int bounds[2][4];
-    int valid[2];
+    int bounds[4][4];
+    int valid[4];
 } BotFortificationPlan;
 int bot_fortification_plan(const uint8_t *terrain, int width, int height, int cx, int cy,
                            BotFortificationPlan *out);

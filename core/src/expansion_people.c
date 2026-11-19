@@ -65,7 +65,11 @@ void expansion_initialize_villager(World *w, Villager *v) {
     v->visit_day = 0;
     v->current_x_milli = v->loc_x * 1000 + 500;
     v->current_y_milli = v->loc_y * 1000 + 500;
-    v->mood = w->difficulty == 0 ? 50 : w->difficulty == 1 ? 42 : 34;
+    v->mood = 0;
+    v->long_needs[0] = v->needs.hunger * 1000;
+    v->long_needs[1] = v->needs.rest * 1000;
+    v->long_needs[2] = v->needs.safety * 1000;
+    v->happiness = expansion_mood(w, v);
 }
 static int skill_bonus(int minutes) {
     static const int ends[4] = {0, 8 * 540, 30 * 540, 75 * 540}, bonus[4] = {0, 20, 50, 100};
@@ -90,7 +94,7 @@ int expansion_work_percent(const World *w, const Villager *v, int type) {
     for (i = 0; i < 2; i++)
         if (v->traits[i] >= 0 && v->traits[i] < w->defs.trait_count)
             traits += w->defs.traits[v->traits[i]].work_pct;
-    result = (int)((int64_t)weighted * (100 + skill_bonus(v->skill_minutes[field])) * (50 + v->mood) *
+    result = (int)((int64_t)weighted * (100 + skill_bonus(v->skill_minutes[field])) * (50 + v->happiness) *
                    exp_clamp(traits, 20, 200) * exp_clamp(v->health, 25, 100) / 100000000000LL);
     if ((field == 1 || field == 2) && expansion_has_research(w, 1))
         result = result * 110 / 100;
@@ -232,15 +236,21 @@ int expansion_available_housing(World *w) {
 }
 int expansion_mood(const World *w, const Villager *v) {
     int value = w->difficulty == 0 ? 31 : w->difficulty == 1 ? 23 : 15, i, commute = 0, traits = 0;
-    value += exp_clamp((v->needs.hunger - 50) * 30 / 100, -15, 12) +
-             exp_clamp((v->needs.rest - 50) * 23 / 100, -12, 10) +
-             exp_clamp((v->needs.safety - 50) / 5, -10, 10);
+    int h = v->long_needs[0], r = v->long_needs[1], s = v->long_needs[2];
+    int mood = exp_clamp(v->mood, -200, 200), absolute = abs(mood);
+    int fraction =
+        exp_clamp(12000 - 15 * (100000 - h) / 100 - (h < 40000 ? (40000 - h) / 2 : 0), -25000, 12000);
+    fraction +=
+        exp_clamp(10000 - 12 * (100000 - r) / 100 - (r < 30000 ? 35 * (30000 - r) / 100 : 0), -14000, 10000);
+    fraction += exp_clamp(10000 - 14 * (100000 - s) / 100, -4000, 10000);
+    fraction += (mood < 0 ? -1 : 1) * (30 * absolute + 3 * absolute * absolute / 4);
+    value += (fraction + (fraction >= 0 ? 500 : -500)) / 1000;
     value += v->home ? expansion_spec(v->home->type)->housing_mood : -18;
     value += well_near(w, v) ? 6 : -12;
     value += v->flags & CORE_VF_UNPAID ? -15 : v->workplace ? 5 : -3;
     value += (int[]){0, 5, 0, -6, -13}[w->expansion->tax];
-    if (v->culture_until >= exp_day(w))
-        value += v->culture_bonus;
+    if (v->home && w->expansion->protected_cells[grid_index(&w->grid, v->home->x, v->home->y)])
+        value += 4;
     value += v->hygiene >= 60   ? (v->hygiene - 60) * 6 / 40
              : v->hygiene >= 35 ? 0
                                 : -5 - (35 - v->hygiene) / 5;
@@ -249,8 +259,7 @@ int expansion_mood(const World *w, const Villager *v) {
     value -= commute >= 50 ? 8 : commute >= 35 ? 5 : commute >= 20 ? 2 : 0;
     if (v->sick_ticks || (v->home && (v->home->flags & CORE_BF_COLD)))
         value -= 12;
-    if (w->mourning > 0)
-        value -= exp_clamp(w->mourning, 3, 12);
+
     if (w->expansion->disaster_day > 0 && exp_day(w) < w->expansion->disaster_day + 5)
         value -= 3;
     for (i = 0; i < 2; i++)
@@ -362,11 +371,28 @@ void expansion_people_tick(World *w) {
     for (i = w->villager_count - 1; i >= 0; i--) {
         Villager *v = w->villagers[i];
         Building *job = v->workplace;
+        if (v->health >= 30)
+            v->critical = 0;
         if (v->state == CORE_VS_LEAVING) {
-            if (v->contract_end_tick && w->clock.tick >= v->contract_end_tick && v->at_target)
-                population_remove_departed(w, v);
-            continue;
+            if (!v->contract_end_tick && !expansion_departure_allowed(w, v, 1)) {
+                v->low_mood_ticks = 0;
+                to_building(w, v, CORE_VS_IDLE, v->home, keep);
+                w->expansion->dirty = 1;
+            } else {
+                if (v->at_target && (!v->contract_end_tick || w->clock.tick >= v->contract_end_tick))
+                    population_remove_departed(w, v);
+                continue;
+            }
         }
+        if (v->incoming) {
+            to_building(w, v, CORE_VS_IDLE, keep, keep);
+            if (!v->at_target)
+                continue;
+            expansion_arrival_join(w, v);
+        }
+        expansion_wellbeing_sample(w, v);
+        if (!v->at_target)
+            w->expansion->travel_minutes += 10;
         if (v->contract_end_tick &&
             (w->clock.tick >= v->contract_end_tick ||
              (v->contract_end_tick - w->clock.tick) * vil_walk_speed(w, v) <=
@@ -396,8 +422,6 @@ void expansion_people_tick(World *w) {
             int safe = expansion_person_protected(w, v);
             int desired = safe ? 100 : w->expansion->alarm ? 30 : v->inside_building ? 75 : 60;
             v->needs.safety += exp_clamp(desired - v->needs.safety, -4, safe ? 8 : 3);
-            int target = expansion_mood(w, v);
-            v->mood += exp_clamp(target - v->mood, -2, 2);
             v->needs.hunger = exp_clamp(v->needs.hunger - 3, 0, 100);
             v->needs.rest = exp_clamp(v->needs.rest - 2, 0, 100);
         }
@@ -459,15 +483,21 @@ void expansion_people_tick(World *w) {
             }
         }
         if (v->meal_day < exp_day(w) || v->needs.hunger < 25) {
-            to_building(w, v, CORE_VS_EAT, keep, keep);
+            Building *hub = expansion_hub(w, v, 1, NULL);
+            to_building(w, v, CORE_VS_EAT, hub ? hub : keep, keep);
             if (v->at_target && expansion_bank_have(w, CORE_RES_FOOD) >= 1200) {
                 (void)expansion_bank_add(w, CORE_RES_FOOD, -1200, CORE_LEDGER_CONSUMPTION);
                 v->needs.hunger = 100;
                 v->meal_day = exp_day(w);
+                if (hub && hub->type != CORE_BLD_KEEP)
+                    w->expansion->hub_visits++;
+                else
+                    w->expansion->manor_visits++;
+                v->hub_revision = -1;
                 if (well_near(w, v))
                     v->water = 100;
             }
-            if (v->meal_day < exp_day(w) && minute < 480)
+            if (v->meal_day < exp_day(w) && (minute < 480 || expansion_bank_have(w, CORE_RES_FOOD) >= 1200))
                 continue;
         }
         if (minute < 480 && v->water_building) {
@@ -484,6 +514,23 @@ void expansion_people_tick(World *w) {
             }
         }
         if (minute >= 480 && minute < 1020 && job && job->state == CORE_BSTATE_ACTIVE) {
+            int input = 0;
+            for (j = 0; j < CORE_RES_COUNT; j++)
+                input |= expansion_spec(job->type)->input[j] > 0;
+            if (input && v->hub_day != exp_day(w)) {
+                Building *hub = expansion_hub(w, v, 0, job);
+                if (hub) {
+                    to_building(w, v, CORE_VS_GO_WORK, hub, keep);
+                    if (!v->at_target)
+                        continue;
+                    v->hub_day = exp_day(w);
+                    v->hub_revision = -1;
+                    if (hub->type == CORE_BLD_KEEP)
+                        w->expansion->manor_visits++;
+                    else
+                        w->expansion->hub_visits++;
+                }
+            }
             if (job->type == CORE_BLD_BARRACKS) {
                 to_building(w, v, CORE_VS_GUARD_POST, job, keep);
                 if (v->at_target) {
@@ -498,6 +545,8 @@ void expansion_people_tick(World *w) {
                 int effective = expansion_work_percent(w, v, job->type) * 100;
                 v->state = CORE_VS_WORKING;
                 if (expansion_qualified(w, job)) {
+                    if (expansion_spec(job->type)->field == 0)
+                        w->expansion->farm_minutes += 10;
                     job->daily_work_milli += effective;
                     if (exp_season(w) < 2 && (job->type == CORE_BLD_CROPLAND || job->type == CORE_BLD_FARM ||
                                               job->type == CORE_BLD_IRRIGATED_FARM)) {
@@ -533,32 +582,59 @@ void expansion_people_tick(World *w) {
                 if (v->at_target) {
                     v->visit_day = exp_day(w);
                     service->visits_today++;
-                    if (service->type == CORE_BLD_BATHHOUSE)
+                    if (service->type == CORE_BLD_BATHHOUSE) {
                         v->hygiene = 100;
-                    else if (service->type == CORE_BLD_SCHOOL || service->type == CORE_BLD_LIBRARY ||
-                             service->type == CORE_BLD_ACADEMY)
+                        if (exp_day(w) >= v->leisure_days[1]) {
+                            v->mood = exp_clamp(v->mood + 10, -200, 200);
+                            v->leisure_days[1] = exp_day(w) + 2;
+                            v->mood_cause = 7;
+                        }
+                    } else if (service->type == CORE_BLD_SCHOOL || service->type == CORE_BLD_LIBRARY ||
+                               service->type == CORE_BLD_ACADEMY)
                         expansion_add_xp(v, 4,
                                          (service->type == CORE_BLD_SCHOOL    ? 2
                                           : service->type == CORE_BLD_LIBRARY ? 1
                                                                               : 3) *
                                              1000);
                     else {
-                        v->culture_bonus = service->type == CORE_BLD_TAVERN   ? 6
-                                           : service->type == CORE_BLD_CHURCH ? 7
-                                                                              : 10;
-                        v->culture_until = exp_day(w) + 2;
+                        int index = service->type == CORE_BLD_TAVERN   ? 0
+                                    : service->type == CORE_BLD_CHURCH ? 3
+                                                                       : 2;
+                        if (exp_day(w) >= v->leisure_days[index]) {
+                            v->mood = exp_clamp(v->mood + (index == 0   ? 12
+                                                           : index == 3 ? 14
+                                                                        : 20),
+                                                -200, 200);
+                            v->leisure_days[index] = exp_day(w) + 2;
+                            v->mood_cause = 6 + index;
+                        }
                     }
                 }
                 continue;
             }
         }
-        to_building(w, v, CORE_VS_IDLE, NULL, keep);
+        to_building(w, v, CORE_VS_IDLE, v->home ? v->home : expansion_hub(w, v, 0, NULL), keep);
     }
 }
-static int immigrate(World *w, int count) {
+void expansion_arrival_join(World *w, Villager *v) {
+    ExpansionState *e = w->expansion;
+    if (!v->incoming)
+        return;
+    v->incoming = 0;
+    events_push_villager(&w->events, CORE_EVT_IMMIGRANT, v->id, 0, 0, v->name);
+    if (!v->contract_end_tick && e->pending_arrivals > 0 && --e->pending_arrivals == 0) {
+        e->last_arrival_day = exp_day(w);
+        e->immigration_day = e->last_arrival_day + 4;
+        e->arrived_today = e->pending_total;
+        e->arrival_type = e->pending_type;
+        if (e->pending_type == 1 && e->starter_waves == 2)
+            e->refill_day = e->last_arrival_day + 3;
+    }
+}
+static int immigrate(World *w, int count, int local) {
     Villager *created[8] = {0};
     int x = 0, y = 0, i;
-    if (!expansion_edge(w, w->keep_x, 0, &x, &y)) {
+    if (local || !expansion_edge(w, w->keep_x, 0, &x, &y)) {
         Building *keep = world_keep(w);
         x = keep->door_x;
         y = keep->door_y;
@@ -575,11 +651,17 @@ static int immigrate(World *w, int count) {
     for (i = 0; i < count; i++) {
         Villager *v = created[i];
         Building *keep = world_keep(w);
+        v->incoming = !local;
         v->intent_flags |= CORE_INTENT_SPAWN_EDGE;
         v->at_target = 0;
         v->target_x = keep->door_x;
         v->target_y = keep->door_y;
-        events_push_villager(&w->events, CORE_EVT_IMMIGRANT, v->id, 0, 0, v->name);
+        if (local)
+            events_push_villager(&w->events, CORE_EVT_IMMIGRANT, v->id, 0, 0, v->name);
+    }
+    if (!local) {
+        w->expansion->pending_arrivals = w->expansion->pending_total = count;
+        w->expansion->pending_type = w->rank ? 3 : 1;
     }
     expansion_assign(w);
     w->expansion->dirty = 1;
@@ -587,7 +669,18 @@ static int immigrate(World *w, int count) {
 }
 void expansion_people_daily(World *w) {
     ExpansionState *e = w->expansion;
-    int i, mood = 0, pop = 0, free_slots = 0, day = exp_day(w), water = 0;
+    int i, pop = expansion_permanent(w), free_slots = 0, day = exp_day(w), water = 0;
+    e->last_travel_minutes = e->travel_minutes;
+    e->travel_minutes = 0;
+    e->last_farm_minutes = e->farm_minutes;
+    e->farm_minutes = 0;
+    e->report_arrivals = e->arrived_today;
+    e->report_arrival_type = e->arrival_type;
+    e->report_departures = e->departures_today;
+    e->report_floor8 = e->blocked_floor8;
+    e->report_deaths = w->stats.villagers_died - e->death_mark;
+    e->death_mark = w->stats.villagers_died;
+    e->arrived_today = e->arrival_type = e->departures_today = e->blocked_floor8 = 0;
     if (w->mourning > 0)
         w->mourning--;
     for (i = 0; i < w->building_count; i++) {
@@ -602,8 +695,6 @@ void expansion_people_daily(World *w) {
         v->water = exp_clamp(v->water - 20, 0, 100);
         if (!v->contract_end_tick) {
             int wage = v->workplace ? w->defs.buildings[v->workplace->type].wage : 0;
-            pop++;
-            mood += v->mood;
             water += well_near(w, v);
             if (v->home)
                 (void)expansion_bank_add(w, CORE_RES_GOLD, e->tax * 1000, CORE_LEDGER_TAXES);
@@ -615,17 +706,19 @@ void expansion_people_daily(World *w) {
             else
                 v->flags &= ~CORE_VF_UNPAID;
         }
+        expansion_wellbeing_daily(w, v);
         if (v->needs.hunger == 0)
             v->health -= 12;
         if (v->health <= 0) {
             population_kill(w, v, CORE_DEATH_STARVATION);
             continue;
         }
-        if (v->mood < 15)
+        if (v->happiness < 15)
             v->low_mood_ticks += 144;
         else
             v->low_mood_ticks = 0;
-        if (v->low_mood_ticks >= 5 * 144 && !v->contract_end_tick) {
+        if (v->low_mood_ticks >= 5 * 144 && !v->contract_end_tick && v->state != CORE_VS_LEAVING &&
+            expansion_departure_allowed(w, v, 1)) {
             int x = 0, y = w->keep_y;
             if (!expansion_edge(w, v->current_x_milli / 1000, v->current_y_milli / 1000, &x, &y))
                 continue;
@@ -638,39 +731,32 @@ void expansion_people_daily(World *w) {
     e->water_served = water;
     expansion_assign(w);
     free_slots = expansion_available_housing(w);
-    if (pop)
-        mood /= pop;
+    (void)free_slots;
+    if (e->pending_arrivals)
+        return;
     if (w->rank == 0) {
-        uint32_t schedule = (uint32_t)w->seed * UINT32_C(2654435761);
-        int due = e->starter_waves == 0 ? 5 + (int)((schedule >> 8) & 3u) : 10 + (int)((schedule >> 14) & 3u);
-        /* 특별 이주는 주거·행복·식량·물·재난과 무관한 확정 이벤트입니다. */
-        if (e->starter_waves < 2 && day >= due && immigrate(w, 2)) {
+        CoreImmigrationView status;
+        core_expansion_immigration(w, &status);
+        if (e->starter_waves < 2 && day >= status.next_day && immigrate(w, 2, 0)) {
             e->starter_waves++;
-            e->immigration_day = day + 7;
+        } else if (e->starter_waves == 2 && day >= e->refill_day) {
+            if (pop < 8 && immigrate(w, 1, 1)) {
+                e->last_arrival_day = day;
+                e->arrived_today = 1;
+                e->arrival_type = 2;
+            }
+            e->refill_day = day + 3;
         }
         return;
     }
-    if (day < e->immigration_day || day < e->disaster_day + 5 || free_slots <= 0 || water < pop)
-        return;
     {
-        static const int moods[6] = {35, 48, 52, 55, 57, 60}, fooddays[6] = {5, 8, 10, 12, 12, 12},
-                         interval[6] = {5, 7, 6, 5, 5, 4};
-        int count = rng_range(&w->rng,
-                              w->rank == 1  ? 2
-                              : w->rank < 4 ? 3
-                                            : 4,
-                              w->rank == 1   ? 3
-                              : w->rank == 2 ? 4
-                              : w->rank == 3 ? 5
-                              : w->rank == 4 ? 6
-                                             : 7);
-        if (mood < moods[w->rank] || expansion_bank_have(w, CORE_RES_FOOD) < pop * 1200 * fooddays[w->rank])
+        CoreImmigrationView status;
+        core_expansion_immigration(w, &status);
+        if (status.reasons || status.maximum <= 0)
             return;
-        if (exp_season(w) == 3)
-            count = (count + 1) / 2;
-        if (count > free_slots)
-            count = free_slots;
-        if (immigrate(w, count))
-            e->immigration_day = day + interval[w->rank];
+        int count = rng_range(&w->rng, status.minimum, status.maximum);
+        if (immigrate(w, count, 0)) {
+            e->pending_type = 3;
+        }
     }
 }

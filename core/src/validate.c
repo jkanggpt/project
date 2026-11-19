@@ -194,7 +194,8 @@ static void check_villager(Checker *checker, const World *world, const Villager 
                         v->needs.safety >= 0 && v->needs.safety <= 100 && v->needs.housing >= 0 &&
                         v->needs.housing <= 100,
            "villager needs out of range");
-    expect(checker, v->mood >= 0 && v->mood <= 100, "villager mood out of range");
+    expect(checker, world->expansion ? v->mood >= -200 && v->mood <= 200 : v->mood >= 0 && v->mood <= 100,
+           "villager mood out of range");
     expect(checker, v->health > 0 && v->health <= 100, "villager health out of range");
     expect(checker, v->state >= 0 && v->state < CORE_VS_COUNT, "villager state invalid");
     expect(checker, grid_in_bounds(&world->grid, v->target_x, v->target_y), "villager target off map");

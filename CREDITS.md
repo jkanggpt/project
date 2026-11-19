@@ -69,3 +69,10 @@ npm 패키지 `galmuri` 에서 받았습니다 (`npm pack galmuri`). 글꼴 파�
 
 `game/assets/expansion`의 방향별 건물 260장·아틀라스 4장·개별 자원 15장은 이 원본을 C 도구로 잘라 만든 파일입니다. 프로젝트가 보유하는 권리는 CC0 1.0으로 헌정합니다. 제작 프롬프트와 투명 배경 보정 기록은 `art/EXPANSION_PROMPTS.md`, `art/EXPANSION_ICONS_PROMPTS.md`, `art/expansion/ALPHA_REPAIR.md`에 있습니다. 참고용 첨부 이미지는 저장소·배포물에 포함하지 않았습니다.
 
+## v1.1.1 그림 (2026-11-19)
+
+`art/v111`의 `trees.png`, `manors.png`, `new_walk.png`, `swim.png`, `attack.png`, `biomes.png`, `roads.png`는 내장 image_gen으로 새로 제작했습니다.
+수목20개·영주관6등급·동물 걷기/수영/공격·온수/냉수와 10생물군계·도로와 연결 타일을 `tools/pack_v111_art.c`로 패킹했습니다.
+기존 동물 걷기 일부는 앞선 프로젝트 생성 원화를 유지했습니다. 프로젝트가 보유하는 권리는 CC0 1.0으로 헌정합니다.
+전문 프롬프트·원본·투명 배경 보정은 `art/V111_PROMPTS.md`에 기록했습니다.
+

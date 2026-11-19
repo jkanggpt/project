@@ -188,8 +188,7 @@ static int fish_request(const World *w, const Building *b, int *water) {
     if (!chosen)
         return 0;
     *water = chosen;
-    desire = port ? exp_clamp(3000 + w->expansion->water_area[chosen - 1] * 120, 0, 15000)
-                  : exp_clamp(counts[chosen - 1] * 250, 0, 5000);
+    desire = port ? 15000 : 5000;
     return desire * labor(w, b) / 1000 * logistics(w, b) / 100;
 }
 static void fishing(World *w) {
@@ -385,7 +384,10 @@ void expansion_daily(World *w) {
                 b->hunts_milli += 4 * factor;
                 while (b->hunts_milli >= 1000) {
                     int roll = rng_range(&w->rng, 0, 99),
-                        swamp = w->expansion->tiles[grid_index(&w->grid, b->x, b->y)].biome == 4,
+                        swamp =
+                            w->expansion->tiles[grid_index(&w->grid, b->x, b->y)].biome ==
+                                CORE_BIOME_WETLAND ||
+                            w->expansion->tiles[grid_index(&w->grid, b->x, b->y)].biome == CORE_BIOME_SWAMP,
                         res = swamp ? (roll < 20   ? CORE_RES_FOOD
                                        : roll < 60 ? CORE_RES_HERBS
                                                    : CORE_RES_CLAY)
@@ -401,16 +403,10 @@ void expansion_daily(World *w) {
                     CoreAnimalView *a = &w->expansion->animals[i];
                     if (a->alive && !a->owner &&
                         exp_dist(a->x_milli / 1000, a->y_milli / 1000, b->x, b->y) <= s->radius) {
-                        static const int meat[16] = {2, 10, 7, 2, 3, 7, 9, 30, 12, 18, 2, 5, 20, 10, 22, 1},
-                                         leather[16] = {0, 2, 2, 0, 1, 2, 3, 6, 3, 3, 0, 2, 6, 4, 5, 0};
-                        if (b->hunts_milli < meat[a->kind] * 1000)
+                        if (b->hunts_milli < EXP_ANIMALS[a->kind].food * 1000)
                             continue;
-                        a->alive = 0;
-                        b->hunts_milli -= meat[a->kind] * 1000;
-                        (void)expansion_bank_add(w, CORE_RES_FOOD, meat[a->kind] * 1000,
-                                                 CORE_LEDGER_PRODUCTION);
-                        (void)expansion_bank_add(w, CORE_RES_LEATHER, leather[a->kind] * 1000,
-                                                 CORE_LEDGER_PRODUCTION);
+                        b->hunts_milli -= EXP_ANIMALS[a->kind].food * 1000;
+                        (void)core_expansion_damage_animal(w, a->id, a->hp);
                     }
                 }
             } else if (b->type != CORE_BLD_FISHING_SPOT && b->type != CORE_BLD_PORT && !s->annual_yield)

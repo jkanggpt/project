@@ -14,6 +14,8 @@ int expansion_allocate(World *w) {
     w->expansion = (ExpansionState *)mem_calloc(1, sizeof(*w->expansion));
     if (!w->expansion)
         return CORE_ERR_OUT_OF_MEMORY;
+    for (int r = 0; r < 30; r++)
+        w->expansion->trade_remainder[r] = 500000;
     w->expansion->tax = 2;
     w->expansion->tax_day = -1;
     w->expansion->dirty = 1;
@@ -46,6 +48,13 @@ int expansion_resize(World *w) {
     if (!e->tiles || !e->visible || !e->static_visible || !e->protected_cells || !e->connected ||
         !e->distance || !e->queue || !e->water_area)
         return CORE_ERR_OUT_OF_MEMORY;
+    e->water_cold = (uint8_t *)mem_calloc(cells, 1);
+    e->region_map = (uint8_t *)mem_calloc(cells, 1);
+    e->route_distance = (int32_t *)mem_calloc(cells, sizeof(int32_t));
+    e->route_heap = (int32_t *)mem_calloc(cells, sizeof(int32_t));
+    e->route_heap_pos = (int32_t *)mem_calloc(cells, sizeof(int32_t));
+    if (!e->water_cold || !e->region_map || !e->route_distance || !e->route_heap || !e->route_heap_pos)
+        return CORE_ERR_OUT_OF_MEMORY;
     e->cells = (int)cells;
     return CORE_OK;
 }
@@ -61,6 +70,11 @@ void expansion_free(World *w) {
     mem_free(e->distance);
     mem_free(e->queue);
     mem_free(e->water_area);
+    mem_free(e->water_cold);
+    mem_free(e->region_map);
+    mem_free(e->route_distance);
+    mem_free(e->route_heap);
+    mem_free(e->route_heap_pos);
     mem_free(e);
     w->expansion = NULL;
 }
@@ -74,7 +88,7 @@ static uint32_t terrain_noise(int x, int y, int seed) {
 }
 static int biome_at(int x, int y, int seed) {
     int xx, yy, best = 0x7fffffff, chosen = 0;
-    static const int thresholds[8] = {24, 44, 58, 72, 81, 87, 92, 100};
+    static const int thresholds[10] = {18, 36, 48, 61, 67, 73, 78, 86, 91, 100};
     for (yy = y / 16 - 1; yy <= y / 16 + 1; yy++)
         for (xx = x / 16 - 1; xx <= x / 16 + 1; xx++) {
             uint32_t n = terrain_noise(xx, yy, seed);
@@ -83,13 +97,20 @@ static int biome_at(int x, int y, int seed) {
             if (d < best) {
                 int k, value = (int)((n >> 16) % 100);
                 best = d;
-                for (k = 0; k < 8; k++)
+                for (k = 0; k < 10; k++)
                     if (value < thresholds[k]) {
                         chosen = k;
                         break;
                     }
             }
         }
+    /* 설원 가장자리 타이가, 건조 지역 가장자리 사바나, 늪은 습지와 물을 잇습니다. */
+    if (chosen == 5 && terrain_noise(x / 5, y / 5, seed + 17) % 5 == 0)
+        chosen = 2;
+    if (chosen == 6 && terrain_noise(x / 7, y / 7, seed + 29) % 4 == 0)
+        chosen = 9;
+    if (chosen == 8 && terrain_noise(x / 6, y / 6, seed + 43) % 3 == 0)
+        chosen = 4;
     return chosen;
 }
 static void set_tree(CoreExpansionTileView *t, int kind, int mature) {
@@ -125,6 +146,26 @@ void expansion_water_bodies(World *w) {
                 }
             }
             e->water_area[id - 1] = tail;
+            memset(w->grid.scratch_mark, 0, (size_t)e->cells);
+            int cold = 0, land = 0;
+            for (int q = 0; q < tail; q++) {
+                int p = e->queue[q], xx, yy;
+                for (yy = p / w->grid.width - 2; yy <= p / w->grid.width + 2; yy++)
+                    for (xx = p % w->grid.width - 2; xx <= p % w->grid.width + 2; xx++) {
+                        int n, b;
+                        if (!grid_in_bounds(&w->grid, xx, yy) ||
+                            exp_dist(xx, yy, p % w->grid.width, p / w->grid.width) > 2)
+                            continue;
+                        n = grid_index(&w->grid, xx, yy);
+                        if (w->grid.terrain[n] == CORE_TERRAIN_WATER || w->grid.scratch_mark[n])
+                            continue;
+                        w->grid.scratch_mark[n] = 1;
+                        land++;
+                        b = e->tiles[n].biome;
+                        cold += b == CORE_BIOME_SNOW ? 2 : b == CORE_BIOME_TAIGA ? 1 : 0;
+                    }
+            }
+            e->water_cold[id - 1] = (uint8_t)(land && cold * 10 >= land * 6);
         }
 }
 int expansion_new_world(World *w) {
@@ -211,27 +252,11 @@ int expansion_new_world(World *w) {
     }
     expansion_capacity(w);
     expansion_rebuild(w);
-    for (i = 0; i < 120; i++) {
-        CoreAnimalView *a = &e->animals[e->animal_count++];
-        int attempts;
-        for (attempts = 0; attempts < 64; attempts++) {
-            x = rng_range(&w->rng, 1, w->grid.width - 2);
-            y = rng_range(&w->rng, 1, w->grid.height - 2);
-            if (w->grid.cost[grid_index(&w->grid, x, y)])
-                break;
-        }
-        a->id = e->next_animal_id++;
-        a->kind = expansion_wild_kind(w, x, y);
-        if (a->kind == 10)
-            a->kind = 0;
-        if (exp_dist(x, y, w->keep_x, w->keep_y) < 12 && a->kind >= 11)
-            a->kind = 1;
-        a->x_milli = x * 1000 + 500;
-        a->y_milli = y * 1000 + 500;
-        a->alive = 1;
-        a->age = 120;
-        a->hp = (int[]){12, 30, 28, 10, 22, 32, 38, 65, 28, 36, 9, 36, 120, 80, 95, 16}[a->kind];
-    }
+    expansion_ecology_init(w);
+    for (int pass = 0; pass < 100; pass++)
+        for (int region = 0; region < e->region_count; region++)
+            if (e->regions[region].count < 5)
+                expansion_animal_spawn(w, region, 1);
     e->candidate_day = -1;
     expansion_candidates(w);
     e->dirty = 1;
@@ -356,15 +381,22 @@ void expansion_tick(World *w) {
         expansion_assign(w);
         expansion_rebuild(w);
     }
+    expansion_promotion_tick(w);
     expansion_people_tick(w);
     expansion_animals_tick(w);
     expansion_collect_harvest(w);
     if (minute == 0) {
+        for (int region = 0; region < e->region_count; region++)
+            e->region_hunt_days[region][exp_day(w) % 12] = 0;
         eco_roll_ledger(&w->ledger);
         nature_daily(w);
         expansion_growth(w);
         expansion_daily(w);
+    }
+    if (minute == 360) {
         expansion_people_daily(w);
+        expansion_ecology_daily(w);
+        expansion_market_daily(w);
         expansion_candidates(w);
     }
     if (minute == 480 && (exp_day(w) - 1) % 48 == 24)

@@ -212,6 +212,8 @@ static int sync_actors(GameSession *s) {
             a->revision = -1;
             a->grid_revision = -1;
             a->position = (GamePoint){v->loc_x + 0.5f, v->loc_y + 0.5f};
+            if (s->summary.ruleset)
+                a->position = (GamePoint){v->current_x_milli / 1000.0f, v->current_y_milli / 1000.0f};
             a->indoor = v->inside_building ? 1.0f : 0.0f;
             a->indoor_building = v->inside_building;
         }
@@ -333,9 +335,13 @@ int game_session_refresh(GameSession *s) {
     rc = sync_actors(s);
     if (rc != CORE_OK)
         return rc;
-    return game_combat_sync(s);
+    rc = game_combat_sync(s);
+    if (rc == CORE_OK)
+        game_effects_sync(s);
+    return rc;
 }
 int game_actor_plan(GameSession *s, GameActor *a, int x, int y, int enemy) {
+    s->finder.normal_cost = s->summary.ruleset ? 100 : 10;
     int rc = game_path_find(&s->finder, s->cost, s->summary.map_width, s->summary.map_height,
                             (int)a->position.x, (int)a->position.y, x, y, enemy, &a->path);
     a->next = 1;
@@ -362,9 +368,9 @@ int game_actor_walk(GameSession *s, GameActor *a, float tiles, int enemy, int *b
             *barrier_id = game_building_at(s, cell % w, cell / w);
             return 0;
         }
-        factor = CORE_COST_NORMAL / (float)c;
-        if (s->summary.ruleset && !enemy && s->roads[cell])
-            factor = s->roads[cell] == 2 ? 2.0f : 1.5f;
+        if (s->summary.ruleset && s->cost[cell] == CORE_COST_GATE)
+            c = 67;
+        factor = (s->summary.ruleset ? 100 : CORE_COST_NORMAL) / (float)c;
         if (distance <= tiles * factor + 0.0001f) {
             a->position = goal;
             a->next++;
@@ -432,9 +438,11 @@ static void walk_villagers(GameSession *s, float minutes) {
 }
 void game_session_events(GameSession *s) {
     CoreEventView event;
-    while (core_poll_event(s->world, &event) > 0)
+    while (core_poll_event(s->world, &event) > 0) {
+        game_effects_event(s, &event);
         if (s->on_event)
             s->on_event(s->event_context, &event);
+    }
 }
 int game_session_step(GameSession *s, float minutes) {
     int rc;
@@ -443,14 +451,40 @@ int game_session_step(GameSession *s, float minutes) {
     if (s->summary.outcome == CORE_OUTCOME_LOST)
         return CORE_ERR_REJECTED;
     while (minutes > 0.0001f && s->summary.outcome != CORE_OUTCOME_LOST) {
-        float slice = minutes > 2 ? 2 : minutes;
-        minutes -= slice;
         rc = game_session_refresh(s);
         if (rc != CORE_OK)
             return rc;
+        float slice = minutes > 2 ? 2 : minutes;
+        if (s->summary.ruleset)
+            for (int i = 0; i < s->animal_count; i++)
+                if (s->animals[i].attack_remaining_milli > 0 &&
+                    s->animals[i].attack_remaining_milli / 1000.0f < slice)
+                    slice = s->animals[i].attack_remaining_milli / 1000.0f;
+        minutes -= slice;
         walk_villagers(s, slice);
         walk_animals(s, slice);
         game_combat_step(s, slice);
+        s->visual_time += slice / 12.0f;
+        if (s->summary.ruleset) {
+            int elapsed = (int)floorf(slice * 1000 + .5f);
+            for (int i = 0; i < s->animal_count; i++) {
+                CoreAnimalView *animal = &s->animals[i];
+                if (animal->attack_remaining_milli <= 0)
+                    continue;
+                if (animal->attack_remaining_milli <= elapsed) {
+                    GameActor *target = game_actor(s, animal->target_id);
+                    if (target)
+                        (void)core_expansion_report_position(s->world, target->id,
+                                                             (int)(target->position.x * 1000),
+                                                             (int)(target->position.y * 1000));
+                }
+                animal->attack_remaining_milli =
+                    animal->attack_remaining_milli > elapsed ? animal->attack_remaining_milli - elapsed : 0;
+            }
+            rc = core_expansion_advance_animal_attacks(s->world, elapsed);
+            if (rc != CORE_OK)
+                return rc;
+        }
         if (s->last_error)
             return s->last_error;
         s->tick_minutes += slice;

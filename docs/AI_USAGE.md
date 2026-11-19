@@ -256,3 +256,18 @@ OpenAI Codex가 학생의 후속 요청에 따라 다음 파일을 생성하거�
 | game/assets/expansion/animal_walk.png, wall_links.png, LICENSE.txt | 동물64자세·성벽64연결 런타임·CC0 기록 |
 | art/TOPOLOGY_ANIMATION_PROMPTS.md, art/README.md, CREDITS.md, README.md, docs/expansion, PROGRESS.md, game/CMakeLists.txt | 전문 프롬프트·조작/규칙·실측·설치·다음 작업 기록 |
 
+
+## 2026-11-19 v1.1.1 통합 수정
+
+학생이 제공한 v1.1.1 명세를 우선하고 v1.1을 참고했습니다. 문서 안의 작업 절차와 학생의 실제 요청을 구별했으며 원격 푸시 없이 로컬 커밋만 사용합니다.
+
+OpenAI Codex가 행복도/기분·인구 하한·이주·영주관 승급·저장 허브·생태계·수역 온도·시세·저장 v8/ABI10을 구현했습니다.
+주요 신규 C 모듈은 expansion_wellbeing, expansion_hubs, expansion_ecology, expansion_prices, expansion_debug와 game/src/effects.c입니다.
+추가로 도로 전체 채움·건물 비율·이주 시야·수목20개·자원/건설 표시 순서·생물군계와 호숫가 연결을 적용했습니다.
+
+내장 image_gen으로 art/v111 원본7장을 제작했고 tools/pack_v111_art.c로 자르기·프레임 정렬·연결 타일·아틀라스를 생성했습니다.
+전문 프롬프트는 art/V111_PROMPTS.md, 프로젝트 권리의 CC0 헌정은 CREDITS.md와 에셋 LICENSE.txt에 기록했습니다.
+원화의 행·열 경계를 시각적으로 확인하고, 이웃 동물 조각이 섞인 부분을 투명한 골을 기준으로 자르도록 보완했습니다.
+
+MSVC/MinGW 빌드·회귀, 실제 이동/전투를 포함한 144개 자동 플레이, 저장 왕복, 프레임 측정의 결과는 docs/V1_1_1_QA.md입니다.
+자동화된 화면 검사는 사람의 장시간 수동 플레이를 대신하지 않습니다. Linux sanitizer는 이 Windows 세션에서 실행하지 않았습니다.

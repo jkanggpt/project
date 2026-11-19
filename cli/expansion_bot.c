@@ -46,6 +46,7 @@ static int afford(const ExpansionBot *bot, int type) {
 static int connect(ExpansionBot *bot, int x, int y, int reserve) {
     GamePath path = {0};
     int rc, i;
+    bot->finder.normal_cost = 100;
     rc = game_path_find(&bot->finder, bot->cost, bot->summary.map_width, bot->summary.map_height,
                         bot->summary.keep_x, bot->summary.keep_y + 2, x, y, 0, &path);
     if (rc <= 0) {
@@ -214,7 +215,11 @@ static int fortify(ExpansionBot *bot, int ring) {
                 } else if (preview.result == CORE_PLACE_UNREACHABLE) {
                     int xx = x == bounds[0] ? x + 1 : x == bounds[2] ? x - 1 : x;
                     int yy = y == bounds[1] ? y + 1 : y == bounds[3] ? y - 1 : y;
-                    (void)connect(bot, xx, yy, 6);
+                    if (!bot->tiles[y * bot->summary.map_width + x].explored) {
+                        /* 일반 도로를 연장해 다음 시야 갱신에서 경계를 발견합니다. */
+                        (void)connect(bot, x, y, gate ? 5 : 2);
+                    } else
+                        (void)connect(bot, xx, yy, 6);
                     pending_gates |= gate;
                 } else
                     pending_gates |= gate;
@@ -266,6 +271,8 @@ static void staffing(ExpansionBot *bot) {
     if (bot->summary.resources[CORE_RES_STONE] < 35)
         priorities[n++] = CORE_BLD_QUARRY;
     priorities[n++] = CORE_BLD_LUMBER;
+    priorities[n++] = CORE_BLD_HEALER;
+    priorities[n++] = CORE_BLD_BATHHOUSE;
     priorities[n++] = CORE_BLD_MINE;
     priorities[n++] = CORE_BLD_SMELTER;
     priorities[n++] = CORE_BLD_KILN;
@@ -342,6 +349,19 @@ int sim_expansion_bot_daily(CoreWorld *world) {
             for (x = b->x; x < b->x + b->w; x++)
                 bot.cost[y * bot.summary.map_width + x] = 0;
     }
+    if (bot.summary.rank >= 1) {
+        /* 개척지 때 도로 없이 지은 주거도 일반 이주 전에 입구까지 연결합니다. */
+        for (i = 0; i < bot.buildings_count; i++) {
+            const CoreBuildingView *home = &bot.buildings[i];
+            if (home->resident_slots && home->state == CORE_BSTATE_ACTIVE &&
+                !bot.roads[home->door_y * bot.summary.map_width + home->door_x]) {
+                int32_t road_id = 0, road_reason = 0;
+                (void)core_place_rotated(world, CORE_BLD_ROAD, home->door_x, home->door_y, 0,
+                                         &road_id, &road_reason);
+                (void)connect(&bot, home->door_x, home->door_y, 10);
+            }
+        }
+    }
     if (!count_type(&bot, CORE_BLD_LOGGING_SITE)) {
         (void)build(&bot, CORE_BLD_LOGGING_SITE);
     } else if (!count_type(&bot, CORE_BLD_GATHERER))
@@ -364,7 +384,8 @@ int sim_expansion_bot_daily(CoreWorld *world) {
     else if (bot.summary.rank >= 1 && !count_type(&bot, CORE_BLD_GRANARY))
         (void)build(&bot, CORE_BLD_GRANARY);
     else if (bot.summary.rank == 1 && bot.summary.protected_area >= 25 &&
-             count_type(&bot, CORE_BLD_COTTAGE) * 2 < bot.summary.population && bot.summary.average_mood < 52)
+             count_type(&bot, CORE_BLD_COTTAGE) * 2 < bot.summary.population &&
+             bot.summary.average_happiness < 52)
         (void)build(&bot, CORE_BLD_COTTAGE);
     else if (bot.summary.rank >= 1 && bot.summary.protected_area < 25) {
         /* 첫 폐쇄가 끝날 때까지 가공·상급 시설로 원목을 분산하지 않습니다. */
@@ -378,7 +399,8 @@ int sim_expansion_bot_daily(CoreWorld *world) {
             CORE_BLD_GRANARY,  CORE_BLD_SAWMILL, CORE_BLD_QUARRY,     CORE_BLD_CROPLAND,
             CORE_BLD_OUTPOST,  CORE_BLD_STALL,   CORE_BLD_LUMBER,     CORE_BLD_KILN,
             CORE_BLD_MINE,     CORE_BLD_SMELTER, CORE_BLD_MARKET,     CORE_BLD_LIBRARY,
-            CORE_BLD_BARRACKS, CORE_BLD_TOWER,   CORE_BLD_MAGE_TOWER, CORE_BLD_CROSSBOW_TOWER};
+            CORE_BLD_BARRACKS, CORE_BLD_TOWER,   CORE_BLD_MAGE_TOWER, CORE_BLD_CROSSBOW_TOWER,
+            CORE_BLD_HEALER, CORE_BLD_BATHHOUSE, CORE_BLD_WAREHOUSE};
         for (i = 0; i < (int)(sizeof(essentials) / sizeof(essentials[0])); i++)
             if (!count_type(&bot, essentials[i]) && afford(&bot, essentials[i])) {
                 (void)build(&bot, essentials[i]);
@@ -393,20 +415,21 @@ int sim_expansion_bot_daily(CoreWorld *world) {
     }
     if (bot.summary.housing_capacity >= bot.summary.population && count_type(&bot, CORE_BLD_GARDEN) >= 2) {
         (void)fortify(&bot, 0);
-        if (bot.summary.protected_area>=25 && (bot.summary.rank>=2 || bot.summary.population>=12))
-            (void)fortify(&bot, 1);
+        for (int ring = 1; ring < 4; ring++)
+            if (bot.summary.rank >= ring && bot.summary.protected_area >= (int[]){0, 25, 120, 300}[ring])
+                (void)fortify(&bot, ring);
     }
     {
-        int required = (int[]){35, 48, 52, 55, 57, 60}[bot.summary.rank], tax = bot.summary.tax;
-        if (bot.summary.average_mood < required && bot.summary.resources[CORE_RES_GOLD] > 120)
+        int required = (int[]){35, 38, 40, 42, 44, 46}[bot.summary.rank], tax = bot.summary.tax;
+        if (bot.summary.average_happiness < required && bot.summary.resources[CORE_RES_GOLD] > 120)
             tax = 1;
         else if (bot.summary.resources[CORE_RES_GOLD] < 80 && tax == 1)
             tax = 2;
-        else if (bot.summary.average_mood >= required + 10)
+        else if (bot.summary.average_happiness >= required + 10)
             tax = 3;
-        else if (tax == 1 && bot.summary.average_mood >= required + 5)
+        else if (tax == 1 && bot.summary.average_happiness >= required + 5)
             tax = 2;
-        else if (tax == 3 && bot.summary.average_mood < required + 2)
+        else if (tax == 3 && bot.summary.average_happiness < required + 2)
             tax = 2;
         (void)core_expansion_set_tax(world, tax);
     }

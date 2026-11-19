@@ -51,14 +51,22 @@ int bot_fortification_plan(const uint8_t *terrain, int width, int height, int cx
             p[(y + 1) * stride + x + 1] = (terrain[y * width + x] == CORE_TERRAIN_WATER) +
                                           p[y * stride + x + 1] + p[(y + 1) * stride + x] - p[y * stride + x];
     out->valid[0] = select_rect(p, width, height, cx, cy, 25, 11, NULL, out->bounds[0]);
-    if (out->valid[0])
-        out->valid[1] = select_rect(p, width, height, cx, cy, 720, 25, out->bounds[0], out->bounds[1]);
+    for (int ring = 1; ring < 4 && out->valid[ring - 1]; ring++) {
+        int excluded = 0;
+        static const int goals[4] = {25, 120, 300, 600};
+        for (int n = 0; n < ring; n++) {
+            const int *b = out->bounds[n];
+            excluded += 2 * (b[2] - b[0] + b[3] - b[1]);
+        }
+        out->valid[ring] = select_rect(p, width, height, cx, cy, goals[ring] + excluded, 25,
+                                       out->bounds[ring - 1], out->bounds[ring]);
+    }
     free(p);
     return out->valid[0];
 }
 int bot_fortification_boundary(const BotFortificationPlan *p, int x, int y, int ring) {
     const int *b;
-    if (ring < 0 || ring > 1 || !p->valid[ring])
+    if (ring < 0 || ring > 3 || !p->valid[ring])
         return 0;
     b = p->bounds[ring];
     return x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3] &&
@@ -66,7 +74,7 @@ int bot_fortification_boundary(const BotFortificationPlan *p, int x, int y, int 
 }
 int bot_fortification_reserved(const BotFortificationPlan *p, int x, int y, int width, int height) {
     int r, xx, yy;
-    for (r = 0; r < 2; r++)
+    for (r = 0; r < 4; r++)
         for (yy = y; yy < y + height; yy++)
             for (xx = x; xx < x + width; xx++)
                 if (bot_fortification_boundary(p, xx, yy, r))
@@ -75,7 +83,7 @@ int bot_fortification_reserved(const BotFortificationPlan *p, int x, int y, int 
 }
 int bot_fortification_inside(const BotFortificationPlan *p, int x, int y, int width, int height, int ring) {
     const int *b;
-    if (ring < 0 || ring > 1 || !p->valid[ring])
+    if (ring < 0 || ring > 3 || !p->valid[ring])
         return 0;
     b = p->bounds[ring];
     return x > b[0] && y > b[1] && x + width - 1 < b[2] && y + height - 1 < b[3];

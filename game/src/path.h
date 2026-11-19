@@ -6,7 +6,7 @@ typedef struct GamePath { int *cells; int count; int capacity; } GamePath;
 typedef struct GamePathfinder {
     int *distance, *parent, *heap, *heap_index;
     unsigned char *closed;
-    int capacity, heap_count, goal, width;
+    int capacity, heap_count, goal, width, normal_cost;
 } GamePathfinder;
 void game_path_free(GamePath *path);
 void game_pathfinder_free(GamePathfinder *finder);

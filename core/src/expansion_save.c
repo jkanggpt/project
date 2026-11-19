@@ -12,8 +12,26 @@ typedef struct Field {
 } Field;
 #define F(T, name, count)                                                                                    \
     { offsetof(T, name), count }
-static const Field STATE[] = {F(ExpansionState, tax, 1),
+static const Field STATE[] = {F(ExpansionState, pending_arrivals, 1),
+                              F(ExpansionState, pending_total, 1),
+                              F(ExpansionState, pending_type, 1),
+                              F(ExpansionState, tax, 1),
                               F(ExpansionState, tax_day, 1),
+                              F(ExpansionState, region_capacity, 30),
+                              F(ExpansionState, spawn_attempts, 1),
+                              F(ExpansionState, spawn_capacity_rejected, 1),
+                              F(ExpansionState, spawn_tile_rejected, 1),
+                              F(ExpansionState, spawn_species_rejected, 1),
+                              F(ExpansionState, travel_minutes, 1),
+                              F(ExpansionState, farm_minutes, 1),
+                              F(ExpansionState, last_travel_minutes, 1),
+                              F(ExpansionState, last_farm_minutes, 1),
+                              F(ExpansionState, report_arrivals, 1),
+                              F(ExpansionState, report_arrival_type, 1),
+                              F(ExpansionState, report_departures, 1),
+                              F(ExpansionState, report_floor8, 1),
+                              F(ExpansionState, report_deaths, 1),
+                              F(ExpansionState, death_mark, 1),
                               F(ExpansionState, fuel_milli, 1),
                               F(ExpansionState, magic_logs_milli, 1),
                               F(ExpansionState, fractional, 15),
@@ -27,7 +45,24 @@ static const Field STATE[] = {F(ExpansionState, tax, 1),
                               F(ExpansionState, animal_count, 1),
                               F(ExpansionState, next_animal_id, 1),
                               F(ExpansionState, candidate_count, 1),
-                              F(ExpansionState, archive_count, 1)};
+                              F(ExpansionState, archive_count, 1),
+                              F(ExpansionState, last_arrival_day, 1),
+                              F(ExpansionState, refill_day, 1),
+                              F(ExpansionState, arrived_today, 1),
+                              F(ExpansionState, arrival_type, 1),
+                              F(ExpansionState, departures_today, 1),
+                              F(ExpansionState, blocked_floor8, 1),
+                              F(ExpansionState, promotion_state, 1),
+                              F(ExpansionState, promotion_target, 1),
+                              F(ExpansionState, promotion_remaining, 1),
+                              F(ExpansionState, trade_pressure, 15),
+                              F(ExpansionState, trade_remainder, 30),
+                              F(ExpansionState, trade_volume, 15),
+                              F(ExpansionState, hub_visits, 1),
+                              F(ExpansionState, manor_visits, 1),
+                              F(ExpansionState, saved_travel_ticks, 1),
+                              F(ExpansionState, region_hunt_days, 360),
+                              F(ExpansionState, region_pressure_until, 30)};
 static const Field BUILDING[] = {F(Building, rotation, 1),
                                  F(Building, completed_day, 1),
                                  F(Building, mode, 1),
@@ -49,18 +84,29 @@ static const Field VILLAGER[] = {
     F(Villager, skill_minutes, 12),  F(Villager, contract_end_tick, 1), F(Villager, personal_id, 1),
     F(Villager, water, 1),           F(Villager, hygiene, 1),           F(Villager, culture_until, 1),
     F(Villager, culture_bonus, 1),   F(Villager, visit_day, 1),         F(Villager, inside_building, 1),
-    F(Villager, current_x_milli, 1), F(Villager, current_y_milli, 1),   F(Villager, meal_day, 1)};
+    F(Villager, current_x_milli, 1), F(Villager, current_y_milli, 1),   F(Villager, meal_day, 1),
+    F(Villager, happiness, 1),       F(Villager, long_needs, 3),        F(Villager, need_sums, 3),
+    F(Villager, need_samples, 1),    F(Villager, incoming, 1),          F(Villager, leisure_days, 4),
+    F(Villager, hunger_ticks, 1),    F(Villager, hunger_event_day, 1),  F(Villager, injury_tick, 1),
+    F(Villager, critical, 1),        F(Villager, threat_raid, 1),       F(Villager, mood_cause, 1),
+    F(Villager, death_mood_day, 1),  F(Villager, death_mood_count, 1),  F(Villager, hub_id, 1),
+    F(Villager, hub_revision, 1),    F(Villager, hub_kind, 1),          F(Villager, hub_job, 1),
+    F(Villager, hub_day, 1)};
 static const Field TILE[] = {
     F(CoreExpansionTileView, biome, 1),           F(CoreExpansionTileView, tree_kind, 1),
     F(CoreExpansionTileView, tree_age, 1),        F(CoreExpansionTileView, tree_logs_milli, 1),
     F(CoreExpansionTileView, tree_used_milli, 1), F(CoreExpansionTileView, regrow_milli, 1),
     F(CoreExpansionTileView, ore_kind, 1),        F(CoreExpansionTileView, ore_milli, 1),
     F(CoreExpansionTileView, water_id, 1),        F(CoreExpansionTileView, explored, 1)};
-static const Field ANIMAL[] = {F(CoreAnimalView, id, 1),          F(CoreAnimalView, kind, 1),
-                               F(CoreAnimalView, x_milli, 1),     F(CoreAnimalView, y_milli, 1),
-                               F(CoreAnimalView, hp, 1),          F(CoreAnimalView, age, 1),
-                               F(CoreAnimalView, owner, 1),       F(CoreAnimalView, breed_day, 1),
-                               F(CoreAnimalView, starve_days, 1), F(CoreAnimalView, alive, 1)};
+static const Field ANIMAL[] = {
+    F(CoreAnimalView, id, 1),          F(CoreAnimalView, kind, 1),
+    F(CoreAnimalView, x_milli, 1),     F(CoreAnimalView, y_milli, 1),
+    F(CoreAnimalView, hp, 1),          F(CoreAnimalView, age, 1),
+    F(CoreAnimalView, owner, 1),       F(CoreAnimalView, breed_day, 1),
+    F(CoreAnimalView, starve_days, 1), F(CoreAnimalView, alive, 1),
+    F(CoreAnimalView, region, 1),      F(CoreAnimalView, attack_tick, 1),
+    F(CoreAnimalView, target_id, 1),   F(CoreAnimalView, retaliate_id, 1),
+    F(CoreAnimalView, move_acc, 1),    F(CoreAnimalView, attack_remaining_milli, 1)};
 static const Field CANDIDATE[] = {F(CoreCandidateView, person_id, 1), F(CoreCandidateView, fee, 1),
                                   F(CoreCandidateView, field, 1),     F(CoreCandidateView, age, 1),
                                   F(CoreCandidateView, stats, 5),     F(CoreCandidateView, initial, 5),
@@ -171,7 +217,7 @@ int expansion_load_line(World *w, const char *key, char *value) {
     if (strcmp(key, "state") == 0) {
         if (e->load_mask || index != 1 || !read_fields(&cursor, e, STATE, COUNT(STATE)) || *cursor)
             return CORE_ERR_FORMAT;
-        if (e->animal_count < 0 || e->animal_count > 300 || e->candidate_count < 0 ||
+        if (e->animal_count < 0 || e->animal_count > CORE_EXP_MAX_ANIMALS || e->candidate_count < 0 ||
             e->candidate_count > 15 || e->archive_count < 0 || e->archive_count > 64)
             return CORE_ERR_FORMAT;
         e->load_mask = 1;
@@ -238,6 +284,7 @@ int expansion_finish_load(World *w) {
     expansion_capacity(w);
     expansion_water_bodies(w);
     expansion_rebuild(w);
+    expansion_ecology_init(w);
     expansion_visibility(w);
     return CORE_OK;
 }
@@ -274,8 +321,23 @@ int expansion_validate(const World *w) {
         return 1;
     bad += e->tax < 1 || e->tax > 4 || e->fuel_milli < 0 || e->fuel_milli >= 2000 ||
            e->magic_logs_milli < 0 || e->magic_logs_milli > expansion_bank_have(w, CORE_RES_LOGS);
-    if (e->animal_count < 0 || e->animal_count > 300 || e->candidate_count < 0 || e->candidate_count > 15 ||
-        e->archive_count < 0 || e->archive_count > 64)
+    bad += e->last_arrival_day < 0 || e->refill_day < 0 || e->pending_arrivals < 0 ||
+           e->pending_arrivals > 7 || e->pending_total < 0 || e->pending_total > 7 || e->pending_type < 0 ||
+           e->pending_type > 3 || e->promotion_state < 0 || e->promotion_state > 1 ||
+           e->promotion_target < 0 || e->promotion_target > 5 || e->promotion_remaining < 0 ||
+           e->promotion_remaining > 144 ||
+           (e->promotion_state && (e->promotion_target != w->rank + 1 || e->promotion_remaining == 0));
+    for (i = 0; i < 15; i++)
+        bad += e->trade_pressure[i] < -500 || e->trade_pressure[i] > 500;
+    for (i = 0; i < 30; i++) {
+        bad += e->region_capacity[i] < 3 || e->region_capacity[i] > 22;
+        bad +=
+            e->trade_remainder[i] < 0 || e->trade_remainder[i] >= 1000000 || e->region_pressure_until[i] < 0;
+        for (j = 0; j < 12; j++)
+            bad += e->region_hunt_days[i][j] < 0 || e->region_hunt_days[i][j] > CORE_EXP_MAX_ANIMALS;
+    }
+    if (e->animal_count < 0 || e->animal_count > CORE_EXP_MAX_ANIMALS || e->candidate_count < 0 ||
+        e->candidate_count > 15 || e->archive_count < 0 || e->archive_count > 64)
         return bad + 1;
     bad += e->starter_waves < 0 || e->starter_waves > 2 || e->immigration_day < 0 ||
            e->immigration_day > CLOCK_MAX_DAYS || e->next_person_id < 1 || e->next_animal_id < 1 ||
@@ -285,7 +347,7 @@ int expansion_validate(const World *w) {
                e->fractional[i] >= 1000 || e->trade_stock[i] < 0 || e->trade_stock[i] > 1000000;
     for (i = 0; i < e->cells; i++) {
         const CoreExpansionTileView *t = &e->tiles[i];
-        bad += t->biome < 0 || t->biome > 7 || t->tree_kind < 0 || t->tree_kind > 4 || t->tree_age < 0 ||
+        bad += t->biome < 0 || t->biome > 9 || t->tree_kind < 0 || t->tree_kind > 4 || t->tree_age < 0 ||
                t->tree_age > 112000 || t->tree_logs_milli < 0 || t->tree_logs_milli > 50000 ||
                t->regrow_milli < 0 || t->regrow_milli > 60000 || t->tree_used_milli < 0 ||
                t->tree_used_milli > 1000 || t->ore_kind < -1 || t->ore_kind >= 15 || t->ore_milli < 0 ||
@@ -315,13 +377,18 @@ int expansion_validate(const World *w) {
         const Villager *v = w->villagers[i];
         int stats[5] = {v->stats.strength, v->stats.agility, v->stats.vitality, v->stats.dexterity,
                         v->stats.intellect};
-        bad += v->id <= 0 || v->personal_id <= 0 || v->health < 1 || v->health > 100 || v->mood < 0 ||
-               v->mood > 100 || v->current_x_milli < 0 || v->current_x_milli >= w->grid.width * 1000 ||
-               v->current_y_milli < 0 || v->current_y_milli >= w->grid.height * 1000 ||
+        bad += v->id <= 0 || v->personal_id <= 0 || v->health < 1 || v->health > 100 || v->mood < -200 ||
+               v->mood > 200 || v->happiness < 0 || v->happiness > 100 || v->current_x_milli < 0 ||
+               v->current_x_milli >= w->grid.width * 1000 || v->current_y_milli < 0 ||
+               v->current_y_milli >= w->grid.height * 1000 ||
                (v->inside_building && !entity_find_building(w, v->inside_building));
         for (j = 0; j < 5; j++)
             bad += stats[j] < 1 || stats[j] > 10 || v->initial_stats[j] < 1 || v->initial_stats[j] > 9 ||
                    stats[j] > v->initial_stats[j] + 3 || v->stat_xp[j] < 0;
+        bad += v->incoming < 0 || v->incoming > 1 || v->need_samples < 0 || v->need_samples > 144;
+        for (j = 0; j < 3; j++)
+            bad += v->long_needs[j] < 0 || v->long_needs[j] > 100000 || v->need_sums[j] < 0 ||
+                   v->need_sums[j] > 14400;
         for (j = 0; j < 12; j++)
             bad += v->skill_minutes[j] < 0;
         if (v->home) {
@@ -337,17 +404,19 @@ int expansion_validate(const World *w) {
             bad += found != 1;
         }
     }
-    for (i = 0; i < e->animal_count && i < 300; i++) {
+    for (i = 0; i < e->animal_count && i < CORE_EXP_MAX_ANIMALS; i++) {
         const CoreAnimalView *a = &e->animals[i];
-        bad += a->kind < 0 || a->kind > 15 || a->id <= 0 || a->alive < 0 || a->alive > 1 || a->x_milli < 0 ||
+        bad += a->kind < 0 || a->kind > 23 || a->id <= 0 || a->alive < 0 || a->alive > 1 || a->x_milli < 0 ||
                a->y_milli < 0 || a->x_milli >= w->grid.width * 1000 || a->y_milli >= w->grid.height * 1000 ||
                (a->owner && !entity_find_building(w, a->owner));
-        if (a->kind >= 0 && a->kind < 16) {
-            bad += a->hp < 0 ||
-                   a->hp > (int[]){12, 30, 28, 10, 22, 32, 38, 65, 28, 36, 9, 36, 120, 80, 95, 16}[a->kind] ||
-                   (a->alive && a->hp < 1);
+        if (a->kind >= 0 && a->kind < 24) {
+            bad += a->hp < 0 || a->hp > EXP_ANIMALS[a->kind].hp || (a->alive && a->hp < 1);
+            bad += a->attack_remaining_milli > 0 &&
+                   (!a->alive || a->owner || !EXP_ANIMALS[a->kind].attack || a->target_id <= 0 ||
+                    a->attack_tick < 0 || a->attack_tick > w->clock.tick);
         }
         bad += a->id >= e->next_animal_id || a->age < 0 || a->starve_days < 0 || a->breed_day < 0;
+        bad += a->attack_remaining_milli < 0 || a->attack_remaining_milli > 2400;
         for (j = i + 1; j < e->animal_count; j++)
             bad += a->id == e->animals[j].id;
     }

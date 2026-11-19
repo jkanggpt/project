@@ -25,13 +25,12 @@ void walker_free(Walker *walker)
 }
 
 /* 주민에게 이 칸이 지나갈 수 있는 칸인지, 비용은 얼마인지 (0 = 못 지나감) */
-static int32_t villager_cost(uint8_t cost)
-{
+static int32_t villager_cost(uint8_t cost, int normal_cost) {
     if (cost == CORE_COST_BLOCKED || cost == CORE_COST_WALL) {
         return 0;
     }
     if (cost == CORE_COST_GATE) {
-        return CORE_COST_NORMAL; /* 주민에게 성문은 보통 길 */
+        return normal_cost == 100 ? 67 : CORE_COST_NORMAL;
     }
     return cost;
 }
@@ -99,7 +98,7 @@ int32_t walker_path_cost(Walker *walker, int32_t sx, int32_t sy, int32_t tx, int
     if (start == goal) {
         return 0;
     }
-    if (villager_cost(walker->cost[goal]) == 0) {
+    if (villager_cost(walker->cost[goal], walker->normal_cost) == 0) {
         return -1;
     }
     for (i = 0; i < cells; i++) {
@@ -125,7 +124,7 @@ int32_t walker_path_cost(Walker *walker, int32_t sx, int32_t sy, int32_t tx, int
                 continue;
             }
             next = ny * walker->width + nx;
-            step = villager_cost(walker->cost[next]);
+            step = villager_cost(walker->cost[next], walker->normal_cost);
             if (step == 0 || walker->distance[current] + step >= walker->distance[next]) {
                 continue;
             }
@@ -248,6 +247,7 @@ int walker_step(Walker *walker, CoreWorld *world)
         copy_villagers(walker, world, &count) != 0) {
         return -1;
     }
+    walker->normal_cost = summary.ruleset ? 100 : 10;
     prune(walker, count);
     for (i = 0; i < count; i++) {
         const CoreVillagerView *v = &walker->villagers[i];
@@ -271,7 +271,9 @@ int walker_step(Walker *walker, CoreWorld *world)
                 continue;
             }
             /* 비용 10 = 한 칸. 걷는 속도는 한 틱에 걷는 칸 × 1000 */
-            entry->ticks_left = walker->instant ? 0 : (path * 100 + v->walk_speed - 1) / v->walk_speed;
+            entry->ticks_left =
+                walker->instant ? 0
+                                : (path * (summary.ruleset ? 10 : 100) + v->walk_speed - 1) / v->walk_speed;
         }
         if (entry->ticks_left <= 0) {
             (void)core_villager_arrived(world, v->id, v->intent_rev);

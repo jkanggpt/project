@@ -41,6 +41,12 @@ typedef struct GameAnimalActor {
     GamePoint position, goal;
     float remaining, walk_distance;
 } GameAnimalActor;
+
+typedef struct GameEffect {
+    int id, category, skin, hp, max_hp, facing, seen, dead, attack_tick, owner;
+    GamePoint position;
+    float hurt_started, hurt_until, bar_until, death_started, attack_started;
+} GameEffect;
 typedef void (*GameEventFn)(void *context, const CoreEventView *event);
 typedef struct GameSession {
     CoreWorld *world;
@@ -75,6 +81,9 @@ typedef struct GameSession {
     unsigned long steps, arrivals, shots, kills, barrier_hits, loots;
     GameEventFn on_event;
     void *event_context;
+    GameEffect effects[2048];
+    int effect_revision;
+    float visual_time;
 } GameSession;
 
 int game_session_init(GameSession *s, const char *data_dir);
@@ -96,4 +105,7 @@ int game_actor_walk(GameSession *s, GameActor *actor, float tiles, int enemy, in
 void game_combat_clear(GameSession *s);
 int game_combat_sync(GameSession *s);
 void game_combat_step(GameSession *s, float minutes);
+GameEffect *game_effect(GameSession *s, int category, int id);
+void game_effects_sync(GameSession *s);
+void game_effects_event(GameSession *s, const CoreEventView *event);
 #endif

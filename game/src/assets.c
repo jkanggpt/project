@@ -87,6 +87,16 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
     a->animal_walk=texture(a,dir,"expansion/animal_walk.png");
     a->wall_links=texture(a,dir,"expansion/wall_links.png");
     a->biomes = texture(a, dir, "expansion/biomes.png");
+    a->trees = texture(a, dir, "expansion/trees.png");
+    a->biome_edges = texture(a, dir, "expansion/biome_edges.png");
+    a->shores = texture(a, dir, "expansion/shores.png");
+    a->road_tiles = texture(a, dir, "expansion/road_tiles.png");
+    a->animal_swim = texture(a, dir, "expansion/animal_swim.png");
+    a->animal_attack = texture(a, dir, "expansion/animal_attack.png");
+    for (i = 0; i < 6; i++) {
+        snprintf(name, sizeof(name), "expansion/manor_%d.png", i);
+        a->manors[i] = texture(a, dir, name);
+    }
     for (i = 0; i < CORE_BLD_COUNT; i++) {
         CoreExpansionBuildingInfo info;
         int rot;
@@ -127,6 +137,21 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
 }
 void game_assets_free(GameAssets *a) {
     int i;
+    if (a->trees.id)
+        UnloadTexture(a->trees);
+    if (a->biome_edges.id)
+        UnloadTexture(a->biome_edges);
+    if (a->shores.id)
+        UnloadTexture(a->shores);
+    if (a->road_tiles.id)
+        UnloadTexture(a->road_tiles);
+    if (a->animal_swim.id)
+        UnloadTexture(a->animal_swim);
+    if (a->animal_attack.id)
+        UnloadTexture(a->animal_attack);
+    for (i = 0; i < 6; i++)
+        if (a->manors[i].id)
+            UnloadTexture(a->manors[i]);
     if (a->terrain.id)
         UnloadTexture(a->terrain);
     if (a->roads.id)

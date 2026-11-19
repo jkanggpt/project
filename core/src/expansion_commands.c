@@ -90,6 +90,7 @@ void expansion_rebuild(World *w) {
             g->door_count[grid_index(g, b->door_x, b->door_y)]++;
     }
     grid_rebuild_costs(g);
+    expansion_terrain_costs(w);
     memset(e->connected, 0, (size_t)e->cells);
     for (i = 0; i < e->cells; i++)
         e->distance[i] = -1;
@@ -214,7 +215,7 @@ void expansion_visibility(World *w) {
     memcpy(e->visible, e->static_visible, (size_t)e->cells);
     for (i = 0; i < w->villager_count; i++) {
         Villager *v = w->villagers[i];
-        if (!v->inside_building)
+        if (!v->inside_building && !v->incoming && v->state != CORE_VS_LEAVING)
             reveal(w, v->current_x_milli / 1000, v->current_y_milli / 1000, 4, e->visible);
     }
     for (i = 0; i < e->cells; i++)
@@ -498,8 +499,10 @@ int expansion_demolish(World *w, Building *b) {
     for (r = 0; r < CORE_RES_COUNT; r++)
         (void)expansion_bank_add(w, r, w->defs.buildings[b->type].cost[r] * 500, CORE_LEDGER_CONSTRUCTION);
     for (r = 0; r < w->expansion->animal_count; r++)
-        if (w->expansion->animals[r].owner == b->id)
+        if (w->expansion->animals[r].owner == b->id) {
+            w->expansion->animals[r].alive = 0;
             w->expansion->animals[r].owner = 0;
+        }
     for (r = 0; r < w->villager_count; r++)
         if (w->villagers[r]->inside_building == b->id)
             w->villagers[r]->inside_building = 0;
@@ -538,6 +541,11 @@ CORE_API int32_t core_rotate_building(CoreWorld *w, int32_t id, int32_t rot, int
     b = entity_find_building(w, id);
     if (!b)
         return CORE_ERR_NOT_FOUND;
+    if (b->type == CORE_BLD_KEEP) {
+        if (reason)
+            *reason = CORE_PLACE_BAD_TYPE;
+        return CORE_ERR_REJECTED;
+    }
     expansion_place_check(w, b->type, b->x, b->y, rot, b->id, &p);
     if (reason)
         *reason = p.result;

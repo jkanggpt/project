@@ -99,3 +99,9 @@ game_session_free는 경로·배열·월드·정의를 모두 해제합니다.
 - castle_core: CASTLE_BUILD_SHARED=ON일 때만 만드는 선택적 공유 라이브러리.
 
 전환 범위는 NATIVE_PORT.md, 최신 검사 결과는 ../PROGRESS.md를 참고하세요.
+
+## v1.1.1 현재 구조 (2026-11-19)
+
+현재 규칙·모듈은 docs/V1_1_1_IMPLEMENTATION.md를 우선합니다. 저장 v8 / ABI10, 영주관4×4, 행복도와 기분 분리, 10생물군계, 야생20종+가축4종입니다.
+코어의 신규 wellbeing/hubs/ecology/prices 모듈은 규칙과 지속 상태를 담당하고 game/src/effects.c는 게임 시간에 맞춘 피격·사망 잔상만 담당합니다.
+검사 봇은 공용 명령으로만 자원과 주민을 운영하며 성능 디버그 마을과 분리되어 있습니다.

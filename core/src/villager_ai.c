@@ -556,6 +556,8 @@ int vil_arrived(World *world, Villager *villager, int32_t intent_rev)
     villager->loc_x = villager->target_x;
     villager->loc_y = villager->target_y;
     villager->intent_flags &= ~CORE_INTENT_SPAWN_EDGE;
+    if (world->expansion && villager->incoming && villager->target == world_keep(world))
+        expansion_arrival_join(world, villager);
     if(world->expansion && villager->target && villager->state!=CORE_VS_GUARD_POST && !(expansion_spec(villager->target->type)->flags&CORE_EXP_OUTDOOR))villager->inside_building=villager->target->id;
     switch (villager->state) {
     case CORE_VS_LEAVING:
@@ -574,6 +576,10 @@ int vil_unreachable(World *world, Villager *villager, int32_t intent_rev)
 {
     if (intent_rev != villager->intent_rev) {
         return CORE_IGNORED;
+    }
+    if (world->expansion) {
+        villager->hub_revision = -1;
+        villager->hub_id = 0;
     }
     fall_back(world, villager);
     return CORE_OK;

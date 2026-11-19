@@ -34,6 +34,7 @@ typedef struct Walker {
     int32_t *distance;           /* 다익스트라 작업 공간 (칸 수만큼) */
     int32_t *heap;
     int32_t instant;             /* 1 이면 걷지 않고 바로 도착 (테스트용) */
+    int32_t normal_cost;
 } Walker;
 
 void walker_init(Walker *walker);

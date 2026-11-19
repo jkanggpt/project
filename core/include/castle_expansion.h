@@ -9,8 +9,8 @@
 #define CORE_LEGACY_RANK_COUNT 5
 #define CORE_EXP_SKILLS 12
 #define CORE_EXP_STATS 5
-#define CORE_EXP_ANIMALS 16
-#define CORE_EXP_MAX_ANIMALS 300
+#define CORE_EXP_ANIMALS 24
+#define CORE_EXP_MAX_ANIMALS 512
 #define CORE_EXP_MAX_CANDIDATES 15
 #define CORE_EXP_OUTDOOR 1
 #define CORE_EXP_PLOT 2
@@ -31,7 +31,69 @@ typedef struct CoreExpansionTileView {
 } CoreExpansionTileView;
 typedef struct CoreAnimalView {
     int32_t id, kind, x_milli, y_milli, hp, age, owner, breed_day, starve_days, alive;
+    int32_t region, attack_tick, target_id, retaliate_id, move_acc, attack_remaining_milli;
 } CoreAnimalView;
+
+enum CoreBiome {
+    CORE_BIOME_GRASS,
+    CORE_BIOME_FOREST,
+    CORE_BIOME_TAIGA,
+    CORE_BIOME_MOUNTAIN,
+    CORE_BIOME_WETLAND,
+    CORE_BIOME_SNOW,
+    CORE_BIOME_DESERT,
+    CORE_BIOME_LAKE,
+    CORE_BIOME_SWAMP,
+    CORE_BIOME_SAVANNA,
+    CORE_BIOME_COUNT
+};
+typedef struct CoreAnimalInfo {
+    int32_t hp, attack, food, leather, biomass, speed_milli, swim_milli, behavior;
+    int32_t width_milli, height_milli, livestock;
+    char name[CORE_NAME_BYTES];
+} CoreAnimalInfo;
+typedef struct CoreImmigrationView {
+    int32_t status, reasons, permanent, last_day, next_day, required_happiness, happiness;
+    int32_t vacant, water_served, road_ok, food_needed, food_available, minimum, maximum;
+    int32_t special_waves, refill_day;
+} CoreImmigrationView;
+enum CoreImmigrationStatus {
+    CORE_IMM_WAIT,
+    CORE_IMM_BLOCKED,
+    CORE_IMM_READY,
+    CORE_IMM_ARRIVING,
+    CORE_IMM_SPECIAL,
+    CORE_IMM_REFILL
+};
+#define CORE_IMM_COOLDOWN 1
+#define CORE_IMM_HOUSING 2
+#define CORE_IMM_WATER 4
+#define CORE_IMM_ROAD 8
+#define CORE_IMM_FOOD 16
+#define CORE_IMM_DISASTER 32
+#define CORE_IMM_HAPPINESS 64
+typedef struct CoreWaterView {
+    int32_t id, area, cold, capacity_milli;
+} CoreWaterView;
+typedef struct CoreHabitatView {
+    int32_t id, biome, area, count, biomass, capacity, target, aggressive, pressure_until;
+} CoreHabitatView;
+typedef struct CoreTradeQuote {
+    int32_t resource, units, total_gold, unit_cents, season_bp, event_bp, pressure_bp, rate_bp;
+    int32_t next_pressure, next_remainder, reason, stock, remaining;
+} CoreTradeQuote;
+CORE_API int32_t core_expansion_animal_info(int32_t kind, CoreAnimalInfo *out);
+CORE_API int32_t core_expansion_immigration(const CoreWorld *world, CoreImmigrationView *out);
+CORE_API int32_t core_expansion_water(const CoreWorld *world, int32_t id, CoreWaterView *out);
+CORE_API int32_t core_expansion_habitats(const CoreWorld *world, CoreHabitatView *out, int32_t capacity);
+CORE_API int32_t core_expansion_quote(const CoreWorld *world, int32_t resource, int32_t units,
+                                      CoreTradeQuote *out);
+CORE_API int32_t core_expansion_display_resource(int32_t index);
+CORE_API int32_t core_expansion_display_building(int32_t index);
+/* 성능 검사 전용입니다. 일반 스폰의 야생 180마리 상한과 별개입니다. */
+CORE_API int32_t core_expansion_debug_wildlife(CoreWorld *world, int32_t count);
+/* 게임 속 1/1000분 단위로 공격 예비 동작을 진행합니다. 세 번째 프레임에서 피해를 확정합니다. */
+CORE_API int32_t core_expansion_advance_animal_attacks(CoreWorld *world, int32_t elapsed_milli);
 typedef struct CoreCandidateView {
     int32_t person_id, fee, field, age, stats[5], initial[5], xp[5], skills[12], traits[2], hired;
     char name[CORE_NAME_BYTES];

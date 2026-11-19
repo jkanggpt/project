@@ -27,6 +27,8 @@ GameSpriteBox game_expansion_building_sprite(const CoreBuildingView *b, int imag
         height = image_h * scale;
     }
     width = fminf(width, b->w * 16.0f * 1.10f + 4.0f);
+    if (image_w > 0 && image_h > 0)
+        height = fmaxf(b->h * 16.0f, fminf(height, width * image_h / (float)image_w));
     return (GameSpriteBox){(b->x + b->w * 0.5f) * 16 - width / 2, (b->y + b->h) * 16 - height, width, height};
 }
 int game_wall_mask(const uint8_t *cost, int width, int height, int x, int y) {

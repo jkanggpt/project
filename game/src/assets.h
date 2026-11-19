@@ -10,6 +10,7 @@ typedef struct GameAssets {
     Texture2D terrain, roads, snow, props, villagers, enemies, arrow, construction;
     Texture2D buildings[CORE_BLD_COUNT], resources[CORE_RES_COUNT];
     Texture2D turns[CORE_BLD_COUNT][4],status_icons,animals,biomes,animal_walk,wall_links;
+    Texture2D trees, manors[6], biome_edges, shores, road_tiles, animal_swim, animal_attack;
     Sound sounds[SND_COUNT];
     double last_sound[SND_COUNT];
     int audio_ready, missing;

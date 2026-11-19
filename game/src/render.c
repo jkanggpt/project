@@ -9,14 +9,11 @@
 static Vector2 pixel(GamePoint p) { return (Vector2){p.x * 16, p.y * 16}; }
 void game_render_connection_preview(GameApp *a) {
     static const char *const walls[4] = {u8"목책", u8"방벽", u8"성벽", u8"철성벽"};
-    static const char *const animals[16] = {u8"토끼", u8"사슴", u8"산양",   u8"오리", u8"여우", u8"알파카",
-                                            u8"물범", u8"소",   u8"양",     u8"돼지", u8"닭",   u8"늑대",
-                                            u8"곰",   u8"악어", u8"버팔로", u8"뱀"};
     float scale = fminf(GetScreenWidth() / 1440.0f, GetScreenHeight() / 900.0f);
     Camera2D camera = {{0, 0}, {0, 0}, 0, scale};
     int r, c, x, y;
     BeginMode2D(camera);
-    ui_text(&a->ui, 28, 18, UI_GOLD, u8"자동 연결 성벽 · 동물 16종 걷기 4프레임");
+    ui_text(&a->ui, 28, 18, UI_GOLD, u8"자동 연결 성벽 · 동물 24종 걷기 4프레임");
     ui_small(&a->ui, 28, 52, UI_MUTED,
              u8"가로·세로·꺾임·교차를 이웃 칸에 맞춰 선택합니다. 동물은 이동 방향에 따라 좌우 반전합니다.");
     for (r = 0; r < 4; r++) {
@@ -38,14 +35,16 @@ void game_render_connection_preview(GameApp *a) {
                 }
             }
     }
-    for (r = 0; r < 4; r++)
+    for (r = 0; r < 6; r++)
         for (c = 0; c < 4; c++) {
             int kind = r * 4 + c, frame;
-            float xx = 28 + c * 350.0f, yy = 327 + r * 140.0f;
-            ui_small(&a->ui, xx, yy, UI_TEXT, "%s", animals[kind]);
+            CoreAnimalInfo info;
+            core_expansion_animal_info(kind, &info);
+            float xx = 28 + c * 350.0f, yy = 327 + r * 90.0f;
+            ui_small(&a->ui, xx, yy, UI_TEXT, "%s", info.name);
             for (frame = 0; frame < 4; frame++)
                 DrawTexturePro(a->assets.animal_walk, (Rectangle){frame * 96.0f, kind * 96.0f, 96, 96},
-                               (Rectangle){xx + frame * 77, yy + 25, 74, 88}, (Vector2){0, 0}, 0, WHITE);
+                               (Rectangle){xx + frame * 77, yy + 25, 74, 60}, (Vector2){0, 0}, 0, WHITE);
         }
     EndMode2D();
 }
@@ -108,6 +107,24 @@ static void sprite(Texture2D texture, Rectangle source, Rectangle destination, C
     else
         DrawRectangleRec(destination, tint);
 }
+static Color effect_tint(GameApp *a, int category, int id) {
+    GameEffect *fx = game_effect(&a->session, category, id);
+    return fx && fx->hurt_started <= a->session.visual_time && fx->hurt_until > a->session.visual_time
+               ? (Color){255, 90, 90, 255}
+               : WHITE;
+}
+static void life_bar(GameApp *a, int category, int id, int hp, int max, Rectangle dest) {
+    GameEffect *fx = game_effect(&a->session, category, id);
+    Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), a->camera);
+    int selected = category == 0 && a->selected_villager == id;
+    if (!selected && !CheckCollisionPointRec(mouse, dest) &&
+        (!fx || fx->bar_until < a->session.visual_time || fx->hurt_started > a->session.visual_time))
+        return;
+    float zoom = a->camera.zoom, width = fminf(36, fmaxf(14, dest.width * zoom * .65f)) / zoom;
+    Color color = hp * 4 <= max ? RED : hp * 2 <= max ? YELLOW : GREEN;
+    ui_bar((Rectangle){dest.x + dest.width / 2 - width / 2, dest.y - 5 / zoom, width, 3 / zoom},
+           hp / (float)max, color);
+}
 static void terrain(GameApp *a) {
     GameSession *s = &a->session;
     int x, y, w = s->summary.map_width, h = s->summary.map_height;
@@ -125,41 +142,67 @@ static void terrain(GameApp *a) {
         x1 = w;
     if (y1 > h)
         y1 = h;
-    for (y = y0; y < y1; y++)
-        for (x = x0; x < x1; x++) {
-            int i = y * w + x, variant = (int)(tile_noise(x, y) % 4);
-            Rectangle dest = {(float)x * 16, (float)y * 16, 16, 16};
-            if (s->exp_tiles)
-                sprite(a->assets.biomes, (Rectangle){variant * 64.0f, s->exp_tiles[i].biome * 64.0f, 64, 64},
-                       dest, tint);
-            else
-                sprite(a->assets.terrain, (Rectangle){variant * 64.0f, s->terrain[i] * 64.0f, 64, 64}, dest,
-                       tint);
-            if (s->roads[i]) {
-                Texture2D road = a->assets.turns[s->roads[i] == 2   ? CORE_BLD_STONE_ROAD
-                                                 : s->roads[i] == 3 ? CORE_BLD_BRIDGE
-                                                                    : CORE_BLD_ROAD][0];
-                sprite(road, (Rectangle){0, 0, (float)road.width, (float)road.height}, dest, WHITE);
-            } else if (s->summary.season == CORE_SEASON_WINTER && s->terrain[i] != CORE_TERRAIN_WATER)
-                sprite(a->assets.snow, (Rectangle){variant * 64.0f, 0, 64, 64}, dest,
-                       (Color){255, 255, 255, 225});
-            if (s->exp_tiles && s->exp_tiles[i].explored && s->exp_tiles[i].ore_milli > 0 &&
-                !game_building_at(s, x, y)) {
-                int resource = s->exp_tiles[i].ore_kind;
-                if (resource >= 0 && resource < CORE_RES_COUNT) {
-                    Texture2D icon = a->assets.resources[resource];
-                    DrawCircle(x * 16 + 8, y * 16 + 9, 7, (Color){39, 33, 36, 210});
-                    sprite(icon, (Rectangle){0, 0, (float)icon.width, (float)icon.height},
-                           (Rectangle){x * 16.0f + 1, y * 16.0f + 2, 14, 14}, WHITE);
+    for (int pass = 0; pass < 2; pass++)
+        for (y = y0; y < y1; y++)
+            for (x = x0; x < x1; x++) {
+                int i = y * w + x, variant = (int)(tile_noise(x, y) % 4);
+                if ((s->roads[i] != 0) != pass || (s->visibility && !s->visibility[i]))
+                    continue;
+                Rectangle dest = {(float)x * 16, (float)y * 16, 16, 16};
+                /* 완전 불투명한 도로 아래의 지형은 그리지 않아 텍스처 전환을 줄입니다. */
+                if (s->roads[i]) {
+                    sprite(a->assets.road_tiles, (Rectangle){(s->roads[i] - 1) * 64.0f, 0, 64, 64}, dest,
+                           WHITE);
+                    continue;
+                }
+                if (s->exp_tiles) {
+                    int biome = s->exp_tiles[i].biome;
+                    static const int dx[4] = {0, 1, 0, -1}, dy[4] = {-1, 0, 1, 0};
+                    int masks[10] = {0};
+                    if (biome == CORE_BIOME_LAKE) {
+                        CoreWaterView water;
+                        if (core_expansion_water(s->world, s->exp_tiles[i].water_id, &water) == CORE_OK)
+                            biome = water.cold ? 11 : 10;
+                    }
+                    sprite(a->assets.biomes, (Rectangle){variant * 64.0f, biome * 64.0f, 64, 64}, dest, tint);
+                    for (int k = 0; k < 4; k++) {
+                        int xx = x + dx[k], yy = y + dy[k], other;
+                        if (xx < 0 || yy < 0 || xx >= w || yy >= h)
+                            continue;
+                        other = s->exp_tiles[yy * w + xx].biome;
+                        if (other != s->exp_tiles[i].biome && other != CORE_BIOME_LAKE)
+                            masks[other] |= 1 << k;
+                    }
+                    for (int b = 0; b < 10; b++)
+                        if (masks[b])
+                            sprite(s->exp_tiles[i].biome == CORE_BIOME_LAKE ? a->assets.shores
+                                                                            : a->assets.biome_edges,
+                                   (Rectangle){masks[b] * 64.0f, b * 64.0f, 64, 64}, dest, tint);
+                } else
+                    sprite(a->assets.terrain, (Rectangle){variant * 64.0f, s->terrain[i] * 64.0f, 64, 64},
+                           dest, tint);
+                if (s->summary.season == CORE_SEASON_WINTER && s->terrain[i] != CORE_TERRAIN_WATER)
+                    sprite(a->assets.snow, (Rectangle){variant * 64.0f, 0, 64, 64}, dest,
+                           (Color){255, 255, 255, 225});
+                if (s->exp_tiles && s->exp_tiles[i].explored && s->exp_tiles[i].ore_milli > 0 &&
+                    !game_building_at(s, x, y)) {
+                    int resource = s->exp_tiles[i].ore_kind;
+                    if (resource >= 0 && resource < CORE_RES_COUNT) {
+                        Texture2D icon = a->assets.resources[resource];
+                        DrawCircle(x * 16 + 8, y * 16 + 9, 7, (Color){39, 33, 36, 210});
+                        sprite(icon, (Rectangle){0, 0, (float)icon.width, (float)icon.height},
+                               (Rectangle){x * 16.0f + 1, y * 16.0f + 2, 14, 14}, WHITE);
+                    }
                 }
             }
-        }
 }
 static Rectangle box_rect(GameSpriteBox b) { return (Rectangle){b.x, b.y, b.w, b.h}; }
 static Rectangle building_rect(const CoreBuildingView *b, Texture2D t) {
     return box_rect(game_expansion_building_sprite(b, t.width, t.height));
 }
 static Texture2D building_texture(const GameApp *a, const CoreBuildingView *b) {
+    if (b->type == CORE_BLD_KEEP)
+        return a->assets.manors[a->session.summary.rank];
     return b->kind_flags & CORE_EXP_WALL ? a->assets.wall_links : a->assets.turns[b->type][b->rotation];
 }
 static Rectangle building_source(const GameApp *a, const CoreBuildingView *b, Texture2D t) {
@@ -185,13 +228,21 @@ static void building(GameApp *a, int index) {
     if (b->state == CORE_BSTATE_CONSTRUCTING)
         tint = (Color){185, 168, 126, 170};
     sprite(t, building_source(a, b, t), dest, tint);
-    if (b->state == CORE_BSTATE_CONSTRUCTING) {
+    if (b->state == CORE_BSTATE_CONSTRUCTING ||
+        (b->type == CORE_BLD_KEEP && a->session.summary.promotion_state)) {
         Texture2D scaffold = a->assets.construction;
         float size = fminf(bar_w, 24);
         sprite(scaffold, (Rectangle){0, 0, (float)scaffold.width, (float)scaffold.height},
                (Rectangle){bar_x, (b->y + b->h) * 16 - size, size, size}, WHITE);
         ui_bar((Rectangle){bar_x, dest.y - 4, bar_w, 3},
-               b->build_progress / (float)(b->build_total ? b->build_total : 1), UI_GOLD);
+               b->type == CORE_BLD_KEEP ? (144 - a->session.summary.promotion_remaining) / 144.0f
+                                        : b->build_progress / (float)(b->build_total ? b->build_total : 1),
+               UI_GOLD);
+        if (b->type == CORE_BLD_KEEP) {
+            float phase = fmodf(a->session.visual_time + b->id * .13f, 1);
+            DrawCircleV((Vector2){dest.x + dest.width * .55f, dest.y + dest.height * .7f - phase * 12}, 2,
+                        Fade(BEIGE, .5f * (1 - phase)));
+        }
     } else if (b->hp < b->max_hp)
         ui_bar((Rectangle){bar_x, dest.y - 4, bar_w, 3}, b->hp / (float)b->max_hp, UI_BAD);
     if (b->working_now > 0 && b->type != CORE_BLD_FARM) {
@@ -219,10 +270,12 @@ static void villager(GameApp *a, int index) {
     Rectangle dest = box_rect(game_actor_sprite(p.x, p.y, GAME_ACTOR_HEIGHT));
     sprite(a->assets.villagers,
            (Rectangle){frame.column * 96.0f, frame.row * 96.0f, frame.flip ? -96.0f : 96.0f, 96}, dest,
-           Fade(WHITE, 1 - unit->indoor));
+           Fade(effect_tint(a, 0, v->id), 1 - unit->indoor));
+    if (unit->indoor < 0.5f)
+        life_bar(a, 0, v->id, v->health, 100, dest);
     if (v->flags & CORE_VF_SICK)
         DrawCircleV((Vector2){p.x, dest.y - 2}, 1.5f, PURPLE);
-    else if (v->mood < 30)
+    else if (v->happiness < 30)
         DrawCircleV((Vector2){p.x, dest.y - 2}, 1.5f, UI_BAD);
     else if (v->state == CORE_VS_SLEEP)
         DrawCircleV((Vector2){p.x, dest.y - 2}, 1.5f, SKYBLUE);
@@ -234,8 +287,10 @@ static void enemy(GameApp *a, int index) {
     int frame = ((int)(GetTime() * 7) + e->actor.id) % 4;
     float height = e->def.type == 3 ? 30.0f : 24.0f;
     Rectangle dest = box_rect(game_actor_sprite(p.x, p.y, height));
-    sprite(a->assets.enemies, (Rectangle){frame * 96.0f, e->def.type * 96.0f, 96, 96}, dest, WHITE);
-    ui_bar((Rectangle){p.x - 7, dest.y - 4, 14, 2}, e->hp / (float)e->def.hp, UI_BAD);
+    GameEffect *fx = game_effect(&a->session, 2, e->actor.id);
+    sprite(a->assets.enemies, (Rectangle){frame * 96.0f, e->def.type * 96.0f, 96, 96}, dest,
+           fx && fx->hurt_until > a->session.visual_time ? RED : WHITE);
+    life_bar(a, 2, e->actor.id, e->hp, e->def.hp, dest);
 }
 static int prop_type(const GameApp *a, int x, int y) {
     const GameSession *s = &a->session;
@@ -243,6 +298,10 @@ static int prop_type(const GameApp *a, int x, int y) {
     if (s->visibility && !s->visibility[i])
         return -1;
     if (s->roads[i] || a->decor_blocked[i])
+        return -1;
+    if (s->exp_tiles && s->exp_tiles[i].tree_kind && s->exp_tiles[i].tree_logs_milli > 0)
+        return 20;
+    if (s->exp_tiles && type == CORE_TERRAIN_FOREST)
         return -1;
     if (type == CORE_TERRAIN_FOREST) {
         if (variant % 3 == 0)
@@ -266,6 +325,20 @@ static void prop(GameApp *a, int cell_index) {
     int x = cell_index % s->summary.map_width, y = cell_index / s->summary.map_width,
         type = prop_type(a, x, y);
     float size = type < 4 ? 34.0f : (type < 8 ? 22.0f : 13.0f), cx = (x + 0.5f) * 16, feet = (y + 0.8f) * 16;
+    if (type == 20) {
+        CoreExpansionTileView *t = &s->exp_tiles[cell_index];
+        int mature = (int[]){28000, 48000, 84000, 112000}[t->tree_kind - 1];
+        int stage = t->tree_age < mature / 4                  ? 0
+                    : t->tree_age < mature                    ? 1
+                    : s->summary.season == CORE_SEASON_AUTUMN ? 3
+                    : s->summary.season == CORE_SEASON_WINTER ? 4
+                                                              : 2;
+        size = stage == 0 ? 12.0f : stage == 1 ? 25.0f : t->tree_kind == 2 ? 43.0f : 38.0f;
+        int species = (int[]){2, 1, 0, 3}[t->tree_kind - 1];
+        sprite(a->assets.trees, (Rectangle){stage * 128.0f, species * 128.0f, 128, 128},
+               (Rectangle){cx - size / 2, feet - size, size, size}, WHITE);
+        return;
+    }
     size *= 0.92f + (tile_noise(x, y) % 9) * 0.02f;
     sprite(a->assets.props, (Rectangle){(type % 4) * 256.0f, (type / 4) * 256.0f, 256, 256},
            (Rectangle){cx - size / 2, feet - size, size, size}, WHITE);
@@ -322,6 +395,8 @@ static int draw_queue(GameApp *a) {
         CoreBuildingView *b = &s->buildings[i];
         if (s->visibility && !s->visibility[b->y * w + b->x])
             continue;
+        if (b->x + b->w < x0 || b->x > x1 || b->y + b->h < y0 || b->y > y1)
+            continue;
         if (b->kind_flags & CORE_EXP_PLOT) {
             building(a, i);
             continue;
@@ -339,6 +414,8 @@ static int draw_queue(GameApp *a) {
         if (!unit || unit->indoor >= 1 || (!s->summary.ruleset && v->state == CORE_VS_FLEE && v->at_target))
             continue;
         p = pixel(unit->position);
+        if (unit->position.x < x0 || unit->position.x > x1 || unit->position.y < y0 || unit->position.y > y1)
+            continue;
         a->draw_items[count++] = (GameDrawItem){p.y, DRAW_VILLAGER, i, v->id};
         DrawEllipse((int)p.x, (int)p.y, 4, 1.5f, (Color){0, 0, 0, 75});
         if (v->id == a->selected_villager)
@@ -354,7 +431,11 @@ static int draw_queue(GameApp *a) {
         }
     for (i = 0; i < s->animal_count; i++) {
         CoreAnimalView *animal = &s->animals[i];
+        if (animal->owner || !animal->alive || animal->hp <= 0)
+            continue;
         int xcell = animal->x_milli / 1000, ycell = animal->y_milli / 1000;
+        if (xcell < x0 || xcell > x1 || ycell < y0 || ycell > y1)
+            continue;
         if (s->visibility && s->visibility[ycell * w + xcell] < 2)
             continue;
         a->draw_items[count++] =
@@ -382,14 +463,29 @@ static void objects(GameApp *a) {
             break;
         case DRAW_ANIMAL: {
             CoreAnimalView *animal = &a->session.animals[item->index];
-            float size = animal->kind == 12 ? 28.0f : animal->kind == 7 || animal->kind == 14 ? 24.0f : 16.0f;
+            CoreAnimalInfo info;
+            core_expansion_animal_info(animal->kind, &info);
+            float width = info.width_milli * 16 / 1000.0f, height = info.height_milli * 16 / 1000.0f;
             GameAnimalActor *unit = &a->session.animal_actors[item->index];
             float x = unit->position.x * 16, y = unit->position.y * 16;
             int moving = unit->remaining > 0 && a->speed > 0 && a->panel == PANEL_NONE;
             int frame = game_walk_frame(unit->walk_distance, moving);
-            sprite(a->assets.animal_walk,
+            int cell = animal->y_milli / 1000 * a->session.summary.map_width + animal->x_milli / 1000;
+            Texture2D texture =
+                a->session.terrain[cell] == CORE_TERRAIN_WATER && !a->session.roads[cell] && info.swim_milli
+                    ? a->assets.animal_swim
+                    : a->assets.animal_walk;
+            GameEffect *fx = game_effect(&a->session, 1, animal->id);
+            if (fx && fx->attack_tick && a->session.visual_time - fx->attack_started < .4f &&
+                !(fx->hurt_started <= a->session.visual_time && fx->hurt_until > a->session.visual_time)) {
+                texture = a->assets.animal_attack;
+                frame = (int)((a->session.visual_time - fx->attack_started) * 10);
+            }
+            Rectangle dest = {x - width / 2, y - height, width, height};
+            sprite(texture,
                    (Rectangle){frame * 96.0f, animal->kind * 96.0f, unit->facing < 0 ? -96.0f : 96.0f, 96},
-                   (Rectangle){x - size / 2, y - size, size, size}, WHITE);
+                   dest, effect_tint(a, 1, animal->id));
+            life_bar(a, 1, animal->id, animal->hp, info.hp, dest);
             break;
         }
         }
@@ -404,6 +500,77 @@ static void objects(GameApp *a) {
         DrawTexturePro(arrow, (Rectangle){0, 0, (float)arrow.width, (float)arrow.height},
                        (Rectangle){now.x, now.y, 8, height}, (Vector2){4, height / 2},
                        atan2f(to.y - from.y, to.x - from.x) * RAD2DEG, WHITE);
+    }
+}
+static void livestock_proxies(GameApp *a) {
+    GameSession *s = &a->session;
+    static const int kinds[4] = {7, 9, 8, 10};
+    for (int b = 0; b < s->building_count; b++) {
+        CoreBuildingView *farm = &s->buildings[b];
+        if ((farm->type != CORE_BLD_RANCH && farm->type != CORE_BLD_PASTURE) ||
+            farm->state != CORE_BSTATE_ACTIVE)
+            continue;
+        if (s->visibility && s->visibility[farm->y * s->summary.map_width + farm->x] < 2)
+            continue;
+        for (int k = 0; k < 4; k++) {
+            int count = 0, representative = -1;
+            for (int i = 0; i < s->animal_count; i++)
+                if (s->animals[i].owner == farm->id && s->animals[i].kind == kinds[k]) {
+                    count++;
+                    if (representative < 0 || s->animals[i].hp < s->animals[representative].hp)
+                        representative = i;
+                }
+            int visible = count > 0 ? (farm->type == CORE_BLD_PASTURE && count > 1 ? 2 : 1) : 0;
+            for (int n = 0; n < visible; n++) {
+                unsigned hash = (unsigned)farm->id * 73u + (unsigned)k * 197u + (unsigned)n * 829u;
+                float phase = s->visual_time * .8f + (hash % 97) * .17f;
+                float x = (farm->x + .5f + (hash % 100) / 100.0f * (farm->w - 1)) * 16 + sinf(phase) * 2;
+                float y = (farm->y + .65f + ((hash / 100) % 100) / 100.0f * (farm->h - 1)) * 16 +
+                          cosf(phase) * 1.5f;
+                CoreAnimalInfo info;
+                core_expansion_animal_info(kinds[k], &info);
+                float width = info.width_milli * 16 / 1000.0f, height = info.height_milli * 16 / 1000.0f;
+                Rectangle dest = {x - width / 2, y - height, width, height};
+                int frame = (int)(phase * 3) & 3, id = s->animals[representative].id;
+                sprite(a->assets.animal_walk,
+                       (Rectangle){frame * 96.0f, kinds[k] * 96.0f, cosf(phase) > 0 ? 96.0f : -96.0f, 96},
+                       dest, effect_tint(a, 1, id));
+                life_bar(a, 1, id, s->animals[representative].hp, info.hp, dest);
+            }
+        }
+    }
+}
+static void corpses(GameApp *a) {
+    GameSession *s = &a->session;
+    for (int i = 0; i < 2048; i++) {
+        GameEffect *fx = &s->effects[i];
+        float elapsed = s->visual_time - fx->death_started;
+        if (!fx->id || !fx->dead || elapsed >= 1 || (fx->owner && !game_building(s, fx->owner)))
+            continue;
+        Texture2D texture;
+        Rectangle source;
+        float width = 24, height = 24;
+        if (fx->category == 0) {
+            GameSpriteFrame frame = game_villager_frame(fx->skin, fx->facing, 0, 0);
+            texture = a->assets.villagers;
+            source = (Rectangle){frame.column * 96.0f, frame.row * 96.0f, frame.flip ? -96.0f : 96.0f, 96};
+        } else if (fx->category == 1) {
+            CoreAnimalInfo info;
+            core_expansion_animal_info(fx->skin, &info);
+            width = info.width_milli * 16 / 1000.0f;
+            height = info.height_milli * 16 / 1000.0f;
+            texture = a->assets.animal_walk;
+            source = (Rectangle){96, fx->skin * 96.0f, fx->facing < 0 ? -96.0f : 96.0f, 96};
+        } else {
+            texture = a->assets.enemies;
+            source = (Rectangle){96, fx->skin * 96.0f, 96, 96};
+        }
+        float angle = fmaxf(0, fminf(1, elapsed / .55f)) * 60 * ((fx->id * 73) & 1 ? 1 : -1);
+        Color tint =
+            elapsed < 0 ? WHITE
+                        : Fade((Color){255, 110, 110, 255}, elapsed < .55f ? 1 : 1 - (elapsed - .55f) / .45f);
+        DrawTexturePro(texture, source, (Rectangle){fx->position.x * 16, fx->position.y * 16, width, height},
+                       (Vector2){width / 2, height}, angle, tint);
     }
 }
 void game_render_free(GameApp *a) {
@@ -529,7 +696,7 @@ static void status_bubbles(GameApp *a) {
     int i;
     for (i = 0; i < s->building_count; i++) {
         CoreBuildingView *b = &s->buildings[i];
-        Rectangle image = building_rect(b, a->assets.turns[b->type][b->rotation]);
+        Rectangle image = building_rect(b, building_texture(a, b));
         Vector2 anchor = {image.x + image.width / 2, image.y - 3};
         if (b->state != CORE_BSTATE_ACTIVE ||
             (s->visibility && !s->visibility[b->y * s->summary.map_width + b->x]))
@@ -560,7 +727,7 @@ static void status_bubbles(GameApp *a) {
             icon = 13;
         else if (v->flags & CORE_VF_UNPAID)
             icon = 18;
-        else if (v->mood < 30)
+        else if (v->happiness < 30)
             icon = 16;
         else if (!v->home_id)
             icon = 17;
@@ -605,7 +772,18 @@ void game_render_world(GameApp *a) {
     BeginMode2D(a->camera);
     terrain(a);
     objects(a);
+    livestock_proxies(a);
+    corpses(a);
     fog(a);
+    for (i = 0; i < a->session.villager_count; i++) {
+        CoreVillagerView *v = &a->session.villagers[i];
+        GameActor *unit = game_actor(&a->session, v->id);
+        if (!unit || (!v->incoming && v->state != CORE_VS_LEAVING))
+            continue;
+        int cell = (int)unit->position.y * a->session.summary.map_width + (int)unit->position.x;
+        if (cell >= 0 && cell < a->session.cells && a->session.visibility && a->session.visibility[cell] < 2)
+            villager(a, i);
+    }
     overlay(a);
     EndMode2D();
     if (a->session.summary.is_night)

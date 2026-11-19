@@ -11,8 +11,13 @@ set(CASTLE_CORE_SOURCES
   src/expansion_world.c
   src/expansion_commands.c
   src/expansion_people.c
+  src/expansion_wellbeing.c
+  src/expansion_ecology.c
+  src/expansion_debug.c
+  src/expansion_hubs.c
   src/expansion_economy.c
   src/expansion_progress.c
+  src/expansion_prices.c
   src/expansion_animals.c
   src/expansion_save.c
   src/entity.c

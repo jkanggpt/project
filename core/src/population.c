@@ -171,6 +171,8 @@ void population_begin_leaving(World *world, Villager *villager)
 {
     int32_t ex;
     int32_t ey;
+    if (world->expansion && !expansion_departure_allowed(world, villager, 1))
+        return;
     entity_unlink_worker(villager);
     entity_unlink_resident(villager);
     villager->hold_ticks = 0;
@@ -191,6 +193,15 @@ void population_remove_departed(World *world, Villager *villager)
         memcpy(c->initial,villager->initial_stats,sizeof(c->initial));memcpy(c->xp,villager->stat_xp,sizeof(c->xp));memcpy(c->skills,villager->skill_minutes,sizeof(c->skills));memcpy(c->traits,villager->traits,sizeof(c->traits));for(j=1;j<12;j++)if(c->skills[j]>c->skills[c->field])c->field=j;
         expansion_candidate_price(world,c);
     }
+    if (world->expansion && !villager->contract_end_tick) {
+        if (!expansion_departure_allowed(world, villager, 0)) {
+            vil_set_intent(villager, CORE_VS_IDLE, NULL, world->keep_x, world->keep_y + 3, 0);
+            villager->low_mood_ticks = 0;
+            world->expansion->dirty = 1;
+            return;
+        }
+        world->expansion->departures_today++;
+    }
     events_push_villager(&world->events, CORE_EVT_VILLAGER_LEFT, villager->id, 0, 0, villager->name);
     world->stats.villagers_left++;
     entity_remove_villager(world, villager);
@@ -203,6 +214,23 @@ void population_kill(World *world, Villager *villager, int32_t cause)
     world->mourning += POP_MOURNING_PER_DEATH;
     if (world->mourning > POP_MOURNING_MAX) {
         world->mourning = POP_MOURNING_MAX;
+    }
+    if (world->expansion && !villager->contract_end_tick) {
+        int i;
+        for (i = 0; i < world->villager_count; i++) {
+            Villager *other = world->villagers[i];
+            if (other == villager || other->contract_end_tick)
+                continue;
+            if (other->death_mood_day != exp_day(world)) {
+                other->death_mood_day = exp_day(world);
+                other->death_mood_count = 0;
+            }
+            if (other->death_mood_count < 5) {
+                other->mood = exp_clamp(other->mood - 12, -200, 200);
+                other->death_mood_count++;
+                other->mood_cause = 10;
+            }
+        }
     }
     entity_remove_villager(world, villager);
     jobs_on_buildings_changed(world);

@@ -223,7 +223,7 @@ static void fortification_plan(void) {
         b.w = b.h = 3;
         box = game_expansion_building_sprite(&b, 512, 256);
         EXPECT(box.w <= 3 * 16 * 1.10f + 4.01f && box.w >= 3 * 16);
-        EXPECT(box.h >= 3 * 16 + 24 && box.y + box.h == 13 * 16);
+        EXPECT(box.h >= 3 * 16 && box.h <= 3 * 16 + 24 && box.y + box.h == 13 * 16);
     }
 }
 static void animal_movement(const char *data) {
@@ -250,6 +250,18 @@ static void animal_movement(const char *data) {
     EXPECT(game_session_refresh(s) == CORE_OK);
     EXPECT(game_session_step(s, 2) == CORE_OK);
     EXPECT(s->animal_actors[0].facing == -1);
+    {
+        int id = s->villagers[0].id, x = s->summary.keep_x * 1000 + 250,
+            y = (s->summary.keep_y + 4) * 1000 + 750;
+        EXPECT(core_expansion_report_position(s->world, id, x, y) == CORE_OK);
+        EXPECT(core_save(s->world, "native_position.sav") == CORE_OK);
+        EXPECT(game_session_load(s, "native_position.sav", NULL) == CORE_OK);
+        GameActor *actor = game_actor(s, id);
+        EXPECT(actor && fabsf(actor->position.x - x / 1000.0f) < .00001f &&
+               fabsf(actor->position.y - y / 1000.0f) < .00001f);
+        (void)platform_remove_file("native_position.sav");
+        (void)platform_remove_file("native_position.sav.bak");
+    }
     game_session_free(s);
     free(s);
 }

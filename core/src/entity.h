@@ -43,7 +43,7 @@ struct Villager {
     Stats stats;          /* 포함 */
     Needs needs;          /* 포함 */
     int32_t traits[2];    /* 특성 번호, -1 = 없음 */
-    int32_t mood;         /* 0..100 */
+    int32_t mood;         /* 기본 규칙 0..100, 확장 사건 기분 −200..200 */
     int32_t health;       /* 0..100 */
     int32_t flags;        /* CORE_VF_* */
     Building *home;       /* 참조 (없으면 NULL) */
@@ -76,6 +76,10 @@ struct Villager {
     int32_t expansion_loaded;
     int32_t water_building;
     int32_t refuge_revision;
+    int32_t happiness, long_needs[3], need_sums[3], need_samples;
+    int32_t incoming, leisure_days[4], hunger_ticks, hunger_event_day;
+    int32_t injury_tick, critical, threat_raid, mood_cause, death_mood_day, death_mood_count;
+    int32_t hub_id, hub_revision, hub_kind, hub_job, hub_day;
 };
 
 struct Building {

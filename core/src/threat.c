@@ -391,6 +391,8 @@ int threat_report_villager_damage(World *world, int32_t raid_id, int32_t village
     if(world->expansion && villager->inside_building)return CORE_IGNORED;
     if(world->expansion && villager->workplace && villager->workplace->type==CORE_BLD_BARRACKS && expansion_has_research(world,11))damage=(int32_t)((int64_t)damage*90/100);
     villager->health -= damage;
+    if (world->expansion)
+        expansion_hurt(world, villager, damage, raid_id);
     if (villager->health <= 0) {
         world->threat.raid.fallen++;
         population_kill(world, villager, CORE_DEATH_RAID);

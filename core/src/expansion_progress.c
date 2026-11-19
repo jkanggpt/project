@@ -189,7 +189,7 @@ CORE_API int32_t core_expansion_rank(const CoreWorld *w, CoreExpansionRankView *
     for (i = 0; i < w->villager_count; i++)
         if (!w->villagers[i]->contract_end_tick) {
             permanent++;
-            mood += w->villagers[i]->mood;
+            mood += w->villagers[i]->happiness;
         }
     if (permanent)
         mood /= permanent;
@@ -221,7 +221,7 @@ CORE_API int32_t core_expansion_rank(const CoreWorld *w, CoreExpansionRankView *
                       : w->bank.amount[CORE_RES_MANA] < mana[target]       ? CORE_DENY_NO_MANA
                       : w->bank.amount[CORE_RES_GOLD_BAR] < out->gold_bars ? CORE_DENY_NO_RESOURCES
                                                                            : 0;
-        out->ready = out->reason == 0;
+        out->ready = out->reason == 0 && !w->expansion->promotion_state;
     }
     for (i = 1; i < CORE_BLD_COUNT; i++)
         if (expansion_spec(i)->rank == target)
@@ -244,14 +244,30 @@ int expansion_rank_up(World *w, int *reason) {
     (void)expansion_bank_add(w, CORE_RES_GOLD, -v.gold * 1000, CORE_LEDGER_TRIBUTE);
     (void)expansion_bank_add(w, CORE_RES_MANA, -v.mana * 1000, CORE_LEDGER_TRIBUTE);
     (void)expansion_bank_add(w, CORE_RES_GOLD_BAR, -v.gold_bars * 1000, CORE_LEDGER_TRIBUTE);
-    w->rank++;
+    w->expansion->promotion_state = 1;
+    w->expansion->promotion_target = w->rank + 1;
+    w->expansion->promotion_remaining = 144;
+    return CORE_OK;
+}
+void expansion_promotion_tick(World *w) {
+    ExpansionState *e = w->expansion;
+    Building *keep = world_keep(w);
+    if (!e->promotion_state)
+        return;
+    if (!keep || keep->state == CORE_BSTATE_RUINED) {
+        e->promotion_state = e->promotion_remaining = 0;
+        return;
+    }
+    if (--e->promotion_remaining > 0)
+        return;
+    w->rank = e->promotion_target;
+    e->promotion_state = 0;
     events_push_progress(&w->events, CORE_EVT_RANK_UP, w->rank, 0, 0, NULL);
     if (w->rank == 5) {
         w->outcome = CORE_OUTCOME_WON;
         w->stats.victory_day = exp_day(w);
         events_push_progress(&w->events, CORE_EVT_VICTORY, exp_day(w), 0, 0, NULL);
     }
-    return CORE_OK;
 }
 int expansion_market_level(const World *w) {
     int i, level = 0;
@@ -267,76 +283,6 @@ int expansion_market_level(const World *w) {
             level = 1;
     }
     return level;
-}
-int expansion_trade(World *w, int res, int units, int *gold, int *reason) {
-    static const int buy[15] = {0, 45, 2, 8, 6, 6, 5, 5, 11, 9, 7, 22, 30, 60, 12},
-                     sell[15] = {0, 25, 1, 4, 3, 3, 2, 2, 5, 4, 3, 12, 18, 40, 6};
-    int level = expansion_market_level(w), amount, price, cap = (int[]){0, 20, 80, 260}[level];
-    if (units < -260 || units > 260)
-        return CORE_ERR_INVALID_ARG;
-    amount = units < 0 ? -units : units;
-    *gold = 0;
-    *reason = 0;
-    if (!level) {
-        *reason = CORE_DENY_NO_MARKET;
-        return CORE_ERR_REJECTED;
-    }
-    if (res <= 0 || res >= 15 || !amount || amount > 260 ||
-        (level == 1 && res != CORE_RES_FOOD && res != CORE_RES_HERBS && res != CORE_RES_LOGS &&
-         res != CORE_RES_STONE && res != CORE_RES_LEATHER) ||
-        (level == 2 && (res == CORE_RES_MANA || res == CORE_RES_GOLD_ORE || res == CORE_RES_GOLD_BAR))) {
-        *reason = CORE_DENY_NOT_TRADABLE;
-        return CORE_ERR_REJECTED;
-    }
-    if (w->expansion->trade_used + amount > cap) {
-        *reason = CORE_DENY_BAD_AMOUNT;
-        return CORE_ERR_REJECTED;
-    }
-    price = units > 0 ? buy[res] : sell[res];
-    if (units < 0 && expansion_has_research(w, 7))
-        price = price * 110 / 100;
-    if (units > 0) {
-        if (w->expansion->trade_stock[res] < amount) {
-            *reason = CORE_DENY_NO_GOODS;
-            return CORE_ERR_REJECTED;
-        }
-        if (w->bank.amount[CORE_RES_GOLD] < price * amount) {
-            *reason = CORE_DENY_NO_GOLD;
-            return CORE_ERR_REJECTED;
-        }
-        if ((int64_t)expansion_bank_have(w, res) + amount * 1000 >
-            (int64_t)eco_bank_limit(&w->bank, res) * 1000) {
-            *reason = CORE_DENY_STORAGE_FULL;
-            return CORE_ERR_REJECTED;
-        }
-    } else if (w->bank.amount[res] < amount) {
-        *reason = CORE_DENY_NO_GOODS;
-        return CORE_ERR_REJECTED;
-    }
-    *gold = units > 0 ? -price * amount : price * amount;
-    (void)expansion_bank_add(w, CORE_RES_GOLD, *gold * 1000, CORE_LEDGER_TRADE);
-    (void)expansion_bank_add(w, res, units * 1000, CORE_LEDGER_TRADE);
-    w->expansion->trade_used += amount;
-    w->expansion->trade_stock[res] -= units;
-    return CORE_OK;
-}
-void expansion_read_market(const World *w, CoreMarketView *out) {
-    static const int buy[15] = {0, 45, 2, 8, 6, 6, 5, 5, 11, 9, 7, 22, 30, 60, 12},
-                     sell[15] = {0, 25, 1, 4, 3, 3, 2, 2, 5, 4, 3, 12, 18, 40, 6};
-    int level = expansion_market_level(w), r;
-    memset(out, 0, sizeof(*out));
-    out->open = level > 0;
-    out->closed_reason = level ? 0 : CORE_DENY_NO_MARKET;
-    for (r = 1; r < 15; r++)
-        if (level == 3 ||
-            (level == 2 && r != CORE_RES_MANA && r != CORE_RES_GOLD_ORE && r != CORE_RES_GOLD_BAR) ||
-            (level == 1 && (r == CORE_RES_FOOD || r == CORE_RES_HERBS || r == CORE_RES_LOGS ||
-                            r == CORE_RES_STONE || r == CORE_RES_LEATHER))) {
-            out->buy_price[r] = buy[r];
-            out->sell_price[r] = sell[r] * (expansion_has_research(w, 7) ? 110 : 100) / 100;
-            out->base_price[r] = buy[r];
-            out->trend[r] = 100;
-        }
 }
 CORE_API int32_t core_expansion_market_stock(const CoreWorld *w, int32_t resource) {
     if (!w)
@@ -354,7 +300,7 @@ void expansion_candidate_price(const World *w, CoreCandidateView *c) {
     v.stats.dexterity = c->stats[3];
     v.stats.intellect = c->stats[4];
     v.health = 100;
-    v.mood = 50;
+    v.happiness = 50;
     v.traits[0] = v.traits[1] = -1;
     memcpy(v.skill_minutes, c->skills, sizeof(c->skills));
     for (j = 1; j < CORE_BLD_COUNT; j++)
@@ -475,6 +421,7 @@ CORE_API int32_t core_expansion_hire(CoreWorld *w, int32_t person_id, int32_t *v
     strcpy(v->name, c->name);
     v->age = c->age;
     v->contract_end_tick = w->clock.tick + 12 * 144;
+    v->incoming = 1;
     v->at_target = 0;
     v->intent_flags = CORE_INTENT_SPAWN_EDGE;
     c->hired = 1;
@@ -515,6 +462,23 @@ void expansion_read_summary(const World *w, CoreSummaryView *out) {
     int i, level = expansion_market_level(w);
     CoreExpansionRankView rank;
     out->ruleset = 1;
+    for (i = 0; i < w->villager_count; i++)
+        if (!w->villagers[i]->contract_end_tick)
+            out->average_happiness += w->villagers[i]->happiness;
+    if (expansion_permanent(w))
+        out->average_happiness /= expansion_permanent(w);
+    out->promotion_state = w->expansion->promotion_state;
+    out->promotion_target = w->expansion->promotion_target;
+    out->promotion_remaining = w->expansion->promotion_remaining;
+    out->warehouse_hub_visits = w->expansion->hub_visits;
+    out->manor_hub_visits = w->expansion->manor_visits;
+    out->saved_travel_ticks = w->expansion->saved_travel_ticks;
+    out->habitat_regions = w->expansion->region_count;
+    for (i = 0; i < w->expansion->region_count; i++) {
+        out->wild_count += w->expansion->regions[i].count;
+        out->wild_biomass += w->expansion->regions[i].biomass;
+        out->habitat_overcapacity += w->expansion->regions[i].biomass > w->expansion->regions[i].capacity;
+    }
     out->day = exp_day(w);
     out->minute_of_day = exp_minute(w);
     out->season = exp_season(w);
@@ -570,4 +534,12 @@ void expansion_read_villager(const World *w, const Villager *v, CoreVillagerView
     out->hygiene = v->hygiene;
     out->inside_building = v->inside_building;
     out->mood_target = expansion_mood(w, v);
+    out->happiness = v->happiness;
+    out->long_hunger = v->long_needs[0] / 1000;
+    out->long_rest = v->long_needs[1] / 1000;
+    out->long_safety = v->long_needs[2] / 1000;
+    out->mood_cause = v->mood_cause;
+    out->incoming = v->incoming;
+    out->current_x_milli = v->current_x_milli;
+    out->current_y_milli = v->current_y_milli;
 }

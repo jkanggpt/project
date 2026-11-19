@@ -25,6 +25,19 @@ typedef struct ExpansionState {
     int32_t candidate_count, archive_count;
     int32_t loaded_cells, loaded_animals, loaded_candidates, loaded_buildings, loaded_villagers;
     int32_t loaded_archive, load_mask;
+    int32_t last_arrival_day, refill_day, arrived_today, arrival_type, departures_today, blocked_floor8;
+    int32_t pending_arrivals, pending_total, pending_type;
+    int32_t promotion_state, promotion_target, promotion_remaining;
+    int32_t trade_pressure[15], trade_remainder[30], trade_volume[15];
+    int32_t hub_visits, manor_visits, saved_travel_ticks;
+    int32_t travel_minutes, farm_minutes, last_travel_minutes, last_farm_minutes;
+    int32_t report_arrivals, report_arrival_type, report_departures, report_floor8, report_deaths, death_mark;
+    int32_t region_count, region_hunt_days[30][12], region_pressure_until[30];
+    CoreHabitatView regions[30];
+    int32_t region_capacity[30];
+    int32_t spawn_attempts, spawn_capacity_rejected, spawn_tile_rejected, spawn_species_rejected;
+    uint8_t *water_cold, *region_map;
+    int32_t *route_distance, *route_heap, *route_heap_pos;
 } ExpansionState;
 
 static inline int exp_day(const World *w) { return w->clock.tick / 144 + 1; }
@@ -97,4 +110,21 @@ void expansion_animals_tick(World *world);
 int expansion_wild_kind(World *world, int x, int y);
 void expansion_animal_daily(World *world);
 int expansion_market_level(const World *world);
+int expansion_permanent(const World *world);
+int expansion_departure_allowed(World *world, const Villager *v, int reserve);
+void expansion_wellbeing_sample(World *world, Villager *v);
+void expansion_wellbeing_daily(World *world, Villager *v);
+void expansion_hurt(World *world, Villager *v, int damage, int raid);
+Building *expansion_hub(World *world, Villager *v, int food, Building *job);
+void expansion_ecology_init(World *world);
+void expansion_ecology_daily(World *world);
+void expansion_ecology_recount(World *world);
+int expansion_animal_spawn(World *world, int region, int initial);
+int expansion_animal_habitat(const World *world, int kind, int x, int y);
+void expansion_terrain_costs(World *world);
+void expansion_promotion_tick(World *world);
+void expansion_market_daily(World *world);
+void expansion_arrival_join(World *world, Villager *villager);
+extern const CoreAnimalInfo EXP_ANIMALS[24];
+int expansion_debug_town(World *world, int villagers, int enemies);
 #endif

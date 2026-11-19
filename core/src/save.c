@@ -815,15 +815,16 @@ static int parse_villager(LoadState *state, const char *key, char *value)
     name = comma + 1;
 
     if (v[0] < 1 || v[0] >= world->next_villager_id || entity_find_villager(world, v[0]) != NULL ||
-        world->villager_count >= SAVE_MAX_VILLAGERS || !text_is_valid_name(name, CORE_NAME_BYTES) || v[1] < 0 ||
-        v[1] > 200 || v[2] < 1 || v[2] > 10 || v[3] < 1 || v[3] > 10 || v[4] < 1 || v[4] > 10 || v[5] < 1 ||
-        v[5] > 10 || v[6] < 0 || v[6] > 100 || v[7] < 0 || v[7] > 100 || v[8] < 0 || v[8] > 100 || v[9] < 0 ||
-        v[9] > 100 || v[10] < 0 || v[10] > 100 || v[11] < 1 || v[11] > 100 || v[12] < 0 || v[12] > 255 ||
-        v[13] < 0 || v[14] < 0 || v[15] < 0 || v[15] >= CORE_VS_COUNT || v[16] < 0 || v[17] < 0 || v[17] > 3 ||
-        v[18] < 0 || !grid_in_bounds(grid, v[19], v[20]) || (v[21] != 0 && v[21] != 1) ||
-        !grid_in_bounds(grid, v[22], v[23]) || v[24] < 0 || v[25] < 0 || v[26] < 0 || v[27] < 0 || v[27] >= 1000 ||
-        v[28] < 0 || v[28] >= 1000 || v[29] < 0 || v[30] < -1 || v[31] < 0 || v[31] > NATURE_SICK_TICKS * 2 ||
-        v[32] < 0 || v[32] > NATURE_HEAL_TICKS) {
+        world->villager_count >= SAVE_MAX_VILLAGERS || !text_is_valid_name(name, CORE_NAME_BYTES) ||
+        v[1] < 0 || v[1] > 200 || v[2] < 1 || v[2] > 10 || v[3] < 1 || v[3] > 10 || v[4] < 1 || v[4] > 10 ||
+        v[5] < 1 || v[5] > 10 || v[6] < 0 || v[6] > 100 || v[7] < 0 || v[7] > 100 || v[8] < 0 || v[8] > 100 ||
+        v[9] < 0 || v[9] > 100 || v[10] < (world->expansion ? -200 : 0) ||
+        v[10] > (world->expansion ? 200 : 100) || v[11] < 1 || v[11] > 100 || v[12] < 0 || v[12] > 255 ||
+        v[13] < 0 || v[14] < 0 || v[15] < 0 || v[15] >= CORE_VS_COUNT || v[16] < 0 || v[17] < 0 ||
+        v[17] > 3 || v[18] < 0 || !grid_in_bounds(grid, v[19], v[20]) || (v[21] != 0 && v[21] != 1) ||
+        !grid_in_bounds(grid, v[22], v[23]) || v[24] < 0 || v[25] < 0 || v[26] < 0 || v[27] < 0 ||
+        v[27] >= 1000 || v[28] < 0 || v[28] >= 1000 || v[29] < 0 || v[30] < -1 || v[31] < 0 ||
+        v[31] > NATURE_SICK_TICKS * 2 || v[32] < 0 || v[32] > NATURE_HEAL_TICKS) {
         return CORE_ERR_FORMAT;
     }
     rc = reserve_links(state, world->villager_count + 1);

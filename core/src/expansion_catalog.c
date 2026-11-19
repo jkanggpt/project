@@ -3,10 +3,10 @@
 #include <string.h>
 static const ExpansionBuildingSpec SPECS[CORE_BLD_COUNT] = {
     {u8"keep",
-     u8"성채",
-     u8"시작 성채·영지 중심·주도로망 기준",
-     3,
-     3,
+     u8"영주관",
+     u8"영지 중심·공유 자원 허브·대피소",
+     4,
+     4,
      0,
      0,
      0,

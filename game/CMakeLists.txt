@@ -1,5 +1,5 @@
 # 화면과 분리된 C 실행 계층은 그래픽 라이브러리 없이도 테스트합니다.
-add_library(castle_frontend STATIC src/path.c src/session.c src/combat.c src/storage.c src/sprite_layout.c)
+add_library(castle_frontend STATIC src/path.c src/session.c src/combat.c src/storage.c src/sprite_layout.c src/effects.c)
 target_include_directories(castle_frontend PUBLIC src PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 target_link_libraries(castle_frontend PUBLIC castle_core_static PRIVATE castle_warnings)
 if(NOT WIN32)
@@ -67,16 +67,26 @@ if(CASTLE_BUILD_GAME)
   install(FILES ${PROJECT_SOURCE_DIR}/art/README.md ${PROJECT_SOURCE_DIR}/art/PROMPTS.md
     ${PROJECT_SOURCE_DIR}/art/PROMPTS_OVERHEAD.md ${PROJECT_SOURCE_DIR}/art/EXPANSION_PROMPTS.md
     ${PROJECT_SOURCE_DIR}/art/EXPANSION_ICONS_PROMPTS.md
-    ${PROJECT_SOURCE_DIR}/art/TOPOLOGY_ANIMATION_PROMPTS.md DESTINATION art)
+    ${PROJECT_SOURCE_DIR}/art/TOPOLOGY_ANIMATION_PROMPTS.md
+    ${PROJECT_SOURCE_DIR}/art/V111_PROMPTS.md DESTINATION art)
   install(FILES ${PROJECT_SOURCE_DIR}/art/expansion/ALPHA_REPAIR.md DESTINATION art/expansion)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/NATIVE_PORT.md ${PROJECT_SOURCE_DIR}/docs/ARCHITECTURE.md
-    ${PROJECT_SOURCE_DIR}/docs/QA.md DESTINATION docs)
+    ${PROJECT_SOURCE_DIR}/docs/QA.md
+    ${PROJECT_SOURCE_DIR}/docs/V1_1_1_SPEC.md
+    ${PROJECT_SOURCE_DIR}/docs/V1_1_REFERENCE.md
+    ${PROJECT_SOURCE_DIR}/docs/V1_1_1_IMPLEMENTATION.md
+    ${PROJECT_SOURCE_DIR}/docs/V1_1_1_QA.md DESTINATION docs)
   install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/expansion DESTINATION docs)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/native_title.png
     ${PROJECT_SOURCE_DIR}/docs/screenshots/native_game.png
     ${PROJECT_SOURCE_DIR}/docs/screenshots/native_villagers.png
     ${PROJECT_SOURCE_DIR}/docs/screenshots/expansion_rotations.png
-    ${PROJECT_SOURCE_DIR}/docs/screenshots/fortification_connections.png DESTINATION docs/screenshots)
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/fortification_connections.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v111_game.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v111_connections.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v111_rank.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v111_market.png DESTINATION docs/screenshots)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/v111_population.png DESTINATION docs/screenshots)
   if(DEFINED raylib_SOURCE_DIR)
     install(FILES "${raylib_SOURCE_DIR}/LICENSE" DESTINATION licenses RENAME raylib.txt)
     install(FILES "${raylib_SOURCE_DIR}/src/external/glfw/LICENSE.md" DESTINATION licenses RENAME GLFW.txt)

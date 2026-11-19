@@ -35,9 +35,9 @@ extern "C" {
 #endif
 
 /* 외부 호출자의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
-#define CORE_ABI_VERSION 9
+#define CORE_ABI_VERSION 10
 /* 지금 세이브 파일 형식의 버전 (첫 줄 "MAGICCASTLE_SAVE <버전>") */
-#define CORE_SAVE_VERSION 7
+#define CORE_SAVE_VERSION 8
 
 /* 성채·주민 이름 버퍼 크기 (UTF-8 바이트, 끝의 '\0' 포함) */
 #define CORE_NAME_BYTES 48
@@ -591,7 +591,7 @@ typedef struct CoreSummaryView {
     int32_t homeless;         /* 집 없는 주민 수 */
     int32_t employed;         /* 일터가 있는 주민 수 */
     int32_t job_slots;        /* 다 지은 건물의 일자리 수 */
-    int32_t average_mood;     /* 평균 기분 0..100 (주민이 없으면 0) */
+    int32_t average_mood; /* 기본 규칙 0..100, 확장 사건 기분 −200..200. 행복도는 average_happiness */
     int32_t building_count;
     int32_t villager_count_hint; /* core_copy_villagers 에 필요한 버퍼 크기 */
     int32_t building_count_hint; /* core_copy_buildings 에 필요한 버퍼 크기 */
@@ -632,6 +632,9 @@ typedef struct CoreSummaryView {
     char castle_name[CORE_NAME_BYTES];
     int32_t ruleset,permanent_population,contractors,tax,valid_roads,protected_area,protected_population;
     int32_t water_served,market_limit,market_used,candidate_count,animal_count;
+    int32_t average_happiness, promotion_state, promotion_target, promotion_remaining;
+    int32_t wild_count, wild_biomass, habitat_regions, habitat_overcapacity;
+    int32_t warehouse_hub_visits, manor_hub_visits, saved_travel_ticks;
 } CoreSummaryView;
 
 /* 피드백 이벤트 하나 (소리, 알림 문구용). 놓쳐도 상태가 어긋나지 않습니다. */
@@ -659,8 +662,8 @@ typedef struct CoreVillagerView {
     int32_t home_id;          /* 0 = 없음 */
     int32_t workplace_id;     /* 0 = 없음 */
     int32_t job;              /* 일터 건물 종류, 없으면 -1 */
-    int32_t mood;             /* 0..100 */
-    int32_t mood_target;      /* 기분이 향하는 값 */
+    int32_t mood;             /* 기본 규칙 0..100, 확장 사건 기분 −200..200 */
+    int32_t mood_target;      /* 기본 규칙 목표 기분, 확장 규칙 계산 행복도 */
     int32_t health;           /* 0..100 */
     int32_t hunger;           /* 0..100 (100 = 배부름) */
     int32_t rest;             /* 0..100 */
@@ -677,6 +680,8 @@ typedef struct CoreVillagerView {
     int32_t walk_speed;       /* 이 주민이 보통 풀밭에서 한 틱에 걷는 거리 × 1000 */
     int32_t agility,initial_stats[5],stat_xp[5],skill_minutes[12];
     int32_t contract_end_tick,personal_id,water,hygiene,inside_building;
+    int32_t happiness, long_hunger, long_rest, long_safety, mood_cause, incoming;
+    int32_t current_x_milli, current_y_milli;
     char name[CORE_NAME_BYTES];
 } CoreVillagerView;
 

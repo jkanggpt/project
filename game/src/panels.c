@@ -13,7 +13,8 @@ static void cost_text(const CoreBuildingDefView *d, char *text, size_t size) {
     size_t used = 0;
     int i;
     text[0] = '\0';
-    for (i = 0; i < CORE_RES_COUNT; i++)
+    for (int display = 0; display < CORE_RES_COUNT; display++) {
+        i = core_expansion_display_resource(display);
         if (d->cost[i] > 0 && used < size) {
             int n = snprintf(text + used, size - used, "%s%s %d", used ? " / " : "", fmt_resource_name(i),
                              d->cost[i]);
@@ -21,6 +22,7 @@ static void cost_text(const CoreBuildingDefView *d, char *text, size_t size) {
                 break;
             used += (size_t)n;
         }
+    }
 }
 static void hud(GameApp *a) {
     GameUi *u = &a->ui;
@@ -54,9 +56,10 @@ static void hud(GameApp *a) {
             if (ui_button(u, rect(740 + i * button_w, 9, button_w - 5, 36), labels[i], 1, 0, NULL))
                 game_app_open(a, panels[i]);
     }
-    for (i = 0; i < CORE_RES_COUNT; i++) {
+    for (int display = 0; display < CORE_RES_COUNT; display++) {
+        i = core_expansion_display_resource(display);
         Texture2D icon = a->assets.resources[i];
-        float x = 10 + i % 8 * (width - 20) / 8, ry = 75 + i / 8 * 27.0f;
+        float x = 10 + display % 8 * (width - 20) / 8, ry = 75 + display / 8 * 27.0f;
         if (icon.id)
             DrawTexturePro(icon, (Rectangle){0, 0, (float)icon.width, (float)icon.height},
                            rect(x, ry, 20, 20), (Vector2){0, 0}, 0, WHITE);
@@ -68,7 +71,41 @@ static void hud(GameApp *a) {
         if (CheckCollisionPointRec(GetMousePosition(), rect(x, ry, (width - 20) / 8, 25)))
             (void)snprintf(u->tooltip, sizeof(u->tooltip), "%s", hint);
     }
-    ui_small(u, 10 + 7 * (width - 20) / 8, 103, UI_TEXT, u8"인구%d · %d점", s->population, s->average_mood);
+    ui_small(u, 10 + 7 * (width - 20) / 8, 96, UI_TEXT, u8"인구%d · 행복%d", s->population,
+             s->average_happiness);
+    {
+        CoreImmigrationView status;
+        core_expansion_immigration(a->session.world, &status);
+        static const char *const labels[] = {u8"재이주 대기",    u8"이주 조건 부족", u8"다음 06시 검사",
+                                             u8"이주단 이동 중", u8"특별 이주 대기", u8"개척지 보충"};
+        char next[96];
+        int remaining = status.next_day > s->day ? status.next_day - s->day : 0;
+        if (status.status == 0)
+            snprintf(next, sizeof(next), u8"이주 대기 %d일", remaining);
+        else if (status.status == 4)
+            snprintf(next, sizeof(next), u8"특별이주 D-%d", remaining);
+        else if (status.status == 5 && status.permanent >= 8)
+            snprintf(next, sizeof(next), u8"보충 인원 충족");
+        else if (status.status == 5)
+            snprintf(next, sizeof(next), u8"보충이주 D-%d", remaining);
+        else
+            snprintf(next, sizeof(next), "%s", labels[status.status]);
+        ui_small(u, 10 + 7 * (width - 20) / 8, 115, UI_MUTED, "%s", next);
+        if (CheckCollisionPointRec(GetMousePosition(),
+                                   rect(10 + 7 * (width - 20) / 8, 96, (width - 20) / 8, 36))) {
+            snprintf(u->tooltip, sizeof(u->tooltip),
+                     u8"%s · 최근 도착 %d일 / 다음 검사 %d일 06시\n행복도 %d/%d · 빈집 %d · 우물 %d/%d · "
+                     u8"도로 %s\n식량 %.1f/%.1f · 특별 이주 %d/2 · 보충 예정 %d일\n부족: %s%s%s%s%s%s%s",
+                     labels[status.status], status.last_day, status.next_day, status.happiness,
+                     status.required_happiness, status.vacant, status.water_served, status.permanent,
+                     status.road_ok ? u8"연결" : u8"단절", status.food_available / 1000.0,
+                     status.food_needed / 1000.0, status.special_waves, status.refill_day,
+                     status.reasons & 1 ? u8"대기 기간 " : "", status.reasons & 2 ? u8"주거 " : "",
+                     status.reasons & 4 ? u8"우물 " : "", status.reasons & 8 ? u8"도로 " : "",
+                     status.reasons & 16 ? u8"식량 " : "", status.reasons & 32 ? u8"역병·재난 " : "",
+                     status.reasons & 64 ? u8"행복도" : "");
+        }
+    }
     if (s->raid_id)
         ui_small(u, 540, 49, UI_BAD, u8"습격: %s %d명 · 저장/수리 불가", fmt_threat_name(s->raid_type),
                  s->raid_enemies_left);
@@ -117,7 +154,8 @@ static void build_bar(GameApp *a) {
             }
         }
     }
-    for (i = 1; i < CORE_BLD_COUNT; i++) {
+    for (int display = 0; display < 64; display++) {
+        i = core_expansion_display_building(display);
         CoreBuildingDefView *d = &a->session.building_defs[i];
         CoreExpansionBuildingInfo info;
         if (d->category != a->category)
@@ -212,6 +250,17 @@ static void inspector(GameApp *a) {
                 static const int kinds[4] = {7, 9, 8, 10};
                 static const char *const labels[] = {u8"소 35금", u8"돼지 14금", u8"양 18금", u8"닭 5금"};
                 int k;
+                int counts[4] = {0}, total = 0;
+                for (int n = 0; n < s->animal_count; n++)
+                    if (s->animals[n].owner == b->id)
+                        for (k = 0; k < 4; k++)
+                            if (s->animals[n].kind == kinds[k]) {
+                                counts[k]++;
+                                total++;
+                            }
+                ui_small(u, x + 8, y, UI_TEXT, u8"실제 가축 %d/%d · 소%d 돼지%d 양%d 닭%d", total,
+                         b->type == CORE_BLD_RANCH ? 6 : 16, counts[0], counts[1], counts[2], counts[3]);
+                y += 32;
                 for (k = 0; k < 4; k++)
                     if (ui_button(u, rect(x + 8 + k % 2 * 150, y + k / 2 * 40, 145, 34), labels[k], 1, 0,
                                   u8"가축은 일꾼이 없어도 사료를 먹습니다."))
@@ -248,13 +297,24 @@ static void inspector(GameApp *a) {
         ui_text(u, x + 8, y, UI_GOLD, "%s #%d", v->name, v->id);
         y += 40;
         (void)snprintf(text, sizeof(text),
-                       u8"%d세 · %s%s\n기분 %d → %d / 건강 %d\n배부름 %d / 휴식 %d\n물 %d / 위생 %d\n힘 %d · "
+                       u8"%d세 · %s%s\n행복도 %d/100 · 기분 %+d/200\n건강 %d · 포만 %d / 휴식 %d\n물 %d / "
+                       u8"위생 %d\n힘 %d · "
                        u8"민첩 %d · 체력 %d\n손재주 %d · 지능 %d\n집 #%d / 일터 #%d",
-                       v->age, fmt_villager_state(v->state), v->inside_building ? u8" · 실내" : "", v->mood,
-                       v->mood_target, v->health, v->hunger, v->rest, v->water, v->hygiene, v->strength,
-                       v->agility, v->vitality, v->dexterity, v->intellect, v->home_id, v->workplace_id);
+                       v->age, fmt_villager_state(v->state), v->inside_building ? u8" · 실내" : "",
+                       v->happiness, v->mood, v->health, v->hunger, v->rest, v->water, v->hygiene,
+                       v->strength, v->agility, v->vitality, v->dexterity, v->intellect, v->home_id,
+                       v->workplace_id);
         ui_wrap(u, rect(x + 8, y, width - 24, 280), UI_TEXT, text);
         y += 285;
+        ui_small(u, x + 8, y, UI_MUTED, u8"장기 포만/휴식/안전 %d/%d/%d", v->long_hunger, v->long_rest,
+                 v->long_safety);
+        y += 28;
+        static const char *const causes[] = {u8"평온한 생활", u8"장시간 굶주림", u8"임금 체불",  u8"부상",
+                                             u8"중상",        u8"습격 위협",     u8"주점 방문",  u8"목욕",
+                                             u8"극장 방문",   u8"교회 방문",     u8"이웃의 사망"};
+        ui_small(u, x + 8, y, UI_MUTED, u8"최근 기분 원인: %s",
+                 v->mood_cause >= 0 && v->mood_cause < 11 ? causes[v->mood_cause] : u8"생활 사건");
+        y += 28;
         if (v->contract_end_tick) {
             ui_small(u, x + 8, y, UI_GOLD, u8"계약 남은 기간 %.1f일",
                      (v->contract_end_tick - s->summary.tick) / 144.0);
@@ -558,13 +618,18 @@ static void rank_panel(GameApp *a) {
         return;
     ui_text(u, x, y, UI_GOLD, u8"현재 %s · 다음 %s", core_expansion_rank_name(s->rank), r.name);
     y += 45;
+    if (s->promotion_state) {
+        ui_small(u, x, y, UI_GOLD, u8"영주관 승급 공사 %d%% · 남은 %.1f시간",
+                 (144 - s->promotion_remaining) * 100 / 144, s->promotion_remaining / 6.0);
+        y += 32;
+    }
     if (s->rank < 5) {
         ui_text(u, x, y, s->permanent_population >= r.population ? UI_GOOD : UI_BAD,
                 u8"영구 주민 %d / %d · 계약직 %d명 제외", s->permanent_population, r.population,
                 s->contractors);
         y += 36;
-        ui_text(u, x, y, s->average_mood >= r.mood ? UI_GOOD : UI_BAD, u8"평균 기분 %d / %d", s->average_mood,
-                r.mood);
+        ui_text(u, x, y, s->average_happiness >= r.mood ? UI_GOOD : UI_BAD, u8"평균 행복도 %d / %d",
+                s->average_happiness, r.mood);
         y += 36;
         ui_text(u, x, y, s->valid_roads >= r.roads ? UI_GOOD : UI_BAD, u8"시설에 쓰이는 연결 도로 %d / %d칸",
                 s->valid_roads, r.roads);
@@ -647,26 +712,45 @@ static void market(GameApp *a, int contracts) {
                  u8"하루 거래 %d / %d개 · 6일마다 재고 보충 · 아래 가격은 개당", s->summary.market_used,
                  s->summary.market_limit);
         y = scroll_start(a, b, 14, 64) + 45;
-        for (i = 1; i < 15; i++, y += 64) {
+        for (int display = 1; display < 15; display++, y += 64) {
+            i = core_expansion_display_resource(display);
+            CoreTradeQuote q1, q10, qs;
+            core_expansion_quote(s->world, i, 1, &q1);
+            core_expansion_quote(s->world, i, 10, &q10);
+            core_expansion_quote(s->world, i, -10, &qs);
             int32_t reason = 0, gold = 0;
             char label[96];
-            int enabled = m.open && m.buy_price[i] > 0, stock = core_expansion_market_stock(s->world, i);
+            int enabled = m.open && q1.reason != CORE_DENY_NOT_TRADABLE,
+                stock = core_expansion_market_stock(s->world, i);
             if (y < b.y + 120 || y + 54 > b.y + b.height - 45)
                 continue;
             ui_small(&a->ui, b.x + 30, y + 8, UI_TEXT, u8"%s · 보유 %d / 재고 %d", fmt_resource_name(i),
                      s->summary.resources[i], stock);
-            (void)snprintf(label, sizeof(label), u8"1개 구매 %d금", m.buy_price[i]);
-            if (ui_button(&a->ui, rect(b.x + b.width - 610, y, 180, 38), label, enabled, 0, NULL)) {
+            ui_small(&a->ui, b.x + 30, y + 31, UI_MUTED, u8"매수 %.2f금/개 · %+.2f%%", q1.unit_cents / 100.0,
+                     q1.rate_bp / 100.0);
+            char quote_tip[512];
+            snprintf(quote_tip, sizeof(quote_tip),
+                     u8"매수 %.2f금/개 · 시세 %+.2f%%\n계절 %+.2f%% / 사건 %+.2f%% / 거래 압력 %+.2f%%\n매도 "
+                     u8"%.2f금/개 · 일일 잔여 %d개\n주문별 실제 총액은 반올림 잔액을 포함합니다.",
+                     q1.unit_cents / 100.0, q1.rate_bp / 100.0, q1.season_bp / 100.0, q1.event_bp / 100.0,
+                     q1.pressure_bp / 100.0, qs.unit_cents / 100.0, q1.remaining);
+            if (CheckCollisionPointRec(GetMousePosition(), rect(b.x + 25, y, b.width - 50, 58)))
+                snprintf(a->ui.tooltip, sizeof(a->ui.tooltip), "%s", quote_tip);
+            (void)snprintf(label, sizeof(label), u8"1개 구매 %d금", q1.total_gold);
+            if (ui_button(&a->ui, rect(b.x + b.width - 610, y, 180, 38), label, enabled && !q1.reason, 0,
+                          quote_tip)) {
                 int rc = core_trade(s->world, i, 1, &gold, &reason);
                 command(a, rc, reason);
             }
-            (void)snprintf(label, sizeof(label), u8"10개 구매 %d금", m.buy_price[i] * 10);
-            if (ui_button(&a->ui, rect(b.x + b.width - 420, y, 180, 38), label, enabled, 0, NULL)) {
+            (void)snprintf(label, sizeof(label), u8"10개 구매 %d금", q10.total_gold);
+            if (ui_button(&a->ui, rect(b.x + b.width - 420, y, 180, 38), label, enabled && !q10.reason, 0,
+                          quote_tip)) {
                 int rc = core_trade(s->world, i, 10, &gold, &reason);
                 command(a, rc, reason);
             }
-            (void)snprintf(label, sizeof(label), u8"10개 판매 %d금", m.sell_price[i] * 10);
-            if (ui_button(&a->ui, rect(b.x + b.width - 230, y, 190, 38), label, enabled, 0, NULL)) {
+            (void)snprintf(label, sizeof(label), u8"10개 판매 %d금", qs.total_gold);
+            if (ui_button(&a->ui, rect(b.x + b.width - 230, y, 190, 38), label, enabled && !qs.reason, 0,
+                          quote_tip)) {
                 int rc = core_trade(s->world, i, -10, &gold, &reason);
                 command(a, rc, reason);
             }
@@ -682,7 +766,7 @@ static int villager_compare(const void *left, const void *right) {
     else if (sort_column == 1)
         result = (a->job > b->job) - (a->job < b->job);
     else if (sort_column == 2)
-        result = (a->mood > b->mood) - (a->mood < b->mood);
+        result = (a->happiness > b->happiness) - (a->happiness < b->happiness);
     else
         result = (a->health > b->health) - (a->health < b->health);
     return sort_reverse ? -result : result;
@@ -692,9 +776,56 @@ static void villagers(GameApp *a) {
     GameSession *s = &a->session;
     float y;
     int i;
-    static const char *const labels[] = {u8"이름", u8"일터", u8"기분", u8"체력"};
+    CoreImmigrationView imm;
+    core_expansion_immigration(s->world, &imm);
+    const char *status = imm.status == CORE_IMM_ARRIVING ? u8"이주단 이동 중"
+                         : imm.status == CORE_IMM_WAIT ? u8"재이주 대기"
+                         : imm.status == CORE_IMM_BLOCKED ? u8"재심사 가능 · 조건 부족"
+                         : imm.status == CORE_IMM_SPECIAL ? u8"특별 이주 예정"
+                         : imm.status == CORE_IMM_REFILL ? u8"개척지 보충"
+                         : u8"조건 충족 · 다음 06시 심사";
+    static const char *const causes[] = {u8"대기 기간", u8"집 부족", u8"물 부족", u8"도로 미연결",
+                                        u8"식량 부족", u8"역병/재난", u8"행복도 부족"};
+    const char *cause = u8"충족";
+    char details[512];
+    snprintf(details, sizeof(details), u8"전체 거절 사유: %s%s%s%s%s%s%s\n보충 이주는 일반 조건과 무관합니다.",
+             imm.reasons & 1 ? u8"대기 기간 / " : "", imm.reasons & 2 ? u8"집 부족 / " : "",
+             imm.reasons & 4 ? u8"물 부족 / " : "", imm.reasons & 8 ? u8"도로 미연결 / " : "",
+             imm.reasons & 16 ? u8"식량 부족 / " : "", imm.reasons & 32 ? u8"역병·재난 / " : "",
+             imm.reasons & 64 ? u8"행복도 부족" : "");
+    for (i = 0; i < 7; i++)
+        if (imm.reasons & (1 << i)) {
+            cause = causes[i];
+            break;
+        }
+    Rectangle summary = rect(b.x + 28, b.y + 63, b.width - 56, 106);
+    ui_box(summary, UI_BG);
+    ui_small(&a->ui, b.x + 38, b.y + 71, UI_GOLD, u8"영구 이주 · %s · 영구 주민 %d명", status, imm.permanent);
+    int check_day = s->summary.day + (s->summary.minute_of_day >= 360);
+    if (check_day < imm.next_day)
+        check_day = imm.next_day;
+    if (!s->summary.rank) {
+        ui_small(&a->ui, b.x + 38, b.y + 95, UI_TEXT,
+                 u8"특별 이주 %d/2회 도착 · 인구 %d/8 · 다음 예정 %d일 · 마지막 합류 %d일",
+                 imm.special_waves, imm.permanent, imm.next_day, imm.last_day);
+        ui_small(&a->ui, b.x + 38, b.y + 120, UI_MUTED,
+                 u8"특별 이주는 2명씩 · 두 번째 합류 뒤 3일마다 1명 보충 · 일반 조건 제한 없음");
+    } else {
+        ui_small(&a->ui, b.x + 38, b.y + 95, UI_TEXT,
+                 u8"최근 합류 %d일 · 대기 해제 %d일 · 다음 심사 %d일 06:00 · 우선 사유: %s",
+                 imm.last_day, imm.next_day, check_day, cause);
+        ui_small(&a->ui, b.x + 38, b.y + 120, UI_TEXT,
+                 u8"행복 %d/%d · 빈집 %d · 우물 %d/%d · 도로 %s · 식량 %.0f/%.0f · 예상 %d~%d명",
+                 imm.happiness, imm.required_happiness, imm.vacant, imm.water_served, imm.permanent,
+                 imm.road_ok ? u8"연결" : u8"단절", imm.food_available / 1000.0, imm.food_needed / 1000.0,
+                 imm.minimum, imm.maximum);
+    }
+    ui_small(&a->ui, b.x + 38, b.y + 145, UI_MUTED, u8"조건·규모는 심사 때 다시 계산합니다. 전체 사유는 마우스를 올려 확인하세요.");
+    if (CheckCollisionPointRec(GetMousePosition(), summary))
+        snprintf(a->ui.tooltip, sizeof(a->ui.tooltip), "%s", details);
+    static const char *const labels[] = {u8"이름", u8"일터", u8"행복도", u8"체력"};
     for (i = 0; i < 4; i++)
-        if (ui_button(&a->ui, rect(b.x + 28 + i * (b.width - 56) / 4, b.y + 67, (b.width - 64) / 4, 36),
+        if (ui_button(&a->ui, rect(b.x + 28 + i * (b.width - 56) / 4, b.y + 179, (b.width - 64) / 4, 36),
                       labels[i], 1, a->sort_column == i, NULL)) {
             if (a->sort_column == i)
                 a->sort_reverse = !a->sort_reverse;
@@ -706,15 +837,18 @@ static void villagers(GameApp *a) {
     sort_column = a->sort_column;
     sort_reverse = a->sort_reverse;
     qsort(s->villagers, (size_t)s->villager_count, sizeof(*s->villagers), villager_compare);
-    y = scroll_start(a, b, s->villager_count + 1, 48) + 48;
+    Rectangle list = b;
+    list.y += 112;
+    list.height -= 112;
+    y = scroll_start(a, list, s->villager_count + 1, 48) + 48;
     for (i = 0; i < s->villager_count; i++, y += 48) {
         CoreVillagerView *v = &s->villagers[i];
         char label[300];
-        if (y < b.y + 110 || y + 42 > b.y + b.height - 42)
+        if (y < b.y + 222 || y + 42 > b.y + b.height - 42)
             continue;
-        (void)snprintf(label, sizeof(label), u8"%s #%d | %s | 기분 %d | 체력 %d | %s", v->name, v->id,
-                       v->job < 0 ? u8"일터 없음" : core_expansion_building_name(v->job), v->mood, v->health,
-                       fmt_villager_state(v->state));
+        (void)snprintf(label, sizeof(label), u8"%s #%d | %s | 행복 %d · 기분 %+d | 체력 %d | %s", v->name, v->id,
+                       v->job < 0 ? u8"일터 없음" : core_expansion_building_name(v->job), v->happiness,
+                       v->mood, v->health, fmt_villager_state(v->state));
         if (ui_button(&a->ui, rect(b.x + 28, y, b.width - 56, 40), label, 1, a->selected_villager == v->id,
                       NULL)) {
             GameActor *actor = game_actor(s, v->id);
@@ -767,14 +901,16 @@ static void ledger(GameApp *a) {
     float y = b.y + 84;
     GameUi *u = &a->ui;
     (void)core_get_ledger(a->session.world, &l);
-    for (i = 0; i < CORE_RES_COUNT; i++)
-        if (ui_button(u, rect(b.x + 24 + i * (b.width - 48) / 6, y, (b.width - 60) / 6, 36),
-                      fmt_resource_name(i), 1, r == i, NULL))
-            a->category = i;
-    y += 62;
+    for (i = 0; i < CORE_RES_COUNT; i++) {
+        int resource = core_expansion_display_resource(i);
+        if (ui_button(u, rect(b.x + 24 + i % 5 * (b.width - 48) / 5, y + i / 5 * 35, (b.width - 60) / 5, 31),
+                      fmt_resource_name(resource), 1, r == resource, NULL))
+            a->category = resource;
+    }
+    y += 120;
     ui_text(u, b.x + 32, y, UI_GOLD, u8"항목                         오늘          어제");
     y += 42;
-    for (i = 0; i < CORE_LEDGER_COUNT; i++, y += 32) {
+    for (i = 0; i < CORE_LEDGER_COUNT; i++, y += 28) {
         if (y + 30 > b.y + b.height - 35)
             break;
         ui_text(u, b.x + 32, y, UI_TEXT, "%s", fmt_ledger_name(i));
@@ -917,5 +1053,39 @@ void game_render_interface(GameApp *a) {
     if (a->stress)
         ui_small(&a->ui, GetScreenWidth() - 330.0f, GetScreenHeight() - 34.0f, UI_GOLD,
                  u8"FPS %d · 주민 %d · 적 %d", GetFPS(), a->session.villager_count, a->session.enemy_count);
+    if (a->in_game && a->panel == PANEL_NONE && !a->ui.tooltip[0]) {
+        Vector2 screen = GetMousePosition(), point = GetScreenToWorld2D(screen, a->camera);
+        int x = (int)floorf(point.x / 16), y = (int)floorf(point.y / 16);
+        GameSession *s = &a->session;
+        static const char *const biomes[] = {u8"초원", u8"숲",   u8"타이가", u8"산악", u8"습지",
+                                             u8"설원", u8"사막", u8"호수",   u8"늪",   u8"사바나"};
+        if (screen.y > 132 && screen.y < GetScreenHeight() - 190 && x >= 0 && y >= 0 &&
+            x < s->summary.map_width && y < s->summary.map_height && s->exp_tiles) {
+            CoreExpansionTileView *tile = &s->exp_tiles[y * s->summary.map_width + x];
+            if (tile->explored) {
+                if (tile->water_id) {
+                    CoreWaterView water;
+                    if (core_expansion_water(s->world, tile->water_id, &water) == CORE_OK)
+                        snprintf(a->ui.tooltip, sizeof(a->ui.tooltip),
+                                 u8"%s 수역 #%d · 호수 판정\n면적 %d칸 · 공동 어획 한도 %.2f/일\n물가는 인접 "
+                                 u8"생물군계에 따라 연결됩니다.",
+                                 water.cold ? u8"차가운" : u8"따뜻한", water.id, water.area,
+                                 water.capacity_milli / 1000.0);
+                } else if (tile->tree_kind && tile->tree_logs_milli) {
+                    static const char *const names[] = {u8"자작나무", u8"소나무", u8"참나무", u8"마력수"};
+                    int mature = (int[]){28000, 48000, 84000, 112000}[tile->tree_kind - 1];
+                    snprintf(a->ui.tooltip, sizeof(a->ui.tooltip),
+                             u8"%s · %s\n성장 %.1f/%d일 · 원목 잔량 %.1f\n생물군계: %s",
+                             names[tile->tree_kind - 1],
+                             tile->tree_age < mature / 4 ? u8"묘목"
+                             : tile->tree_age < mature   ? u8"유목"
+                                                         : u8"성목",
+                             tile->tree_age / 1000.0, mature / 1000, tile->tree_logs_milli / 1000.0,
+                             biomes[tile->biome]);
+                } else
+                    snprintf(a->ui.tooltip, sizeof(a->ui.tooltip), "%s (%d,%d)", biomes[tile->biome], x, y);
+            }
+        }
+    }
     ui_tooltip(&a->ui);
 }

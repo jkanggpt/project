@@ -168,10 +168,10 @@ static void check_animation_assets(const char *out) {
     Image animal = read_png(out, "animal_walk.png"), wall = read_png(out, "wall_links.png");
     int row, col, x, y;
     if (animal.data) {
-        if (animal.width != 384 || animal.height != 1536)
+        if (animal.width != 384 || (animal.height != 1536 && animal.height != 2304))
             failures++;
         else
-            for (row = 0; row < 16; row++) {
+            for (row = 0; row < animal.height / 96; row++) {
                 unsigned first = 0;
                 int changed = 0;
                 for (col = 0; col < 4; col++) {

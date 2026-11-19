@@ -199,9 +199,9 @@ void test_expansion_alert_and_departure(void) {
     v->target_y = w->keep_y;
     v->at_target = 0;
     CHECK_EQ(core_tick(w, 1), CORE_OK);
-    CHECK_EQ(v->state, CORE_VS_LEAVING);
+    CHECK(v->state != CORE_VS_LEAVING);
+    CHECK_EQ(expansion_permanent(w), 4);
     expansion_assign(w);
-    CHECK(v->home == NULL);
     core_destroy(w);
 }
 void test_expansion_shared_logging(void) {
@@ -294,7 +294,7 @@ void test_expansion_feed_before_output(void) {
     CHECK_EQ(w->expansion->animals[w->expansion->animal_count - 1].starve_days, 1);
     CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), 1000);
     rc = core_expansion_damage_animal(w, w->expansion->animals[w->expansion->animal_count - 1].id, 50);
-    CHECK_EQ(rc, CORE_ERR_REJECTED);
+    CHECK_EQ(rc, CORE_OK);
     w->expansion->animals[w->expansion->animal_count - 1].alive = 0;
     w->bank.amount[CORE_RES_FOOD] = 0;
     w->expansion->fractional[CORE_RES_FOOD] = 300;
@@ -502,6 +502,9 @@ void test_expansion_guaranteed_starter_waves(void) {
             v->needs.hunger = 100;
         }
         expansion_people_daily(w);
+        for (i = 0; i < w->villager_count; i++)
+            if (w->villagers[i]->incoming)
+                expansion_arrival_join(w, w->villagers[i]);
         if (w->villager_count != last) {
             CHECK_EQ(w->villager_count, last + 2);
             if (!first)
