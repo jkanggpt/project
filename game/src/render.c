@@ -49,7 +49,7 @@ void game_render_connection_preview(GameApp *a) {
     EndMode2D();
 }
 void game_render_rotation_preview(GameApp *a) {
-    static const int types[6] = {CORE_BLD_KEEP,     CORE_BLD_HOUSE, CORE_BLD_FARM,
+    static const int types[6] = {CORE_BLD_GRANARY,  CORE_BLD_HOUSE, CORE_BLD_FARM,
                                  CORE_BLD_BARRACKS, CORE_BLD_PORT,  CORE_BLD_MAGE_TOWER};
     static const char *const directions[4] = {u8"정면 · 남쪽 입구", u8"오른쪽 · 동쪽 입구",
                                               u8"후면 · 북쪽 입구", u8"왼쪽 · 서쪽 입구"};

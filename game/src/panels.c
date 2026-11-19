@@ -141,8 +141,16 @@ static void build_bar(GameApp *a) {
         a->demolish = !a->demolish;
         a->build_type = -1;
     }
-    if (ui_button(u, rect(width - 114, y + 44, 104, 28), u8"회전 R", 1, 0,
-                  u8"선택한 건물 또는 건설 미리보기를 회전합니다.")) {
+    CoreBuildingView *selected = game_building(&a->session, a->selected_building);
+    int rotate_type = a->build_type >= 0 ? a->build_type : selected ? selected->type : -1;
+    CoreExpansionBuildingInfo rotate_info = {0};
+    if (rotate_type >= 0)
+        (void)core_expansion_building_info(rotate_type, &rotate_info);
+    int can_rotate = rotate_type >= 0 && rotate_type != CORE_BLD_KEEP &&
+                     !(rotate_info.flags & (CORE_EXP_WALL | CORE_EXP_ROAD));
+    if (ui_button(u, rect(width - 114, y + 44, 104, 28), can_rotate ? u8"회전 R" : u8"방향 고정", can_rotate, 0,
+                  can_rotate ? u8"선택한 건물 또는 건설 미리보기를 회전합니다."
+                             : u8"영주관은 정면 고정이며 성벽·도로는 주변 칸에 자동 연결됩니다.")) {
         if (a->build_type >= 0)
             a->rotation = (a->rotation + 1) % 4;
         else if (a->selected_building) {
@@ -223,7 +231,12 @@ static void inspector(GameApp *a) {
             (void)core_expansion_building_info(b->type, &info);
             ui_wrap(u, rect(x + 8, y, width - 24, 115), UI_MUTED, info.description);
             y += 120;
-            ui_small(u, x + 8, y, UI_TEXT, u8"회전 %d° · 유지비 %d금/일", b->rotation * 90, b->upkeep);
+            if (b->type == CORE_BLD_KEEP)
+                ui_small(u, x + 8, y, UI_TEXT, u8"정면 고정 · 유지비 %d금/일", b->upkeep);
+            else if (b->kind_flags & CORE_EXP_WALL)
+                ui_small(u, x + 8, y, UI_TEXT, u8"주변 벽 자동 연결 · 유지비 %d금/일", b->upkeep);
+            else
+                ui_small(u, x + 8, y, UI_TEXT, u8"회전 %d° · 유지비 %d금/일", b->rotation * 90, b->upkeep);
             y += 32;
             if (b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) {
                 ui_wrap(u, rect(x + 8, y, width - 24, 82), b->operating ? UI_GOOD : UI_BAD,
@@ -252,7 +265,7 @@ static void inspector(GameApp *a) {
                 int k;
                 int counts[4] = {0}, total = 0;
                 for (int n = 0; n < s->animal_count; n++)
-                    if (s->animals[n].owner == b->id)
+                    if (s->animals[n].alive && s->animals[n].owner == b->id)
                         for (k = 0; k < 4; k++)
                             if (s->animals[n].kind == kinds[k]) {
                                 counts[k]++;

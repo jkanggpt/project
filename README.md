@@ -35,7 +35,7 @@ Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 
 ## Windows 빌드와 실행
 
-배포 ZIP을 받은 경우 압축을 풀고 `MagicCastle/castle_game.exe`를 실행하면 됩니다. `assets/`와 `data/` 폴더도 함께 두세요.
+배포 ZIP을 받은 경우 압축을 풀고 `MagicCastle-v1.1.1/castle_game.exe`를 실행하면 됩니다. `assets/`와 `data/` 폴더도 함께 두세요.
 아래 도구 설치는 직접 소스를 빌드할 때 필요합니다.
 
 준비물: CMake 3.21 이상과 Visual Studio 2022 C/C++ 개발 도구 또는 MinGW-w64 + Ninja.
@@ -145,6 +145,8 @@ ctest --preset linux-debug -j8
 `castle_game --screenshot <파일.png> --screen title|game|villagers|rotations|research|rank|market|load --no-audio`로 화면을 촬영합니다.
 `tools/screenshots.cmake`, `tools/smoke_test.cmake`로도 실행할 수 있습니다.
 각 실행 파일은 `--help`를 제공합니다.
+
+v1.1.1의 두 Windows 빌드에서120개 테스트가 모두 통과했습니다. 144개 장기 검사에서 봇의 왕성 도달과 최대 부하 프레임 목표는 미달이며, 결과와 남은 튜닝은 [검증 기록](docs/V1_1_1_QA.md)에 공개합니다.
 
 ## 구조
 
