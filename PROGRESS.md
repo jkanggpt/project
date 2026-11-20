@@ -6,11 +6,11 @@
 첨부 HTML/읽기용 본문은 `docs/V1_2_1_SPEC.*`, 구현 해석은 `docs/V1_2_1_IMPLEMENTATION.md`입니다.
 C11/raylib, ABI11/저장v9. 노동·XP·서비스·농업/산림/어획/축산·시야·30동물·6세력28적·사건과 추가 요청을 적용했습니다.
 남녀 이름324개·12외형, 새 원화15장/런타임12아틀라스와 온실 계절별4방향을 연결했습니다. 프롬프트는 `art/V121_PROMPTS.md`입니다.
-MinGW 경고 오류 빌드·최종 CTest129/129(54.15초) 통과. MSVC 경고 오류 빌드 성공 후 한글 경로 원화 검사도 통과했습니다. 마지막 성능 계측 표시 수정의 MSVC 재빌드와 전체 CTest를 남겼습니다.
+최종 봇 보완 후 두 경고 오류 빌드 성공. CTest MinGW129/129(55.29초), MSVC129/129(54.23초) 통과했습니다. 구현 커밋 a779658, 봇·그림 보완 커밋 ead7019이며 평가 실행 파일 SHA256은 2AEEED11D0EEE3DF6324DE5F50100B907B3F060DD97B4961AF392BF11F16AC31 입니다.
 실제 화면6종 촬영 종료0/오류 로그0, 주민·성벽문·온실 회전·게임 화면 시각 확인. PNG는 `artifacts/v121/screens`입니다.
 장기 검사에서 발견한 틱 사이 패배 처리·확장 건물 붕괴 후 통행 격자·로드 시 탐험 기록 증가를 수정하고 native_runtime에 회귀를 추가했습니다. 수정 전 중단된 장기 결과는 최종으로 쓰지 않습니다. 수정본 보통 시드2/200일은 생존·보호393·오류0입니다.
 최종 평가에 추가한 거래 시설1개 규칙의 봇 병목을 고쳤습니다. 폐허를 정상 수리비로 복구하고 노점→시장은 기존 시설을 철거한 후 건설하며 상급 거래 시설을 하급으로 다시 만들지 않습니다. native_runtime의 거래 시설 복구 회귀가 통과했습니다.
-수정 전 중단 평가 `artifacts/v121/final_balance`69판은 최종 통계에서 제외합니다. 최종 평가는 `artifacts/v121/final_balance_v2`, 실행 파일 `qa_runner_v2.exe`로 새로 시작했습니다. 9개 프로세스 정보는 해당 폴더 `processes.json`에 있습니다. 임의 종료나 중복 실행 없이 이 평가를 끝까지 확인해야 합니다.
+수정 전 중단 평가 `artifacts/v121/final_balance`69판은 최종 통계에서 제외합니다. 공격 중 소환/치료 시계 정지 오류도 수정했습니다. 공격 중120분 경계 회귀가 통과했습니다. 수정 전 `final_balance_v2`127판도 최종 통계에서 제외합니다. 최종 평가는 `artifacts/v121/quality_final`, 실행 파일 `qa_runner_v3.exe`로 새로 시작했습니다. 9개 프로세스 정보는 해당 폴더 `processes.json`에 있습니다. 임의 종료나 중복 실행 없이 이 평가를 끝까지 확인해야 합니다.
 첫 성능3회(normal360) 평균37.995/35.615/29.173ms로 목표 미달, debug420은 조건 유지·크래시0입니다. 최종 그래픽 빌드에서 성능을 다시 측정하고 이전 측정도 보존합니다. 설치본20일 스모크는 저장21회·해시3419566859455946561 일치했습니다. 최종 봇을 설치본에 재반영하고 QA/배포 ZIP/드라이브 해제를 마무리해야 합니다.
 임시 R:는 현재 이 저장소 대상이며 검증이 끝나면 QueryDosDeviceW로 정확한 대상을 확인하고 해제합니다. MinGW `R:/build/native-windows`, MSVC `build/msvc-check`.
 CMake4.3.2, .NET SDK/Godot 없음(C 실행판 불필요). 기존 사용자 미추적 `.github.zip`, `AGENTS.md`, `tools.zip`, `game/src/castle_core.h`, `game/src/castle_expansion.h`를 보존하며 스테이징에서 제외합니다.
@@ -232,3 +232,5 @@ CMake4.3.2, .NET SDK/Godot 없음(C 실행판 불필요). 기존 사용자 미�
 - 임시 R:는 권한 있는 QueryDosDeviceW로 이 저장소 대상임을 확인하고 해제했습니다. 해제 뒤 한글 설치 경로에서1일 스모크·저장2회·해시 `8683204402936489238` 일치와 새 성벽/걷기 GUI 촬영을 확인했습니다.
 - 실행판은 `artifacts/MagicCastle-C-Windows.zip`, 원본 검사 자료는 `artifacts/fortification/quality-results.zip`입니다. 설치본 실행 파일 SHA-256은 `A8BD8A525AB56CAEF9901B40324F4319A9912B4CC0D2E19A396CED974994D525`입니다. ZIP 검증 기록은 `artifacts/fortification/package-verification.json`에 보관합니다.
 - 소스·그림·프롬프트·검사 문서는 로컬 커밋으로 정리합니다. 학생의 기존 `.github.zip`, `tools.zip`, `AGENTS.md`는 보존했습니다. 왕성 목표, 개척지 인구 감소 후 회복 제약, 수동 플레이와300동물 조건은 QA에 남겼습니다.
+
+주기 시계 수정 후 MinGW 전체129/129(43.48초), MSVC 빌드 성공·전체 검사 진행 중. `check_trade_policy.exe` 격리 검사는 changed1/old_removed1/trades1/markets1/retained1/violations0으로 통과했습니다. 배포본 최종 봇 반영20일 스모크는 저장21회·해시17053130218737720967 일치(주기 시계 수정 재설치 확인 필요).

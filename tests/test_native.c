@@ -325,6 +325,25 @@ static void bot_trade_recovery(const char *data) {
     }
     game_session_free(s);free(s);
 }
+static void ability_during_attack(const char *data) {
+    for(int kind=0;kind<2;kind++) {
+        GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
+        EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;
+        EXPECT(game_session_new(s,u8"공격 중 주기 능력",42,1)==CORE_OK);
+        EXPECT(threat_debug_raid(s->world,CORE_THREAT_MONSTERS,CORE_DIR_NORTH,3)==CORE_OK);
+        s->world->threat.raid.enemies[0].type=kind?16:13;
+        EXPECT(game_session_refresh(s)==CORE_OK);
+        GameEnemy *caster=&s->enemies[0],*ally=&s->enemies[1];
+        caster->actor.position=(GamePoint){100.5f,100.5f};ally->actor.position=(GamePoint){101.0f,100.5f};
+        caster->special_clock=119;caster->attack_serial=1;caster->attack_elapsed=0;
+        int before=s->world->expansion->summons_total,hp=ally->def.hp-20;
+        ally->hp=hp;
+        EXPECT(game_session_step(s,1)==CORE_OK);
+        if(kind)EXPECT(s->enemies[1].hp==hp+15);
+        else EXPECT(s->world->expansion->summons_total==before+1);
+        game_session_free(s);free(s);
+    }
+}
 int main(int argc, char **argv) {
     if (argc != 2)
         return 2;
@@ -338,6 +357,7 @@ int main(int argc, char **argv) {
     animal_movement(argv[1]);
     raid_attack_frames(argv[1]);
     bot_trade_recovery(argv[1]);
+    ability_during_attack(argv[1]);
     if (!failed)
         puts("C native runtime tests passed");
     return failed ? 1 : 0;

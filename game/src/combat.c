@@ -476,11 +476,7 @@ static void enemy_step(GameSession *s, GameEnemy *e, float minutes) {
     float distance = 1e9f;
     int barrier = 0, arrived;
     e->actor.cooldown=fmaxf(0,e->actor.cooldown)-minutes;
-    if(e->attack_serial && e->attack_elapsed < 4.8f) {
-        e->attack_elapsed += minutes;
-        if(!e->attack_applied && e->attack_elapsed>=2.4f) {e->attack_applied=1;attack_impact(s,e);}
-        return;
-    }
+    /* 주기 능력은 공격 자세를 재생하는 시간에도 같은 게임 시계를 사용합니다. */
     e->special_clock += minutes;
     if(s->summary.ruleset && e->special_clock>=120) {
         if(e->info.ability==4) {int32_t id=0;if(core_expansion_summon(s->world,e->actor.id,&id)!=CORE_OK)e->special_clock=118;}
@@ -488,6 +484,11 @@ static void enemy_step(GameSession *s, GameEnemy *e, float minutes) {
             for(int i=0;i<s->enemy_count;i++) {GameEnemy *other=&s->enemies[i];if(other!=e && other->hp>0 && other->hp<other->def.hp && game_distance(e->actor.position,other->actor.position)<=5){other->hp+=15;if(other->hp>other->def.hp)other->hp=other->def.hp;break;}}
         }
         if(e->special_clock>=120)e->special_clock-=120;
+    }
+    if(e->attack_serial && e->attack_elapsed < 4.8f) {
+        e->attack_elapsed += minutes;
+        if(!e->attack_applied && e->attack_elapsed>=2.4f) {e->attack_applied=1;attack_impact(s,e);}
+        return;
     }
     e->retarget -= minutes;
     if (e->fleeing) {
