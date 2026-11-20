@@ -18,10 +18,14 @@ typedef struct ExpansionBot {
     GamePathfinder finder;
 } ExpansionBot;
 
+static int trade_level(int type) {
+    return type==CORE_BLD_STALL?1:type==CORE_BLD_MARKET?2:type==CORE_BLD_TRADING_POST?3:0;
+}
 static int count_type(const ExpansionBot *bot, int type) {
     int i, count = 0;
     for (i = 0; i < bot->buildings_count; i++)
-        count += bot->buildings[i].type == type && bot->buildings[i].state != CORE_BSTATE_RUINED;
+        count += trade_level(type)?trade_level(bot->buildings[i].type)>=trade_level(type):
+            bot->buildings[i].type == type && bot->buildings[i].state != CORE_BSTATE_RUINED;
     return count;
 }
 static int occupied(const ExpansionBot *bot, int x, int y) {
@@ -72,6 +76,23 @@ static int build(ExpansionBot *bot, int type) {
     CorePlacementView preview;
     if (!afford(bot, type))
         return 0;
+    if(trade_level(type))for(int i=0;i<bot->buildings_count;i++) {
+        CoreBuildingView *b=&bot->buildings[i];int existing=trade_level(b->type);
+        if(!existing)continue;
+        if(existing>=trade_level(type))return 0;
+        int32_t count=0;
+        if(core_demolish(bot->world,b->id)!=CORE_OK)return 0;
+        (void)core_get_summary(bot->world,&bot->summary);
+        (void)core_copy_buildings(bot->world,bot->buildings,bot->summary.building_count+32,&count);
+        bot->buildings_count=count;
+        (void)core_copy_cost_grid(bot->world,bot->cost,bot->cells,NULL);
+        for(int j=0;j<count;j++) {
+            const CoreBuildingView *other=&bot->buildings[j];
+            if(other->kind_flags&CORE_EXP_GATE)continue;
+            for(int y=other->y;y<other->y+other->h;y++)for(int x=other->x;x<other->x+other->w;x++)bot->cost[y*bot->summary.map_width+x]=0;
+        }
+        break;
+    }
     (void)core_expansion_building_info(type, &info);
     for (radius = 3; radius <= 24; radius++)
         for (dy = -radius; dy <= radius; dy++)
@@ -267,7 +288,7 @@ static void staffing(ExpansionBot *bot) {
     if (bot->summary.resources[CORE_RES_LOGS] < 40 && bot->summary.population >= 6)
         priorities[n++] = CORE_BLD_LOGGING_SITE;
     if (bot->summary.population >= 7 || bot->summary.resources[CORE_RES_FOOD] > 120)
-        priorities[n++] = CORE_BLD_STALL;
+        priorities[n++] = count_type(bot,CORE_BLD_TRADING_POST)?CORE_BLD_TRADING_POST:count_type(bot,CORE_BLD_MARKET)?CORE_BLD_MARKET:CORE_BLD_STALL;
     if (bot->summary.raid_id || bot->summary.population >= 12)
         priorities[n++] = CORE_BLD_BARRACKS;
     priorities[n++] = CORE_BLD_GATHERER;
@@ -344,6 +365,17 @@ int sim_expansion_bot_daily(CoreWorld *world) {
     }
     (void)core_copy_buildings(world, bot.buildings, bot.summary.building_count + 32, &count);
     bot.buildings_count = count;
+    /* 습격 뒤 남은 폐허는 새 시설을 중복 건설하기 전에 정상 수리비로 복구합니다. */
+    if(!bot.summary.raid_id) {
+        for(i=0;i<count;i++) {
+            CoreBuildingView *b=&bot.buildings[i];int32_t why=0;
+            if(b->state==CORE_BSTATE_RUINED && b->type!=CORE_BLD_KEEP && !(b->kind_flags&(CORE_EXP_WALL|CORE_EXP_GATE)))
+                (void)core_repair(world,b->id,&why);
+        }
+        (void)core_get_summary(world,&bot.summary);
+        (void)core_copy_buildings(world,bot.buildings,bot.summary.building_count+32,&count);
+        bot.buildings_count=count;
+    }
     (void)core_copy_villagers(world, bot.villagers, bot.summary.population + 8, &count);
     bot.villagers_count = count;
     (void)core_expansion_copy_tiles(world, bot.tiles, bot.cells);
@@ -396,7 +428,7 @@ int sim_expansion_bot_daily(CoreWorld *world) {
     } else if (bot.summary.housing_capacity > 0 && needs_well(&bot) && afford(&bot, CORE_BLD_WELL))
         (void)build(&bot, CORE_BLD_WELL);
     else if (bot.summary.rank >= 1 && !count_type(&bot, CORE_BLD_STALL))
-        (void)build(&bot, CORE_BLD_STALL);
+        (void)build(&bot, bot.summary.rank>=2?CORE_BLD_MARKET:CORE_BLD_STALL);
     else if (bot.summary.rank >= 1 && !count_type(&bot, CORE_BLD_GRANARY))
         (void)build(&bot, CORE_BLD_GRANARY);
     else if (bot.summary.rank == 1 && bot.summary.protected_area >= 25 &&

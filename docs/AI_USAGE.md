@@ -382,3 +382,9 @@ Codex가 학생의 HTML 변경 명세와 이름 ZIP, 추가 요청을 읽고 C �
 - `tools/pack_v121_art.c`
 
 후속 QA에서 `core/src/placement.c`, `tools/expansion_balance.c`를 수정했습니다. `art/v121/greenhouse_turns.png`, `game/assets/expansion/greenhouse_turns.png`를 추가하고 온실 회전·한글 경로·패배 및 저장 탐험 기록 회귀를 검사했습니다.
+
+최종 평가 로그는 `tools/expansion_metrics.h`의 30종 집계·개체별 나이/사료·퇴근 전 실제 노동·주민 경로/효율·소환/전리품 CSV를 추가했습니다. README의 새 화면은 `docs/screenshots/v121_game.png`, `v121_villagers.png`, `v121_connections.png`, `v121_rotations.png`입니다.
+
+구조·결정 기록도 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`에 갱신했습니다. 온실 투명 여백을 제외한 실제 그림 크기를 사용하여 점유 높이보다 작아지는 경우를 방지합니다.
+
+봇의 거래 시설 단일 제한도 처리했습니다. 정상 비용의 폐허 복구·하급 거래 건물 철거 후 교체·상급 시설 유지와 복구 회귀(`cli/expansion_bot.c`, `tests/test_native.c`)를 보완했습니다. 수정 전 평가69판은 최종 통계에서 제외합니다.

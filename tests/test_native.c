@@ -3,6 +3,7 @@
 #include "fortification_plan.h"
 #include "platform.h"
 #include "session.h"
+#include "sim.h"
 #include "sprite_layout.h"
 #include "storage.h"
 #include <math.h>
@@ -304,6 +305,26 @@ static void raid_attack_frames(const char *data) {
     (void)platform_remove_file("native_defeat.sav");(void)platform_remove_file("native_defeat.sav.bak");
     game_session_free(s);free(s);
 }
+static void bot_trade_recovery(const char *data) {
+    GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
+    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;
+    EXPECT(game_session_new(s,u8"거래 시설 복구",42,1)==CORE_OK);
+    CoreExpansionBuildingInfo info;core_expansion_building_info(CORE_BLD_STALL,&info);
+    Building *b=entity_add_building(s->world,CORE_BLD_STALL);EXPECT(b!=NULL);
+    if(b) {
+        b->x=110;b->y=110;b->w=info.w;b->h=info.h;b->door_x=b->x+b->w/2;b->door_y=b->y+b->h;
+        b->state=CORE_BSTATE_RUINED;b->hp=0;
+        for(int r=0;r<15;r++)s->world->bank.amount[r]=100;
+        s->world->bank.amount[CORE_RES_GOLD]=1000;
+        expansion_rebuild(s->world);
+        EXPECT(core_validate(s->world)==0);
+        EXPECT(sim_bot_daily(s->world,"reasonable")==CORE_OK);
+        EXPECT(b->state==CORE_BSTATE_ACTIVE);EXPECT(b->hp==info.hp);
+        int trade=0;for(int i=0;i<s->world->building_count;i++)trade+=s->world->buildings[i]->type==CORE_BLD_STALL || s->world->buildings[i]->type==CORE_BLD_MARKET || s->world->buildings[i]->type==CORE_BLD_TRADING_POST;
+        EXPECT(trade==1);EXPECT(core_validate(s->world)==0);
+    }
+    game_session_free(s);free(s);
+}
 int main(int argc, char **argv) {
     if (argc != 2)
         return 2;
@@ -316,6 +337,7 @@ int main(int argc, char **argv) {
     fortification_plan();
     animal_movement(argv[1]);
     raid_attack_frames(argv[1]);
+    bot_trade_recovery(argv[1]);
     if (!failed)
         puts("C native runtime tests passed");
     return failed ? 1 : 0;

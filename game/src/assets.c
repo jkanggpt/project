@@ -22,7 +22,7 @@ static Sound weather_sound(int thunder) {
     result=LoadSoundFromWave((Wave){count,44100,32,1,samples});free(samples);return result;
 }
 
-static Texture2D texture(GameAssets *a, const char *dir, const char *name) {
+static Texture2D atlas_texture(GameAssets *a, const char *dir, const char *name,Rectangle *regions,int columns,int rows) {
     char path[GAME_PATH_BYTES];
     int n = 0;
     unsigned char *bytes;
@@ -38,12 +38,23 @@ static Texture2D texture(GameAssets *a, const char *dir, const char *name) {
         free(bytes);
     }
     if (image.data) {
+        if(regions)for(int r=0;r<rows;r++)for(int c=0;c<columns;c++) {
+            Rectangle cell={c*(image.width/(float)columns),r*(image.height/(float)rows),image.width/(float)columns,image.height/(float)rows};
+            Image frame=ImageFromImage(image,cell);
+            Rectangle border=GetImageAlphaBorder(frame,.1f);
+            if(border.width<1 || border.height<1){a->missing++;border=(Rectangle){0,0,cell.width,cell.height};}
+            regions[r*columns+c]=(Rectangle){cell.x+border.x,cell.y+border.y,border.width,border.height};
+            UnloadImage(frame);
+        }
         result = LoadTextureFromImage(image);
         UnloadImage(image);
         SetTextureFilter(result, TEXTURE_FILTER_POINT);
     } else
         a->missing++;
     return result;
+}
+static Texture2D texture(GameAssets *a,const char *dir,const char *name) {
+    return atlas_texture(a,dir,name,NULL,0,0);
 }
 int game_assets_load(GameAssets *a, const char *dir, int audio) {
     static const char *const sounds[SND_COUNT] = {"audio-interface/Audio/click_002.ogg",
@@ -105,7 +116,7 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
     a->biomes = texture(a, dir, "expansion/biomes.png");
     a->gates=texture(a,dir,"expansion/gates_v121.png");
     a->farms=texture(a,dir,"expansion/farms_v121.png");
-    a->greenhouse_turns=texture(a,dir,"expansion/greenhouse_turns.png");
+    a->greenhouse_turns=atlas_texture(a,dir,"expansion/greenhouse_turns.png",a->greenhouse_sources,4,4);
     a->raider_attack=texture(a,dir,"expansion/raider_attack.png");
     a->animal_babies=texture(a,dir,"expansion/animal_babies.png");
     a->trees = texture(a, dir, "expansion/trees_v121.png");

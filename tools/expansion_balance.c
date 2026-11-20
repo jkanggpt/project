@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
                 char path[GAME_PATH_BYTES], save[GAME_PATH_BYTES];
                 FILE *csv, *eventcsv;
                 MetricContext context = {0};
-                int logged_day = 0;
+                int logged_day = 0,work_logged_day=0;
                 clock_t metric_started = clock();
                 int tick, last_day = 0, rc, first_protection = 0, peak_area = 0, peak_protected = 0;
                 uint64_t before = 0, after = 0;
@@ -213,6 +213,9 @@ int main(int argc, char **argv) {
                         checkpoint.type = -1;
                         metric_event(&context, &checkpoint);
                     }
+                    if(s->summary.minute_of_day>=1010 && work_logged_day!=s->summary.day) {
+                        metric_work_details(&context);work_logged_day=s->summary.day;
+                    }
                     /* 하루 중 충족한 장기 행복도와 보호구역 조건으로 승급합니다. */
                     if (s->summary.rank_ready) {
                         int32_t why = 0;
@@ -247,12 +250,12 @@ int main(int argc, char **argv) {
                 if (require_protection_by && (!first_protection || first_protection > require_protection_by))
                     unqualified++;
                 printf("difficulty=%d seed=%d day=%d pop=%d rank=%d outcome=%d first_protection=%d "
-                       "peak_area=%d peak_protected=%d qualified=%d errors=%d\n",
+                       "peak_area=%d peak_protected=%d qualified=%d errors=%d save_skipped=%d hash_match=%d hash=%llu\n",
                        d, first_seed + i, s->summary.day, s->summary.population, s->summary.rank,
                        s->summary.outcome, first_protection, peak_area, peak_protected,
                        first_protection > 0 &&
                            (!require_protection_by || first_protection <= require_protection_by),
-                       failures);
+                       failures,s->raid_id!=0,before!=0 && before==after,(unsigned long long)after);
                 fflush(stdout);
                 game_session_free(s);
                 free(s);

@@ -90,6 +90,10 @@ if(CASTLE_BUILD_GAME)
     ${PROJECT_SOURCE_DIR}/docs/screenshots/v111_rank.png
     ${PROJECT_SOURCE_DIR}/docs/screenshots/v111_market.png DESTINATION docs/screenshots)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/v111_population.png DESTINATION docs/screenshots)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/v121_game.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v121_villagers.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v121_connections.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v121_rotations.png DESTINATION docs/screenshots)
   if(DEFINED raylib_SOURCE_DIR)
     install(FILES "${raylib_SOURCE_DIR}/LICENSE" DESTINATION licenses RENAME raylib.txt)
     install(FILES "${raylib_SOURCE_DIR}/src/external/glfw/LICENSE.md" DESTINATION licenses RENAME GLFW.txt)

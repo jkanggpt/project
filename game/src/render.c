@@ -74,7 +74,7 @@ void game_render_rotation_preview(GameApp *a) {
             Rectangle source={0,0,(float)t.width,(float)t.height};
             if(types[r]==CORE_BLD_GREENHOUSE) {
                 t=a->assets.greenhouse_turns;
-                source=(Rectangle){c*256.0f,a->session.summary.season*256.0f,256,256};
+                source=a->assets.greenhouse_sources[a->session.summary.season*4+c];
             }
             float width, height, scale;
             float x = 190 + c * column, base = y + row - 9;
@@ -218,7 +218,11 @@ static Rectangle box_rect(GameSpriteBox b) { return (Rectangle){b.x, b.y, b.w, b
 static int farm_row(int type) {
     return type==CORE_BLD_CROPLAND?0:type==CORE_BLD_FARM?1:type==CORE_BLD_IRRIGATED_FARM?2:type==CORE_BLD_ORCHARD?3:type==CORE_BLD_GREENHOUSE?4:-1;
 }
-static Rectangle building_rect(const CoreBuildingView *b, Texture2D t) {
+static Rectangle building_rect(const GameApp *a,const CoreBuildingView *b, Texture2D t) {
+    if(b->type==CORE_BLD_GREENHOUSE) {
+        Rectangle source=a->assets.greenhouse_sources[a->session.summary.season*4+b->rotation];
+        return box_rect(game_expansion_building_sprite(b,(int)source.width,(int)source.height));
+    }
     return box_rect(game_expansion_building_sprite(b, farm_row(b->type)>=0?256:t.width, farm_row(b->type)>=0?256:t.height));
 }
 static Texture2D building_texture(const GameApp *a, const CoreBuildingView *b) {
@@ -231,7 +235,7 @@ static Texture2D building_texture(const GameApp *a, const CoreBuildingView *b) {
 }
 static Rectangle building_source(const GameApp *a, const CoreBuildingView *b, Texture2D t) {
     if(b->type==CORE_BLD_GREENHOUSE)
-        return (Rectangle){b->rotation*256.0f,a->session.summary.season*256.0f,256,256};
+        return a->assets.greenhouse_sources[a->session.summary.season*4+b->rotation];
     if(b->kind_flags&CORE_EXP_GATE) {
         int row=b->type==CORE_BLD_PALISADE_GATE?0:b->type==CORE_BLD_STONE_GATE?1:b->type==CORE_BLD_IRON_GATE?3:2;
         return (Rectangle){b->rotation*128.0f,row*128.0f,128,128};
@@ -252,7 +256,7 @@ static Rectangle building_source(const GameApp *a, const CoreBuildingView *b, Te
 static void building(GameApp *a, int index) {
     CoreBuildingView *b = &a->session.buildings[index];
     Texture2D t = building_texture(a, b);
-    Rectangle dest = building_rect(b, t);
+    Rectangle dest = building_rect(a,b, t);
     Color tint = WHITE;
     if(farm_row(b->type)>=0 && a->session.summary.nature_event==CORE_NATURE_DROUGHT)
         tint=b->type==CORE_BLD_GREENHOUSE?(Color){240,225,190,255}:(Color){220,185,125,255};
@@ -721,7 +725,7 @@ static void overlay(GameApp *a) {
             temporary.resident_slots = d->resident_slots;
             temporary.rotation = a->rotation;
             t = building_texture(a, &temporary);
-            ghost = building_rect(&temporary, t);
+            ghost = building_rect(a,&temporary, t);
             sprite(t, building_source(a, &temporary, t), ghost,
                    Fade(preview.result == CORE_PLACE_OK ? WHITE : UI_BAD, 0.65f));
         }
@@ -751,7 +755,7 @@ static void status_bubbles(GameApp *a) {
     int i;
     for (i = 0; i < s->building_count; i++) {
         CoreBuildingView *b = &s->buildings[i];
-        Rectangle image = building_rect(b, building_texture(a, b));
+        Rectangle image = building_rect(a,b, building_texture(a, b));
         Vector2 anchor = {image.x + image.width / 2, image.y - 3};
         if (b->state != CORE_BSTATE_ACTIVE ||
             (s->visibility && !s->visibility[b->y * s->summary.map_width + b->x]))
@@ -793,7 +797,7 @@ static void status_bubbles(GameApp *a) {
         if (v->inside_building) {
             CoreBuildingView *b = game_building(s, v->inside_building);
             if (b) {
-                Rectangle image = building_rect(b, a->assets.turns[b->type][b->rotation]);
+                Rectangle image = building_rect(a,b, building_texture(a,b));
                 p = (Vector2){image.x + image.width / 2 + (i % 3 - 1) * 12, image.y - 17};
             }
         }
