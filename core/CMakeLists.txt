@@ -11,6 +11,8 @@ set(CASTLE_CORE_SOURCES
   src/expansion_world.c
   src/expansion_commands.c
   src/expansion_people.c
+  src/expansion_v121.c
+    src/expansion_raids.c
   src/expansion_wellbeing.c
   src/expansion_ecology.c
   src/expansion_debug.c

@@ -1,5 +1,6 @@
 /* combat.c — 적·경비병·감시탑·투사체. 규칙의 적용은 반드시 공개 보고 API를 거칩니다. */
 #include "session.h"
+#include "sprite_layout.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,7 +21,7 @@ void game_combat_clear(GameSession *s) {
     memset(&s->raid, 0, sizeof(s->raid));
 }
 int game_combat_sync(GameSession *s) {
-    CoreEnemyView views[GAME_MAX_ENEMIES];
+    CoreEnemyView *views = NULL;
     int32_t count = 0;
     int i, rc;
     rc = core_get_raid(s->world, &s->raid);
@@ -29,6 +30,7 @@ int game_combat_sync(GameSession *s) {
     if (s->raid.id != s->raid_id) {
         CoreRaidView raid = s->raid;
         game_combat_clear(s);
+        for(int k=0;k<2048;k++)if(s->effects[k].category==2)memset(&s->effects[k],0,sizeof(s->effects[k]));
         s->raid = raid;
         s->raid_id = raid.id;
         /* 싸움의 연속 위치는 저장 대상이 아니므로 경비병도 코어가 아는 칸에서 다시 시작합니다. */
@@ -40,9 +42,17 @@ int game_combat_sync(GameSession *s) {
     }
     if (!s->raid_id)
         return CORE_OK;
-    rc = core_copy_enemies(s->world, views, GAME_MAX_ENEMIES, &count);
-    if (rc != CORE_OK)
-        return rc;
+    count = s->raid.enemy_count;
+    views = malloc((size_t)count * sizeof(*views));
+    if (!views) return CORE_ERR_OUT_OF_MEMORY;
+    if (count > s->enemy_capacity) {
+        int capacity = count < 64 ? 64 : count * 2;
+        GameEnemy *grown = realloc(s->enemies,(size_t)capacity * sizeof(*grown));
+        if (!grown) {free(views);return CORE_ERR_OUT_OF_MEMORY;}
+        s->enemies = grown; s->enemy_capacity = capacity;
+    }
+    rc = core_copy_enemies(s->world, views, count, &count);
+    if (rc != CORE_OK) {free(views);return rc;}
     for (i = 0; i < count; i++) {
         int j;
         GameEnemy *enemy = NULL;
@@ -57,19 +67,25 @@ int game_combat_sync(GameSession *s) {
             continue;
         }
         if (!enemy) {
-            if (s->enemy_count >= GAME_MAX_ENEMIES)
-                return CORE_ERR_BUFFER_TOO_SMALL;
+
             enemy = &s->enemies[s->enemy_count++];
             memset(enemy, 0, sizeof(*enemy));
             rc = core_get_enemy_def(s->world, views[i].type, &enemy->def);
-            if (rc != CORE_OK)
-                return rc;
+            if (rc != CORE_OK) {free(views);return rc;}
+            enemy->summoner_id = views[i].summoner_id;
+            if (s->summary.ruleset) (void)core_expansion_raider_info(views[i].type,&enemy->info);
+            if (enemy->summoner_id) {enemy->def.hp=40;enemy->def.damage=5;}
             enemy->actor.id = views[i].id;
             enemy->hp = enemy->def.hp;
             enemy->actor.grid_revision = -1;
             enemy->actor.position = (GamePoint){s->raid.spawn_x + 0.5f, s->raid.spawn_y + 0.5f};
+            if (enemy->summoner_id) {
+                GameEnemy *parent = game_enemy(s,enemy->summoner_id);
+                if (parent) enemy->actor.position=parent->actor.position;
+            }
         }
     }
+    free(views);
     return CORE_OK;
 }
 static int guard(const CoreVillagerView *v) {
@@ -82,11 +98,16 @@ static int exposed(const GameSession *s,const CoreVillagerView *v) {
 static GamePoint center(const CoreBuildingView *b) {
     return (GamePoint){b->x + b->w * 0.5f, b->y + b->h * 0.5f};
 }
+static float building_radius(GamePoint p,const CoreBuildingView *b) {
+    int x=(int)p.x,y=(int)p.y,lx=b->x+(b->w-1)/2,rx=b->x+b->w/2,ty=b->y+(b->h-1)/2,by=b->y+b->h/2;
+    return (float)((x<lx?lx-x:x>rx?x-rx:0)+(y<ty?ty-y:y>by?y-by:0));
+}
 static float building_distance(GamePoint p, const CoreBuildingView *b) {
     float dx = fmaxf(fmaxf(b->x - p.x, 0), p.x - (b->x + b->w));
     float dy = fmaxf(fmaxf(b->y - p.y, 0), p.y - (b->y + b->h));
     return sqrtf(dx * dx + dy * dy);
 }
+static void hostile_area(GameSession *s,GamePoint p,float radius,int damage,int exclude_kind,int exclude_id);
 static void hurt_enemy(GameSession *s, int id, int damage) {
     GameEnemy *e = game_enemy(s, id);
     if (!e)
@@ -94,6 +115,7 @@ static void hurt_enemy(GameSession *s, int id, int damage) {
     e->hp -= damage;
     if (e->hp <= 0) {
         e->hp = 0;
+        if(e->info.ability==9 && !e->summoner_id)hostile_area(s,e->actor.position,1.5f,10,TARGET_NONE,0);
         if (core_report_enemy_killed(s->world, s->raid_id, id) == CORE_OK)
             s->kills++;
     }
@@ -118,8 +140,11 @@ static void impact(GameSession *s, const GameProjectile *p) {
                     hurt_enemy(s, s->enemies[i].actor.id, p->damage);
     } else if (p->target_kind == TARGET_BUILDING) {
         (void)core_report_building_damage(s->world, p->raid_id, p->target_id, p->damage);
+        if(p->radius>0 && p->source_type==27)hostile_area(s,p->to,p->radius,p->damage,TARGET_BUILDING,p->target_id);
     } else if (p->target_kind == TARGET_VILLAGER) {
-        (void)core_report_villager_damage(s->world, p->raid_id, p->target_id, p->damage);
+        int applied=core_report_villager_damage(s->world, p->raid_id, p->target_id, p->damage);
+        if(applied==CORE_OK && p->source_type==21)(void)core_expansion_slow(s->world,p->target_id);
+        if(p->radius>0 && p->source_type==27)hostile_area(s,p->to,p->radius,p->damage,TARGET_VILLAGER,p->target_id);
     } else if (p->target_kind == TARGET_ANIMAL) {
         int i;
         if (core_expansion_damage_animal(s->world, p->target_id, p->damage) == CORE_OK)
@@ -132,8 +157,9 @@ static void impact(GameSession *s, const GameProjectile *p) {
                 }
     }
 }
-static void fire(GameSession *s, GamePoint from, GamePoint to, int kind, int id, int damage, float radius) {
-    GameProjectile p;
+static void fire(GameSession *s, GamePoint from, GamePoint to, int kind, int id, int damage, float radius,int source) {
+    GameProjectile p = {0};
+    p.source_type = source;
     p.from = from;
     p.to = to;
     p.elapsed = 0;
@@ -168,7 +194,7 @@ static void projectiles_step(GameSession *s, float minutes) {
             i++;
     }
 }
-static GameEnemy *nearest_enemy(GameSession *s, GamePoint position, float range, int incoming) {
+static GameEnemy *nearest_enemy(GameSession *s, GamePoint position, float range, int incoming,const CoreBuildingView *source) {
     GameEnemy *best = NULL;
     int i;
     for (i = 0; i < s->enemy_count; i++) {
@@ -182,7 +208,7 @@ static GameEnemy *nearest_enemy(GameSession *s, GamePoint position, float range,
                 s->visibility[y * s->summary.map_width + x] < 2)
                 continue;
         }
-        distance = game_distance(position, e->actor.position);
+        distance = source?building_radius(e->actor.position,source):game_distance(position, e->actor.position);
         if (distance <= range) {
             range = distance;
             best = e;
@@ -190,7 +216,7 @@ static GameEnemy *nearest_enemy(GameSession *s, GamePoint position, float range,
     }
     return best;
 }
-static CoreAnimalView *nearest_animal(GameSession *s, GamePoint position, float range) {
+static CoreAnimalView *nearest_animal(GameSession *s, GamePoint position, float range,const CoreBuildingView *source) {
     CoreAnimalView *best = NULL;
     int i;
     if (!s->summary.ruleset || !s->visibility)
@@ -199,12 +225,11 @@ static CoreAnimalView *nearest_animal(GameSession *s, GamePoint position, float 
         CoreAnimalView *a = &s->animals[i];
         int x = a->x_milli / 1000, y = a->y_milli / 1000;
         float distance;
-        CoreAnimalInfo info;
-        core_expansion_animal_info(a->kind, &info);
-        if (!a->alive || a->owner || (info.behavior != 2 && !a->retaliate_id) ||
+        if (!a->alive || a->owner || a->threat_until_tick <= s->summary.tick ||
             s->visibility[y * s->summary.map_width + x] < 2)
             continue;
-        distance = game_distance(position, (GamePoint){a->x_milli / 1000.0f, a->y_milli / 1000.0f});
+        GamePoint point={a->x_milli/1000.0f,a->y_milli/1000.0f};
+        distance=source?building_radius(point,source):game_distance(position,point);
         if (distance < range) {
             best = a;
             range = distance;
@@ -239,27 +264,33 @@ static void towers_step(GameSession *s, float minutes) {
         GameEnemy *enemy;
         if (b->state != CORE_BSTATE_ACTIVE || d->attack <= 0 || b->type == CORE_BLD_BARRACKS)
             continue;
-        if (s->summary.ruleset && (d->category != CORE_CAT_TOWERS || !b->workers))
+        if (s->summary.ruleset && (d->category != CORE_CAT_TOWERS || !b->working_now))
             continue;
         state = tower_state(s, b->id);
         if (!state)
             return;
-        state->cooldown -= minutes;
+        state->cooldown = fmaxf(0,state->cooldown)-minutes;
         if (state->cooldown > 0)
             continue;
-        enemy = nearest_enemy(s, center(b), d->attack_range + b->w * 0.5f, 1);
+        enemy = nearest_enemy(s, center(b), (float)d->attack_range, 1,b);
         if (enemy) {
             if (s->summary.ruleset && core_expansion_fire(s->world, b->id) != CORE_OK)
                 continue;
-            state->cooldown = (float)d->attack_cooldown;
+            float efficiency = 0; int workers = 0;
+            for (int k=0;k<s->villager_count;k++) {CoreVillagerView *v=&s->villagers[k];if(v->workplace_id==b->id&&v->state==CORE_VS_WORKING&&v->at_target){efficiency+=v->work_efficiency/100.0f;workers++;}}
+            float ratio = workers ? .75f+.25f*efficiency/workers : 1;
+            state->cooldown += d->attack_cooldown / fminf(1.6f,fmaxf(.65f,ratio));
             fire(s, center(b), enemy->actor.position, TARGET_ENEMY, enemy->actor.id, d->attack,
-                 b->type == CORE_BLD_CANNON_TOWER ? (researched(s, 12) ? 2.0f : 1.0f) : 0.0f);
+                 b->type == CORE_BLD_CANNON_TOWER ? (researched(s, 12) ? 2.0f : 1.0f) : 0.0f,100+b->type);
         } else {
-            CoreAnimalView *animal = nearest_animal(s, center(b), (float)d->attack_range);
+            CoreAnimalView *animal = nearest_animal(s, center(b), (float)d->attack_range,b);
             if (animal && core_expansion_fire(s->world, b->id) == CORE_OK) {
-                state->cooldown = (float)d->attack_cooldown;
+                float efficiency = 0; int workers = 0;
+            for (int k=0;k<s->villager_count;k++) {CoreVillagerView *v=&s->villagers[k];if(v->workplace_id==b->id&&v->state==CORE_VS_WORKING&&v->at_target){efficiency+=v->work_efficiency/100.0f;workers++;}}
+            float ratio = workers ? .75f+.25f*efficiency/workers : 1;
+            state->cooldown += d->attack_cooldown / fminf(1.6f,fmaxf(.65f,ratio));
                 fire(s, center(b), (GamePoint){animal->x_milli / 1000.0f, animal->y_milli / 1000.0f},
-                     TARGET_ANIMAL, animal->id, d->attack, 0);
+                     TARGET_ANIMAL, animal->id, d->attack, 0,100+b->type);
             }
         }
     }
@@ -280,13 +311,13 @@ static void guards_step(GameSession *s, float minutes) {
         if (!a)
             continue;
         post = (GamePoint){v->loc_x + 0.5f, v->loc_y + 0.5f};
-        enemy = nearest_enemy(s, a->position, s->summary.ruleset ? 400.0f : 8.0f, 0);
+        enemy = nearest_enemy(s, a->position, s->summary.ruleset ? 400.0f : 8.0f, 0,NULL);
         goal = post;
         if (enemy && (!s->summary.ruleset || s->dispatch_delay <= 0)) {
             goal = enemy->actor.position;
             kind = TARGET_ENEMY;
             id = enemy->actor.id;
-        } else if ((animal = nearest_animal(s, a->position, 8.0f)) != NULL) {
+        } else if ((animal = nearest_animal(s, a->position, 8.0f,NULL)) != NULL) {
             goal = (GamePoint){animal->x_milli / 1000.0f, animal->y_milli / 1000.0f};
             kind = TARGET_ANIMAL;
             id = animal->id;
@@ -301,18 +332,19 @@ static void guards_step(GameSession *s, float minutes) {
                 goal = post;
             }
         }
-        a->cooldown -= minutes;
+        a->cooldown = fmaxf(0,a->cooldown)-minutes;
         if (kind && game_distance(a->position, goal) <= fmaxf(1, (float)d->attack_range)) {
             if (a->cooldown <= 0) {
-                a->cooldown = (float)d->attack_cooldown;
+                a->cooldown += s->summary.ruleset ? fmaxf(8,roundf(15/(.9f+.1f*v->work_efficiency/100.0f))) : (float)d->attack_cooldown;
+                int damage = s->summary.ruleset ? (int)roundf(7*(.7f+.3f*v->work_efficiency/100.0f)) : d->attack;
                 if (kind == TARGET_ENEMY)
-                    hurt_enemy(s, id, d->attack);
+                    hurt_enemy(s, id, damage);
                 else {
                     GameProjectile hit = {0};
                     hit.raid_id = s->raid_id;
                     hit.target_kind = TARGET_ANIMAL;
                     hit.target_id = id;
-                    hit.damage = d->attack;
+                    hit.damage = damage;
                     impact(s, &hit);
                 }
             }
@@ -403,22 +435,60 @@ static GamePoint building_approach(const GameSession *s, const CoreBuildingView 
         }
     return best;
 }
-static void attack(GameSession *s, GameEnemy *e, int kind, int id, GamePoint to) {
-    if (e->actor.cooldown > 0)
-        return;
-    e->actor.cooldown = (float)e->def.cooldown;
-    if (e->def.range > 1)
-        fire(s, e->actor.position, to, kind, id, e->def.damage, 0);
-    else if (kind == TARGET_BUILDING)
-        (void)core_report_building_damage(s->world, s->raid_id, id, e->def.damage);
-    else
-        (void)core_report_villager_damage(s->world, s->raid_id, id, e->def.damage);
+static void hostile_area(GameSession *s,GamePoint p,float radius,int damage,int exclude_kind,int exclude_id) {
+    for(int i=0;i<s->villager_count;i++) {
+        CoreVillagerView *v=&s->villagers[i];GameActor *a=game_actor(s,v->id);
+        if(a && exposed(s,v) && !(exclude_kind==TARGET_VILLAGER&&exclude_id==v->id) && game_distance(a->position,p)<=radius)
+            (void)core_report_villager_damage(s->world,s->raid_id,v->id,damage);
+    }
+    for(int i=0;i<s->building_count;i++) {
+        CoreBuildingView *b=&s->buildings[i];
+        if(b->state!=CORE_BSTATE_RUINED && !(exclude_kind==TARGET_BUILDING&&exclude_id==b->id) && building_distance(p,b)<=radius)
+            (void)core_report_building_damage(s->world,s->raid_id,b->id,damage);
+    }
+}
+static void attack_impact(GameSession *s,GameEnemy *e) {
+    int damage=e->def.damage,kind=e->attack_kind,id=e->attack_target;
+    if(e->info.faction==0 && e->def.type!=3)
+        for(int i=0;i<s->enemy_count;i++) if(s->enemies[i].hp>0 && s->enemies[i].def.type==3 && game_distance(e->actor.position,s->enemies[i].actor.position)<=5) {damage=(damage*110+50)/100;break;}
+    CoreBuildingView *b=kind==TARGET_BUILDING?game_building(s,id):NULL;
+    if(b && (b->kind_flags&(CORE_EXP_WALL|CORE_EXP_GATE))) {
+        if(e->info.ability==2)damage*=2;
+        if(e->info.ability==6)damage=damage*3/2;
+    }
+    if(e->def.range>1) {
+        fire(s,e->actor.position,e->attack_to,kind,id,damage,e->info.ability==10?1.0f:0.0f,e->def.type);
+    } else {
+        if(kind==TARGET_BUILDING)(void)core_report_building_damage(s->world,s->raid_id,id,damage);
+        else (void)core_report_villager_damage(s->world,s->raid_id,id,damage);
+        if(e->info.ability==8) hostile_area(s,e->attack_to,1.5f,damage/2,kind,id);
+    }
+}
+static void attack(GameSession *s,GameEnemy *e,int kind,int id,GamePoint to) {
+    (void)s;
+    if(e->actor.cooldown>0)return;
+    e->actor.cooldown+=(float)e->def.cooldown;
+    e->attack_elapsed=0;e->attack_serial++;e->attack_applied=0;e->attack_kind=kind;e->attack_target=id;e->attack_to=to;
+    e->actor.facing=game_walk_facing(to.x-e->actor.position.x,to.y-e->actor.position.y,e->actor.facing);
 }
 static void enemy_step(GameSession *s, GameEnemy *e, float minutes) {
     GamePoint goal = e->actor.position;
     float distance = 1e9f;
     int barrier = 0, arrived;
-    e->actor.cooldown -= minutes;
+    e->actor.cooldown=fmaxf(0,e->actor.cooldown)-minutes;
+    if(e->attack_serial && e->attack_elapsed < 4.8f) {
+        e->attack_elapsed += minutes;
+        if(!e->attack_applied && e->attack_elapsed>=2.4f) {e->attack_applied=1;attack_impact(s,e);}
+        return;
+    }
+    e->special_clock += minutes;
+    if(s->summary.ruleset && e->special_clock>=120) {
+        if(e->info.ability==4) {int32_t id=0;if(core_expansion_summon(s->world,e->actor.id,&id)!=CORE_OK)e->special_clock=118;}
+        if(e->info.ability==5) {
+            for(int i=0;i<s->enemy_count;i++) {GameEnemy *other=&s->enemies[i];if(other!=e && other->hp>0 && other->hp<other->def.hp && game_distance(e->actor.position,other->actor.position)<=5){other->hp+=15;if(other->hp>other->def.hp)other->hp=other->def.hp;break;}}
+        }
+        if(e->special_clock>=120)e->special_clock-=120;
+    }
     e->retarget -= minutes;
     if (e->fleeing) {
         goal = (GamePoint){s->raid.spawn_x + 0.5f, s->raid.spawn_y + 0.5f};
@@ -459,10 +529,10 @@ static void enemy_step(GameSession *s, GameEnemy *e, float minutes) {
     }
     if (e->actor.grid_revision != s->grid_revision || e->actor.target_x != (int)goal.x ||
         e->actor.target_y != (int)goal.y || !e->actor.path.count) {
-        if (game_actor_plan(s, &e->actor, (int)goal.x, (int)goal.y, 1) <= 0)
+        if (game_actor_plan(s, &e->actor, (int)goal.x, (int)goal.y, e->info.ability==3?2:1) <= 0)
             return;
     }
-    arrived = game_actor_walk(s, &e->actor, minutes * e->def.speed / 1000.0f / s->config.minutes_per_tick, 1,
+    arrived = game_actor_walk(s, &e->actor, minutes * e->def.speed / 1000.0f / s->config.minutes_per_tick, e->info.ability==3?2:1,
                               &barrier);
     if (barrier) {
         CoreBuildingView *b = game_building(s, barrier);
@@ -502,4 +572,5 @@ void game_combat_step(GameSession *s, float minutes) {
             }
     towers_step(s, minutes);
     guards_step(s, minutes);
+    (void)game_combat_sync(s);
 }

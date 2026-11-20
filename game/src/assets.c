@@ -1,10 +1,26 @@
 /* assets.c — 메모리 로더를 써서 한글 경로에서도 리소스를 읽습니다. */
 #include "assets.h"
-#include "castle_expansion.h"
+#include <castle_expansion.h>
 #include "rlgl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+
+/* 외부 녹음 없이 정해진 잡음으로 비와 낮은 천둥을 합성합니다. */
+static Sound weather_sound(int thunder) {
+    unsigned count=thunder?88200:44100;float *samples=malloc(count*sizeof(float));
+    Sound result={0};if(!samples)return result;
+    unsigned random=1234567;float low=0;
+    for(unsigned i=0;i<count;i++) {
+        random=random*1664525u+1013904223u;
+        float noise=(float)(random>>8)/8388608.0f-1, t=i/44100.0f;
+        low=low*.985f+noise*.015f;
+        float envelope=thunder?fminf(1,t*35)*expf(-t*2):.2f;
+        samples[i]=thunder?(low*6+sinf(t*83)*.06f)*envelope:noise*envelope;
+    }
+    result=LoadSoundFromWave((Wave){count,44100,32,1,samples});free(samples);return result;
+}
 
 static Texture2D texture(GameAssets *a, const char *dir, const char *name) {
     char path[GAME_PATH_BYTES];
@@ -75,24 +91,29 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
     a->snow = texture(a, dir, "painted/snow.png");
     a->props = texture(a, dir, "painted/props.png");
     a->construction = texture(a, dir, "painted/construction.png");
-    a->villagers = texture(a, dir, "painted/villagers.png");
-    a->enemies = texture(a, dir, "painted/enemies.png");
+    a->villagers = texture(a, dir, "expansion/villagers_v121.png");
+    a->enemies = texture(a, dir, "expansion/raider_walk.png");
     a->arrow = texture(a, dir, "painted/arrow.png");
-    if (a->villagers.id && (a->villagers.width != 1152 || a->villagers.height != 768)) {
-        fprintf(stderr, "Incompatible villager atlas: expected 1152x768\n");
+    if (a->villagers.id && (a->villagers.width != 1152 || a->villagers.height != 1152)) {
+        fprintf(stderr, "Incompatible villager atlas: expected 1152x1152\n");
         a->missing++;
     }
     a->status_icons = texture(a, dir, "expansion/status_icons.png");
-    a->animals = texture(a, dir, "expansion/animals.png");
-    a->animal_walk=texture(a,dir,"expansion/animal_walk.png");
+    a->animals = texture(a, dir, "expansion/animals_v121.png");
+    a->animal_walk=texture(a,dir,"expansion/animal_walk_v121.png");
     a->wall_links=texture(a,dir,"expansion/wall_links.png");
     a->biomes = texture(a, dir, "expansion/biomes.png");
-    a->trees = texture(a, dir, "expansion/trees.png");
+    a->gates=texture(a,dir,"expansion/gates_v121.png");
+    a->farms=texture(a,dir,"expansion/farms_v121.png");
+    a->greenhouse_turns=texture(a,dir,"expansion/greenhouse_turns.png");
+    a->raider_attack=texture(a,dir,"expansion/raider_attack.png");
+    a->animal_babies=texture(a,dir,"expansion/animal_babies.png");
+    a->trees = texture(a, dir, "expansion/trees_v121.png");
     a->biome_edges = texture(a, dir, "expansion/biome_edges.png");
     a->shores = texture(a, dir, "expansion/shores.png");
-    a->road_tiles = texture(a, dir, "expansion/road_tiles.png");
+    a->road_tiles = texture(a, dir, "expansion/road_connections.png");
     a->animal_swim = texture(a, dir, "expansion/animal_swim.png");
-    a->animal_attack = texture(a, dir, "expansion/animal_attack.png");
+    a->animal_attack = texture(a, dir, "expansion/animal_attack_v121.png");
     for (i = 0; i < 6; i++) {
         snprintf(name, sizeof(name), "expansion/manor_%d.png", i);
         a->manors[i] = texture(a, dir, name);
@@ -116,6 +137,7 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
         a->audio_ready = IsAudioDeviceReady();
         if (a->audio_ready)
             for (i = 0; i < SND_COUNT; i++) {
+                if(i==SND_RAIN || i==SND_THUNDER){a->sounds[i]=weather_sound(i==SND_THUNDER);continue;}
                 Wave wave = {0};
                 (void)snprintf(name, sizeof(name), "third_party/kenney/%s", sounds[i]);
                 if (!game_join_path(path, sizeof(path), dir, name))
@@ -136,6 +158,11 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
     return a->missing == 0;
 }
 void game_assets_free(GameAssets *a) {
+    if(a->gates.id)UnloadTexture(a->gates);
+    if(a->farms.id)UnloadTexture(a->farms);
+    if(a->greenhouse_turns.id)UnloadTexture(a->greenhouse_turns);
+    if(a->raider_attack.id)UnloadTexture(a->raider_attack);
+    if(a->animal_babies.id)UnloadTexture(a->animal_babies);
     int i;
     if (a->trees.id)
         UnloadTexture(a->trees);
@@ -198,7 +225,7 @@ void game_assets_free(GameAssets *a) {
     memset(a, 0, sizeof(*a));
 }
 void game_sound(GameAssets *a, int sound, float volume) {
-    double now, gap = sound == SND_ALARM ? 1.5 : 0.08;
+    double now, gap = sound == SND_RAIN ? .95 : sound == SND_THUNDER ? 6.5 : sound == SND_ALARM ? 1.5 : 0.08;
     if (!a->audio_ready || sound < 0 || sound >= SND_COUNT || !a->sounds[sound].frameCount)
         return;
     now = GetTime();

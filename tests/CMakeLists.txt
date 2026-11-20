@@ -13,6 +13,7 @@ add_executable(castle_tests
   test_progress.c
   test_expansion.c
   test_v111.c
+  test_v121.c
 )
 target_link_libraries(castle_tests PRIVATE castle_core_testing castle_warnings)
 

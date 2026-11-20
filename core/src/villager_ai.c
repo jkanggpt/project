@@ -36,6 +36,7 @@ int32_t vil_walk_speed(const World *world, const Villager *villager)
     if (villager->needs.hunger == 0 || villager->sick_ticks > 0) {
         speed = speed * 70 / 100; /* 굶거나 아프면 느려짐 */
     }
+    if (world->expansion && villager->slow_until_tick > world->clock.tick) speed = speed * 80 / 100;
     return speed * nature_walk_percent(world) / 100; /* 눈·폭풍 */
 }
 

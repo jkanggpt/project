@@ -789,7 +789,7 @@ static void ruin_building(World *world, Building *building)
     }
     events_push_building(&world->events, CORE_EVT_BUILDING_RUINED, building->id, building->type, building->x,
                          building->y);
-    if (building->type == CORE_BLD_WALL || building->type == CORE_BLD_GATE) {
+    if (world->expansion || building->type == CORE_BLD_WALL || building->type == CORE_BLD_GATE) {
         placement_rebuild_layers(world); /* 무너진 성벽·성문은 지나갈 수 있음 → 비용 격자가 바뀜 */
     }
     placement_refresh_capacity(world);

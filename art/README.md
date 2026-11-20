@@ -74,3 +74,12 @@
 성벽은 회전과 관계없이 상·우·하·좌의 정상 벽/문을 검사해 직선·모서리·T·교차 그림을 고릅니다. 모든 방향은 같은 중심 기둥과 반쪽 연결 부재를 사용합니다.
 확장 건물의 그림 높이·발밑은 유지하고 너비를 점유 너비의1.1배+4논리 픽셀 이내로 제한합니다. 밭은 그대로 점유 칸에 맞춥니다.
 `castle_expansion_art --check game/assets/expansion`은64동물 프레임의 내용·발밑·변화,64벽 연결의 가장자리와 투명도를 검사합니다. `--screen connections`로 실제 게임의 그림 선택을 확인할 수 있습니다.
+
+
+## v1.2.1 그림
+
+`art/v121`의15개 새 원본과 `V121_PROMPTS.md`를 사용합니다. `castle_v121_art art/v121 game/assets/expansion`으로 패킹하고 `castle_v121_art --check game/assets/expansion`으로 검사합니다. 실행 게임에 Python이나 이미지 서비스가 필요하지 않습니다.
+
+런타임은 `villagers_v121.png`(12외형×3방향×4프레임), `raider_walk.png`/`raider_attack.png`(28종×3방향×4프레임), `animal_walk_v121.png`/`animal_attack_v121.png`/`animal_babies.png`/`animals_v121.png`, `trees_v121.png`, `gates_v121.png`, `farms_v121.png`, `greenhouse_turns.png`, `road_connections.png`입니다. 생성 원화의 행·열 간격은 균등하다고 가정하지 않고 투명 경계를 전역 탐색합니다. 나무는 연결 성분별로 분리합니다. 마지막 공격 복귀 프레임에는 온전한 준비 자세를 사용합니다.
+
+성문은 목책문/석조문/성문/철갑문을 해당 성벽 재료와 같은 화면 크기로 표시합니다. 밀밭·관개농장·과수원·유리 온실은 계절별 그림을 사용합니다. 도로는8이웃 연결 마스크로, 교량 난간은 실제 인접 물에 맞춰 C에서 선택합니다. 새 그림에 대해 프로젝트가 보유하는 권리는 CC0입니다.

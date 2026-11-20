@@ -323,6 +323,8 @@ static uint64_t hash_villager(uint64_t hash, const Villager *v)
     hash = hash_i32(hash, v->blocked_day);
     hash = hash_i32(hash, v->sick_ticks);
     hash = hash_i32(hash, v->heal_ticks);
+    hash = hash_i32(hash, v->sex);
+    hash = hash_i32(hash, v->appearance);
     return hash;
 }
 

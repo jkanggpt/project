@@ -40,7 +40,7 @@ static int options(int argc,char **argv,Options *o)
     o->width = 1440;
     o->height = 900;
     o->screen = "title";
-    o->wildlife = 180;
+    o->wildlife = 360;
     for (i=1;i<argc;i++) {
         const char *arg=argv[i];
         if (!strcmp(arg,"--smoke-test") || !strcmp(arg,"--headless")) { o->smoke=1; continue; }
@@ -64,7 +64,7 @@ static int options(int argc,char **argv,Options *o)
             if (!number(argv[++i], 1, 1000000, &o->frames))
                 return 0;
         } else if (!strcmp(arg, "--stress-animals")) {
-            if (!number(argv[++i], 180, 300, &o->wildlife) || (o->wildlife != 180 && o->wildlife != 300))
+            if (!number(argv[++i], 360, 420, &o->wildlife) || (o->wildlife != 360 && o->wildlife != 420))
                 return 0;
         } else if (!strcmp(arg, "--width")) {
             if (!number(argv[++i], 1024, 3840, &o->width))
@@ -196,6 +196,10 @@ static void event(void *context,const CoreEventView *e)
     if(a->session.summary.ruleset && (e->type==CORE_EVT_RANK_UP || e->type==CORE_EVT_RANK_READY || e->type==CORE_EVT_RESEARCH_STARTED || e->type==CORE_EVT_RESEARCH_DONE || e->type==CORE_EVT_TUTORIAL_STEP || e->type==CORE_EVT_TUTORIAL_DONE))text[0]='\0';
     else fmt_event(e,text,sizeof(text));
     if(a->session.summary.ruleset){
+        if(e->type==CORE_EVT_RAID_STARTED) {
+            static const char *const factions[]={u8"도적",u8"마물",u8"언데드",u8"숲",u8"북방",u8"광신도"};
+            (void)snprintf(text,sizeof(text),u8"경보! %s %d명이 발견되었습니다. 가까운 보호구역으로 대피합니다.",e->b>=1&&e->b<=6?factions[e->b-1]:u8"습격군",e->c);
+        }
         if(e->type==CORE_EVT_RANK_UP)(void)snprintf(text,sizeof(text),u8"영지가 %s(으)로 승급했습니다.",core_expansion_rank_name(e->a));
         else if(e->type==CORE_EVT_RANK_READY)(void)snprintf(text,sizeof(text),u8"%s 승급 조건을 확인하세요.",core_expansion_rank_name(e->a));
         else if(e->type==CORE_EVT_RESEARCH_STARTED || e->type==CORE_EVT_RESEARCH_DONE)(void)snprintf(text,sizeof(text),u8"%s 연구를 %s.",core_expansion_research_name(e->a),e->type==CORE_EVT_RESEARCH_DONE?u8"완료했습니다":u8"시작했습니다");
@@ -292,6 +296,7 @@ static int run(int argc,char **argv)
     int status=0,frame=0,last_bot_day=-1; double frame_total=0,frame_max=0;
     double samples[600], sim_total = 0, render_total = 0;
     int measured = 0, min_villagers = 100000, min_enemies = 100000, min_wild = 100000;
+    int min_livestock=100000,max_enemies=0;
     if (argc>1 && (!strcmp(argv[1],"--help") || !strcmp(argv[1],"-h"))) { help(); return 0; }
     if (!options(argc,argv,&o)) { help(); return 2; }
     if (!game_executable_directory(exe,sizeof(exe),argv[0]) || !game_join_path(data,sizeof(data),exe,"data") || !game_join_path(assets,sizeof(assets),exe,"assets")) return 1;
@@ -304,7 +309,7 @@ static int run(int argc,char **argv)
         if (strlen(o.save_dir)>=sizeof(a->save_dir)) { free(a); return 2; }
         strcpy(a->save_dir,o.save_dir);
     } else if (!game_join_path(a->save_dir, sizeof(a->save_dir), a->automated ? exe : a->user_dir,
-                               a->automated ? "saves_v8_automated" : "saves_v8")) {
+                               a->automated ? "saves_v9_automated" : "saves_v9")) {
         free(a);
         return 1;
     }
@@ -334,10 +339,15 @@ static int run(int argc,char **argv)
         (void)game_app_start(a);
         if (o.stress) {
             (void)core_debug_stress(a->session.world, 150, 40);
-            if (o.wildlife == 300)
-                (void)core_expansion_debug_wildlife(a->session.world, 300);
+            if (o.wildlife == 420)
+                (void)core_expansion_debug_wildlife(a->session.world, 420);
             (void)game_session_refresh(&a->session);
             a->camera.zoom = 2;
+            for(int i=0;i<a->session.enemy_count;i++) {
+                int x=a->session.summary.keep_x-14+(i%20),y=a->session.summary.keep_y-12+(i/20)*2;
+                while(x<a->session.summary.map_width-1 && !a->session.cost[y*a->session.summary.map_width+x])x++;
+                a->session.enemies[i].actor.position=(GamePoint){x+.5f,y+.5f};
+            }
         }
     }
     if (o.screenshot) screenshot_screen(a,&o);
@@ -396,8 +406,11 @@ static int run(int argc,char **argv)
                 active_enemies += a->session.enemies[n].hp > 0;
             if (active_enemies < min_enemies)
                 min_enemies = active_enemies;
+            if(active_enemies>max_enemies)max_enemies=active_enemies;
             if (a->session.summary.wild_count < min_wild)
                 min_wild = a->session.summary.wild_count;
+            int livestock=a->session.summary.animal_count-a->session.summary.wild_count;
+            if(livestock<min_livestock)min_livestock=livestock;
         }
         if (o.screenshot && frame==4) { status=game_screenshot(o.screenshot)?0:1; break; }
         if (o.frames && frame>=o.frames) break;
@@ -408,15 +421,15 @@ static int run(int argc,char **argv)
                p95 = measured ? samples[(measured - 1) * 95 / 100] : 0,
                p99 = measured ? samples[(measured - 1) * 99 / 100] : 0;
         int conditions =
-            measured == 600 && min_villagers >= 150 && min_enemies >= 40 && min_wild >= o.wildlife;
-        int passed = conditions && (o.wildlife == 300 || (avg <= 16.67 && p95 <= 20 && p99 <= 33.3));
+            measured == 600 && min_villagers >= 150 && min_enemies >= 40 && min_wild >= o.wildlife && min_livestock>=60;
+        int passed = conditions && (o.wildlife == 420 || (avg <= 16.67 && p95 <= 20 && p99 <= 33.3));
         printf("STRESS: warmup=120 frames=%d avg_ms=%.3f p95_ms=%.3f p99_ms=%.3f max_ms=%.3f sim_ms=%.3f "
-               "render_ms=%.3f min_villagers=%d min_enemies=%d min_wild=%d livestock=%d mode=%s "
+               "render_ms=%.3f min_villagers=%d min_enemies=%d min_wild=%d min_livestock=%d max_enemies=%d mode=%s "
                "conditions=%d passed=%d\n",
                measured, avg, p95, p99, frame_max, measured ? sim_total / measured : 0,
                measured ? render_total / measured : 0, min_villagers, min_enemies, min_wild,
-               a->session.summary.animal_count - a->session.summary.wild_count,
-               o.wildlife == 300 ? "debug300" : "normal180", conditions, passed);
+               min_livestock,max_enemies,
+               o.wildlife == 420 ? "debug420" : "normal360", conditions, passed);
         if (!passed)
             status = 1;
     }

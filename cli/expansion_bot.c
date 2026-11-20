@@ -87,14 +87,15 @@ static int build(ExpansionBot *bot, int type) {
                     continue;
                 for (yy = y; yy < y + info.h; yy++)
                     for (xx = x; xx < x + info.w; xx++)
-                        if (occupied(bot, xx, yy) || !bot->cost[yy * bot->summary.map_width + xx] ||
-                            !bot->tiles[yy * bot->summary.map_width + xx].explored)
+                        if (occupied(bot, xx, yy) || !bot->cost[yy * bot->summary.map_width + xx])
                             valid = 0;
                 if (!valid)
                     continue;
                 (void)core_can_place_rotated(bot->world, type, x, y, 0, &preview);
-                if (preview.result != CORE_PLACE_OK && preview.result != CORE_PLACE_UNREACHABLE)
+                if (preview.result != CORE_PLACE_OK && preview.result != CORE_PLACE_UNREACHABLE && preview.result != CORE_PLACE_NOT_VISIBLE)
                     continue;
+                if(preview.result==CORE_PLACE_NOT_VISIBLE)score-=50000;
+                if(y+info.h>=bot->summary.map_height || occupied(bot,x+info.w/2,y+info.h) || !bot->cost[(y+info.h)*bot->summary.map_width+x+info.w/2])continue;
                 if (type == CORE_BLD_LOGGING_SITE || type == CORE_BLD_LUMBER || type == CORE_BLD_QUARRY ||
                     type == CORE_BLD_MINE) {
                     for (yy = y + info.h / 2 - info.radius; yy <= y + info.h / 2 + info.radius; yy++)
@@ -108,7 +109,7 @@ static int build(ExpansionBot *bot, int type) {
                                 if (info.job_field == 1 && tile->tree_kind >= 1 && tile->tree_kind <= 4 &&
                                     tile->tree_logs_milli > 0 &&
                                     tile->tree_age >=
-                                        (int[]){28000, 48000, 84000, 112000}[tile->tree_kind - 1])
+                                        (int[]){16000, 28000, 48000, 72000}[tile->tree_kind - 1])
                                     score += 300;
                                 if (info.job_field == 2 && tile->ore_milli > 0)
                                     score += 150;
@@ -158,7 +159,16 @@ static int build(ExpansionBot *bot, int type) {
             }
     if (best == -100000)
         return 0;
+    /* 연결 도로가 앞으로 세울 건물의 점유 칸을 가로지르지 않게 우회시킵니다. */
+    for(int y=by;y<by+info.h;y++)for(int x=bx;x<bx+info.w;x++)bot->cost[y*bot->summary.map_width+x]=0;
     (void)connect(bot, bx + info.w / 2, by + info.h, 6);
+    (void)core_can_place_rotated(bot->world,type,bx,by,0,&preview);
+    if(preview.result==CORE_PLACE_NOT_VISIBLE) {
+        (void)connect(bot,bx-1,by,6);
+        (void)connect(bot,bx+info.w,by,6);
+        (void)connect(bot,bx-1,by+info.h-1,6);
+        (void)connect(bot,bx+info.w,by+info.h-1,6);
+    }
     {
         int32_t id = 0, reason = 0;
         return core_place_rotated(bot->world, type, bx, by, 0, &id, &reason) == CORE_OK;
@@ -212,10 +222,10 @@ static int fortify(ExpansionBot *bot, int ring) {
                 if (preview.result == CORE_PLACE_OK) {
                     if (core_place_rotated(bot->world, type, x, y, rot, &id, &reason) == CORE_OK)
                         placed++;
-                } else if (preview.result == CORE_PLACE_UNREACHABLE) {
+                } else if (preview.result == CORE_PLACE_UNREACHABLE || preview.result == CORE_PLACE_NOT_VISIBLE) {
                     int xx = x == bounds[0] ? x + 1 : x == bounds[2] ? x - 1 : x;
                     int yy = y == bounds[1] ? y + 1 : y == bounds[3] ? y - 1 : y;
-                    if (!bot->tiles[y * bot->summary.map_width + x].explored) {
+                    if (preview.result == CORE_PLACE_NOT_VISIBLE || !bot->tiles[y * bot->summary.map_width + x].explored) {
                         /* 일반 도로를 연장해 다음 시야 갱신에서 경계를 발견합니다. */
                         (void)connect(bot, x, y, gate ? 5 : 2);
                     } else
@@ -285,7 +295,7 @@ static void staffing(ExpansionBot *bot) {
         if (bot->buildings[i].worker_slots)
             (void)core_set_auto_assign(bot->world, bot->buildings[i].id, 0);
     for (i = 0; i < bot->villagers_count; i++)
-        (void)core_unassign_worker(bot->world, bot->villagers[i].id);
+        {(void)core_unassign_worker(bot->world, bot->villagers[i].id);bot->villagers[i].workplace_id=0;}
     /* 필요한 시설에 첫 일꾼을 나눈 뒤 식량 시설을 우선 채웁니다. */
     {
         int next = 0, pass;
@@ -299,9 +309,15 @@ static void staffing(ExpansionBot *bot) {
                     if (pass > 0 && b->type != CORE_BLD_GARDEN && b->type != CORE_BLD_CROPLAND &&
                         b->type != CORE_BLD_FARM && b->type != CORE_BLD_LOGGING_SITE)
                         continue;
-                    rc = core_assign_worker(bot->world, bot->villagers[next].id, b->id);
-                    if (rc == CORE_OK)
-                        next++;
+                    int best=-1,score=-1;
+                    for(int k=0;k<bot->villagers_count;k++) {
+                        CoreVillagerView *v=&bot->villagers[k];int32_t value=0;
+                        if(v->workplace_id || v->incoming || v->state==CORE_VS_LEAVING || (b->type==CORE_BLD_HEALER && v->intellect<4))continue;
+                        if(core_expansion_efficiency(bot->world,v->id,b->type,&value)==CORE_OK && value>score){best=k;score=value;}
+                    }
+                    if(best<0)continue;
+                    rc = core_assign_worker(bot->world, bot->villagers[best].id, b->id);
+                    if (rc == CORE_OK){bot->villagers[best].workplace_id=b->id;next++;}
                 }
     }
 }
@@ -413,14 +429,14 @@ int sim_expansion_bot_daily(CoreWorld *world) {
         int32_t reason = 0;
         (void)core_rank_up(world, &reason);
     }
-    if (bot.summary.housing_capacity >= bot.summary.population && count_type(&bot, CORE_BLD_GARDEN) >= 2) {
+    if (bot.summary.housing_capacity >= (bot.summary.population<6?bot.summary.population:6) && count_type(&bot, CORE_BLD_GARDEN) >= 2) {
         (void)fortify(&bot, 0);
         for (int ring = 1; ring < 4; ring++)
             if (bot.summary.rank >= ring && bot.summary.protected_area >= (int[]){0, 25, 120, 300}[ring])
                 (void)fortify(&bot, ring);
     }
     {
-        int required = (int[]){35, 38, 40, 42, 44, 46}[bot.summary.rank], tax = bot.summary.tax;
+        int required = (int[]){40, 42, 50, 58, 66, 75}[bot.summary.rank], tax = bot.summary.tax;
         if (bot.summary.average_happiness < required && bot.summary.resources[CORE_RES_GOLD] > 120)
             tax = 1;
         else if (bot.summary.resources[CORE_RES_GOLD] < 80 && tax == 1)

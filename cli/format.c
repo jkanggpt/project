@@ -14,7 +14,7 @@ static const char *const RESOURCE_NAMES[CORE_RES_COUNT] = {
     u8"벽돌", u8"철광석", u8"석탄", u8"철괴", u8"금광석", u8"금괴", u8"가죽"};
 static const char *const TERRAIN_NAMES[CORE_TERRAIN_COUNT] = {u8"풀밭", u8"숲", u8"바위", u8"물", u8"마정석 광맥"};
 static const char *const WEATHER_NAMES[CORE_WEATHER_COUNT] = {u8"맑음", u8"비", u8"눈", u8"폭풍"};
-static const char *const NATURE_NAMES[CORE_NATURE_COUNT] = {u8"없음", u8"가뭄", u8"역병", u8"폭풍", u8"혹한", u8"풍년"};
+static const char *const NATURE_NAMES[CORE_NATURE_COUNT] = {u8"없음", u8"가뭄", u8"역병", u8"폭풍", u8"혹한", u8"풍년",u8"광산 붕괴",u8"교역 호황"};
 static const char *const DENY_REASONS[CORE_DENY_COUNT] = {
     "",
     u8"다 지은 시장이 없습니다",
@@ -72,7 +72,7 @@ static const char *const PLACE_RESULTS[CORE_PLACE_COUNT] = {
     u8"다른 건물의 문 앞을 막습니다", u8"문 앞 자리가 막혀 있습니다", u8"근처에 숲이 부족합니다",
     u8"바로 옆에 바위 지대가 있어야 합니다", u8"마정석 광맥 위에 지어야 합니다", u8"등급이 모자랍니다",
     u8"자원이 모자랍니다", u8"이미 있습니다", u8"다른 건물이나 지도 밖으로 가는 길을 막습니다",
-    u8"탐험한 땅과 성채 입구의 연결 도로를 확인하세요", u8"수변 시설에 필요한 물이 없습니다"};
+    u8"탐험한 땅과 성채 입구의 연결 도로를 확인하세요", u8"수변 시설에 필요한 물이 없습니다",u8"점유할 모든 칸이 현재 시야 안에 있어야 합니다",u8"기존 노점·시장·교역소를 먼저 철거하세요"};
 
 static const char *const VILLAGER_STATES[CORE_VS_COUNT] = {u8"쉬는 중", u8"자는 중",   u8"일하러 가는 중",
                                                             u8"일하는 중", u8"먹으러 감", u8"치료받으러 감",
@@ -251,7 +251,7 @@ const char *fmt_result_message(int32_t code)
     case CORE_ERR_FORMAT:
         return u8"세이브 파일이 손상되었습니다.";
     case CORE_ERR_VERSION:
-        return u8"다른 버전의 저장입니다. v1.1.1은 영주관 4×4·생태계 변경으로 저장 v8부터 지원합니다. 원본은 "
+        return u8"다른 버전의 저장입니다. v1.2.1은 생산·동물·습격 변경으로 저장 v9부터 지원합니다. 원본은 "
                u8"보존됩니다.";
     case CORE_ERR_REJECTED:
         return u8"규칙상 할 수 없습니다.";

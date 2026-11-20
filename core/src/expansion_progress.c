@@ -31,14 +31,14 @@ CORE_API const char *core_expansion_goal_name(int32_t i) {
 }
 CORE_API const char *core_expansion_research_effect(int32_t i) {
     static const char *const effects[24] = {u8"가을 수확 +12%",         u8"임업·광업 효율 +10%",
-                                            u8"관개농장 가뭄 수확 95%", u8"장거리 물류 가용률 +15%p",
+                                            u8"관개농장 가뭄 근로 적립65→75%", u8"장거리 물류 가용률 +15%p",
                                             u8"경작지·농장 수확 +15%",  u8"철괴 생산 4→5/일",
                                             u8"자원 저장 한도 +20%",    u8"시장 판매가 +10%",
                                             u8"초소·망루 시야 +2칸",    u8"망루·감시탑 공격 +15%",
                                             u8"모든 성문 체력 +20%",    u8"경비병 받는 피해 -10%",
                                             u8"포탑 광역 반경 +1칸",    u8"성벽 체력 +25%",
                                             u8"경비병 공격 +15%",       u8"자동 출동 지연 -20%",
-                                            u8"마정석 광상 탐지 +3칸",  u8"마법 공방 보너스 +5%p",
+                                            u8"마정석 광상 탐지 +3칸",  u8"완료 이후 작기 농업 근로 적립+8%",
                                             u8"치료 처리량 +25%",       u8"겨울 난방 연료 -20%",
                                             u8"마탑 연구점수 +20%",     u8"마정석으로 보호구역 피해 -15%",
                                             u8"마법 자원 소모 -10%",    u8"대마탑 연구점수 +20%"};
@@ -158,7 +158,7 @@ static int facility(const World *w, int type) {
     return 0;
 }
 CORE_API int32_t core_expansion_rank(const CoreWorld *w, CoreExpansionRankView *out) {
-    static const int pop[6] = {0, 8, 18, 40, 70, 100}, moods[6] = {0, 35, 40, 45, 50, 55},
+    static const int pop[6] = {0, 8, 18, 40, 70, 100}, moods[6] = {0, 40, 48, 56, 64, 72},
                      roads[6] = {0, 10, 35, 90, 170, 280}, areas[6] = {0, 0, 25, 120, 300, 600},
                      protected_pct[6] = {0, 0, 15, 35, 55, 75}, gold[6] = {0, 20, 70, 240, 520, 950},
                      mana[6] = {0, 0, 0, 0, 20, 110}, research[6] = {0, 0, 0, 0, 2, 6},
@@ -345,7 +345,10 @@ void expansion_candidates(World *w) {
             c->stats[j] = c->initial[j] = temporary.initial_stats[j];
         c->skills[c->field] = rng_range(&w->rng, 0, 75 * 540);
         c->traits[0] = c->traits[1] = -1;
-        strcpy(c->name, w->defs.names[rng_range(&w->rng, 0, w->defs.name_count - 1)].text);
+        expansion_choose_identity(w, &temporary);
+        strcpy(c->name, temporary.name);
+        c->sex = temporary.sex;
+        c->appearance = temporary.appearance;
         expansion_candidate_price(w, c);
     }
     /* 떠난 계약 주민은 같은 개인 기록으로 다시 고용할 수 있습니다. */
@@ -419,6 +422,8 @@ CORE_API int32_t core_expansion_hire(CoreWorld *w, int32_t person_id, int32_t *v
     memcpy(v->skill_minutes, c->skills, sizeof(c->skills));
     memcpy(v->traits, c->traits, sizeof(c->traits));
     strcpy(v->name, c->name);
+    v->sex = c->sex;
+    v->appearance = c->appearance;
     v->age = c->age;
     v->contract_end_tick = w->clock.tick + 12 * 144;
     v->incoming = 1;
@@ -495,7 +500,7 @@ void expansion_read_summary(const World *w, CoreSummaryView *out) {
     out->protected_area = w->expansion->protected_area;
     out->protected_population = w->expansion->protected_population;
     out->water_served = w->expansion->water_served;
-    out->market_limit = (int[]){0, 20, 80, 260}[level];
+    out->market_limit = expansion_trade_limit(w);
     out->market_used = w->expansion->trade_used;
     out->market_open = level > 0;
     out->candidate_count = (int[]){0, 3, 8, 15}[level];
@@ -522,6 +527,11 @@ void expansion_read_building(const World *w, const Building *b, CoreBuildingView
     out->blocked_reason = b->blocked_reason;
     out->crop_labor_milli = b->crop_labor_milli;
     out->pending_harvest_milli = b->pending_harvest_milli;
+    out->labor_milli = expansion_labor_milli(w,b);
+    out->service_credit_milli = b->service_credit_milli;
+    memcpy(out->breeding_progress,b->breeding_progress,sizeof(out->breeding_progress));
+    out->feed_milli = b->feed_milli;
+    out->actual_work_milli = b->actual_work_milli;
 }
 void expansion_read_villager(const World *w, const Villager *v, CoreVillagerView *out) {
     out->agility = v->stats.agility;

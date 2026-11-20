@@ -87,6 +87,7 @@ static int add_enemies(Raid *raid, int32_t type, int32_t count)
         enemy->type = type;
         enemy->state = CORE_ENEMY_ALIVE;
         enemy->looted = 0;
+        enemy->summoner_id = 0;
         raid->enemy_count++;
     }
     return CORE_OK;
@@ -390,6 +391,8 @@ int threat_report_villager_damage(World *world, int32_t raid_id, int32_t village
     }
     if(world->expansion && villager->inside_building)return CORE_IGNORED;
     if(world->expansion && villager->workplace && villager->workplace->type==CORE_BLD_BARRACKS && expansion_has_research(world,11))damage=(int32_t)((int64_t)damage*90/100);
+    if (world->expansion && threat_is_guard(world,villager))
+        damage = (damage * 100 + exp_clamp(100 + 8 * (villager->stats.vitality - 4),76,148) / 2) / exp_clamp(100 + 8 * (villager->stats.vitality - 4),76,148);
     villager->health -= damage;
     if (world->expansion)
         expansion_hurt(world, villager, damage, raid_id);
@@ -418,7 +421,13 @@ int threat_report_enemy_killed(World *world, int32_t raid_id, int32_t enemy_id)
     enemy->state = CORE_ENEMY_KILLED;
     world->threat.raid.killed++;
     world->stats.enemies_killed++;
-    if (def->mana_reward > 0) {
+    if (world->expansion) {
+        if (!enemy->summoner_id) expansion_raider_drops(world,enemy->type);
+        for (int i = 0; i < world->threat.raid.enemy_count; i++) {
+            Enemy *child = &world->threat.raid.enemies[i];
+            if (child->state == CORE_ENEMY_ALIVE && child->summoner_id == enemy_id) {child->state = CORE_ENEMY_ESCAPED; world->threat.raid.escaped++;}
+        }
+    } else if (def->mana_reward > 0) {
         (void)eco_change(&world->bank, &world->ledger, CORE_RES_MANA, def->mana_reward, CORE_LEDGER_RAID);
     }
     events_push_raid(&world->events, CORE_EVT_ENEMY_KILLED, enemy->id, enemy->type, def->mana_reward, 0);

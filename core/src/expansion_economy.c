@@ -3,10 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int labor(const World *w, const Building *b) {
-    int slots = w->defs.buildings[b->type].worker_slots;
-    return slots ? exp_clamp((int)((int64_t)b->daily_work_milli * 1000 / (slots * 540000)), 0, 4000) : 1000;
-}
+static int labor(const World *w, const Building *b) { return expansion_labor_milli(w, b); }
 static int logistics_near(const World *w, const Building *b) {
     uint8_t *mark = w->grid.scratch_mark;
     int32_t *queue = w->grid.scratch_queue;
@@ -59,38 +56,32 @@ static int logistics(const World *w, const Building *b) {
     return value > 100 ? 100 : value;
 }
 static int local_bonus(const World *w, const Building *b) {
-    int i, bonus = 100, wind = 0, magic = 0;
-    for (i = 0; i < w->building_count; i++) {
+    if (expansion_spec(b->type)->field != 0) return 100;
+    for (int i = 0; i < w->building_count; i++) {
         const Building *a = w->buildings[i];
-        if (a->state != CORE_BSTATE_ACTIVE || !a->worker_count)
-            continue;
-        if (a->type == CORE_BLD_WINDMILL && expansion_spec(b->type)->field == 0 &&
-            exp_dist(a->x, a->y, b->x, b->y) <= 10)
-            wind = 40;
-        if (a->type == CORE_BLD_MAGIC_WORKSHOP && a->operating && exp_dist(a->x, a->y, b->x, b->y) <= 8)
-            magic = 10 + (expansion_has_research(w, 17) ? 5 : 0);
+        if (a->state == CORE_BSTATE_ACTIVE && a->type == CORE_BLD_WINDMILL &&
+            expansion_centers_distance(a, b) <= 10) return 140;
     }
-    bonus += wind + magic;
-    return bonus;
+    return 100;
 }
 static int room(const World *w, int resource) {
     int64_t value = (int64_t)eco_bank_limit(&w->bank, resource) * 1000 - expansion_bank_have(w, resource);
     return value > INT32_MAX ? INT32_MAX : value < 0 ? 0 : (int)value;
 }
 static void logging(World *w, Building *b, int factor) {
-    static const int ages[4] = {28000, 48000, 84000, 112000}, caps[4] = {600, 800, 1000, 400};
+    static const int ages[4] = {16000, 28000, 48000, 72000};
     int budget = (int)((int64_t)expansion_spec(b->type)->output[CORE_RES_LOGS] * factor / 1000), i,
         r = expansion_spec(b->type)->radius;
     if (budget > room(w, CORE_RES_LOGS))
         budget = room(w, CORE_RES_LOGS);
-    /* 건물 ID 순으로 호출하며 모든 벌목 시설이 나무별 하루 한도를 공유합니다. */
+    /* 모든 벌목 시설이 같은 나무의 실제 잔량만 차감합니다. */
     for (i = 0; i < w->expansion->cells && budget > 0; i++) {
         CoreExpansionTileView *t = &w->expansion->tiles[i];
         int take, kind = t->tree_kind;
         if (kind < 1 || kind > 4 || t->tree_age < ages[kind - 1] ||
-            exp_dist(i % w->grid.width, i / w->grid.width, b->x + b->w / 2, b->y + b->h / 2) > r)
+            expansion_center_distance(b, i % w->grid.width, i / w->grid.width) > r)
             continue;
-        take = caps[kind - 1] - t->tree_used_milli;
+        take = t->tree_logs_milli;
         if (take > t->tree_logs_milli)
             take = t->tree_logs_milli;
         if (take > budget)
@@ -104,7 +95,7 @@ static void logging(World *w, Building *b, int factor) {
         if (kind == 4)
             w->expansion->magic_logs_milli += take;
         if (!t->tree_logs_milli) {
-            static const int lo[4] = {8, 12, 20, 35}, hi[4] = {16, 24, 35, 60};
+            static const int lo[4] = {6, 9, 13, 35}, hi[4] = {12, 16, 24, 60};
             t->regrow_milli = rng_range(&w->rng, lo[kind - 1], hi[kind - 1]) * 1000;
             t->tree_age = 0;
             w->grid.terrain[i] = CORE_TERRAIN_GRASS;
@@ -134,11 +125,12 @@ static void mining(World *w, Building *b, int factor) {
                      : b->type == CORE_BLD_MINE ? 24000
                                                 : 50000) *
                     factor / 1000;
+    if (b->type != CORE_BLD_QUARRY && expansion_event_active(w, CORE_NATURE_MINE_COLLAPSE)) budget = budget * 60 / 100;
     int64_t weight = 0;
     for (i = 0; i < w->expansion->cells; i++) {
         CoreExpansionTileView *t = &w->expansion->tiles[i];
         if (t->ore_milli > 0 && mine_accept(b->type, t->ore_kind) &&
-            exp_dist(i % w->grid.width, i / w->grid.width, b->x, b->y) <= r)
+            expansion_center_distance(b, i % w->grid.width, i / w->grid.width) <= r)
             weight += (int64_t)t->ore_milli * ore_value(t->ore_kind);
     }
     if (!weight)
@@ -147,7 +139,7 @@ static void mining(World *w, Building *b, int factor) {
         CoreExpansionTileView *t = &w->expansion->tiles[i];
         int take;
         if (t->ore_milli <= 0 || !mine_accept(b->type, t->ore_kind) ||
-            exp_dist(i % w->grid.width, i / w->grid.width, b->x, b->y) > r)
+            expansion_center_distance(b, i % w->grid.width, i / w->grid.width) > r)
             continue;
         take = (int)((int64_t)budget * t->ore_milli / weight);
         if (take > t->ore_milli)
@@ -159,19 +151,18 @@ static void mining(World *w, Building *b, int factor) {
 static int fish_request(const World *w, const Building *b, int *water) {
     int *counts = w->grid.scratch_queue, water_count = w->expansion->water_count, x, y, id, chosen = 0,
         best = 0, desire;
-    int port = b->type == CORE_BLD_PORT, radius = port ? 1 : 5, cx = b->x + b->w / 2, cy = b->y + b->h / 2;
+    int port = b->type == CORE_BLD_PORT, radius = port ? 1 : 5;
     *water = 0;
     if (!water_count || !b->operating)
         return 0;
-    if (w->nature.event == CORE_NATURE_COLD_SNAP && exp_season(w) == 3)
-        return 0;
+
     memset(counts, 0, (size_t)water_count * sizeof(*counts));
     for (y = b->y - radius; y < b->y + b->h + radius; y++)
         for (x = b->x - radius; x < b->x + b->w + radius; x++) {
             int dx = x < b->x ? b->x - x : x >= b->x + b->w ? x - (b->x + b->w - 1) : 0;
             int dy = y < b->y ? b->y - y : y >= b->y + b->h ? y - (b->y + b->h - 1) : 0;
             if (!grid_in_bounds(&w->grid, x, y) ||
-                (port ? dx + dy != 1 : (x - cx) * (x - cx) + (y - cy) * (y - cy) > 25))
+                (port ? dx + dy != 1 : expansion_center_distance(b, x, y) > 5))
                 continue;
             id = w->expansion->tiles[grid_index(&w->grid, x, y)].water_id;
             if (id)
@@ -188,14 +179,15 @@ static int fish_request(const World *w, const Building *b, int *water) {
     if (!chosen)
         return 0;
     *water = chosen;
-    desire = port ? 15000 : 5000;
-    return desire * labor(w, b) / 1000 * logistics(w, b) / 100;
+    desire = port ? exp_clamp(750 + w->expansion->water_area[chosen - 1] * 1000 / 400, 750, 1400)
+                  : exp_clamp(best * 1000 / 12, 250, 1000);
+    return (int)((int64_t)3000 * b->daily_work_milli * desire / (540000LL * 1000));
 }
 static void fishing(World *w) {
     int i, j;
     for (i = 0; i < w->building_count; i++) {
         Building *b = w->buildings[i];
-        int water, request, total = 0, cap;
+        int water, request, total = 0, prefix = 0, cap;
         if (b->state != CORE_BSTATE_ACTIVE || (b->type != CORE_BLD_FISHING_SPOT && b->type != CORE_BLD_PORT))
             continue;
         request = fish_request(w, b, &water);
@@ -208,19 +200,25 @@ static void fishing(World *w) {
                 (other->type != CORE_BLD_FISHING_SPOT && other->type != CORE_BLD_PORT))
                 continue;
             n = fish_request(w, other, &id);
-            if (id == water)
+            if (id == water) {
                 total += n;
+                if(other->id<b->id)prefix+=n;
+            }
         }
-        cap = exp_clamp(3000 + w->expansion->water_area[water - 1] * 120, 8000, 70000);
+        cap = exp_clamp(5000 + w->expansion->water_area[water - 1] * 220, 12000, 130000);
         cap = cap * (exp_season(w) == 1 ? 110 : exp_season(w) == 3 ? 75 : 100) / 100;
+        cap = cap * (w->expansion->water_cold[water - 1] ? 90 : 110) / 100;
         if (total > cap)
-            request = (int)((int64_t)request * cap / total);
+            request = (int)((int64_t)(prefix+request)*cap/total-(int64_t)prefix*cap/total);
         (void)expansion_bank_add(w, CORE_RES_FOOD, request, CORE_LEDGER_PRODUCTION);
     }
 }
 static void recipe(World *w, Building *b, int factor) {
     const ExpansionBuildingSpec *s = expansion_spec(b->type);
-    int in[CORE_RES_COUNT], out[CORE_RES_COUNT], fuel = s->fuel, r, ratio = factor;
+    int in[CORE_RES_COUNT], out[CORE_RES_COUNT], fuel = s->fuel, r, ratio = 1000;
+    int attendance = s->workers ? exp_clamp(b->actual_work_milli / (s->workers * 540), 0, 1000) : 0;
+    int inputs_fixed = s->research > 0 || expansion_service_shift(b->type);
+    int input_factor = inputs_fixed ? attendance : factor;
     for (r = 0; r < CORE_RES_COUNT; r++) {
         in[r] = s->input[r];
         out[r] = s->output[r];
@@ -240,16 +238,20 @@ static void recipe(World *w, Building *b, int factor) {
         return;
     if (b->type == CORE_BLD_GREENHOUSE && exp_season(w) == 3)
         fuel = 1000;
+    if (expansion_event_active(w, CORE_NATURE_COLD_SNAP) && b->type == CORE_BLD_GREENHOUSE) fuel = fuel * 130 / 100;
     if (expansion_has_research(w, 22))
         for (r = 0; r < CORE_RES_COUNT; r++)
             if (r == CORE_RES_MANA)
                 in[r] = in[r] * 90 / 100;
     for (r = 0; r < CORE_RES_COUNT; r++) {
+        in[r] = (int)((int64_t)in[r] * input_factor / 1000);
+        out[r] = (int)((int64_t)out[r] * factor / 1000);
         if (in[r] > 0 && (int64_t)in[r] * ratio / 1000 > expansion_bank_have(w, r))
             ratio = expansion_bank_have(w, r) * 1000 / in[r];
         if (out[r] > 0 && (int64_t)out[r] * ratio / 1000 > room(w, r))
             ratio = room(w, r) * 1000 / out[r];
     }
+    fuel = (int)((int64_t)fuel * (inputs_fixed ? attendance : factor) / 1000);
     if (fuel && (int64_t)fuel * ratio / 1000 > expansion_fuel(w, 0, 0))
         ratio = expansion_fuel(w, 0, 0) * 1000 / fuel;
     if (ratio <= 0) {
@@ -278,7 +280,7 @@ static void recipe(World *w, Building *b, int factor) {
         if (out[r])
             (void)expansion_bank_add(w, r, out[r] * ratio / 1000, CORE_LEDGER_PRODUCTION);
     if (s->research && w->research.active >= 0) {
-        int points = s->research * ratio / 1000;
+        int points = (int)((int64_t)s->research * factor * ratio / 1000000);
         const ResearchDef *research = &w->defs.research[w->research.active];
         if (b->type == CORE_BLD_MAGE_TOWER && expansion_has_research(w, 20))
             points = points * 120 / 100;
@@ -305,20 +307,16 @@ void expansion_produce(World *w) {
         if (!s->annual_yield || b->crop_year == exp_year(w) + 1)
             continue;
         baseline = (int64_t)s->workers * 540 * 24 * 1000;
-        amount = (int64_t)s->annual_yield * 1000 *
-                 exp_clamp((int)((int64_t)b->crop_labor_milli * 1000 / baseline), 0, 2500) / 1000;
-        if (b->crop_drought)
-            amount = amount *
-                     (b->type == CORE_BLD_IRRIGATED_FARM ? (expansion_has_research(w, 2) ? 95 : 90) : 55) /
-                     100;
-        amount = amount * local_bonus(w, b) / 100;
-        if (expansion_has_research(w, 0))
-            amount = amount * 112 / 100;
-        if (expansion_has_research(w, 4) && b->type != CORE_BLD_IRRIGATED_FARM)
-            amount = amount * 115 / 100;
+        int64_t work=b->crop_labor_milli;
+        if(work>baseline*12)work=baseline*12;
+        amount = (int64_t)s->annual_yield * work * local_bonus(w,b) *
+            (expansion_has_research(w,0)?112:100) *
+            (expansion_has_research(w,4) && b->type!=CORE_BLD_IRRIGATED_FARM?115:100) /
+            (baseline*1000000) * 1000;
         b->pending_harvest_milli += (int)amount;
         b->harvest_expiry = exp_day(w) + 4;
         b->crop_labor_milli = 0;
+        b->crop_work_carry = 0;
         b->crop_drought = 0;
         b->crop_year = exp_year(w) + 1;
     }
@@ -340,7 +338,6 @@ void expansion_collect_harvest(World *w) {
 void expansion_daily(World *w) {
     int id, i;
     expansion_collect_harvest(w);
-    w->expansion->trade_used = 0;
     /* 사료는 당일 생산 전에 차감해 같은 날의 축산물로 사료를 복제하지 않습니다. */
     expansion_animal_daily(w);
     for (id = 1; id < w->next_building_id; id++) {
@@ -351,7 +348,7 @@ void expansion_daily(World *w) {
             continue;
         s = expansion_spec(b->type);
         b->blocked_reason = 0;
-        b->operating = expansion_qualified(w, b);
+        b->operating = b->daily_work_milli>0 || expansion_qualified(w, b);
         if ((b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) && !b->operating)
             b->blocked_reason = CORE_DENY_REQUIREMENTS;
         if (s->upkeep && !((b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) && !b->operating)) {
@@ -365,15 +362,18 @@ void expansion_daily(World *w) {
         b->flags &= ~CORE_BF_COLD;
         if (exp_season(w) == 3 && s->heating_milli && (!s->residents || b->resident_count)) {
             int fuel = s->heating_milli * (expansion_has_research(w, 19) ? 80 : 100) / 100;
+            if (expansion_event_active(w, CORE_NATURE_COLD_SNAP)) fuel = fuel * 130 / 100;
             if (expansion_fuel(w, 0, 0) < fuel)
                 b->flags |= CORE_BF_COLD;
             else
                 (void)expansion_fuel(w, fuel, 1);
         }
         factor = labor(w, b) * logistics(w, b) / 100;
+        if (s->field == 0 && !s->annual_yield && s->workers)
+            factor = (int)((int64_t)b->agriculture_work_milli * 1000 / (s->workers * 540000LL));
         if (!b->operating)
             factor = 0;
-        if (s->field != 0)
+        if (!s->annual_yield)
             factor = factor * local_bonus(w, b) / 100;
         if (factor > 0) {
             if (b->type == CORE_BLD_LOGGING_SITE || b->type == CORE_BLD_LUMBER)
@@ -402,7 +402,7 @@ void expansion_daily(World *w) {
                 for (i = 0; i < w->expansion->animal_count && b->hunts_milli >= 1000; i++) {
                     CoreAnimalView *a = &w->expansion->animals[i];
                     if (a->alive && !a->owner &&
-                        exp_dist(a->x_milli / 1000, a->y_milli / 1000, b->x, b->y) <= s->radius) {
+                        expansion_center_distance(b, a->x_milli / 1000, a->y_milli / 1000) <= s->radius) {
                         if (b->hunts_milli < EXP_ANIMALS[a->kind].food * 1000)
                             continue;
                         b->hunts_milli -= EXP_ANIMALS[a->kind].food * 1000;
@@ -414,54 +414,64 @@ void expansion_daily(World *w) {
         }
     }
     fishing(w);
-    for (i = 0; i < w->building_count; i++)
+    for (i = 0; i < w->building_count; i++) {
         w->buildings[i]->daily_work_milli = 0;
+        w->buildings[i]->actual_work_milli = 0;
+        w->buildings[i]->agriculture_work_milli = 0;
+    }
     expansion_collect_harvest(w);
 }
 void expansion_growth(World *w) {
-    static const int ages[4] = {28000, 48000, 84000, 112000}, logs[4] = {12000, 28000, 50000, 24000};
-    int i, j;
-    for (i = 0; i < w->expansion->cells; i++) {
-        CoreExpansionTileView *t = &w->expansion->tiles[i];
-        int boost = 1000;
-        if (t->tree_kind < 1 || t->tree_kind > 4)
-            continue;
+    static const int ages[4] = {16000,28000,48000,72000}, logs[4] = {12000,28000,50000,24000};
+    static const int weights[10][3] = {{65,20,15},{35,10,55},{10,90,0},{35,55,10},{70,20,10},
+                                     {15,85,0},{0,0,0},{0,0,0},{40,25,35},{65,0,35}};
+    ExpansionState *e = w->expansion;
+    for (int i = 0; i < e->cells; i++) {
+        CoreExpansionTileView *t = &e->tiles[i];
         t->tree_used_milli = 0;
-        for (j = 0; j < w->building_count; j++) {
-            Building *b = w->buildings[j];
-            if (b->type == CORE_BLD_FORESTRY && b->state == CORE_BSTATE_ACTIVE && b->worker_count &&
-                exp_dist(i % w->grid.width, i / w->grid.width, b->x, b->y) <= 8) {
-                boost = 1800;
-                break;
+        if (!t->tree_kind) continue;
+        int power = 0;
+        if (t->tree_kind != 4)
+            for (int j = 0; j < w->building_count; j++) {
+                Building *b = w->buildings[j];
+                if (b->type == CORE_BLD_FORESTRY && b->state == CORE_BSTATE_ACTIVE &&
+                    expansion_center_distance(b, i % w->grid.width, i / w->grid.width) <= 8) {
+                    int p = expansion_sqrt_milli(labor(w, b));
+                    if (p > power) power = p;
+                }
             }
-        }
         if (t->regrow_milli) {
-            t->regrow_milli = exp_clamp(t->regrow_milli - (boost > 1000 ? 2000 : 1000), 0, 60000);
-            if (t->regrow_milli)
-                continue;
-            t->regrow_milli = 0;
-            t->tree_age = 1000;
-            t->tree_logs_milli = logs[t->tree_kind - 1];
-            w->grid.terrain[i] = CORE_TERRAIN_FOREST;
-        } else
-            t->tree_age = exp_clamp(t->tree_age + boost, 0, ages[t->tree_kind - 1]);
-    }
-    for (j = 0; j < w->building_count; j++) {
-        Building *b = w->buildings[j];
-        int planted = 0;
-        if (b->type != CORE_BLD_FORESTRY || b->state != CORE_BSTATE_ACTIVE || !b->worker_count)
-            continue;
-        for (i = 0; i < w->expansion->cells && planted < 3; i++) {
-            CoreExpansionTileView *t = &w->expansion->tiles[i];
-            if (!t->tree_kind && w->grid.terrain[i] == CORE_TERRAIN_GRASS && !w->grid.occupant[i] &&
-                !w->grid.road[i] && exp_dist(i % w->grid.width, i / w->grid.width, b->x, b->y) <= 8) {
-                t->tree_kind = 2;
-                t->tree_age = 1000;
-                t->tree_logs_milli = 28000;
+            t->regrow_milli = exp_clamp(t->regrow_milli - 1000 - power * 7 / 10, 0, 60000);
+            if (!t->regrow_milli && !w->grid.occupant[i] && !w->grid.road[i]) {
+                t->tree_age = 1000; t->tree_logs_milli = logs[t->tree_kind - 1];
                 w->grid.terrain[i] = CORE_TERRAIN_FOREST;
-                planted++;
             }
+        } else if (t->tree_age)
+            t->tree_age = exp_clamp(t->tree_age + 1000 + power * 8 / 10, 0, ages[t->tree_kind - 1]);
+    }
+    for (int j = 0; j < w->building_count; j++) {
+        Building *b = w->buildings[j];
+        if (b->type != CORE_BLD_FORESTRY || b->state != CORE_BSTATE_ACTIVE) continue;
+        b->forestry_carry_milli += 3 * expansion_sqrt_milli(labor(w, b));
+        int count = 0;
+        for (int i = 0; i < e->cells; i++) {
+            int biome = e->tiles[i].biome;
+            if (!e->tiles[i].tree_kind && !w->grid.occupant[i] && !w->grid.road[i] &&
+                w->grid.terrain[i] == CORE_TERRAIN_GRASS && weights[biome][0] + weights[biome][1] + weights[biome][2] &&
+                expansion_center_distance(b, i % w->grid.width, i / w->grid.width) <= 8)
+                e->queue[count++] = i;
         }
+        while (count && b->forestry_carry_milli >= 1000) {
+            int choice = rng_range(&w->rng, 0, count - 1), p = e->queue[choice];
+            e->queue[choice] = e->queue[--count];
+            CoreExpansionTileView *t = &e->tiles[p];
+            int roll = rng_range(&w->rng, 1, 100), kind = 0;
+            while (kind < 2 && (roll -= weights[t->biome][kind]) > 0) kind++;
+            t->tree_kind = kind + 1; t->tree_age = 1000; t->tree_logs_milli = logs[kind];
+            w->grid.terrain[p] = CORE_TERRAIN_FOREST;
+            b->forestry_carry_milli -= 1000;
+        }
+        b->forestry_carry_milli %= 1000;
     }
     grid_rebuild_costs(&w->grid);
 }

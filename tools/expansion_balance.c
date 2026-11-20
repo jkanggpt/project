@@ -181,6 +181,7 @@ int main(int argc, char **argv) {
                     if (last_day != s->summary.day) {
                         CoreSummaryView *p = &s->summary;
                         if (core_validate(s->world) != 0) {
+                            fprintf(stderr,"validate failed: difficulty=%d seed=%d day=%d violations=%d\n",d,first_seed+i,p->day,core_validate(s->world));
                             failures++;
                             break;
                         }
@@ -192,12 +193,14 @@ int main(int argc, char **argv) {
                         if (!first_protection && p->protected_area >= 25 && p->protected_population > 0)
                             first_protection = p->day;
                         if (sim_expansion_bot_daily(s->world) != CORE_OK) {
+                            fprintf(stderr,"bot failed: difficulty=%d seed=%d day=%d\n",d,first_seed+i,p->day);
                             failures++;
                             break;
                         }
                     }
                     rc = game_session_step(s, 10);
                     if (rc != CORE_OK) {
+                        fprintf(stderr,"step failed: difficulty=%d seed=%d day=%d result=%d\n",d,first_seed+i,s->summary.day,rc);
                         failures++;
                         break;
                     }
@@ -227,10 +230,19 @@ int main(int argc, char **argv) {
                 s->event_context = NULL;
                 (void)snprintf(save, sizeof(save), "%s/d%d_seed%d.sav", out, d, first_seed + i);
                 if (!s->raid_id) {
-                    if (core_state_hash(s->world, &before) != CORE_OK ||
-                        core_save(s->world, save) != CORE_OK || game_session_load(s, save, NULL) != CORE_OK ||
-                        core_state_hash(s->world, &after) != CORE_OK || before != after)
+                    int hash_result=core_state_hash(s->world,&before);
+                    int save_result=hash_result==CORE_OK?core_save(s->world,save):hash_result;
+                    int load_result=save_result==CORE_OK?game_session_load(s,save,NULL):save_result;
+                    int after_result=load_result==CORE_OK?core_state_hash(s->world,&after):load_result;
+                    if(hash_result!=CORE_OK||save_result!=CORE_OK||load_result!=CORE_OK||after_result!=CORE_OK||before!=after) {
+                        fprintf(stderr,"save roundtrip failed: difficulty=%d seed=%d day=%d hash=%d save=%d load=%d after=%d before=%llu after_hash=%llu validate=%d\n",d,first_seed+i,s->summary.day,hash_result,save_result,load_result,after_result,(unsigned long long)before,(unsigned long long)after,core_validate(s->world));
                         failures++;
+                        if(load_result==CORE_OK) {
+                            char diagnostic[GAME_PATH_BYTES];
+                            (void)snprintf(diagnostic,sizeof(diagnostic),"%s/d%d_seed%d.reloaded.sav",out,d,first_seed+i);
+                            (void)core_save(s->world,diagnostic);
+                        }
+                    }
                 }
                 if (require_protection_by && (!first_protection || first_protection > require_protection_by))
                     unqualified++;

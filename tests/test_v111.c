@@ -93,7 +93,7 @@ void test_v111_immigration_status(void) {
     CHECK_EQ(core_expansion_immigration(w, &q), CORE_OK);
     CHECK_EQ(q.next_day, 24);
     CHECK(q.reasons & CORE_IMM_COOLDOWN);
-    CHECK_EQ(q.required_happiness, 38);
+    CHECK_EQ(q.required_happiness, 42);
     w->clock.tick = 26 * 144 + 36;
     core_expansion_immigration(w, &q);
     CHECK(!(q.reasons & CORE_IMM_COOLDOWN));
@@ -261,7 +261,7 @@ void test_v111_water_temperature_and_fishing(void) {
     expansion_water_bodies(w);
     core_expansion_water(w, 1, &water);
     CHECK_EQ(water.cold, 1);
-    CHECK_EQ(water.capacity_milli, 27000);
+    CHECK_EQ(water.capacity_milli, 44100);
     Building *a = add_building(w, CORE_BLD_PORT, 18, 20), *b = add_building(w, CORE_BLD_PORT, 40, 24);
     CHECK_EQ(entity_link_worker(a, w->villagers[0], 8), CORE_OK);
     CHECK_EQ(entity_link_worker(b, w->villagers[1], 8), CORE_OK);
@@ -275,14 +275,14 @@ void test_v111_water_temperature_and_fishing(void) {
     w->bank.amount[CORE_RES_FOOD] = 0;
     w->expansion->fractional[CORE_RES_FOOD] = 0;
     expansion_daily(w);
-    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), 27000);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), 30000);
     w->clock.tick = 36 * 144;
     w->nature.event = CORE_NATURE_NONE;
     a->daily_work_milli = b->daily_work_milli = w->defs.buildings[CORE_BLD_PORT].worker_slots * 540000;
     w->bank.amount[CORE_RES_FOOD] = 0;
     w->expansion->fractional[CORE_RES_FOOD] = 0;
     expansion_daily(w);
-    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), 20250);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), 30000);
     core_destroy(w);
 }
 void test_v111_hunting_and_debug_cap(void) {
@@ -304,10 +304,10 @@ void test_v111_hunting_and_debug_cap(void) {
     w->clock.tick += 6 * 144;
     expansion_ecology_daily(w);
     CHECK_EQ(w->expansion->region_pressure_until[region], expiry);
-    CHECK_EQ(core_expansion_debug_wildlife(w, 300), CORE_OK);
+    CHECK_EQ(core_expansion_debug_wildlife(w, 360), CORE_OK);
     CoreSummaryView summary;
     core_get_summary(w, &summary);
-    CHECK_EQ(summary.wild_count, 300);
+    CHECK_EQ(summary.wild_count, 360);
     CHECK_EQ(expansion_animal_spawn(w, 0, 1), 0);
     CHECK_EQ(core_expansion_debug_wildlife(w, 180), CORE_OK);
     core_get_summary(w, &summary);
@@ -321,6 +321,7 @@ void test_v111_market_split_quotes(void) {
     Building *market = add_building(w, CORE_BLD_TRADING_POST, 40, 40);
     CHECK_EQ(entity_link_worker(market, w->villagers[0], 4), CORE_OK);
     w->bank.amount[CORE_RES_GOLD] = 10000;
+    w->expansion->trade_capacity_milli = 260000;
     w->expansion->trade_stock[CORE_RES_IRON] = 260;
     w->bank.limits[CORE_RES_IRON] = 1000;
     CoreTradeQuote all, first, second;
@@ -335,6 +336,7 @@ void test_v111_market_split_quotes(void) {
     CHECK_EQ(second.next_remainder, all.next_remainder);
     CHECK_EQ(core_trade(w, CORE_RES_IRON, 10, &gold, &why), CORE_OK);
     w->expansion->trade_used = 0;
+    w->expansion->trade_capacity_milli = 260000;
     CHECK_EQ(core_trade(w, CORE_RES_IRON, 30, &gold, &why), CORE_OK);
     CHECK_EQ(w->expansion->trade_pressure[CORE_RES_IRON], 500);
     expansion_market_daily(w);
@@ -371,12 +373,12 @@ void test_v111_ecology_water_and_roads(void) {
         CHECK(!EXP_ANIMALS[a->kind].livestock);
         wild += a->alive;
     }
-    CHECK(wild >= 110 && wild <= 180);
+    CHECK(wild >= 280 && wild <= 320);
     CHECK_EQ(w->expansion->region_count, 30);
     for (int i = 0; i < 30; i++) {
-        CHECK(w->expansion->regions[i].count <= 7);
+        CHECK(w->expansion->regions[i].count <= w->expansion->regions[i].count_cap);
         CHECK(w->expansion->regions[i].biomass <= w->expansion->regions[i].capacity);
-        CHECK(w->expansion->regions[i].aggressive <= 2);
+        CHECK(w->expansion->regions[i].aggressive <= (w->expansion->regions[i].count_cap+3)/4);
     }
     int p = grid_index(&w->grid, 20, 20);
     w->grid.terrain[p] = CORE_TERRAIN_GRASS;

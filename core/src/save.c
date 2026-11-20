@@ -55,7 +55,7 @@
 #define SAVE_MAX_VILLAGERS 5000
 
 #define BUILDING_FIELDS 15
-#define VILLAGER_INT_FIELDS 33
+#define VILLAGER_INT_FIELDS 35
 
 /* 자원 키 이름 (순서는 CoreResource) */
 static const char *const RESOURCE_KEYS[CORE_RES_COUNT] = {"gold","mana","food","wood","stone","herbs","logs","clay","bricks","iron_ore","coal","iron","gold_ore","gold_bar","leather"};
@@ -219,6 +219,8 @@ static void write_villagers(FILE *file, const World *world)
         values[30] = v->blocked_day;
         values[31] = v->sick_ticks;
         values[32] = v->heal_ticks;
+        values[33] = v->sex;
+        values[34] = v->appearance;
         fputs("villager=", file);
         for (k = 0; k < VILLAGER_INT_FIELDS; k++) {
             fprintf(file, "%d,", (int)values[k]);
@@ -867,6 +869,10 @@ static int parse_villager(LoadState *state, const char *key, char *value)
     villager->blocked_day = v[30];
     villager->sick_ticks = v[31];
     villager->heal_ticks = v[32];
+    if (v[33] < 0 || v[33] > 1 || v[34] < 0 || v[34] > 11 || (v[34] % 2) != v[33])
+        return CORE_ERR_FORMAT;
+    villager->sex = v[33];
+    villager->appearance = v[34];
     villager->traits[0] = trait_from_key(world, rest);
     villager->traits[1] = trait_from_key(world, trait_b);
     /* 연결은 모든 건물을 읽은 뒤 [end] 에서 */

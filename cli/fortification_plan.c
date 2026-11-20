@@ -12,8 +12,8 @@ static int select_rect(const int *prefix, int width, int height, int cx, int cy,
                        const int *inner, int out[4]) {
     int l, r, t, b, best = INT_MAX, found = 0, stride = width + 1;
     /* 첫 경계는 성채·문·주거 공간을 품고 시작 우물(cx+4,cy+2)을 피합니다. */
-    int ml = inner ? cx - inner[0] + 2 : 4, mr = inner ? inner[2] - cx + 2 : 5;
-    int mt = inner ? cy - inner[1] + 2 : 4, mb = inner ? inner[3] - cy + 2 : 4;
+    int ml = inner ? cx - inner[0] + 5 : 6, mr = inner ? inner[2] - cx + 5 : 6;
+    int mt = inner ? cy - inner[1] + 5 : 6, mb = inner ? inner[3] - cy + 5 : 6;
     for (l = ml; l <= radius; l++)
         for (r = mr; r <= radius; r++)
             for (t = mt; t <= radius; t++)

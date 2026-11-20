@@ -68,8 +68,8 @@ void test_api_struct_sizes_and_config(void)
     /* 외부 호출자 에서 같은 크기가 나와야 하는 값: int 55개 + 자원·한도·변화 6개씩 + 이름 48바이트 */
     CHECK_EQ(sizes.summary_view, (55 + 3 * CORE_RES_COUNT + 23) * 4 + 48);
     CHECK_EQ(sizes.config_view, 17 * 4);
-    CHECK_EQ(sizes.villager_view, 65 * 4 + 48);
-    CHECK_EQ(sizes.building_view, 31*4);
+    CHECK_EQ(sizes.villager_view, 69 * 4 + 48);
+    CHECK_EQ(sizes.building_view, 39*4);
     CHECK_EQ(sizes.building_def_view, 44*4+72);
     CHECK_EQ(sizes.trait_def_view, 6 * 4 + 24);
     CHECK_EQ(sizes.placement_view, 22*4);
@@ -80,7 +80,7 @@ void test_api_struct_sizes_and_config(void)
     CHECK_EQ(sizes.enemy_def_view, 10 * 4 + 24);
     CHECK_EQ(sizes.threat_view, 5 * 4);
     CHECK_EQ(sizes.raid_view, 9 * 4);
-    CHECK_EQ(sizes.enemy_view, 3 * 4);
+    CHECK_EQ(sizes.enemy_view, 4 * 4);
     CHECK_EQ(sizes.research_view, 11 * 4 + 24);
     CHECK_EQ(sizes.rank_view, 80);
     CHECK_EQ(sizes.run_stats_view, 12 * 4);

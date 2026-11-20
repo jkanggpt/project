@@ -34,7 +34,7 @@ _Static_assert(CORE_MOOD_TERM_COUNT == 10, u8"mood terms changed: update 외부 
 _Static_assert(CORE_LEDGER_COUNT == 14, u8"ledger categories changed: update save format and 외부 호출자 strings");
 _Static_assert(CORE_MAX_RESEARCH <= 32, "research done flags are a 32-bit mask");
 _Static_assert(CORE_TUTORIAL_COUNT <= 31, "tutorial flags are a bit mask");
-_Static_assert(CORE_NATURE_COUNT == 6, u8"nature events changed: update 외부 호출자 strings");
+_Static_assert(CORE_NATURE_COUNT == 8, u8"nature events changed: update 외부 호출자 strings");
 _Static_assert(CORE_THREAT_COUNT == 4, u8"threat types changed: update 외부 호출자 strings");
 _Static_assert(sizeof(CoreSaveInfoView) == 13 * 4 + CORE_NAME_BYTES, "unexpected padding in CoreSaveInfoView");
 
@@ -446,6 +446,11 @@ static void villager_to_view(const World *world, const Villager *v, CoreVillager
     out->age = v->age;
     out->flags = v->flags;
     out->walk_speed = vil_walk_speed(world, v);
+    out->sex = v->sex;
+    out->appearance = v->appearance;
+    out->work_efficiency = v->workplace && world->expansion ? expansion_work_percent(world, v, v->workplace->type) : 100;
+    out->combat_max_hp = v->workplace && v->workplace->type == CORE_BLD_BARRACKS ?
+        100 * exp_clamp(100 + 8 * (v->stats.vitality - 4), 76, 148) / 100 : 100;
     memcpy(out->name, v->name, CORE_NAME_BYTES);
     out->name[CORE_NAME_BYTES - 1] = '\0';
     if(world->expansion)expansion_read_villager(world,v,out);
@@ -493,7 +498,7 @@ static void building_to_view(const World *world, const Building *b, CoreBuilding
     out->resident_slots = def->resident_slots;
     for (i = 0; i < b->worker_count; i++) {
         const Villager *worker = b->workers[i];
-        out->working_now += worker->state == CORE_VS_WORKING && worker->at_target;
+        out->working_now += world->expansion ? expansion_working_present(world,b,worker) : worker->state == CORE_VS_WORKING && worker->at_target;
     }
     out->auto_assign = b->auto_assign;
     out->door_x = b->door_x;
@@ -708,6 +713,7 @@ CORE_API int32_t core_copy_enemies(const CoreWorld *world, CoreEnemyView *out, i
         out[i].id = raid->enemies[i].id;
         out[i].type = raid->enemies[i].type;
         out[i].state = raid->enemies[i].state;
+        out[i].summoner_id = raid->enemies[i].summoner_id;
     }
     return CORE_OK;
 }
@@ -949,9 +955,11 @@ CORE_API int32_t core_assign_worker(CoreWorld *world, int32_t villager_id, int32
     if (villager == NULL || building == NULL) {
         return CORE_ERR_NOT_FOUND;
     }
+    int update_sight=world->expansion && villager->workplace && expansion_working_present(world,villager->workplace,villager);
     rc = jobs_assign_manual(world, villager, building);
     if (rc == CORE_OK) {
         tutorial_note_assign(world); /* 튜토리얼 목표 "주민을 직접 배치하기" */
+        if(update_sight)expansion_visibility(world);
     }
     return rc;
 }
@@ -966,7 +974,9 @@ CORE_API int32_t core_unassign_worker(CoreWorld *world, int32_t villager_id)
     if (villager == NULL) {
         return CORE_ERR_NOT_FOUND;
     }
+    int update_sight=world->expansion && villager->workplace && expansion_working_present(world,villager->workplace,villager);
     jobs_unassign_manual(world, villager);
+    if(update_sight)expansion_visibility(world);
     return CORE_OK;
 }
 

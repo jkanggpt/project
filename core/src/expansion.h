@@ -13,7 +13,8 @@ typedef struct ExpansionBuildingSpec {
 } ExpansionBuildingSpec;
 typedef struct ExpansionState {
     CoreExpansionTileView *tiles;
-    uint8_t *visible, *static_visible, *protected_cells, *connected;
+    uint8_t *visible, *static_visible, *work_visible, *protected_cells, *connected;
+    uint64_t work_visibility_signature;
     int32_t *distance, *queue, *water_area;
     int32_t cells, water_count, dirty, alarm, tax, tax_day, fuel_milli, magic_logs_milli, error;
     int32_t fractional[CORE_RES_COUNT], trade_stock[CORE_RES_COUNT], trade_used;
@@ -38,6 +39,10 @@ typedef struct ExpansionState {
     int32_t spawn_attempts, spawn_capacity_rejected, spawn_tile_rejected, spawn_species_rejected;
     uint8_t *water_cold, *region_map;
     int32_t *route_distance, *route_heap, *route_heap_pos;
+    int32_t phantom_next_day[6], next_raid_tick;
+    int32_t plague_days, plague_cooldown, economic_event, economic_days, economic_cooldown;
+    int32_t trade_capacity_milli, trade_capacity_carry;
+    int32_t raid_drops[CORE_RES_COUNT], summons_total, deferred_summons;
 } ExpansionState;
 
 static inline int exp_day(const World *w) { return w->clock.tick / 144 + 1; }
@@ -71,6 +76,8 @@ int expansion_qualified(const World *world, const Building *b);
 void expansion_rebuild(World *world);
 void expansion_capacity(World *world);
 void expansion_visibility(World *world);
+/* 불러오기는 파생 시야만 복구하며 저장된 탐험 기록을 늘리지 않습니다. */
+void expansion_visibility_cache(World *world,int discover);
 void expansion_water_bodies(World *world);
 void expansion_daily(World *world);
 void expansion_produce(World *world);
@@ -125,6 +132,22 @@ void expansion_terrain_costs(World *world);
 void expansion_promotion_tick(World *world);
 void expansion_market_daily(World *world);
 void expansion_arrival_join(World *world, Villager *villager);
-extern const CoreAnimalInfo EXP_ANIMALS[24];
+extern const CoreAnimalInfo EXP_ANIMALS[CORE_EXP_ANIMALS];
+int expansion_center_distance(const Building *building, int x, int y);
+int expansion_centers_distance(const Building *a, const Building *b);
+int expansion_working_count(const World *world, const Building *building);
+int expansion_working_present(const World *world, const Building *building, const Villager *villager);
+int expansion_labor_milli(const World *world, const Building *building);
+int expansion_sqrt_milli(int value);
+int expansion_service_base(const Building *building, int workers);
+int expansion_begin_work(World *world, Villager *villager, Building *building);
+int expansion_agriculture_event(const World *world, int type);
+int expansion_event_active(const World *world, int event);
+int expansion_service_shift(int type);
+int expansion_trade_limit(const World *world);
+void expansion_choose_identity(World *world, Villager *villager);
+void expansion_raids_tick(World *world);
 int expansion_debug_town(World *world, int villagers, int enemies);
+void expansion_raider_definitions(Defs *defs);
+void expansion_raider_drops(World *w,int type);
 #endif

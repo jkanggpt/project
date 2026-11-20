@@ -14,16 +14,19 @@ static int seasonal(const World *w, int r) {
                                                         : 0;
 }
 static int event_rate(const World *w, int r) {
+    int extra = 0;
+    if (expansion_event_active(w,CORE_NATURE_MINE_COLLAPSE) && (r == CORE_RES_IRON_ORE || r == CORE_RES_IRON)) extra += 500;
+    if (expansion_event_active(w,CORE_NATURE_TRADE_BOOM) && (r == CORE_RES_GOLD_ORE || r == CORE_RES_GOLD_BAR || r == CORE_RES_LEATHER)) extra += 300;
     if (r == CORE_RES_FOOD) {
         if (w->nature.event == CORE_NATURE_DROUGHT)
-            return 600;
+            extra += 600;
         if (w->nature.event == CORE_NATURE_BUMPER)
-            return -500;
+            extra -= 500;
     }
     if (w->nature.event == CORE_NATURE_COLD_SNAP &&
         (r == CORE_RES_LOGS || r == CORE_RES_WOOD || r == CORE_RES_COAL))
-        return 400;
-    return 0;
+        extra += 400;
+    return exp_clamp(extra,-600,700);
 }
 static int tradable(int level, int r) {
     if (r < 1 || r >= 15 || !level)
@@ -47,7 +50,7 @@ CORE_API int32_t core_expansion_quote(const CoreWorld *w, int32_t res, int32_t u
     q->units = units;
     level = expansion_market_level(w);
     q->stock = e->trade_stock[res];
-    q->remaining = (int[]){0, 20, 80, 260}[level] - e->trade_used;
+    q->remaining = expansion_trade_limit(w) - e->trade_used;
     q->season_bp = seasonal(w, res);
     q->event_bp = event_rate(w, res);
     q->pressure_bp = e->trade_pressure[res];
@@ -107,7 +110,7 @@ void expansion_read_market(const World *w, CoreMarketView *out) {
     out->closed_reason = level ? 0 : CORE_DENY_NO_MARKET;
     for (r = 1; r < 15; r++)
         if (tradable(level, r)) {
-            CoreTradeQuote buy, sell;
+            CoreTradeQuote buy = {0}, sell = {0};
             core_expansion_quote(w, r, 1, &buy);
             core_expansion_quote(w, r, -1, &sell);
             out->buy_price[r] = buy.total_gold;

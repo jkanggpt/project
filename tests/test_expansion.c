@@ -124,7 +124,7 @@ void test_expansion_harvest_once(void) {
     field->crop_drought = 1;
     field->pending_harvest_milli = 0;
     expansion_produce(w);
-    CHECK_EQ(field->pending_harvest_milli, 198000);
+    CHECK_EQ(field->pending_harvest_milli, 360000);
     core_destroy(w);
 }
 void test_expansion_rotation_and_road_guard(void) {
@@ -136,12 +136,14 @@ void test_expansion_rotation_and_road_guard(void) {
     if (!w)
         return;
     w->rank = 5;
-    for (i = 0; i < w->expansion->cells; i++)
+    for (i = 0; i < w->expansion->cells; i++) {
         w->expansion->tiles[i].explored = 1;
+        w->expansion->visible[i] = 1;
+    }
     CHECK_EQ(core_can_place_rotated(w, CORE_BLD_PASTURE, 80, 90, 1, &preview), CORE_OK);
-    CHECK_EQ(preview.w, 4);
+    CHECK_EQ(preview.w, 5);
     CHECK_EQ(preview.h, 6);
-    CHECK_EQ(preview.door_x, 84);
+    CHECK_EQ(preview.door_x, 85);
     CHECK_EQ(preview.door_y, 93);
     /* 시작 성채 남문에서 두 칸 도로로 이어진 주거 시설을 만듭니다. */
     b = complete(w, CORE_BLD_COTTAGE, 101, 100, 0);
@@ -225,9 +227,9 @@ void test_expansion_shared_logging(void) {
     tree->tree_logs_milli = 28000;
     w->bank.amount[CORE_RES_LOGS] = 0;
     expansion_daily(w);
-    CHECK_EQ(expansion_bank_have(w, CORE_RES_LOGS), 800);
-    CHECK_EQ(tree->tree_used_milli, 800);
-    CHECK_EQ(tree->tree_logs_milli, 27200);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_LOGS), 10000);
+    CHECK_EQ(tree->tree_used_milli, 10000);
+    CHECK_EQ(tree->tree_logs_milli, 18000);
     core_destroy(w);
 }
 void test_expansion_protected_gate(void) {
@@ -287,19 +289,21 @@ void test_expansion_feed_before_output(void) {
     CHECK_EQ(entity_link_worker(a, w->villagers[0], 3), CORE_OK);
     CHECK_EQ(entity_link_worker(b, w->villagers[1], 3), CORE_OK);
     a->daily_work_milli = b->daily_work_milli = w->defs.buildings[CORE_BLD_RANCH].worker_slots * 540000;
+    w->expansion->animals[w->expansion->animal_count-1].age = 24;
+    w->expansion->animals[w->expansion->animal_count-2].age = 24;
     w->bank.amount[CORE_RES_FOOD] = 0;
     w->expansion->fractional[CORE_RES_FOOD] = 600;
     expansion_animal_daily(w);
     /* 첫 소의 산출물을 두 번째 소의 당일 사료로 쓸 수 없습니다. */
     CHECK_EQ(w->expansion->animals[w->expansion->animal_count - 1].starve_days, 1);
-    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), 1000);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), 1015);
     rc = core_expansion_damage_animal(w, w->expansion->animals[w->expansion->animal_count - 1].id, 50);
     CHECK_EQ(rc, CORE_OK);
     w->expansion->animals[w->expansion->animal_count - 1].alive = 0;
     w->bank.amount[CORE_RES_FOOD] = 0;
     w->expansion->fractional[CORE_RES_FOOD] = 300;
     expansion_animal_daily(w);
-    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), 500);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), 515);
     core_destroy(w);
 }
 void test_expansion_xp_and_stock(void) {
@@ -389,6 +393,9 @@ void test_expansion_magic_consumption(void) {
     tower = complete(w, CORE_BLD_ARCANE_TOWER, 80, 80, 0);
     keep = world_keep(w);
     CHECK_EQ(entity_link_worker(tower, w->villagers[0], 3), CORE_OK);
+    Villager *worker = w->villagers[0];
+    worker->state=CORE_VS_WORKING;worker->target=tower;worker->at_target=1;
+    worker->current_x_milli=tower->door_x*1000+500;worker->current_y_milli=tower->door_y*1000+500;
     w->research.done = (1u << 21) | (1u << 22);
     w->research.done_count = 2;
     w->bank.amount[CORE_RES_MANA] = 0;
@@ -429,7 +436,8 @@ void test_expansion_gate_connectivity(void) {
     CHECK(entity_find_building(w, gate->id) == gate);
     home->state = CORE_BSTATE_RUINED;
     expansion_rebuild(w);
-    CHECK_EQ(expansion_remove_road(w, 97, 100), CORE_ERR_REJECTED);
+    CHECK_EQ(expansion_remove_road(w, 97, 100), CORE_OK);
+    w->grid.road[grid_index(&w->grid,97,100)] = 1;
     home->state = CORE_BSTATE_ACTIVE;
     for (x = 97; x <= 99; x++)
         w->grid.road[grid_index(&w->grid, x, 99)] = 1;

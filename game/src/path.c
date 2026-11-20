@@ -1,6 +1,6 @@
 /* path.c — 칸마다 힙 위치를 기억해 중복 삽입과 힙 넘침을 피합니다. */
 #include "path.h"
-#include "castle_core.h"
+#include <castle_core.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
@@ -14,8 +14,8 @@ void game_pathfinder_free(GamePathfinder *f)
 int game_path_cost(uint8_t cost, int enemy)
 {
     if (cost == CORE_COST_BLOCKED) return 0;
-    if (cost == CORE_COST_WALL) return enemy ? 120 : 0;
-    if (cost == CORE_COST_GATE) return enemy ? 120 : CORE_COST_NORMAL;
+    if (cost == CORE_COST_WALL) return enemy == 2 ? 100 : enemy ? 120 : 0;
+    if (cost == CORE_COST_GATE) return enemy == 2 ? 100 : enemy ? 120 : CORE_COST_NORMAL;
     return cost;
 }
 static int reserve(GamePathfinder *f, int cells)

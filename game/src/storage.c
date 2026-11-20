@@ -91,7 +91,7 @@ int game_executable_directory(char *out, size_t size, const char *argv0)
 }
 void game_settings_default(GameSettings *s)
 {
-    s->master_volume = 0.8f; s->sfx_volume = 0.8f; s->fullscreen = 0; s->edge_scroll = 1; s->ui_scale = 1;
+    s->master_volume = 0.8f; s->sfx_volume = 0.8f; s->fullscreen = 0; s->edge_scroll = 1; s->ui_scale = 1; s->low_effects=0;
 }
 int game_settings_load(GameSettings *s, const char *path)
 {
@@ -106,6 +106,7 @@ int game_settings_load(GameSettings *s, const char *path)
         else if (strcmp(key, "fullscreen") == 0 && (value == 0 || value == 1)) s->fullscreen = (int)value;
         else if (strcmp(key, "edge_scroll") == 0 && (value == 0 || value == 1)) s->edge_scroll = (int)value;
         else if (strcmp(key, "ui_scale") == 0 && (value == 1 || value == 2)) s->ui_scale = (int)value;
+        else if (strcmp(key, "low_effects") == 0 && (value == 0 || value == 1)) s->low_effects = (int)value;
     }
     fclose(file); return 1;
 }
@@ -115,8 +116,8 @@ int game_settings_save(const GameSettings *s, const char *path)
     if (snprintf(tmp, sizeof(tmp), "%s.tmp", path) >= (int)sizeof(tmp)) return 0;
     file = platform_fopen_utf8(tmp, "wb");
     if (!file) return 0;
-    ok = fprintf(file, "master=%.3f\nsfx=%.3f\nfullscreen=%d\nedge_scroll=%d\nui_scale=%d\n",
-        (double)s->master_volume, (double)s->sfx_volume, s->fullscreen, s->edge_scroll, s->ui_scale) > 0;
+    ok = fprintf(file, "master=%.3f\nsfx=%.3f\nfullscreen=%d\nedge_scroll=%d\nui_scale=%d\nlow_effects=%d\n",
+        (double)s->master_volume, (double)s->sfx_volume, s->fullscreen, s->edge_scroll, s->ui_scale,s->low_effects) > 0;
     if (fclose(file) != 0) ok = 0;
     if (ok && platform_replace_file(tmp, path) == 0) return 1;
     (void)platform_remove_file(tmp); return 0;

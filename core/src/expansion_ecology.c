@@ -1,50 +1,56 @@
-/* expansion_ecology.c — 24종 정의, 연결 수역 온도와 지리 서식지의 생체량 */
+/* expansion_ecology.c — 30종 정의, 연결 수역 온도와 지리 서식지의 생체량 */
 #include "expansion.h"
 #include <stdlib.h>
 #include <string.h>
 
-#define A(h, a, f, l, b, s, w, be, x, y, lv, n)                                                              \
-    { h, a, f, l, b, s, w, be, x, y, lv, u8##n }
-const CoreAnimalInfo EXP_ANIMALS[24] = {A(12, 0, 2, 0, 1, 1450, 0, 0, 400, 420, 0, "토끼"),
-                                        A(30, 0, 10, 2, 3, 1300, 0, 0, 900, 1050, 0, "사슴"),
-                                        A(28, 0, 7, 2, 2, 1050, 0, 0, 820, 920, 0, "산양"),
-                                        A(10, 0, 2, 0, 1, 850, 1100, 0, 420, 480, 0, "오리"),
-                                        A(22, 0, 3, 1, 2, 1250, 0, 1, 650, 600, 0, "여우"),
-                                        A(85, 0, 19, 3, 4, 1000, 0, 0, 1350, 1500, 0, "낙타"),
-                                        A(38, 0, 9, 3, 3, 650, 1800, 0, 950, 700, 0, "물개"),
-                                        A(65, 0, 30, 6, 0, 700, 0, 0, 1250, 1150, 1, "소"),
-                                        A(28, 0, 12, 3, 0, 900, 0, 0, 850, 850, 1, "양"),
-                                        A(36, 0, 18, 3, 0, 850, 0, 0, 880, 780, 1, "돼지"),
-                                        A(9, 0, 2, 0, 0, 1000, 0, 0, 360, 420, 1, "닭"),
-                                        A(36, 5, 5, 2, 3, 1300, 0, 2, 950, 800, 0, "늑대"),
-                                        A(120, 15, 20, 6, 5, 780, 0, 2, 1480, 1440, 0, "곰"),
-                                        A(80, 9, 10, 4, 4, 800, 1250, 2, 1350, 750, 0, "악어"),
-                                        A(95, 12, 22, 5, 5, 1120, 0, 2, 1450, 1200, 0, "물소"),
-                                        A(16, 4, 1, 0, 1, 750, 0, 2, 750, 340, 0, "뱀"),
-                                        A(105, 16, 12, 4, 4, 1250, 0, 2, 1300, 1050, 0, "사자"),
-                                        A(180, 20, 25, 8, 6, 950, 0, 1, 1750, 1420, 0, "코뿔소"),
-                                        A(6, 0, 1, 0, 1, 600, 1000, 0, 280, 280, 0, "개구리"),
-                                        A(42, 7, 5, 2, 2, 1200, 0, 2, 900, 780, 0, "하이에나"),
-                                        A(34, 7, 5, 2, 2, 1380, 0, 1, 780, 760, 0, "스라소니"),
-                                        A(14, 0, 3, 1, 1, 620, 1500, 0, 480, 680, 0, "펭귄"),
-                                        A(48, 0, 11, 2, 3, 1600, 0, 0, 900, 1650, 0, "타조"),
-                                        A(12, 0, 3, 0, 1, 1100, 0, 0, 430, 460, 0, "꿩")};
-#undef A
+const CoreAnimalInfo EXP_ANIMALS[CORE_EXP_ANIMALS] = {
+    {12, 0, 2, 0, 1, 1450, 0, 0, 700, 750, 0, 60, 1, 0, u8"토끼"},
+    {30, 0, 10, 2, 3, 1300, 0, 0, 1650, 1650, 0, 60, 1, 0, u8"사슴"},
+    {28, 0, 7, 2, 2, 1050, 0, 0, 1350, 1400, 0, 60, 1, 0, u8"산양"},
+    {10, 0, 2, 0, 1, 850, 1100, 0, 750, 800, 0, 60, 1, 0, u8"오리"},
+    {22, 0, 3, 1, 2, 1250, 0, 1, 1150, 1050, 0, 60, 1, 0, u8"여우"},
+    {85, 0, 19, 3, 4, 1000, 0, 0, 2150, 2150, 0, 60, 1, 0, u8"낙타"},
+    {38, 0, 9, 3, 3, 650, 1800, 0, 1650, 1050, 0, 60, 1, 0, u8"물개"},
+    {65, 0, 30, 6, 0, 700, 0, 0, 2100, 1650, 1, 60, 1, 0, u8"소"},
+    {28, 0, 12, 3, 0, 900, 0, 0, 1450, 1250, 1, 60, 1, 0, u8"양"},
+    {36, 0, 18, 3, 0, 850, 0, 0, 1550, 1100, 1, 60, 1, 0, u8"돼지"},
+    {9, 0, 2, 0, 0, 1000, 0, 0, 700, 750, 1, 60, 1, 0, u8"닭"},
+    {36, 5, 5, 2, 3, 1300, 0, 2, 1650, 1300, 0, 60, 1, 0, u8"늑대"},
+    {120, 15, 20, 6, 5, 780, 0, 2, 2200, 2100, 0, 60, 1, 0, u8"곰"},
+    {80, 9, 10, 4, 4, 800, 1250, 2, 2550, 1000, 0, 60, 1, 0, u8"악어"},
+    {95, 12, 22, 5, 5, 1120, 0, 2, 2450, 1850, 0, 60, 1, 0, u8"버팔로"},
+    {16, 4, 1, 0, 1, 750, 0, 2, 1500, 500, 0, 60, 1, 0, u8"뱀"},
+    {105, 16, 12, 4, 4, 1250, 0, 2, 2050, 1500, 0, 60, 1, 0, u8"사자"},
+    {180, 20, 25, 8, 6, 950, 0, 1, 2750, 1950, 0, 60, 1, 0, u8"코뿔소"},
+    {6, 0, 1, 0, 1, 600, 1000, 0, 550, 500, 0, 60, 1, 0, u8"개구리"},
+    {42, 7, 5, 2, 2, 1200, 0, 2, 1500, 1150, 0, 60, 1, 0, u8"하이에나"},
+    {34, 7, 5, 2, 2, 1380, 0, 1, 1350, 1200, 0, 60, 1, 0, u8"스라소니"},
+    {14, 0, 3, 1, 1, 620, 1500, 0, 850, 1100, 0, 60, 1, 0, u8"펭귄"},
+    {48, 0, 11, 2, 3, 1600, 0, 0, 1250, 2250, 0, 60, 1, 0, u8"타조"},
+    {12, 0, 3, 0, 1, 1100, 0, 0, 800, 850, 0, 60, 1, 0, u8"꿩"},
+    {170, 18, 16, 5, 4, 1450, 0, 1, 2200, 2050, 0, 24, 1, 5, u8"유니콘"},
+    {150, 16, 7, 3, 3, 1100, 0, 2, 1550, 1750, 0, 25, 2, 3, u8"코카트리스"},
+    {260, 28, 22, 8, 5, 1550, 0, 2, 3000, 2500, 0, 30, 1, 6, u8"그리핀"},
+    {340, 34, 28, 10, 5, 1400, 0, 2, 2850, 2000, 0, 26, 1, 8, u8"펜리르"},
+    {420, 30, 35, 12, 6, 700, 900, 2, 3400, 2800, 0, 32, 2, 10, u8"히드라"},
+    {190, 20, 10, 4, 3, 1050, 0, 1, 2350, 1150, 0, 27, 2, 4, u8"샐러맨더"},
+};
 static const int WEIGHT[10][24] = {
-    {33, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 0, 16, 18},
+    {30, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 5, 0, 0, 0, 0, 15, 17},
     {28, 28, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 13},
     {0, 18, 10, 0, 11, 0, 0, 0, 0, 0, 0, 30, 15, 0, 0, 0, 0, 0, 0, 0, 16, 0, 0, 0},
     {0, 10, 40, 0, 0, 0, 0, 0, 0, 0, 0, 17, 10, 0, 0, 12, 0, 0, 0, 0, 11, 0, 0, 0},
-    {0, 0, 0, 30, 12, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 13, 0, 0, 32, 0, 0, 0, 0, 0},
+    {0, 0, 0, 29, 11, 0, 0, 0, 0, 0, 0, 0, 0, 12, 5, 13, 0, 0, 30, 0, 0, 0, 0, 0},
     {0, 0, 23, 0, 0, 0, 20, 0, 0, 0, 0, 21, 18, 0, 0, 0, 0, 0, 0, 0, 0, 18, 0, 0},
-    {0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 28, 0, 0, 0, 20, 0, 0, 12, 0},
+    {0, 0, 0, 0, 0, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 27, 5, 0, 0, 20, 0, 0, 10, 0},
     {0, 0, 0, 40, 0, 0, 20, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 20, 0, 0, 6, 0, 0},
     {0, 0, 0, 12, 6, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 24, 0, 0, 26, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 14, 9, 0, 20, 0, 0, 22, 0}};
+    {0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 14, 9, 0, 20, 0, 0, 22, 0},
+};
 CORE_API int32_t core_expansion_animal_info(int32_t kind, CoreAnimalInfo *out) {
     if (!out)
         return CORE_ERR_NULL_ARG;
-    if (kind < 0 || kind >= 24)
+    if (kind < 0 || kind >= CORE_EXP_ANIMALS)
         return CORE_ERR_INVALID_ARG;
     *out = EXP_ANIMALS[kind];
     return CORE_OK;
@@ -57,11 +63,12 @@ CORE_API int32_t core_expansion_water(const CoreWorld *w, int32_t id, CoreWaterV
     out->id = id;
     out->area = w->expansion->water_area[id - 1];
     out->cold = w->expansion->water_cold[id - 1];
-    out->capacity_milli = exp_clamp(3000 + out->area * 120, 8000, 70000) *
+    out->capacity_milli = exp_clamp(5000 + out->area * 220, 12000, 130000) *
                           (exp_season(w) == 1   ? 110
                            : exp_season(w) == 3 ? 75
                                                 : 100) /
                           100;
+    out->capacity_milli = out->capacity_milli * (out->cold ? 90 : 110) / 100;
     return CORE_OK;
 }
 CORE_API int32_t core_expansion_habitats(const CoreWorld *w, CoreHabitatView *out, int32_t capacity) {
@@ -132,7 +139,7 @@ void expansion_ecology_recount(World *w) {
         r = &e->regions[a->region];
         r->count++;
         r->biomass += EXP_ANIMALS[a->kind].biomass;
-        r->aggressive += EXP_ANIMALS[a->kind].behavior == 2;
+        r->aggressive += a->kind < 24 && EXP_ANIMALS[a->kind].behavior == 2;
     }
 }
 void expansion_ecology_init(World *w) {
@@ -178,9 +185,13 @@ void expansion_ecology_init(World *w) {
                 sum += WEIGHT[b][j];
                 mass += WEIGHT[b][j] * EXP_ANIMALS[j].biomass;
             }
-        r->capacity = exp_clamp((5 * mass + sum / 2) / (sum ? sum : 1), 8, 22);
-        if (r->area < 320)
-            r->capacity = exp_clamp(r->area / 40, 3, r->capacity);
+        int eligible = 0;
+        for (j = 0; j < e->cells; j++)
+            if (e->region_map[j] == i && (!w->grid.block[j]) && (w->grid.cost[j] || e->tiles[j].water_id)) eligible++;
+        r->target = exp_clamp((eligible + 60) / 120,2,28);
+        r->count_cap = (r->target * 14 + 9) / 10 + 2;
+        if (r->count_cap < 3) r->count_cap = 3;
+        r->capacity = exp_clamp((r->target * mass * 14 + (sum ? sum : 1) * 10 - 1) / ((sum ? sum : 1) * 10),8,95);
         if (e->region_capacity[i])
             r->capacity = e->region_capacity[i];
         else
@@ -196,7 +207,7 @@ int expansion_animal_spawn(World *w, int region, int initial) {
     e->spawn_attempts++;
     for (i = 0; i < e->region_count; i++)
         total += e->regions[i].count;
-    if (total >= 180 || r->count >= 7 || r->biomass >= r->capacity) {
+    if (total >= 360 || r->count >= r->count_cap || r->biomass >= r->capacity) {
         e->spawn_capacity_rejected++;
         return 0;
     }
@@ -217,7 +228,7 @@ int expansion_animal_spawn(World *w, int region, int initial) {
     for (n = 0; n < 5; n++) {
         kind = expansion_wild_kind(w, x, y);
         if (kind >= 0 && r->biomass + EXP_ANIMALS[kind].biomass <= r->capacity &&
-            (EXP_ANIMALS[kind].behavior != 2 || r->aggressive < 2))
+            (EXP_ANIMALS[kind].behavior != 2 || r->aggressive < exp_clamp((r->count_cap + 3) / 4,2,100)))
             break;
         kind = -1;
     }
@@ -262,16 +273,47 @@ void expansion_ecology_daily(World *w) {
         }
         e->regions[i].pressure_until = e->region_pressure_until[i];
     }
-    for (i = 0; i < 30 && tries < 20; i++) {
+    for (i = 0; i < 60 && tries < 40; i++) {
         int id = (start + i) % 30;
         CoreHabitatView *r = &e->regions[id];
         int chance = r->count * 2 < r->target ? 70 : 45;
-        if (r->count >= r->target || r->count >= 7 || r->biomass >= r->capacity)
+        if (r->count >= r->target || r->count >= r->count_cap || r->biomass >= r->capacity)
             continue;
         tries++;
         if (e->region_pressure_until[id] > day)
             chance = chance * 70 / 100;
         if (rng_range(&w->rng, 0, 99) < chance)
             expansion_animal_spawn(w, id, 0);
+    }
+    if (day % 6 == 0) {
+        static const int first[6] = {12,36,48,60,72,20};
+        int budget = 0, alive[6] = {0};
+        for (i = 0; i < e->animal_count; i++)
+            if (e->animals[i].alive && !e->animals[i].owner && e->animals[i].kind >= 24) {
+                alive[e->animals[i].kind-24] = 1; budget += EXP_ANIMALS[e->animals[i].kind].biomass;
+            }
+        for (int k = 0; k < 6; k++) {
+            int kind = k + 24, unlock = first[k];
+            if (EXP_ANIMALS[kind].behavior == 2) unlock += w->difficulty == 0 ? 12 : w->difficulty == 2 ? -8 : 0;
+            if (unlock < 10) unlock = 10;
+            if (alive[k] || day < unlock || day < e->phantom_next_day[k] || budget + EXP_ANIMALS[kind].biomass > 6 || rng_range(&w->rng,0,99) >= 12) continue;
+            for (int attempt = 0; attempt < 1000; attempt++) {
+                int p = rng_range(&w->rng,0,e->cells-1), biome = e->tiles[p].biome, region = e->region_map[p];
+                int habitat = k == 0 ? biome == 0 : k == 1 ? biome == 1 : k == 2 ? biome == 3 : k == 3 ? biome == 2 || biome == 5 : k == 4 ? biome == 4 || biome == 8 : biome == 6 || biome == 9;
+                CoreHabitatView *r = &e->regions[region];
+                int total = 0;
+                for (int n = 0; n < e->region_count; n++) total += e->regions[n].count;
+                if (!habitat || total >= 360 || e->visible[p] || e->protected_cells[p] || w->grid.block[p] ||
+                    (!w->grid.cost[p] && !EXP_ANIMALS[kind].swim_milli) || r->count >= r->count_cap || r->biomass + EXP_ANIMALS[kind].biomass > r->capacity) continue;
+                int slot;
+                for (slot = 0; slot < e->animal_count && e->animals[slot].alive; slot++);
+                if (slot >= CORE_EXP_MAX_ANIMALS) break;
+                if (slot == e->animal_count) e->animal_count++;
+                CoreAnimalView *a = &e->animals[slot];
+                *a = (CoreAnimalView){0}; a->id = e->next_animal_id++; a->kind = kind; a->hp = EXP_ANIMALS[kind].hp;
+                a->alive = 1; a->age = 120; a->region = region; a->x_milli = p % w->grid.width * 1000 + 500; a->y_milli = p / w->grid.width * 1000 + 500;
+                budget += EXP_ANIMALS[kind].biomass; expansion_ecology_recount(w); break;
+            }
+        }
     }
 }

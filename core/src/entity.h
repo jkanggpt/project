@@ -80,6 +80,8 @@ struct Villager {
     int32_t incoming, leisure_days[4], hunger_ticks, hunger_event_day;
     int32_t injury_tick, critical, threat_raid, mood_cause, death_mood_day, death_mood_count;
     int32_t hub_id, hub_revision, hub_kind, hub_job, hub_day;
+    int32_t sex, appearance, xp_work_minutes[12], work_day, work_day_minutes;
+    int32_t mood_fraction_milli, healing_progress_milli, slow_until_tick;
 };
 
 struct Building {
@@ -102,6 +104,9 @@ struct Building {
     int32_t daily_work_milli,crop_labor_milli,crop_year,crop_drought,pending_harvest_milli,harvest_expiry;
     int32_t processing_milli[CORE_RES_COUNT],hunts_milli,shots,visits_today;
     int32_t water_served;
+    int32_t actual_work_milli, agriculture_work_milli, forestry_carry_milli;
+    int32_t crop_work_carry;
+    int32_t service_credit_milli, service_carry, breeding_progress[4], feed_milli;
     int32_t expansion_loaded;
 
     Villager **workers;    /* 일꾼 (id 순으로 정렬) */

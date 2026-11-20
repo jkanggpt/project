@@ -189,35 +189,55 @@ void expansion_rebuild(World *w) {
             e->protected_population++;
     }
     memset(e->static_visible, 0, (size_t)e->cells);
-    for (i = 0; i < w->building_count; i++) {
-        Building *b = w->buildings[i];
-        const ExpansionBuildingSpec *s = expansion_spec(b->type);
-        int sight = s->sight;
-        if (s->flags & (CORE_EXP_WALL | CORE_EXP_GATE))
-            sight = 0;
-        if ((b->type == CORE_BLD_OUTPOST || b->type == CORE_BLD_WATCHTOWER) && expansion_has_research(w, 8))
-            sight += 2;
-        if (b->state != CORE_BSTATE_ACTIVE)
-            continue;
-        if (s->category == CORE_CAT_TOWERS && !b->worker_count)
-            sight = 2;
-        reveal(w, b->x + b->w / 2, b->y + b->h / 2, sight, e->static_visible);
-    }
+    if (keep && keep->state == CORE_BSTATE_ACTIVE)
+        for (y = keep->y - 8; y < keep->y + keep->h + 8; y++)
+            for (x = keep->x - 8; x < keep->x + keep->w + 8; x++)
+                if (grid_in_bounds(g,x,y) && expansion_center_distance(keep,x,y) <= 8)
+                    e->static_visible[grid_index(g,x,y)] = 1;
+    e->work_visibility_signature = 0;
     for (i = 0; i < e->cells; i++)
         if (road_cell(w, i) && e->connected[i])
             reveal(w, i % g->width, i / g->width, 1, e->static_visible);
     expansion_water_supply(w);
     e->dirty = 0;
 }
-void expansion_visibility(World *w) {
+void expansion_visibility_cache(World *w,int discover) {
     ExpansionState *e = w->expansion;
     int i;
-    memcpy(e->visible, e->static_visible, (size_t)e->cells);
+    uint64_t signature = UINT64_C(1469598103934665603);
+    for (i = 0; i < w->building_count; i++) {
+        Building *b = w->buildings[i];
+        if (b->state == CORE_BSTATE_ACTIVE && expansion_working_count(w,b)) {
+            signature ^= (uint64_t)(b->id * 131 + b->type * 17 + b->x * 3 + b->y);
+            signature *= UINT64_C(1099511628211);
+        }
+    }
+    signature ^= w->research.done;
+    if (signature != e->work_visibility_signature) {
+        memset(e->work_visible,0,(size_t)e->cells);
+        for (i = 0; i < w->building_count; i++) {
+            Building *b = w->buildings[i];
+            if (b->state != CORE_BSTATE_ACTIVE || !expansion_working_count(w,b)) continue;
+            const ExpansionBuildingSpec *s = expansion_spec(b->type);
+            if (s->flags & (CORE_EXP_WALL | CORE_EXP_GATE | CORE_EXP_ROAD)) continue;
+            int radius = b->type == CORE_BLD_OUTPOST ? 6 : b->type == CORE_BLD_WATCHTOWER ? 10 :
+                b->type == CORE_BLD_TOWER ? 12 : b->type == CORE_BLD_CROSSBOW_TOWER || b->type == CORE_BLD_CANNON_TOWER ? 9 :
+                b->type == CORE_BLD_ARCANE_TOWER ? 14 : b->type == CORE_BLD_HUNTER_CAMP ? 6 : b->type == CORE_BLD_HUNTING_LODGE ? 12 : 2;
+            if ((s->category == CORE_CAT_TOWERS || b->type == CORE_BLD_OUTPOST || b->type == CORE_BLD_WATCHTOWER) && expansion_has_research(w,8)) radius += 2;
+            for (int y = b->y - radius; y < b->y + b->h + radius; y++)
+                for (int x = b->x - radius; x < b->x + b->w + radius; x++)
+                    if (grid_in_bounds(&w->grid,x,y) && expansion_center_distance(b,x,y) <= radius)
+                        e->work_visible[grid_index(&w->grid,x,y)] = 1;
+        }
+        e->work_visibility_signature = signature;
+    }
+    for (i = 0; i < e->cells; i++) e->visible[i] = e->static_visible[i] || e->work_visible[i];
     for (i = 0; i < w->villager_count; i++) {
         Villager *v = w->villagers[i];
         if (!v->inside_building && !v->incoming && v->state != CORE_VS_LEAVING)
             reveal(w, v->current_x_milli / 1000, v->current_y_milli / 1000, 4, e->visible);
     }
+    if(!discover)return;
     for (i = 0; i < e->cells; i++)
         if (e->visible[i])
             e->tiles[i].explored = 1;
@@ -237,6 +257,7 @@ void expansion_visibility(World *w) {
             }
     }
 }
+void expansion_visibility(World *w) { expansion_visibility_cache(w,1); }
 void expansion_place_check(const World *w, int type, int x, int y, int rotation, int ignore,
                            CorePlacementView *out) {
     const ExpansionBuildingSpec *s = expansion_spec(type);
@@ -245,6 +266,13 @@ void expansion_place_check(const World *w, int type, int x, int y, int rotation,
     out->result = CORE_PLACE_BAD_TYPE;
     if (!s || type == CORE_BLD_KEEP || rotation < 0 || rotation > 3)
         return;
+    if (type == CORE_BLD_STALL || type == CORE_BLD_MARKET || type == CORE_BLD_TRADING_POST)
+        for (int n = 0; n < w->building_count; n++) {
+            const Building *b = w->buildings[n];
+            if (b->id != ignore && (b->type == CORE_BLD_STALL || b->type == CORE_BLD_MARKET || b->type == CORE_BLD_TRADING_POST)) {
+                out->result = CORE_PLACE_TRADE_EXISTS; return;
+            }
+        }
     out->w = (rotation & 1) ? s->h : s->w;
     out->h = (rotation & 1) ? s->w : s->h;
     memcpy(out->cost, w->defs.buildings[type].cost, sizeof(out->cost));
@@ -260,8 +288,8 @@ void expansion_place_check(const World *w, int type, int x, int y, int rotation,
     for (yy = y; yy < y + out->h; yy++)
         for (xx = x; xx < x + out->w; xx++) {
             int p = grid_index(&w->grid, xx, yy);
-            if (!w->expansion->tiles[p].explored) {
-                out->result = CORE_PLACE_UNREACHABLE;
+            if (!w->expansion->visible[p]) {
+                out->result = CORE_PLACE_NOT_VISIBLE;
                 return;
             }
             if (w->grid.occupant[p] && w->grid.occupant[p] != ignore) {
@@ -393,7 +421,8 @@ static int connection_removal_allowed(World *w, int road, Building *gate) {
     for (i = 0; i < w->building_count; i++) {
         Building *b = w->buildings[i];
         int cell = service_cell(w, b);
-        if (b != gate && b->state == CORE_BSTATE_ACTIVE && cell >= 0)
+        if (b != gate && b->state == CORE_BSTATE_ACTIVE && expansion_spec(b->type)->rank > 0 &&
+            !(expansion_spec(b->type)->flags & (CORE_EXP_WALL | CORE_EXP_GATE)) && cell >= 0)
             before[i] = e->connected[cell];
     }
     if (road >= 0)
@@ -624,7 +653,7 @@ CORE_API int32_t core_expansion_fire(CoreWorld *w, int32_t id) {
     b = entity_find_building(w, id);
     if (!b)
         return CORE_ERR_NOT_FOUND;
-    if (!w->expansion || b->state != CORE_BSTATE_ACTIVE || !b->worker_count ||
+    if (!w->expansion || b->state != CORE_BSTATE_ACTIVE || !expansion_working_count(w,b) ||
         !expansion_spec(b->type)->attack)
         return CORE_ERR_REJECTED;
     if (b->type == CORE_BLD_ARCANE_TOWER && b->shots % 3 == 0) {

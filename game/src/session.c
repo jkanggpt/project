@@ -18,6 +18,8 @@ static void clear_world(GameSession *s) {
     free(s->roads);
     free(s->cost);
     free(s->towers);
+    free(s->enemies);
+    s->enemies = NULL; s->enemy_capacity = 0;
     game_pathfinder_free(&s->finder);
     core_destroy(s->world);
     free(s->exp_tiles);
@@ -364,11 +366,11 @@ int game_actor_walk(GameSession *s, GameActor *a, float tiles, int enemy, int *b
             a->grid_revision = -1;
             return 0;
         }
-        if (enemy && (s->cost[cell] == CORE_COST_WALL || s->cost[cell] == CORE_COST_GATE)) {
+        if (enemy == 1 && (s->cost[cell] == CORE_COST_WALL || s->cost[cell] == CORE_COST_GATE)) {
             *barrier_id = game_building_at(s, cell % w, cell / w);
             return 0;
         }
-        if (s->summary.ruleset && s->cost[cell] == CORE_COST_GATE)
+        if (s->summary.ruleset && enemy!=2 && s->cost[cell] == CORE_COST_GATE)
             c = 67;
         factor = (s->summary.ruleset ? 100 : CORE_COST_NORMAL) / (float)c;
         if (distance <= tiles * factor + 0.0001f) {
@@ -454,6 +456,7 @@ int game_session_step(GameSession *s, float minutes) {
         rc = game_session_refresh(s);
         if (rc != CORE_OK)
             return rc;
+        if(s->summary.outcome==CORE_OUTCOME_LOST)break;
         float slice = minutes > 2 ? 2 : minutes;
         if (s->summary.ruleset)
             for (int i = 0; i < s->animal_count; i++)
@@ -464,6 +467,10 @@ int game_session_step(GameSession *s, float minutes) {
         walk_villagers(s, slice);
         walk_animals(s, slice);
         game_combat_step(s, slice);
+        /* 성채 함락 보고는 틱 사이에도 패배를 확정하므로 즉시 시간을 멈춥니다. */
+        rc=core_get_summary(s->world,&s->summary);
+        if(rc!=CORE_OK)return rc;
+        if(s->summary.outcome==CORE_OUTCOME_LOST)break;
         s->visual_time += slice / 12.0f;
         if (s->summary.ruleset) {
             int elapsed = (int)floorf(slice * 1000 + .5f);
@@ -491,6 +498,8 @@ int game_session_step(GameSession *s, float minutes) {
         if (s->tick_minutes + 0.0001f >= s->config.minutes_per_tick) {
             s->tick_minutes -= s->config.minutes_per_tick;
             rc = core_tick(s->world, 1);
+            if(rc==CORE_ERR_REJECTED && core_get_summary(s->world,&s->summary)==CORE_OK &&
+               s->summary.outcome==CORE_OUTCOME_LOST)break;
             if (rc != CORE_OK)
                 return rc;
         }

@@ -44,7 +44,7 @@ static Building *debug_build(World *w, int type) {
 CORE_API int32_t core_expansion_debug_wildlife(CoreWorld *w, int32_t count) {
     if (!w)
         return CORE_ERR_NULL_ARG;
-    if (!w->expansion || count < 0 || count > 300)
+    if (!w->expansion || count < 0 || count > 420)
         return CORE_ERR_INVALID_ARG;
     ExpansionState *e = w->expansion;
     int wild = 0;
@@ -101,8 +101,9 @@ int expansion_debug_town(World *w, int villagers, int enemies) {
         for (int i = 0; i < 4; i++)
             if (!debug_build(w, CORE_BLD_LOGISTICS))
                 return CORE_ERR_OUT_OF_MEMORY;
-        Building *ranch = debug_build(w, CORE_BLD_RANCH), *pasture = debug_build(w, CORE_BLD_PASTURE);
-        if (!ranch || !pasture)
+        Building *ranch = debug_build(w, CORE_BLD_RANCH), *pastures[4];
+        for(int i=0;i<4;i++)pastures[i]=debug_build(w,CORE_BLD_PASTURE);
+        if (!ranch || !pastures[0] || !pastures[1] || !pastures[2] || !pastures[3])
             return CORE_ERR_OUT_OF_MEMORY;
         for (int y = w->keep_y - 28; y <= w->keep_y + 28; y++)
             for (int x = w->keep_x - 28; x <= w->keep_x + 28; x++) {
@@ -119,14 +120,21 @@ int expansion_debug_town(World *w, int villagers, int enemies) {
         for (int r = 0; r < 15; r++)
             w->bank.amount[r] = r == CORE_RES_GOLD ? 100000 : eco_bank_limit(&w->bank, r);
         static const int kinds[4] = {7, 9, 8, 10};
-        for (int i = 0; i < 4; i++) {
-            core_expansion_buy_animal(w, ranch->id, kinds[i]);
-            core_expansion_buy_animal(w, pasture->id, kinds[i]);
-            core_expansion_buy_animal(w, pasture->id, kinds[i]);
+        for (int i=0;i<60;i++) {
+            int kind=kinds[i%4],owner=pastures[i/15]->id;
+            if(core_expansion_buy_animal(w,owner,kind)!=CORE_OK)return CORE_ERR_REJECTED;
         }
+        w->nature.event=CORE_NATURE_STORM;w->nature.event_days=2;w->nature.weather=CORE_WEATHER_STORM;
+        w->expansion->plague_days=3;
         expansion_visibility(w);
-        if (core_expansion_debug_wildlife(w, 180) != CORE_OK)
+        if (core_expansion_debug_wildlife(w, 360) != CORE_OK)
             return CORE_ERR_REJECTED;
     }
-    return enemies > 0 ? threat_debug_raid(w, CORE_THREAT_MONSTERS, CORE_DIR_NORTH, enemies) : CORE_OK;
+    int rc=enemies>0?threat_debug_raid(w,CORE_THREAT_MONSTERS,CORE_DIR_NORTH,enemies):CORE_OK;
+    if(rc==CORE_OK && enemies>0) {
+        for(int i=0;i<enemies;i++)w->threat.raid.enemies[i].type=i%28;
+        w->threat.raid.enemies[0].type=13;
+        for(int i=0;i<32;i++){int32_t id=0;if(core_expansion_summon(w,1,&id)!=CORE_OK)break;}
+    }
+    return rc;
 }

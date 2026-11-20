@@ -59,7 +59,7 @@ const char *defs_resource_key(int32_t resource)
 
 const EnemyDef *defs_enemy(const Defs *defs, int32_t type)
 {
-    if (type < 0 || type >= DEFS_ENEMY_COUNT) {
+    if (type < 0 || type >= (defs->expanded ? 28 : DEFS_ENEMY_COUNT)) {
         return NULL;
     }
     return &defs->enemies[type];
@@ -180,7 +180,7 @@ int defs_init_builtin(Defs *defs)
     int32_t i;
     memset(defs, 0, sizeof(*defs));
     memcpy(defs->buildings, BUILTIN_BUILDINGS, sizeof(defs->buildings));
-    memcpy(defs->enemies, BUILTIN_ENEMIES, sizeof(defs->enemies));
+    memcpy(defs->enemies, BUILTIN_ENEMIES, sizeof(BUILTIN_ENEMIES));
     memcpy(defs->ranks, BUILTIN_RANKS, sizeof(defs->ranks));
     for (i = 0; i < BUILTIN_RESEARCH_COUNT; i++) {
         if (add_research(defs, &BUILTIN_RESEARCH[i]) != CORE_OK) {

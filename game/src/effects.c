@@ -51,7 +51,7 @@ void game_effects_sync(GameSession *s) {
         CoreVillagerView *v = &s->villagers[i];
         GameActor *a = game_actor(s, v->id);
         if (a)
-            observe(s, 0, v->id, v->health, 100, v->id, a->position, a->facing, 0);
+            observe(s, 0, v->id, v->health, 100, v->appearance + 1, a->position, a->facing, 0);
     }
     for (int i = 0; i < s->animal_count; i++) {
         CoreAnimalView *a = &s->animals[i];

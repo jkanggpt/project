@@ -1,8 +1,8 @@
 /* session.h — C 코어의 스냅숏과 실시간 이동·전투를 연결하는 C 실행 계층 */
 #ifndef CASTLE_GAME_SESSION_H
 #define CASTLE_GAME_SESSION_H
-#include "castle_core.h"
-#include "castle_expansion.h"
+#include <castle_core.h>
+#include <castle_expansion.h>
 #include "path.h"
 
 #define GAME_MAX_ENEMIES 64
@@ -25,12 +25,15 @@ typedef struct GameEnemy {
     GameActor actor;
     CoreEnemyDefView def;
     int hp, incoming, target_id, target_kind, fleeing, looted;
-    float retarget;
+    float retarget, special_clock, attack_elapsed;
+    int attack_serial, attack_applied, attack_kind, attack_target, summoner_id;
+    GamePoint attack_to;
+    CoreRaiderInfo info;
 } GameEnemy;
 typedef struct GameProjectile {
     GamePoint from, to;
     float elapsed, duration, radius;
-    int raid_id, target_id, target_kind, damage;
+    int raid_id, target_id, target_kind, damage, source_type;
 } GameProjectile;
 typedef struct GameTower {
     int id;
@@ -68,8 +71,8 @@ typedef struct GameSession {
     int actor_count, actor_capacity;
     GamePathfinder finder;
     CoreRaidView raid;
-    GameEnemy enemies[GAME_MAX_ENEMIES];
-    int enemy_count, raid_id;
+    GameEnemy *enemies;
+    int enemy_count, enemy_capacity, raid_id;
     int alarm_seen_id;
     float dispatch_delay;
     GameTower *towers;

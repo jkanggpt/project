@@ -35,9 +35,9 @@ extern "C" {
 #endif
 
 /* 외부 호출자의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
-#define CORE_ABI_VERSION 10
+#define CORE_ABI_VERSION 11
 /* 지금 세이브 파일 형식의 버전 (첫 줄 "MAGICCASTLE_SAVE <버전>") */
-#define CORE_SAVE_VERSION 8
+#define CORE_SAVE_VERSION 9
 
 /* 성채·주민 이름 버퍼 크기 (UTF-8 바이트, 끝의 '\0' 포함) */
 #define CORE_NAME_BYTES 48
@@ -235,7 +235,9 @@ typedef enum CorePlaceResult {
     CORE_PLACE_BLOCKS_PATH = 15,   /* 지으면 다른 건물이나 지도 밖으로 가는 길이 끊김 */
     CORE_PLACE_UNREACHABLE = 16,   /* 성채에서 그 자리까지 걸어갈 길이 없음 */
     CORE_PLACE_NEEDS_WATER = 17,   /* 수변 시설에 필요한 물이 없음 */
-    CORE_PLACE_COUNT = 18
+    CORE_PLACE_NOT_VISIBLE = 18, /* 현재 시야 밖 */
+    CORE_PLACE_TRADE_EXISTS = 19, /* 기존 거래 시설을 먼저 철거 */
+    CORE_PLACE_COUNT = 20
 } CorePlaceResult;
 
 /* 주민 상태 (상태마다 C 의 처리 함수가 하나씩 있음) */
@@ -378,7 +380,9 @@ typedef enum CoreNatureEvent {
     CORE_NATURE_STORM = 3,     /* 폭풍: 건물 피해 */
     CORE_NATURE_COLD_SNAP = 4, /* 혹한 (겨울): 난방 나무가 더 듦 */
     CORE_NATURE_BUMPER = 5,    /* 풍년: 농장 +50% */
-    CORE_NATURE_COUNT = 6
+    CORE_NATURE_MINE_COLLAPSE = 6,
+    CORE_NATURE_TRADE_BOOM = 7,
+    CORE_NATURE_COUNT = 8
 } CoreNatureEvent;
 
 /* 장부 항목: 자원이 어디서 들어오고 어디로 나갔는지 (core_get_ledger) */
@@ -682,6 +686,7 @@ typedef struct CoreVillagerView {
     int32_t contract_end_tick,personal_id,water,hygiene,inside_building;
     int32_t happiness, long_hunger, long_rest, long_safety, mood_cause, incoming;
     int32_t current_x_milli, current_y_milli;
+    int32_t sex, appearance, work_efficiency, combat_max_hp;
     char name[CORE_NAME_BYTES];
 } CoreVillagerView;
 
@@ -710,6 +715,7 @@ typedef struct CoreBuildingView {
     int32_t flags;            /* 예약 */
     int32_t rotation,kind_flags,job_field,completed_day,mode,upkeep,operating,blocked_reason;
     int32_t crop_labor_milli,pending_harvest_milli;
+    int32_t labor_milli, service_credit_milli, breeding_progress[4], feed_milli, actual_work_milli;
 } CoreBuildingView;
 
 /* 건물 정의 (정의 파일에서 읽은 값 + 이 월드에서 지을 수 있는지) */
@@ -788,6 +794,7 @@ typedef struct CoreEnemyView {
     int32_t id;
     int32_t type;            /* 적 종류 (core_get_enemy_def) */
     int32_t state;           /* CoreEnemyState */
+    int32_t summoner_id;
 } CoreEnemyView;
 
 /* 특성 정의 */

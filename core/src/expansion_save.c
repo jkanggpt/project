@@ -62,7 +62,8 @@ static const Field STATE[] = {F(ExpansionState, pending_arrivals, 1),
                               F(ExpansionState, manor_visits, 1),
                               F(ExpansionState, saved_travel_ticks, 1),
                               F(ExpansionState, region_hunt_days, 360),
-                              F(ExpansionState, region_pressure_until, 30)};
+                              F(ExpansionState, region_pressure_until, 30),
+    F(ExpansionState, phantom_next_day, 6), F(ExpansionState, next_raid_tick, 1), F(ExpansionState, plague_days, 1), F(ExpansionState, plague_cooldown, 1), F(ExpansionState, economic_event, 1), F(ExpansionState, economic_days, 1), F(ExpansionState, economic_cooldown, 1), F(ExpansionState, trade_capacity_milli, 1), F(ExpansionState, trade_capacity_carry, 1), F(ExpansionState, raid_drops, 15), F(ExpansionState, summons_total, 1), F(ExpansionState, deferred_summons, 1)};
 static const Field BUILDING[] = {F(Building, rotation, 1),
                                  F(Building, completed_day, 1),
                                  F(Building, mode, 1),
@@ -78,7 +79,8 @@ static const Field BUILDING[] = {F(Building, rotation, 1),
                                  F(Building, processing_milli, 15),
                                  F(Building, hunts_milli, 1),
                                  F(Building, shots, 1),
-                                 F(Building, visits_today, 1)};
+                                 F(Building, visits_today, 1), F(Building, crop_work_carry, 1),
+    F(Building, actual_work_milli, 1), F(Building, agriculture_work_milli, 1), F(Building, forestry_carry_milli, 1), F(Building, service_credit_milli, 1), F(Building, service_carry, 1), F(Building, breeding_progress, 4), F(Building, feed_milli, 1)};
 static const Field VILLAGER[] = {
     F(Villager, stats.agility, 1),   F(Villager, initial_stats, 5),     F(Villager, stat_xp, 5),
     F(Villager, skill_minutes, 12),  F(Villager, contract_end_tick, 1), F(Villager, personal_id, 1),
@@ -91,7 +93,8 @@ static const Field VILLAGER[] = {
     F(Villager, critical, 1),        F(Villager, threat_raid, 1),       F(Villager, mood_cause, 1),
     F(Villager, death_mood_day, 1),  F(Villager, death_mood_count, 1),  F(Villager, hub_id, 1),
     F(Villager, hub_revision, 1),    F(Villager, hub_kind, 1),          F(Villager, hub_job, 1),
-    F(Villager, hub_day, 1)};
+    F(Villager, hub_day, 1),
+    F(Villager, xp_work_minutes, 12), F(Villager, work_day, 1), F(Villager, work_day_minutes, 1), F(Villager, mood_fraction_milli, 1), F(Villager, healing_progress_milli, 1), F(Villager, slow_until_tick, 1)};
 static const Field TILE[] = {
     F(CoreExpansionTileView, biome, 1),           F(CoreExpansionTileView, tree_kind, 1),
     F(CoreExpansionTileView, tree_age, 1),        F(CoreExpansionTileView, tree_logs_milli, 1),
@@ -106,12 +109,14 @@ static const Field ANIMAL[] = {
     F(CoreAnimalView, starve_days, 1), F(CoreAnimalView, alive, 1),
     F(CoreAnimalView, region, 1),      F(CoreAnimalView, attack_tick, 1),
     F(CoreAnimalView, target_id, 1),   F(CoreAnimalView, retaliate_id, 1),
-    F(CoreAnimalView, move_acc, 1),    F(CoreAnimalView, attack_remaining_milli, 1)};
+    F(CoreAnimalView, move_acc, 1),    F(CoreAnimalView, attack_remaining_milli, 1),
+    F(CoreAnimalView, threat_until_tick, 1), F(CoreAnimalView, attack_cooldown_milli, 1)};
 static const Field CANDIDATE[] = {F(CoreCandidateView, person_id, 1), F(CoreCandidateView, fee, 1),
                                   F(CoreCandidateView, field, 1),     F(CoreCandidateView, age, 1),
                                   F(CoreCandidateView, stats, 5),     F(CoreCandidateView, initial, 5),
                                   F(CoreCandidateView, xp, 5),        F(CoreCandidateView, skills, 12),
-                                  F(CoreCandidateView, traits, 2),    F(CoreCandidateView, hired, 1)};
+                                  F(CoreCandidateView, traits, 2),    F(CoreCandidateView, hired, 1),
+    F(CoreCandidateView, sex, 1), F(CoreCandidateView, appearance, 1)};
 #define COUNT(a) ((int)(sizeof(a) / sizeof((a)[0])))
 static int32_t get_int(const void *object, size_t offset) {
     int32_t value;
@@ -285,7 +290,7 @@ int expansion_finish_load(World *w) {
     expansion_water_bodies(w);
     expansion_rebuild(w);
     expansion_ecology_init(w);
-    expansion_visibility(w);
+    expansion_visibility_cache(w,0);
     return CORE_OK;
 }
 uint64_t expansion_hash(const World *w, uint64_t hash) {
@@ -319,6 +324,11 @@ int expansion_validate(const World *w) {
     if (!e || e->cells != w->grid.width * w->grid.height || !e->tiles || w->rank < 0 || w->rank > 5 ||
         w->clock.tick < 0 || !world_keep(w))
         return 1;
+    bad += e->plague_days<0 || e->plague_days>6 || e->plague_cooldown<0 || e->plague_cooldown>12 ||
+        e->economic_days<0 || e->economic_days>6 || e->economic_cooldown<0 || e->economic_cooldown>3 ||
+        (e->economic_event!=0 && e->economic_event!=CORE_NATURE_MINE_COLLAPSE && e->economic_event!=CORE_NATURE_TRADE_BOOM) ||
+        ((e->economic_event==0)!=(e->economic_days==0)) || e->trade_capacity_milli<0 || e->trade_capacity_milli>260000 ||
+        e->trade_capacity_carry<0 || e->trade_capacity_carry>=1360800 || e->next_raid_tick<0;
     bad += e->tax < 1 || e->tax > 4 || e->fuel_milli < 0 || e->fuel_milli >= 2000 ||
            e->magic_logs_milli < 0 || e->magic_logs_milli > expansion_bank_have(w, CORE_RES_LOGS);
     bad += e->last_arrival_day < 0 || e->refill_day < 0 || e->pending_arrivals < 0 ||
@@ -330,7 +340,7 @@ int expansion_validate(const World *w) {
     for (i = 0; i < 15; i++)
         bad += e->trade_pressure[i] < -500 || e->trade_pressure[i] > 500;
     for (i = 0; i < 30; i++) {
-        bad += e->region_capacity[i] < 3 || e->region_capacity[i] > 22;
+        bad += e->region_capacity[i] < 8 || e->region_capacity[i] > 95;
         bad +=
             e->trade_remainder[i] < 0 || e->trade_remainder[i] >= 1000000 || e->region_pressure_until[i] < 0;
         for (j = 0; j < 12; j++)
@@ -350,7 +360,7 @@ int expansion_validate(const World *w) {
         bad += t->biome < 0 || t->biome > 9 || t->tree_kind < 0 || t->tree_kind > 4 || t->tree_age < 0 ||
                t->tree_age > 112000 || t->tree_logs_milli < 0 || t->tree_logs_milli > 50000 ||
                t->regrow_milli < 0 || t->regrow_milli > 60000 || t->tree_used_milli < 0 ||
-               t->tree_used_milli > 1000 || t->ore_kind < -1 || t->ore_kind >= 15 || t->ore_milli < 0 ||
+               t->tree_used_milli > 50000 || t->ore_kind < -1 || t->ore_kind >= 15 || t->ore_milli < 0 ||
                t->ore_milli > 1800000 || t->explored < 0 || t->explored > 1 || w->grid.road[i] > 3;
     }
     for (i = 0; i < w->building_count; i++) {
@@ -365,8 +375,11 @@ int expansion_validate(const World *w) {
                b->x + b->w >= w->grid.width || b->y + b->h >= w->grid.height ||
                b->worker_count > d->worker_slots || b->resident_count > d->resident_slots || b->hp < 0 ||
                b->hp > d->max_hp || b->daily_work_milli < 0 || b->crop_labor_milli < 0 ||
-               b->pending_harvest_milli < 0 || b->pending_harvest_milli > 10000000 || b->mode < 0 ||
+               b->pending_harvest_milli < 0 || b->pending_harvest_milli > 50000000 || b->mode < 0 ||
                b->mode > 1;
+        bad += b->crop_work_carry<0 || b->crop_work_carry>=100000 || b->actual_work_milli<0 || b->agriculture_work_milli<0 || b->service_credit_milli<0 || b->service_credit_milli>1000000 ||
+            b->service_carry<0 || b->service_carry>=1360800 || b->forestry_carry_milli<0 || b->forestry_carry_milli>=1000 || b->feed_milli<0;
+        for(j=0;j<4;j++)bad+=b->breeding_progress[j]<0 || b->breeding_progress[j]>(int[]){24,12,16,8}[j]*1000;
         for (j = i + 1; j < w->building_count; j++) {
             const Building *a = w->buildings[j];
             bad += b->id == a->id ||
@@ -385,12 +398,13 @@ int expansion_validate(const World *w) {
         for (j = 0; j < 5; j++)
             bad += stats[j] < 1 || stats[j] > 10 || v->initial_stats[j] < 1 || v->initial_stats[j] > 9 ||
                    stats[j] > v->initial_stats[j] + 3 || v->stat_xp[j] < 0;
-        bad += v->incoming < 0 || v->incoming > 1 || v->need_samples < 0 || v->need_samples > 144;
+        bad += v->sex < 0 || v->sex > 1 || v->appearance < 0 || v->appearance > 11 || v->appearance % 2 != v->sex || v->work_day_minutes < 0 || v->work_day_minutes > 540 || v->incoming < 0 || v->incoming > 1 || v->need_samples < 0 || v->need_samples > 144;
+        bad += v->mood_fraction_milli<0 || v->mood_fraction_milli>=1000 || v->healing_progress_milli<0 || v->healing_progress_milli>270000 || v->slow_until_tick<0;
         for (j = 0; j < 3; j++)
             bad += v->long_needs[j] < 0 || v->long_needs[j] > 100000 || v->need_sums[j] < 0 ||
                    v->need_sums[j] > 14400;
         for (j = 0; j < 12; j++)
-            bad += v->skill_minutes[j] < 0;
+            bad += v->skill_minutes[j] < 0 || v->xp_work_minutes[j] < 0 || v->xp_work_minutes[j] >= 360;
         if (v->home) {
             int found = 0;
             for (j = 0; j < v->home->resident_count; j++)
@@ -406,10 +420,10 @@ int expansion_validate(const World *w) {
     }
     for (i = 0; i < e->animal_count && i < CORE_EXP_MAX_ANIMALS; i++) {
         const CoreAnimalView *a = &e->animals[i];
-        bad += a->kind < 0 || a->kind > 23 || a->id <= 0 || a->alive < 0 || a->alive > 1 || a->x_milli < 0 ||
+        bad += a->kind < 0 || a->kind >= CORE_EXP_ANIMALS || a->id <= 0 || a->alive < 0 || a->alive > 1 || a->x_milli < 0 ||
                a->y_milli < 0 || a->x_milli >= w->grid.width * 1000 || a->y_milli >= w->grid.height * 1000 ||
                (a->owner && !entity_find_building(w, a->owner));
-        if (a->kind >= 0 && a->kind < 24) {
+        if (a->kind >= 0 && a->kind < CORE_EXP_ANIMALS) {
             bad += a->hp < 0 || a->hp > EXP_ANIMALS[a->kind].hp || (a->alive && a->hp < 1);
             bad += a->attack_remaining_milli > 0 &&
                    (!a->alive || a->owner || !EXP_ANIMALS[a->kind].attack || a->target_id <= 0 ||
@@ -417,6 +431,7 @@ int expansion_validate(const World *w) {
         }
         bad += a->id >= e->next_animal_id || a->age < 0 || a->starve_days < 0 || a->breed_day < 0;
         bad += a->attack_remaining_milli < 0 || a->attack_remaining_milli > 2400;
+        bad += a->threat_until_tick<0 || a->attack_cooldown_milli<0 || a->attack_cooldown_milli>60000;
         for (j = i + 1; j < e->animal_count; j++)
             bad += a->id == e->animals[j].id;
     }
@@ -430,6 +445,7 @@ int expansion_validate(const World *w) {
         bad += c->person_id < 1 || c->person_id >= e->next_person_id || c->fee < 1 || c->fee > 1000000 ||
                c->field < 0 || c->field >= 12 || c->age < 0 || c->age > 120 || c->hired < 0 || c->hired > 1 ||
                !text_is_valid_name(c->name, CORE_NAME_BYTES);
+        bad += c->sex<0 || c->sex>1 || c->appearance<0 || c->appearance>11 || c->appearance%2!=c->sex;
         for (j = 0; j < 5; j++)
             bad += c->initial[j] < 1 || c->initial[j] > 9 || c->stats[j] < c->initial[j] ||
                    c->stats[j] > 10 || c->stats[j] > c->initial[j] + 3 || c->xp[j] < 0 || c->xp[j] > 300000;

@@ -244,12 +244,12 @@ static void check_threats(Checker *checker, const World *world)
     if (raid->id != 0) {
         expect(checker, raid->id < state->next_raid_id, "raid id not below next id");
         expect(checker, raid->enemy_count >= 1 && raid->enemy_count <= raid->enemy_capacity &&
-                            raid->enemy_count <= THREAT_MAX_ENEMIES,
+                            (world->expansion || raid->enemy_count <= THREAT_MAX_ENEMIES),
                "raid enemy count invalid");
         for (i = 0; i < raid->enemy_count && i < raid->enemy_capacity; i++) {
             const Enemy *enemy = &raid->enemies[i];
             expect(checker,
-                   enemy->id == i + 1 && enemy->type >= 0 && enemy->type < DEFS_ENEMY_COUNT &&
+                   enemy->id == i + 1 && enemy->type >= 0 && enemy->type < (world->expansion ? 28 : DEFS_ENEMY_COUNT) &&
                        enemy->state >= CORE_ENEMY_ALIVE && enemy->state <= CORE_ENEMY_ESCAPED,
                    "raid enemy invalid");
         }

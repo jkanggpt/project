@@ -109,9 +109,9 @@ static void sprite_layout(void) {
            order[3].key == 5);
     {
         int i, seen = 0;
-        for (i = 1; i <= 8; i++)
+        for (i = 1; i <= 12; i++)
             seen |= 1 << game_villager_art(i);
-        EXPECT(seen == 255 && game_villager_art(9) == game_villager_art(1));
+        EXPECT(seen == 4095 && game_villager_art(13) == game_villager_art(1));
         EXPECT(game_villager_art(-1) == 0);
     }
     EXPECT(game_walk_facing(0, 0, FACE_UP) == FACE_UP);
@@ -265,6 +265,45 @@ static void animal_movement(const char *data) {
     game_session_free(s);
     free(s);
 }
+static void raid_attack_frames(const char *data) {
+    GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
+    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;
+    EXPECT(game_session_new(s,u8"공격 프레임",42,1)==CORE_OK);
+    EXPECT(threat_debug_raid(s->world,CORE_THREAT_BANDITS,CORE_DIR_NORTH,3)==CORE_OK);
+    EXPECT(game_session_refresh(s)==CORE_OK);
+    for(int i=0;i<s->world->villager_count;i++)s->world->villagers[i]->inside_building=world_keep(s->world)->id;
+    Villager *v=s->world->villagers[0];v->inside_building=0;v->health=100;v->state=CORE_VS_IDLE;v->at_target=1;
+    GameActor *a=game_actor(s,v->id);a->position=(GamePoint){100.5f,100.5f};
+    v->current_x_milli=100500;v->current_y_milli=100500;
+    for(int i=0;i<s->enemy_count;i++)s->enemies[i].actor.position=(GamePoint){160.5f,160.5f};
+    s->enemies[0].actor.position=(GamePoint){101.0f,100.5f};
+    EXPECT(game_session_step(s,1.2f)==CORE_OK);EXPECT(v->health==100);
+    EXPECT(game_session_step(s,1.2f)==CORE_OK);EXPECT(v->health==100);
+    EXPECT(game_session_step(s,1.2f)==CORE_OK);EXPECT(v->health==95);
+    EXPECT(game_session_step(s,1.2f)==CORE_OK);EXPECT(v->health==95);
+    Building *keep=world_keep(s->world);uint64_t before=0,after=0;
+    EXPECT(core_report_building_damage(s->world,s->raid_id,keep->id,100000)==CORE_OK);
+    EXPECT(game_session_step(s,10)==CORE_OK);
+    EXPECT(s->summary.outcome==CORE_OUTCOME_LOST);
+    EXPECT(core_state_hash(s->world,&before)==CORE_OK);
+    EXPECT(core_save(s->world,"native_defeat.sav")==CORE_OK);
+    {
+        CoreWorld *copy=NULL;
+        EXPECT(core_load("native_defeat.sav",NULL,&copy,NULL)==CORE_OK);
+        if(copy) {
+            uint64_t copied=0;core_state_hash(copy,&copied);EXPECT(copied==before);
+            int differences=0;
+            for(int p=0;p<s->cells;p++)if(s->world->grid.cost[p]!=copy->grid.cost[p]) {
+                if(differences++<4)fprintf(stderr,"defeat cost mismatch at %d: %d != %d\n",p,s->world->grid.cost[p],copy->grid.cost[p]);
+            }
+            EXPECT(differences==0);core_destroy(copy);
+        }
+    }
+    EXPECT(game_session_load(s,"native_defeat.sav",NULL)==CORE_OK);
+    EXPECT(core_state_hash(s->world,&after)==CORE_OK);EXPECT(before==after);
+    (void)platform_remove_file("native_defeat.sav");(void)platform_remove_file("native_defeat.sav.bak");
+    game_session_free(s);free(s);
+}
 int main(int argc, char **argv) {
     if (argc != 2)
         return 2;
@@ -276,6 +315,7 @@ int main(int argc, char **argv) {
     indoor_transition(argv[1]);
     fortification_plan();
     animal_movement(argv[1]);
+    raid_attack_frames(argv[1]);
     if (!failed)
         puts("C native runtime tests passed");
     return failed ? 1 : 0;

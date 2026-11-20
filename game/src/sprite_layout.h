@@ -1,11 +1,11 @@
 /* sprite_layout.h — 점유 격자와 분리된 그림 영역·발밑 정렬 */
 #ifndef CASTLE_SPRITE_LAYOUT_H
 #define CASTLE_SPRITE_LAYOUT_H
-#include "castle_core.h"
+#include <castle_core.h>
 
 #define GAME_TILE_SIZE 16.0f
 #define GAME_ACTOR_HEIGHT 24.0f
-#define GAME_VILLAGER_DESIGNS 8
+#define GAME_VILLAGER_DESIGNS 12
 #define GAME_VILLAGER_DIRECTIONS 3
 typedef enum GameFacing { FACE_DOWN, FACE_RIGHT, FACE_UP, FACE_LEFT } GameFacing;
 typedef struct GameSpriteFrame {

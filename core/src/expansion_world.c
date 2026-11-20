@@ -40,12 +40,13 @@ int expansion_resize(World *w) {
     e->tiles = (CoreExpansionTileView *)mem_calloc(cells, sizeof(*e->tiles));
     e->visible = (uint8_t *)mem_calloc(cells, 1);
     e->static_visible = (uint8_t *)mem_calloc(cells, 1);
+    e->work_visible = (uint8_t *)mem_calloc(cells, 1);
     e->protected_cells = (uint8_t *)mem_calloc(cells, 1);
     e->connected = (uint8_t *)mem_calloc(cells, 1);
     e->distance = (int32_t *)mem_calloc(cells, sizeof(int32_t));
     e->queue = (int32_t *)mem_calloc(cells, sizeof(int32_t));
     e->water_area = (int32_t *)mem_calloc(cells, sizeof(int32_t));
-    if (!e->tiles || !e->visible || !e->static_visible || !e->protected_cells || !e->connected ||
+    if (!e->tiles || !e->visible || !e->static_visible || !e->work_visible || !e->protected_cells || !e->connected ||
         !e->distance || !e->queue || !e->water_area)
         return CORE_ERR_OUT_OF_MEMORY;
     e->water_cold = (uint8_t *)mem_calloc(cells, 1);
@@ -65,6 +66,7 @@ void expansion_free(World *w) {
     mem_free(e->tiles);
     mem_free(e->visible);
     mem_free(e->static_visible);
+    mem_free(e->work_visible);
     mem_free(e->protected_cells);
     mem_free(e->connected);
     mem_free(e->distance);
@@ -87,34 +89,24 @@ static uint32_t terrain_noise(int x, int y, int seed) {
     return n ^ (n >> 16);
 }
 static int biome_at(int x, int y, int seed) {
-    int xx, yy, best = 0x7fffffff, chosen = 0;
-    static const int thresholds[10] = {18, 36, 48, 61, 67, 73, 78, 86, 91, 100};
-    for (yy = y / 16 - 1; yy <= y / 16 + 1; yy++)
-        for (xx = x / 16 - 1; xx <= x / 16 + 1; xx++) {
-            uint32_t n = terrain_noise(xx, yy, seed);
-            int cx = xx * 16 + (int)(n % 16), cy = yy * 16 + (int)((n >> 8) % 16),
-                d = (x - cx) * (x - cx) + (y - cy) * (y - cy);
-            if (d < best) {
-                int k, value = (int)((n >> 16) % 100);
-                best = d;
-                for (k = 0; k < 10; k++)
-                    if (value < thresholds[k]) {
-                        chosen = k;
-                        break;
-                    }
-            }
-        }
-    /* 설원 가장자리 타이가, 건조 지역 가장자리 사바나, 늪은 습지와 물을 잇습니다. */
-    if (chosen == 5 && terrain_noise(x / 5, y / 5, seed + 17) % 5 == 0)
-        chosen = 2;
-    if (chosen == 6 && terrain_noise(x / 7, y / 7, seed + 29) % 4 == 0)
-        chosen = 9;
-    if (chosen == 8 && terrain_noise(x / 6, y / 6, seed + 43) % 3 == 0)
-        chosen = 4;
+    static const int layout[16] = {5,2,3,1,7,2,1,1,0,0,0,4,6,9,7,8};
+    static const int weight[10] = {6,6,6,13,6,6,5,4,5,9};
+    if ((unsigned)seed & 1u) x = 191 - x;
+    if ((unsigned)seed & 2u) y = 191 - y;
+    if ((unsigned)seed & 4u) { int swap = x; x = y; y = swap; }
+    int best = INT32_MAX, chosen = 0;
+    for (int k = 0; k < 16; k++) {
+        uint32_t n = terrain_noise(k % 4, k / 4, seed);
+        int cx = 24 + (k % 4) * 48 + (int)(n % 17) - 8;
+        int cy = 24 + (k / 4) * 48 + (int)((n >> 8) % 17) - 8;
+        int dx = x - cx, dy = y - cy, type = layout[k];
+        int distance = (dx * dx + dy * dy) * 100 / weight[type];
+        if (distance < best) { best = distance; chosen = type; }
+    }
     return chosen;
 }
 static void set_tree(CoreExpansionTileView *t, int kind, int mature) {
-    static const int ages[4] = {28, 48, 84, 112}, logs[4] = {12, 28, 50, 24};
+    static const int ages[4] = {16, 28, 48, 72}, logs[4] = {12, 28, 50, 24};
     t->tree_kind = kind;
     t->tree_age = mature ? ages[kind - 1] * 1000 : 1000;
     t->tree_logs_milli = logs[kind - 1] * 1000;
@@ -218,7 +210,7 @@ int expansion_new_world(World *w) {
     for (y = -2; y <= 2; y++)
         for (x = 0; x < 5; x++) {
             i = grid_index(&w->grid, w->keep_x + 10 + x, w->keep_y + y);
-            e->tiles[i].biome = 2;
+            if(e->tiles[i].biome==CORE_BIOME_LAKE)e->tiles[i].biome=CORE_BIOME_GRASS;
             set_tree(&e->tiles[i], 2, 1);
             w->grid.terrain[i] = CORE_TERRAIN_FOREST;
         }
@@ -255,7 +247,7 @@ int expansion_new_world(World *w) {
     expansion_ecology_init(w);
     for (int pass = 0; pass < 100; pass++)
         for (int region = 0; region < e->region_count; region++)
-            if (e->regions[region].count < 5)
+            if (e->regions[region].count < e->regions[region].target)
                 expansion_animal_spawn(w, region, 1);
     e->candidate_day = -1;
     expansion_candidates(w);
@@ -404,18 +396,7 @@ void expansion_tick(World *w) {
     expansion_visibility(w);
     if (minute % 60 == 0)
         expansion_goals(w);
-    if (w->threat.raid.id && w->clock.tick - w->threat.raid.started_tick > 144 * 3) {
-        threat_abort_raid(w);
-        e->alarm = 0;
-    }
-    if (!w->threat.raid.id && exp_day(w) >= 18 && minute == 720 &&
-        rng_range(&w->rng, 0, 99) < (w->difficulty == 0   ? 3
-                                     : w->difficulty == 1 ? 14
-                                                          : 22)) {
-        int count = w->threat.raids_done < 2 ? rng_range(&w->rng, 3, 5) : 3 + w->rank * 2 + exp_day(w) / 24;
-        if (threat_debug_raid(w, CORE_THREAT_BANDITS, rng_range(&w->rng, 0, 3), count) != CORE_OK)
-            e->error = CORE_ERR_OUT_OF_MEMORY;
-    }
+    expansion_raids_tick(w);
     if (w->villager_count > w->stats.peak_population)
         w->stats.peak_population = w->villager_count;
     if (!w->villager_count)

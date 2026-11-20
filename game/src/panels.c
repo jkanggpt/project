@@ -37,6 +37,10 @@ static void hud(GameApp *a) {
     ui_small(u, 100, 48, UI_MUTED, u8"%d년 %s %d일  %02d:%02d  (시드 %d)", s->year,
              fmt_season_name(s->season), s->day_of_season, s->minute_of_day / 60, s->minute_of_day % 60,
              s->seed);
+    CoreEventLayers layers={0};(void)core_expansion_events(a->session.world,&layers);
+    if(s->nature_event || layers.plague_days || layers.economic_days)
+        ui_small(u,540,49,UI_GOLD,u8"%s %d일  %s%d  %s%d",s->nature_event?fmt_nature_name(s->nature_event):"",s->nature_days_left,
+            layers.plague_days?u8"역병 ":"",layers.plague_days,layers.economic_days?fmt_nature_name(layers.economic_event):"",layers.economic_days);
     if (ui_button(u, rect(540, 9, 46, 36), a->speed ? "||" : ">", 1, !a->speed,
                   u8"스페이스: 일시정지 / 계속"))
         a->speed = a->speed ? 0 : 1;
@@ -46,7 +50,7 @@ static void hud(GameApp *a) {
             a->speed = i;
     }
     {
-        static const char *const labels[] = {u8"승급", u8"연구", u8"시장", u8"고용", u8"주민", u8"장부"};
+        static const char *const labels[] = {u8"승급", u8"연구", u8"거래", u8"고용", u8"주민", u8"장부"};
         static const GamePanel panels[] = {PANEL_RANK,     PANEL_RESEARCH,  PANEL_MARKET,
                                            PANEL_MERCHANT, PANEL_VILLAGERS, PANEL_LEDGER};
         float button_w = (width - 750) / 6;
@@ -95,13 +99,13 @@ static void hud(GameApp *a) {
                                    rect(10 + 7 * (width - 20) / 8, 96, (width - 20) / 8, 36))) {
             snprintf(u->tooltip, sizeof(u->tooltip),
                      u8"%s · 최근 도착 %d일 / 다음 검사 %d일 06시\n행복도 %d/%d · 빈집 %d · 우물 %d/%d · "
-                     u8"도로 %s\n식량 %.1f/%.1f · 특별 이주 %d/2 · 보충 예정 %d일\n부족: %s%s%s%s%s%s%s",
+                     u8"\n식량 %.1f/%.1f · 특별 이주 %d/2 · 보충 예정 %d일\n부족: %s%s%s%s%s%s",
                      labels[status.status], status.last_day, status.next_day, status.happiness,
                      status.required_happiness, status.vacant, status.water_served, status.permanent,
-                     status.road_ok ? u8"연결" : u8"단절", status.food_available / 1000.0,
+                     status.food_available / 1000.0,
                      status.food_needed / 1000.0, status.special_waves, status.refill_day,
                      status.reasons & 1 ? u8"대기 기간 " : "", status.reasons & 2 ? u8"주거 " : "",
-                     status.reasons & 4 ? u8"우물 " : "", status.reasons & 8 ? u8"도로 " : "",
+                     status.reasons & 4 ? u8"우물 " : "",
                      status.reasons & 16 ? u8"식량 " : "", status.reasons & 32 ? u8"역병·재난 " : "",
                      status.reasons & 64 ? u8"행복도" : "");
         }
@@ -274,9 +278,18 @@ static void inspector(GameApp *a) {
                 ui_small(u, x + 8, y, UI_TEXT, u8"실제 가축 %d/%d · 소%d 돼지%d 양%d 닭%d", total,
                          b->type == CORE_BLD_RANCH ? 6 : 16, counts[0], counts[1], counts[2], counts[3]);
                 y += 32;
+                for(k=0;k<4;k++)if(counts[k]) {
+                    int young=0,age=0;
+                    for(int n=0;n<s->animal_count;n++)if(s->animals[n].alive&&s->animals[n].owner==b->id&&s->animals[n].kind==kinds[k]) {young+=s->animals[n].age<(int[]){24,12,16,8}[k];if(s->animals[n].age>age)age=s->animals[n].age;}
+                    int period=(int[]){24,12,16,8}[k],free_slots=(b->type==CORE_BLD_RANCH?6:16)-total,batch=(k==1||k==3)?2:1;
+                    CoreAnimalInfo species;core_expansion_animal_info(kinds[k],&species);
+                    ui_small(u,x+8,y,UI_MUTED,u8"%s 새끼%d/성체%d · 최고 %d/%d일",species.name,young,counts[k]-young,age,(int[]){72,30,48,28}[k]);y+=23;
+                    ui_small(u,x+8,y,UI_MUTED,u8"번식 %.2f/%d일 · 다음%d마리 · 빈칸%d%s",b->breeding_progress[k]/1000.0,period,batch,free_slots,free_slots<batch?u8" (자리 부족)":"");y+=23;
+                }
+                ui_small(u,x+8,y,UI_MUTED,u8"어제 지급 사료 %.3f · 실제 효율 %.2f",b->feed_milli/1000.0,b->labor_milli/1000.0);y+=28;
                 for (k = 0; k < 4; k++)
                     if (ui_button(u, rect(x + 8 + k % 2 * 150, y + k / 2 * 40, 145, 34), labels[k], 1, 0,
-                                  u8"가축은 일꾼이 없어도 사료를 먹습니다."))
+                                  u8"새끼를 구입합니다. 일꾼이 없어도 나이를 먹고 사료를 먹습니다. 수명이 끝나면 도축됩니다."))
                         command(a, core_expansion_buy_animal(s->world, b->id, kinds[k]), 0);
                 y += 88;
             }
@@ -546,7 +559,7 @@ static void slots(GameApp *a, int saving) {
              u8"습격 중 저장은 습격 종료 후로 미뤄집니다. 저장 형식 v%d", CORE_SAVE_VERSION);
 }
 static void settings(GameApp *a) {
-    Rectangle b = modal(a, u8"설정", 760, 530);
+    Rectangle b = modal(a, u8"설정", 760, 610);
     GameUi *u = &a->ui;
     float x = b.x + 32, y = b.y + 86;
     char label[120];
@@ -572,6 +585,8 @@ static void settings(GameApp *a) {
         a->settings.ui_scale = a->settings.ui_scale == 2 ? 1 : 2;
     if (a->assets.audio_ready)
         SetMasterVolume(a->settings.master_volume);
+    (void)snprintf(label,sizeof(label),u8"화면 효과: %s",a->settings.low_effects?u8"낮음":u8"기본");
+    if(row_button(a,b,&y,label,1))a->settings.low_effects=!a->settings.low_effects;
 }
 static float scroll_start(GameApp *a, Rectangle b, int rows, float height) {
     int max = (int)fmaxf(0, rows * height - (b.height - 150));
@@ -678,7 +693,7 @@ static void rank_panel(GameApp *a) {
     }
 }
 static void market(GameApp *a, int contracts) {
-    Rectangle b = modal(a, contracts ? u8"계약 주민 · 12일 선불 고용" : u8"시장 · 개별 자원 거래", 1080, 760);
+    Rectangle b = modal(a, contracts ? u8"계약 주민 · 12일 선불 고용" : u8"거래 · 개별 자원 거래", 1080, 760);
     GameSession *s = &a->session;
     float y;
     int i;
@@ -828,9 +843,9 @@ static void villagers(GameApp *a) {
                  u8"최근 합류 %d일 · 대기 해제 %d일 · 다음 심사 %d일 06:00 · 우선 사유: %s",
                  imm.last_day, imm.next_day, check_day, cause);
         ui_small(&a->ui, b.x + 38, b.y + 120, UI_TEXT,
-                 u8"행복 %d/%d · 빈집 %d · 우물 %d/%d · 도로 %s · 식량 %.0f/%.0f · 예상 %d~%d명",
+                 u8"행복 %d/%d · 빈집 %d · 우물 %d/%d · 식량 %.0f/%.0f · 예상 %d~%d명",
                  imm.happiness, imm.required_happiness, imm.vacant, imm.water_served, imm.permanent,
-                 imm.road_ok ? u8"연결" : u8"단절", imm.food_available / 1000.0, imm.food_needed / 1000.0,
+                 imm.food_available / 1000.0, imm.food_needed / 1000.0,
                  imm.minimum, imm.maximum);
     }
     ui_small(&a->ui, b.x + 38, b.y + 145, UI_MUTED, u8"조건·규모는 심사 때 다시 계산합니다. 전체 사유는 마우스를 올려 확인하세요.");

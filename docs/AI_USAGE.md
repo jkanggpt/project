@@ -271,3 +271,114 @@ OpenAI Codex가 행복도/기분·인구 하한·이주·영주관 승급·저�
 
 MSVC/MinGW 빌드·회귀, 실제 이동/전투를 포함한 144개 자동 플레이, 저장 왕복, 프레임 측정의 결과는 docs/V1_1_1_QA.md입니다.
 자동화된 화면 검사는 사람의 장시간 수동 플레이를 대신하지 않습니다. Linux sanitizer는 이 Windows 세션에서 실행하지 않았습니다.
+
+
+## 2026-11-20 — v1.2.1
+
+Codex가 학생의 HTML 변경 명세와 이름 ZIP, 추가 요청을 읽고 C 규칙·저장·생태계·전투·봇·화면·패킹·회귀 검사를 수정했습니다. 이름은 학생의 목록이며 새 원화14장은 내장 image_gen으로 제작했습니다. 전문 프롬프트를 보관합니다. 일시적 분석/편집 스크립트는 무시되는 artifacts/v121에만 있고 게임이나 배포에 Python을 추가하지 않습니다. 검사 결과와 미달 범위는 V1_2_1_QA.md에 기록합니다.
+
+이번 변경에서 생성하거나 실질 수정한 파일:
+
+- `CMakeLists.txt`
+- `CREDITS.md`
+- `PROGRESS.md`
+- `README.md`
+- `art/README.md`
+- `art/V121_PROMPTS.md`
+- `art/v121/animal_attacks.png`
+- `art/v121/fantasy.png`
+- `art/v121/farms.png`
+- `art/v121/gates.png`
+- `art/v121/livestock_babies.png`
+- `art/v121/raid_bandits.png`
+- `art/v121/raid_cult.png`
+- `art/v121/raid_forest.png`
+- `art/v121/raid_monsters.png`
+- `art/v121/raid_north.png`
+- `art/v121/raid_undead.png`
+- `art/v121/road_surfaces.png`
+- `art/v121/villagers_navy.png`
+- `art/v121/villagers_silver.png`
+- `cli/expansion_bot.c`
+- `cli/format.c`
+- `cli/fortification_plan.c`
+- `core/CMakeLists.txt`
+- `core/include/castle_core.h`
+- `core/include/castle_expansion.h`
+- `core/src/api.c`
+- `core/src/defs.c`
+- `core/src/defs.h`
+- `core/src/defs_builtin.c`
+- `core/src/entity.h`
+- `core/src/expansion.h`
+- `core/src/expansion_animals.c`
+- `core/src/expansion_catalog.c`
+- `core/src/expansion_commands.c`
+- `core/src/expansion_debug.c`
+- `core/src/expansion_ecology.c`
+- `core/src/expansion_economy.c`
+- `core/src/expansion_people.c`
+- `core/src/expansion_prices.c`
+- `core/src/expansion_progress.c`
+- `core/src/expansion_raids.c`
+- `core/src/expansion_save.c`
+- `core/src/expansion_v121.c`
+- `core/src/expansion_wellbeing.c`
+- `core/src/expansion_world.c`
+- `core/src/nature.c`
+- `core/src/population.c`
+- `core/src/save.c`
+- `core/src/threat.c`
+- `core/src/threat.h`
+- `core/src/validate.c`
+- `core/src/villager_ai.c`
+- `core/src/world.c`
+- `docs/AI_USAGE.md`
+- `docs/SPEC.md`
+- `docs/V1_2_1_IMPLEMENTATION.md`
+- `docs/V1_2_1_QA.md`
+- `docs/V1_2_1_SPEC.html`
+- `docs/V1_2_1_SPEC.md`
+- `game/CMakeLists.txt`
+- `game/assets/expansion/LICENSE.txt`
+- `game/assets/expansion/animal_attack_v121.png`
+- `game/assets/expansion/animal_babies.png`
+- `game/assets/expansion/animal_walk_v121.png`
+- `game/assets/expansion/animals_v121.png`
+- `game/assets/expansion/farms_v121.png`
+- `game/assets/expansion/gates_v121.png`
+- `game/assets/expansion/raider_attack.png`
+- `game/assets/expansion/raider_walk.png`
+- `game/assets/expansion/road_connections.png`
+- `game/assets/expansion/trees_v121.png`
+- `game/assets/expansion/villagers_v121.png`
+- `game/data/NAMES_SOURCE.md`
+- `game/data/names.txt`
+- `game/data/names_female.txt`
+- `game/data/names_male.txt`
+- `game/src/assets.c`
+- `game/src/assets.h`
+- `game/src/combat.c`
+- `game/src/effects.c`
+- `game/src/main.c`
+- `game/src/panels.c`
+- `game/src/path.c`
+- `game/src/render.c`
+- `game/src/session.c`
+- `game/src/session.h`
+- `game/src/sprite_layout.c`
+- `game/src/sprite_layout.h`
+- `game/src/storage.c`
+- `game/src/storage.h`
+- `tests/CMakeLists.txt`
+- `tests/test_api.c`
+- `tests/test_expansion.c`
+- `tests/test_list.h`
+- `tests/test_native.c`
+- `tests/test_save.c`
+- `tests/test_v111.c`
+- `tests/test_v121.c`
+- `tools/CMakeLists.txt`
+- `tools/pack_v121_art.c`
+
+후속 QA에서 `core/src/placement.c`, `tools/expansion_balance.c`를 수정했습니다. `art/v121/greenhouse_turns.png`, `game/assets/expansion/greenhouse_turns.png`를 추가하고 온실 회전·한글 경로·패배 및 저장 탐험 기록 회귀를 검사했습니다.

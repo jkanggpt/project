@@ -5,7 +5,7 @@
 #define GAME_PATH_BYTES 2048
 typedef struct GameSettings {
     float master_volume, sfx_volume;
-    int fullscreen, edge_scroll, ui_scale;
+    int fullscreen, edge_scroll, ui_scale, low_effects;
 } GameSettings;
 int game_join_path(char *out, size_t size, const char *dir, const char *name);
 int game_make_dirs(const char *path);

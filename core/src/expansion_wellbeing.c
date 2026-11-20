@@ -94,7 +94,7 @@ CORE_API int32_t core_expansion_immigration(const CoreWorld *w, CoreImmigrationV
     out->special_waves = e->starter_waves - (e->pending_arrivals > 0 && e->pending_type == 1);
     out->refill_day = e->refill_day;
     out->vacant = expansion_available_housing((World *)w);
-    out->required_happiness = (int[]){0, 38, 40, 42, 44, 46}[rank];
+    out->required_happiness = (int[]){0, 42, 50, 58, 66, 75}[rank];
     out->food_needed = out->permanent * 1200 * (int[]){0, 8, 10, 12, 12, 12}[rank];
     out->food_available = expansion_bank_have(w, CORE_RES_FOOD);
     out->road_ok = 1;
@@ -122,27 +122,21 @@ CORE_API int32_t core_expansion_immigration(const CoreWorld *w, CoreImmigrationV
         out->minimum = out->maximum = e->starter_waves < 2 ? 2 : out->permanent < 8;
         return CORE_OK;
     }
-    out->minimum = rank == 1 ? 2 : rank < 4 ? 3 : 4;
+    out->minimum = 1;
     out->maximum = rank + 2;
     if (exp_season(w) == 3) {
         out->minimum = (out->minimum + 1) / 2;
         out->maximum = (out->maximum + 1) / 2;
     }
-    if (out->minimum > out->vacant)
-        out->minimum = out->vacant;
-    if (out->maximum > out->vacant)
-        out->maximum = out->vacant;
     if (day < out->next_day)
         out->reasons |= CORE_IMM_COOLDOWN;
     if (out->vacant <= 0)
         out->reasons |= CORE_IMM_HOUSING;
     if (out->water_served < out->permanent)
         out->reasons |= CORE_IMM_WATER;
-    if (!out->road_ok)
-        out->reasons |= CORE_IMM_ROAD;
     if (out->food_available < out->food_needed)
         out->reasons |= CORE_IMM_FOOD;
-    if ((e->disaster_day && day < e->disaster_day + 5) || disease * 2 > out->permanent)
+    if ((e->disaster_day && day < e->disaster_day + 5) || disease * 2 > out->permanent || e->plague_days)
         out->reasons |= CORE_IMM_DISASTER;
     if (out->happiness < out->required_happiness)
         out->reasons |= CORE_IMM_HAPPINESS;

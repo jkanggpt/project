@@ -37,6 +37,7 @@ typedef struct Enemy {
     int32_t id;
     int32_t type;   /* 적 종류 (EnemyDef 번호) */
     int32_t state;  /* CoreEnemyState */
+    int32_t summoner_id;
     int32_t looted; /* 이미 훔쳤으면 1 (두 번 훔치지 못함) */
 } Enemy;
 

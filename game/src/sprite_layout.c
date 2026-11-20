@@ -1,6 +1,6 @@
 /* sprite_layout.c — 세이브·길찾기는 점유 칸, 그림은 지면 기준점으로 배치합니다. */
 #include "sprite_layout.h"
-#include "castle_expansion.h"
+#include <castle_expansion.h>
 #include <math.h>
 
 GameSpriteBox game_building_sprite(int type, int x, int y, int w, int h, int image_w, int image_h) {
@@ -18,7 +18,7 @@ GameSpriteBox game_expansion_building_sprite(const CoreBuildingView *b, int imag
     float width = b->w * 16.0f, height;
     if (b->kind_flags & CORE_EXP_PLOT)
         return (GameSpriteBox){b->x * 16.0f, b->y * 16.0f, width, b->h * 16.0f};
-    if (b->kind_flags & CORE_EXP_WALL)
+    if (b->kind_flags & (CORE_EXP_WALL | CORE_EXP_GATE))
         return (GameSpriteBox){b->x * 16.0f, b->y * 16.0f - 4, width, b->h * 16.0f + 4};
     height = b->h * 16.0f + (b->worker_slots || b->resident_slots || b->type == CORE_BLD_KEEP ? 24 : 10);
     if (image_w > 0 && image_h > 0) {

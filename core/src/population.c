@@ -12,37 +12,13 @@
 
 /* 난이도별 첫 주민 수 (평화, 보통, 혹독) */
 
-/* 지금 살아 있는 주민 중에 같은 이름이 있으면 1 */
-static int name_in_use(const World *world, const char *name)
-{
-    int32_t i;
-    for (i = 0; i < world->villager_count; i++) {
-        if (strcmp(world->villagers[i]->name, name) == 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-/* 이름 목록에서 아직 쓰지 않은 이름을 고릅니다 (몇 번 시도해서 없으면 겹쳐도 씀) */
-static const char *pick_name(World *world)
-{
-    const Defs *defs = &world->defs;
-    const char *name = defs->names[rng_range(&world->rng, 0, defs->name_count - 1)].text;
-    int attempt;
-    for (attempt = 0; attempt < 12 && name_in_use(world, name); attempt++) {
-        name = defs->names[rng_range(&world->rng, 0, defs->name_count - 1)].text;
-    }
-    return name;
-}
-
 Villager *population_create(World *world, int32_t x, int32_t y)
 {
     Villager *villager = entity_add_villager(world);
     if (villager == NULL) {
         return NULL;
     }
-    (void)strcpy(villager->name, pick_name(world)); /* 이름 목록은 길이 검사를 마친 값 */
+    expansion_choose_identity(world, villager);
     villager->age = rng_range(&world->rng, 16, 55);
     villager->stats.strength = rng_range(&world->rng, 2, 9);
     villager->stats.intellect = rng_range(&world->rng, 2, 9);
@@ -190,7 +166,7 @@ void population_remove_departed(World *world, Villager *villager)
         if(!c){if(e->archive_count==64){memmove(e->archive,e->archive+1,63*sizeof(*e->archive));e->archive_count--;}c=&e->archive[e->archive_count++];}
         memset(c,0,sizeof(*c));c->person_id=villager->personal_id;c->age=villager->age;c->field=0;strcpy(c->name,villager->name);
         c->stats[0]=villager->stats.strength;c->stats[1]=villager->stats.agility;c->stats[2]=villager->stats.vitality;c->stats[3]=villager->stats.dexterity;c->stats[4]=villager->stats.intellect;
-        memcpy(c->initial,villager->initial_stats,sizeof(c->initial));memcpy(c->xp,villager->stat_xp,sizeof(c->xp));memcpy(c->skills,villager->skill_minutes,sizeof(c->skills));memcpy(c->traits,villager->traits,sizeof(c->traits));for(j=1;j<12;j++)if(c->skills[j]>c->skills[c->field])c->field=j;
+        c->sex=villager->sex;c->appearance=villager->appearance;memcpy(c->initial,villager->initial_stats,sizeof(c->initial));memcpy(c->xp,villager->stat_xp,sizeof(c->xp));memcpy(c->skills,villager->skill_minutes,sizeof(c->skills));memcpy(c->traits,villager->traits,sizeof(c->traits));for(j=1;j<12;j++)if(c->skills[j]>c->skills[c->field])c->field=j;
         expansion_candidate_price(world,c);
     }
     if (world->expansion && !villager->contract_end_tick) {

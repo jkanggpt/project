@@ -13,7 +13,7 @@ void game_render_connection_preview(GameApp *a) {
     Camera2D camera = {{0, 0}, {0, 0}, 0, scale};
     int r, c, x, y;
     BeginMode2D(camera);
-    ui_text(&a->ui, 28, 18, UI_GOLD, u8"자동 연결 성벽 · 동물 24종 걷기 4프레임");
+    ui_text(&a->ui, 28, 18, UI_GOLD, u8"자동 연결 성벽·성문 · 동물 30종 걷기 4프레임");
     ui_small(&a->ui, 28, 52, UI_MUTED,
              u8"가로·세로·꺾임·교차를 이웃 칸에 맞춰 선택합니다. 동물은 이동 방향에 따라 좌우 반전합니다.");
     for (r = 0; r < 4; r++) {
@@ -23,33 +23,37 @@ void game_render_connection_preview(GameApp *a) {
             for (x = 0; x < 7; x++)
                 if (x == 0 || x == 6 || y == 0 || y == 4 || x == 3)
                     cost[y * 7 + x] = CORE_COST_WALL;
+        cost[4*7+3]=CORE_COST_GATE;cost[2*7]=CORE_COST_GATE;
         ui_small(&a->ui, 28 + r * 350.0f, 86, UI_GOLD, "%s", walls[r]);
         for (y = 0; y < 5; y++)
             for (x = 0; x < 7; x++) {
                 float xx = 28 + r * 350.0f + x * 40, yy = 126.0f + y * 32;
                 DrawRectangle((int)xx, (int)yy, 40, 32, (Color){48, 75, 46, 255});
-                if (cost[y * 7 + x] == CORE_COST_WALL) {
+                if (cost[y * 7 + x] == CORE_COST_GATE) {
+                    DrawTexturePro(a->assets.gates,(Rectangle){(x==0?1:0)*128.0f,r*128.0f,128,128},(Rectangle){xx,yy-8,40,40},(Vector2){0,0},0,WHITE);
+                } else if (cost[y * 7 + x] == CORE_COST_WALL) {
                     int mask = game_wall_mask(cost, 7, 5, x, y);
                     DrawTexturePro(a->assets.wall_links, (Rectangle){mask * 128.0f, r * 128.0f, 128, 128},
                                    (Rectangle){xx, yy - 8, 40, 40}, (Vector2){0, 0}, 0, WHITE);
                 }
             }
     }
-    for (r = 0; r < 6; r++)
+    for (r = 0; r < 8; r++)
         for (c = 0; c < 4; c++) {
             int kind = r * 4 + c, frame;
+            if(kind>=30)continue;
             CoreAnimalInfo info;
             core_expansion_animal_info(kind, &info);
-            float xx = 28 + c * 350.0f, yy = 327 + r * 90.0f;
+            float xx = 28 + c * 350.0f, yy = 317 + r * 70.0f;
             ui_small(&a->ui, xx, yy, UI_TEXT, "%s", info.name);
             for (frame = 0; frame < 4; frame++)
                 DrawTexturePro(a->assets.animal_walk, (Rectangle){frame * 96.0f, kind * 96.0f, 96, 96},
-                               (Rectangle){xx + frame * 77, yy + 25, 74, 60}, (Vector2){0, 0}, 0, WHITE);
+                               (Rectangle){xx + frame * 77, yy + 24, 65, 44}, (Vector2){0, 0}, 0, WHITE);
         }
     EndMode2D();
 }
 void game_render_rotation_preview(GameApp *a) {
-    static const int types[6] = {CORE_BLD_GRANARY,  CORE_BLD_HOUSE, CORE_BLD_FARM,
+    static const int types[6] = {CORE_BLD_GRANARY,  CORE_BLD_HOUSE, CORE_BLD_GREENHOUSE,
                                  CORE_BLD_BARRACKS, CORE_BLD_PORT,  CORE_BLD_MAGE_TOWER};
     static const char *const directions[4] = {u8"정면 · 남쪽 입구", u8"오른쪽 · 동쪽 입구",
                                               u8"후면 · 북쪽 입구", u8"왼쪽 · 서쪽 입구"};
@@ -57,7 +61,7 @@ void game_render_rotation_preview(GameApp *a) {
     int r, c;
     ui_text(&a->ui, 28, 20, UI_GOLD, u8"새 건물 4방향 · 실제 점유와 그림 높이");
     ui_small(&a->ui, 28, 53, UI_MUTED,
-             u8"R 키로 회전합니다. 농장류는 밭만 표시하며, 지붕의 높이는 점유 칸과 별개입니다.");
+             u8"R 키로 회전합니다. 온실은 유리 지붕, 일반 농장은 밭으로 표시합니다. 그림 높이와 점유는 별개입니다.");
     for (c = 0; c < 4; c++)
         ui_small(&a->ui, 200 + c * column, 87, UI_TEXT, "%s", directions[c]);
     for (r = 0; r < 6; r++) {
@@ -67,6 +71,11 @@ void game_render_rotation_preview(GameApp *a) {
         ui_small(&a->ui, 25, y + row / 2, UI_GOLD, u8"%s\n%d×%d칸", info.name, info.w, info.h);
         for (c = 0; c < 4; c++) {
             Texture2D t = a->assets.turns[types[r]][c];
+            Rectangle source={0,0,(float)t.width,(float)t.height};
+            if(types[r]==CORE_BLD_GREENHOUSE) {
+                t=a->assets.greenhouse_turns;
+                source=(Rectangle){c*256.0f,a->session.summary.season*256.0f,256,256};
+            }
             float width, height, scale;
             float x = 190 + c * column, base = y + row - 9;
             int bw = c & 1 ? info.h : info.w, bh = c & 1 ? info.w : info.h, xx, yy;
@@ -76,10 +85,10 @@ void game_render_rotation_preview(GameApp *a) {
                     DrawRectangleRec(tile, (Color){54, 79, 60, 255});
                     DrawRectangleLinesEx(tile, 1, (Color){112, 146, 113, 255});
                 }
-            scale = fminf((column - 32) / t.width, (row - 15) / t.height);
-            width = t.width * scale;
-            height = t.height * scale;
-            DrawTexturePro(t, (Rectangle){0, 0, (float)t.width, (float)t.height},
+            scale = fminf((column - 32) / source.width, (row - 15) / source.height);
+            width = source.width * scale;
+            height = source.height * scale;
+            DrawTexturePro(t, source,
                            (Rectangle){x + column / 2 - width / 2, base - height, width, height},
                            (Vector2){0, 0}, 0, WHITE);
         }
@@ -146,13 +155,22 @@ static void terrain(GameApp *a) {
         for (y = y0; y < y1; y++)
             for (x = x0; x < x1; x++) {
                 int i = y * w + x, variant = (int)(tile_noise(x, y) % 4);
-                if ((s->roads[i] != 0) != pass || (s->visibility && !s->visibility[i]))
+                if ((pass && !s->roads[i]) || (s->visibility && !s->visibility[i]))
                     continue;
                 Rectangle dest = {(float)x * 16, (float)y * 16, 16, 16};
-                /* 완전 불투명한 도로 아래의 지형은 그리지 않아 텍스처 전환을 줄입니다. */
-                if (s->roads[i]) {
-                    sprite(a->assets.road_tiles, (Rectangle){(s->roads[i] - 1) * 64.0f, 0, 64, 64}, dest,
-                           WHITE);
+                if (pass) {
+                    static const int dx[8]={0,1,0,-1,1,1,-1,-1},dy[8]={-1,0,1,0,-1,1,1,-1};
+                    int mask=0;
+                    for(int k=0;k<8;k++) {int xx=x+dx[k],yy=y+dy[k];if(xx>=0&&yy>=0&&xx<w&&yy<h&&(s->roads[yy*w+xx]||s->cost[yy*w+xx]==CORE_COST_GATE))mask|=1<<k;}
+                    sprite(a->assets.road_tiles,(Rectangle){(mask%16)*64.0f,((s->roads[i]-1)*16+mask/16)*64.0f,64,64},dest,WHITE);
+                    if(s->roads[i]==3) for(int k=0;k<4;k++) {
+                        int xx=x+dx[k],yy=y+dy[k];
+                        if(xx<0||yy<0||xx>=w||yy>=h||s->terrain[yy*w+xx]!=CORE_TERRAIN_WATER||s->roads[yy*w+xx]==3)continue;
+                        Vector2 p0={x*16.0f+(k==1?15:1),y*16.0f+(k==2?15:1)},p1=p0;
+                        if(k==0||k==2)p1.x+=14;else p1.y+=14;
+                        DrawLineEx(p0,p1,1.5f,(Color){101,66,38,255});
+                        DrawCircleV(p0,1,(Color){211,166,92,255});DrawCircleV(p1,1,(Color){211,166,92,255});
+                    }
                     continue;
                 }
                 if (s->exp_tiles) {
@@ -197,15 +215,29 @@ static void terrain(GameApp *a) {
             }
 }
 static Rectangle box_rect(GameSpriteBox b) { return (Rectangle){b.x, b.y, b.w, b.h}; }
+static int farm_row(int type) {
+    return type==CORE_BLD_CROPLAND?0:type==CORE_BLD_FARM?1:type==CORE_BLD_IRRIGATED_FARM?2:type==CORE_BLD_ORCHARD?3:type==CORE_BLD_GREENHOUSE?4:-1;
+}
 static Rectangle building_rect(const CoreBuildingView *b, Texture2D t) {
-    return box_rect(game_expansion_building_sprite(b, t.width, t.height));
+    return box_rect(game_expansion_building_sprite(b, farm_row(b->type)>=0?256:t.width, farm_row(b->type)>=0?256:t.height));
 }
 static Texture2D building_texture(const GameApp *a, const CoreBuildingView *b) {
+    if (b->kind_flags & CORE_EXP_GATE) return a->assets.gates;
+    if (b->type==CORE_BLD_GREENHOUSE) return a->assets.greenhouse_turns;
+    if (farm_row(b->type)>=0) return a->assets.farms;
     if (b->type == CORE_BLD_KEEP)
         return a->assets.manors[a->session.summary.rank];
     return b->kind_flags & CORE_EXP_WALL ? a->assets.wall_links : a->assets.turns[b->type][b->rotation];
 }
 static Rectangle building_source(const GameApp *a, const CoreBuildingView *b, Texture2D t) {
+    if(b->type==CORE_BLD_GREENHOUSE)
+        return (Rectangle){b->rotation*256.0f,a->session.summary.season*256.0f,256,256};
+    if(b->kind_flags&CORE_EXP_GATE) {
+        int row=b->type==CORE_BLD_PALISADE_GATE?0:b->type==CORE_BLD_STONE_GATE?1:b->type==CORE_BLD_IRON_GATE?3:2;
+        return (Rectangle){b->rotation*128.0f,row*128.0f,128,128};
+    }
+    int row=farm_row(b->type);
+    if(row>=0)return (Rectangle){a->session.summary.season*256.0f,row*256.0f,256,256};
     if (b->kind_flags & CORE_EXP_WALL) {
         int style = b->type == CORE_BLD_PALISADE    ? 0
                     : b->type == CORE_BLD_BARRIER   ? 1
@@ -222,6 +254,8 @@ static void building(GameApp *a, int index) {
     Texture2D t = building_texture(a, b);
     Rectangle dest = building_rect(b, t);
     Color tint = WHITE;
+    if(farm_row(b->type)>=0 && a->session.summary.nature_event==CORE_NATURE_DROUGHT)
+        tint=b->type==CORE_BLD_GREENHOUSE?(Color){240,225,190,255}:(Color){220,185,125,255};
     float bar_x = b->x * 16.0f, bar_w = b->w * 16.0f;
     if (b->state == CORE_BSTATE_RUINED)
         tint = (Color){105, 95, 103, 255};
@@ -265,7 +299,7 @@ static void villager(GameApp *a, int index) {
             p.y += (b->rotation == 2 ? 1 : b->rotation == 0 ? -1 : 0) * 12 * unit->indoor;
         }
     }
-    frame = game_villager_frame(v->personal_id ? v->personal_id : v->id, unit->facing, unit->walk_distance,
+    frame = game_villager_frame(v->appearance + 1, unit->facing, unit->walk_distance,
                                 moving || (unit->indoor > 0 && unit->indoor < 1));
     Rectangle dest = box_rect(game_actor_sprite(p.x, p.y, GAME_ACTOR_HEIGHT));
     sprite(a->assets.villagers,
@@ -283,13 +317,16 @@ static void villager(GameApp *a, int index) {
 static void enemy(GameApp *a, int index) {
     GameEnemy *e = &a->session.enemies[index];
     Vector2 p = pixel(e->actor.position);
-    /* 적 그림의 네 번째 행은 큰 오우거입니다. 정의 순서와 아틀라스를 맞춥니다. */
-    int frame = ((int)(GetTime() * 7) + e->actor.id) % 4;
-    float height = e->def.type == 3 ? 30.0f : 24.0f;
-    Rectangle dest = box_rect(game_actor_sprite(p.x, p.y, height));
-    GameEffect *fx = game_effect(&a->session, 2, e->actor.id);
-    sprite(a->assets.enemies, (Rectangle){frame * 96.0f, e->def.type * 96.0f, 96, 96}, dest,
-           fx && fx->hurt_until > a->session.visual_time ? RED : WHITE);
+    int dir=e->actor.facing==FACE_LEFT?1:e->actor.facing;
+    if(dir<0||dir>2)dir=0;
+    int attacking=e->attack_serial&&e->attack_elapsed<4.8f;
+    int frame=attacking?(int)(e->attack_elapsed/1.2f):game_walk_frame(e->actor.walk_distance,e->actor.next<e->actor.path.count);
+    if(frame>3)frame=3;
+    float width=e->info.width_milli*16/1000.0f,height=e->info.height_milli*16/1000.0f;
+    if(width<=0||height<=0){width=24;height=24;}
+    Rectangle dest={p.x-width/2,p.y-height,width,height};
+    sprite(attacking?a->assets.raider_attack:a->assets.enemies,
+           (Rectangle){((e->def.type%4)*4+frame)*96.0f,((e->def.type/4)*3+dir)*96.0f,e->actor.facing==FACE_LEFT?-96.0f:96.0f,96},dest,effect_tint(a,2,e->actor.id));
     life_bar(a, 2, e->actor.id, e->hp, e->def.hp, dest);
 }
 static int prop_type(const GameApp *a, int x, int y) {
@@ -327,8 +364,8 @@ static void prop(GameApp *a, int cell_index) {
     float size = type < 4 ? 34.0f : (type < 8 ? 22.0f : 13.0f), cx = (x + 0.5f) * 16, feet = (y + 0.8f) * 16;
     if (type == 20) {
         CoreExpansionTileView *t = &s->exp_tiles[cell_index];
-        int mature = (int[]){28000, 48000, 84000, 112000}[t->tree_kind - 1];
-        int stage = t->tree_age < mature / 4                  ? 0
+        int mature = (int[]){16000, 28000, 48000, 72000}[t->tree_kind - 1];
+        int stage = t->tree_age < mature * 3 / 10                  ? 0
                     : t->tree_age < mature                    ? 1
                     : s->summary.season == CORE_SEASON_AUTUMN ? 3
                     : s->summary.season == CORE_SEASON_WINTER ? 4
@@ -472,7 +509,7 @@ static void objects(GameApp *a) {
             int frame = game_walk_frame(unit->walk_distance, moving);
             int cell = animal->y_milli / 1000 * a->session.summary.map_width + animal->x_milli / 1000;
             Texture2D texture =
-                a->session.terrain[cell] == CORE_TERRAIN_WATER && !a->session.roads[cell] && info.swim_milli
+                animal->kind < 24 && a->session.terrain[cell] == CORE_TERRAIN_WATER && !a->session.roads[cell] && info.swim_milli
                     ? a->assets.animal_swim
                     : a->assets.animal_walk;
             GameEffect *fx = game_effect(&a->session, 1, animal->id);
@@ -497,9 +534,25 @@ static void objects(GameApp *a) {
                 now = {from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t - 8};
         Texture2D arrow = a->assets.arrow;
         float height = arrow.width ? 8.0f * arrow.height / arrow.width : 2;
-        DrawTexturePro(arrow, (Rectangle){0, 0, (float)arrow.width, (float)arrow.height},
-                       (Rectangle){now.x, now.y, 8, height}, (Vector2){4, height / 2},
-                       atan2f(to.y - from.y, to.x - from.x) * RAD2DEG, WHITE);
+        Color shot=p->source_type==6?(Color){65,220,185,255}:p->source_type==12?SKYBLUE:p->source_type==13?PURPLE:p->source_type==16?GREEN:p->source_type==21?SKYBLUE:p->source_type==25?ORANGE:p->source_type==27?GOLD:WHITE;
+        Vector2 trail={now.x-(to.x-from.x)*.04f,now.y-(to.y-from.y)*.04f};
+        DrawLineEx(trail,now,1,Fade(shot,.65f));
+        int type=p->source_type;
+        if(type==6||type==12||type==13||type==16||type==21||type==25||type==27||type==100+CORE_BLD_ARCANE_TOWER||type==100+CORE_BLD_CANNON_TOWER) {
+            if(type==100+CORE_BLD_ARCANE_TOWER)shot=SKYBLUE;
+            if(type==100+CORE_BLD_CANNON_TOWER)shot=DARKGRAY;
+            DrawCircleV(now,2.8f,Fade(shot,.45f));
+            if(type==21)DrawPoly(now,4,2.3f,45+a->session.visual_time*100,shot);
+            else if(type==16)DrawTriangle((Vector2){now.x-3,now.y},(Vector2){now.x+2,now.y-1.8f},(Vector2){now.x+1,now.y+2},shot);
+            else DrawCircleV(now,type==12?1.6f:2,shot);
+            DrawCircleV(now,.7f,WHITE);
+            if(type==27&&t>.8f)DrawCircleLines((int)to.x,(int)to.y,16*t,Fade(GOLD,(t-.8f)*3));
+        } else {
+            float rotation=atan2f(to.y-from.y,to.x-from.x)*RAD2DEG;
+            for(int k=0;k<4;k++)DrawTexturePro(arrow,(Rectangle){0,0,(float)arrow.width,(float)arrow.height},
+                (Rectangle){now.x+(k==0?.35f:k==1?-.35f:0),now.y+(k==2?.35f:k==3?-.35f:0),8,height},(Vector2){4,height/2},rotation,(Color){25,20,27,230});
+            DrawTexturePro(arrow,(Rectangle){0,0,(float)arrow.width,(float)arrow.height},(Rectangle){now.x,now.y,8,height},(Vector2){4,height/2},rotation,type==10?(Color){190,230,220,255}:shot);
+        }
     }
 }
 static void livestock_proxies(GameApp *a) {
@@ -532,8 +585,10 @@ static void livestock_proxies(GameApp *a) {
                 float width = info.width_milli * 16 / 1000.0f, height = info.height_milli * 16 / 1000.0f;
                 Rectangle dest = {x - width / 2, y - height, width, height};
                 int frame = (int)(phase * 3) & 3, id = s->animals[representative].id;
-                sprite(a->assets.animal_walk,
-                       (Rectangle){frame * 96.0f, kinds[k] * 96.0f, cosf(phase) > 0 ? 96.0f : -96.0f, 96},
+                int age=s->animals[representative].age, young=age<(int[]){24,12,16,8}[k];
+                if(young){dest.width*=.65f;dest.height*=.65f;dest.y=y-dest.height;dest.x=x-dest.width/2;}
+                sprite(young?a->assets.animal_babies:a->assets.animal_walk,
+                       (Rectangle){frame * 96.0f, (young?(int[]){0,2,1,3}[k]:kinds[k]) * 96.0f, cosf(phase) > 0 ? 96.0f : -96.0f, 96},
                        dest, effect_tint(a, 1, id));
                 life_bar(a, 1, id, s->animals[representative].hp, info.hp, dest);
             }
@@ -563,7 +618,7 @@ static void corpses(GameApp *a) {
             source = (Rectangle){96, fx->skin * 96.0f, fx->facing < 0 ? -96.0f : 96.0f, 96};
         } else {
             texture = a->assets.enemies;
-            source = (Rectangle){96, fx->skin * 96.0f, 96, 96};
+            source = (Rectangle){((fx->skin%4)*4+1)*96.0f,(fx->skin/4)*3*96.0f,96,96};
         }
         float angle = fmaxf(0, fminf(1, elapsed / .55f)) * 60 * ((fx->id * 73) & 1 ? 1 : -1);
         Color tint =
@@ -582,22 +637,22 @@ void game_render_free(GameApp *a) {
     a->decor_capacity = 0;
 }
 void game_render_villager_preview(GameApp *a) {
-    static const char *const names[8] = {u8"갈색 남성",      u8"갈색 여성",      u8"금발 남성",
+    static const char *const names[12] = {u8"갈색 남성",      u8"갈색 여성",      u8"금발 남성",
                                          u8"금발 여성",      u8"검은 머리 남성", u8"검은 머리 여성",
-                                         u8"붉은 머리 남성", u8"붉은 머리 여성"};
+                                         u8"붉은 머리 남성", u8"붉은 머리 여성",u8"은발 남성",u8"은발 여성",u8"남색 머리 남성",u8"남색 머리 여성"};
     static const char *const directions[4] = {u8"정면", u8"오른쪽", u8"뒷면", u8"왼쪽"};
-    float gap = (GetScreenWidth() - 150.0f) / 8, row_height = (GetScreenHeight() - 140.0f) / 4;
+    float gap = (GetScreenWidth() - 150.0f) / 12, row_height = (GetScreenHeight() - 140.0f) / 4;
     int appearance, direction;
     Texture2D t = a->assets.villagers;
     ClearBackground((Color){23, 32, 33, 255});
-    ui_text(&a->ui, 24, 18, UI_GOLD, u8"주민 외형 8종 · 방향별 걷기");
+    ui_text(&a->ui, 24, 18, UI_GOLD, u8"주민 외형 12종 · 방향별 걷기");
     ui_small(&a->ui, 24, 54, UI_TEXT, u8"직업을 바꿔도 외형 유지 · 주민 1×1칸 / 그림 1.5타일 높이");
-    for (appearance = 0; appearance < 8; appearance++)
+    for (appearance = 0; appearance < 12; appearance++)
         ui_small(&a->ui, 140 + appearance * gap, 92, UI_GOLD, "%s", names[appearance]);
     for (direction = 0; direction < 4; direction++) {
         float top = 140 + direction * row_height;
         ui_small(&a->ui, 24, top + 30, UI_TEXT, "%s", directions[direction]);
-        for (appearance = 0; appearance < 8; appearance++) {
+        for (appearance = 0; appearance < 12; appearance++) {
             float cx = 140 + appearance * gap + gap * 0.35f, feet = top + 100;
             GameSpriteFrame frame =
                 game_villager_frame(appearance + 1, direction, (float)GetTime() * 0.5f, 1);
@@ -791,7 +846,8 @@ void game_render_world(GameApp *a) {
     if (a->session.summary.weather == CORE_WEATHER_RAIN || a->session.summary.weather == CORE_WEATHER_SNOW ||
         a->session.summary.weather == CORE_WEATHER_STORM) {
         int snow = a->session.summary.weather == CORE_WEATHER_SNOW;
-        for (i = 0; i < 100; i++) {
+        if(!snow)game_sound(&a->assets,SND_RAIN,a->settings.sfx_volume*.12f);
+        for (i = 0; i < (a->settings.low_effects?25:100); i++) {
             float x = fmodf(i * 131.7f + time * 17, (float)GetScreenWidth());
             float y = fmodf(i * 83.3f + time * (snow ? 30 : 280), (float)GetScreenHeight());
             if (snow)
@@ -800,6 +856,26 @@ void game_render_world(GameApp *a) {
                 DrawLine((int)x, (int)y, (int)x - 3, (int)y + 9, Fade(SKYBLUE, 0.3f));
         }
     }
+    CoreEventLayers layers={0};(void)core_expansion_events(a->session.world,&layers);
+    int effect=a->session.summary.nature_event;
+    if(!a->settings.low_effects && effect==CORE_NATURE_STORM && fmodf(time,7)<.16f) {
+        game_sound(&a->assets,SND_THUNDER,a->settings.sfx_volume*.3f);
+        float x=GetScreenWidth()*.68f;
+        Vector2 last={x,0};
+        for(int k=1;k<7;k++){Vector2 next={x+sinf(k*2.7f)*35,k*GetScreenHeight()/9.0f};DrawLineEx(last,next,2,Fade(WHITE,.8f));last=next;}
+    }
+    if(layers.plague_days) {
+        for(int k=0;k<(a->settings.low_effects?4:18);k++) {
+            float x=fmodf(k*173.0f+time*9,GetScreenWidth()+80.0f)-40,y=fmodf(k*97.0f+time*3,GetScreenHeight()+80.0f)-40;
+            DrawCircleGradient((int)x,(int)y,25,(Color){100,155,80,22},BLANK);
+        }
+    }
+    if(effect==CORE_NATURE_COLD_SNAP)DrawRectangleLinesEx((Rectangle){1,1,GetScreenWidth()-2.0f,GetScreenHeight()-2.0f},a->settings.low_effects?3.0f:10.0f,(Color){175,225,255,65});
+    if(!a->settings.low_effects && (effect==CORE_NATURE_BUMPER || effect==CORE_NATURE_DROUGHT || layers.economic_days))
+        for(int k=0;k<20;k++) {
+            float x=fmodf(k*97.0f+time*11,(float)GetScreenWidth()),y=fmodf(k*61.0f+time*4,(float)GetScreenHeight());
+            DrawCircleV((Vector2){x,y},1,Fade(effect==CORE_NATURE_DROUGHT?BROWN:layers.economic_event==CORE_NATURE_MINE_COLLAPSE?GRAY:GOLD,.35f));
+        }
     status_bubbles(a);
 }
 void game_world_input(GameApp *a, float delta) {

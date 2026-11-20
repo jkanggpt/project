@@ -9,7 +9,7 @@
 #define CORE_LEGACY_RANK_COUNT 5
 #define CORE_EXP_SKILLS 12
 #define CORE_EXP_STATS 5
-#define CORE_EXP_ANIMALS 24
+#define CORE_EXP_ANIMALS 30
 #define CORE_EXP_MAX_ANIMALS 512
 #define CORE_EXP_MAX_CANDIDATES 15
 #define CORE_EXP_OUTDOOR 1
@@ -32,6 +32,7 @@ typedef struct CoreExpansionTileView {
 typedef struct CoreAnimalView {
     int32_t id, kind, x_milli, y_milli, hp, age, owner, breed_day, starve_days, alive;
     int32_t region, attack_tick, target_id, retaliate_id, move_acc, attack_remaining_milli;
+    int32_t threat_until_tick, attack_cooldown_milli;
 } CoreAnimalView;
 
 enum CoreBiome {
@@ -50,6 +51,7 @@ enum CoreBiome {
 typedef struct CoreAnimalInfo {
     int32_t hp, attack, food, leather, biomass, speed_milli, swim_milli, behavior;
     int32_t width_milli, height_milli, livestock;
+    int32_t attack_minutes, attack_range, mana_drop;
     char name[CORE_NAME_BYTES];
 } CoreAnimalInfo;
 typedef struct CoreImmigrationView {
@@ -76,7 +78,7 @@ typedef struct CoreWaterView {
     int32_t id, area, cold, capacity_milli;
 } CoreWaterView;
 typedef struct CoreHabitatView {
-    int32_t id, biome, area, count, biomass, capacity, target, aggressive, pressure_until;
+    int32_t id, biome, area, count, biomass, capacity, target, aggressive, pressure_until, count_cap;
 } CoreHabitatView;
 typedef struct CoreTradeQuote {
     int32_t resource, units, total_gold, unit_cents, season_bp, event_bp, pressure_bp, rate_bp;
@@ -96,6 +98,7 @@ CORE_API int32_t core_expansion_debug_wildlife(CoreWorld *world, int32_t count);
 CORE_API int32_t core_expansion_advance_animal_attacks(CoreWorld *world, int32_t elapsed_milli);
 typedef struct CoreCandidateView {
     int32_t person_id, fee, field, age, stats[5], initial[5], xp[5], skills[12], traits[2], hired;
+    int32_t sex, appearance;
     char name[CORE_NAME_BYTES];
 } CoreCandidateView;
 typedef struct CoreExpansionRankView {
@@ -140,4 +143,13 @@ CORE_API int32_t core_expansion_spotted(CoreWorld *world, int32_t x, int32_t y);
 CORE_API int32_t core_expansion_fire(CoreWorld *world, int32_t building_id);
 CORE_API int32_t core_expansion_report_position(CoreWorld *world, int32_t villager_id, int32_t x_milli,
                                                 int32_t y_milli);
+/* v1.2.1 습격 외형과 고유 능력. 기본 적 번호는 세력별 순서입니다. */
+typedef struct CoreRaiderInfo { int32_t faction,cost,unlock,width_milli,height_milli,ability; char name[CORE_NAME_BYTES]; } CoreRaiderInfo;
+CORE_API int32_t core_expansion_raider_info(int32_t type,CoreRaiderInfo *out);
+CORE_API int32_t core_expansion_summon(CoreWorld *world,int32_t parent_id,int32_t *out_id);
+CORE_API int32_t core_expansion_slow(CoreWorld *world,int32_t villager_id);
+typedef struct CoreEventLayers {int32_t plague_days,economic_event,economic_days;} CoreEventLayers;
+CORE_API int32_t core_expansion_events(const CoreWorld *world,CoreEventLayers *out);
+CORE_API int32_t core_expansion_efficiency(const CoreWorld *world,int32_t villager_id,int32_t building_type,int32_t *out_percent);
+
 #endif
