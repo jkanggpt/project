@@ -20,6 +20,8 @@ typedef struct GameActor {
     int indoor_building;
     int chasing;
     GamePoint chase_goal;
+    float attack_elapsed;
+    int attack_serial,attack_applied,attack_kind,attack_target,outfit;
 } GameActor;
 typedef struct GameEnemy {
     GameActor actor;
@@ -29,11 +31,13 @@ typedef struct GameEnemy {
     int attack_serial, attack_applied, attack_kind, attack_target, summoner_id;
     GamePoint attack_to;
     CoreRaiderInfo info;
+    int entry_x,entry_y,inbound_count,inbound[128],retreat_index,retreat_started;
 } GameEnemy;
 typedef struct GameProjectile {
     GamePoint from, to;
     float elapsed, duration, radius;
     int raid_id, target_id, target_kind, damage, source_type;
+    int source_id;
 } GameProjectile;
 typedef struct GameTower {
     int id;
@@ -60,7 +64,7 @@ typedef struct GameSession {
     CoreBuildingView *buildings;
     CoreVillagerView *villagers;
     int building_count, building_capacity, villager_count, villager_capacity;
-    uint8_t *terrain, *roads, *cost;
+    uint8_t *terrain, *roads, *cost, *enemy_cost;
     CoreExpansionTileView *exp_tiles;
     uint8_t *visibility;
     CoreAnimalView animals[CORE_EXP_MAX_ANIMALS];

@@ -76,6 +76,7 @@ typedef struct Event {
                        VICTORY(날짜), DEFEAT(원인, 날짜), TUTORIAL_STEP(목표, 끝낸 수, 전체), TUTORIAL_DONE(금화, 마정석) */
     } as;
     char text[CORE_NAME_BYTES]; /* 관련 주민 이름 (없으면 빈 문자열) */
+    int32_t cause_kind,source_id,event_tick,type_serial;
 } Event;
 
 /* 원형 버퍼. 꽉 차면 realloc 으로 두 배씩 늘리고, 최대 크기에서는 가장 오래된 것을 버립니다. */

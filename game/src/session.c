@@ -17,6 +17,7 @@ static void clear_world(GameSession *s) {
     free(s->terrain);
     free(s->roads);
     free(s->cost);
+    free(s->enemy_cost);s->enemy_cost=NULL;
     free(s->towers);
     free(s->enemies);
     s->enemies = NULL; s->enemy_capacity = 0;
@@ -344,7 +345,18 @@ int game_session_refresh(GameSession *s) {
 }
 int game_actor_plan(GameSession *s, GameActor *a, int x, int y, int enemy) {
     s->finder.normal_cost = s->summary.ruleset ? 100 : 10;
-    int rc = game_path_find(&s->finder, s->cost, s->summary.map_width, s->summary.map_height,
+    const uint8_t *cost=s->cost;
+    if(enemy && s->summary.ruleset) {
+        if(!s->enemy_cost)s->enemy_cost=malloc((size_t)s->cells);
+        if(!s->enemy_cost){s->last_error=CORE_ERR_OUT_OF_MEMORY;return -1;}
+        memcpy(s->enemy_cost,s->cost,(size_t)s->cells);
+        for(int i=0;i<s->building_count;i++) {
+            const CoreBuildingView *b=&s->buildings[i];if(b->state!=CORE_BSTATE_CONSTRUCTING)continue;
+            for(int yy=b->y;yy<b->y+b->h;yy++)for(int xx=b->x;xx<b->x+b->w;xx++)s->enemy_cost[yy*s->summary.map_width+xx]=100;
+        }
+        cost=s->enemy_cost;
+    }
+    int rc = game_path_find(&s->finder, cost, s->summary.map_width, s->summary.map_height,
                             (int)a->position.x, (int)a->position.y, x, y, enemy, &a->path);
     a->next = 1;
     a->target_x = x;
@@ -358,7 +370,7 @@ int game_actor_walk(GameSession *s, GameActor *a, float tiles, int enemy, int *b
     int w = s->summary.map_width;
     *barrier_id = 0;
     while (a->next < a->path.count && tiles > 0) {
-        int cell = a->path.cells[a->next], c = game_path_cost(s->cost[cell], enemy);
+        int cell = a->path.cells[a->next], c = game_path_cost(enemy&&s->enemy_cost?s->enemy_cost[cell]:s->cost[cell], enemy);
         GamePoint goal = {cell % w + 0.5f, cell / w + 0.5f};
         float distance = game_distance(a->position, goal), factor;
         GamePoint before = a->position;
@@ -418,6 +430,7 @@ static void walk_villagers(GameSession *s, float minutes) {
             if (!v->inside_building && a->indoor > 0)
                 continue;
         }
+        if(a->chasing)continue;
         if (v->at_target || (v->intent_flags & CORE_INTENT_HOLD))
             continue;
         if (a->revision != v->intent_rev || a->grid_revision != s->grid_revision) {

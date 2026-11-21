@@ -226,6 +226,8 @@ void events_to_view(const Event *event, CoreEventView *out)
 {
     memset(out, 0, sizeof(*out));
     out->type = (int32_t)event->type;
+    out->cause_kind=event->cause_kind;out->source_id=event->source_id;
+    out->event_tick=event->event_tick;out->type_serial=event->type_serial;
     /* 종류(태그)를 보고 공용체의 어느 칸이 유효한지 정합니다 */
     switch (event->type) {
     case CORE_EVT_DAY_STARTED:

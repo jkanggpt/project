@@ -269,9 +269,9 @@ static void building(GameApp *a, int index) {
     if (b->state == CORE_BSTATE_CONSTRUCTING ||
         (b->type == CORE_BLD_KEEP && a->session.summary.promotion_state)) {
         Texture2D scaffold = a->assets.construction;
-        float size = fminf(bar_w, 24);
+        float site_height = b->h * 16.0f;
         sprite(scaffold, (Rectangle){0, 0, (float)scaffold.width, (float)scaffold.height},
-               (Rectangle){bar_x, (b->y + b->h) * 16 - size, size, size}, WHITE);
+               (Rectangle){bar_x, b->y * 16.0f, bar_w, site_height}, WHITE);
         ui_bar((Rectangle){bar_x, dest.y - 4, bar_w, 3},
                b->type == CORE_BLD_KEEP ? (144 - a->session.summary.promotion_remaining) / 144.0f
                                         : b->build_progress / (float)(b->build_total ? b->build_total : 1),
@@ -368,7 +368,7 @@ static void prop(GameApp *a, int cell_index) {
     float size = type < 4 ? 34.0f : (type < 8 ? 22.0f : 13.0f), cx = (x + 0.5f) * 16, feet = (y + 0.8f) * 16;
     if (type == 20) {
         CoreExpansionTileView *t = &s->exp_tiles[cell_index];
-        int mature = (int[]){16000, 28000, 48000, 72000}[t->tree_kind - 1];
+        int mature = core_expansion_tree_mature_age(t->tree_kind);
         int stage = t->tree_age < mature * 3 / 10                  ? 0
                     : t->tree_age < mature                    ? 1
                     : s->summary.season == CORE_SEASON_AUTUMN ? 3
@@ -688,7 +688,42 @@ static void overlay(GameApp *a) {
     int x, y;
     CorePlacementView preview;
     GameSession *s = &a->session;
-    if (a->build_type < 0 || !world_mouse(a, &x, &y))
+    int mouse_on_map=world_mouse(a,&x,&y);
+    if(a->demolish && mouse_on_map) {
+        Rectangle tile={x*16.0f,y*16.0f,16,16};
+        DrawRectangleRec(tile,(Color){230,40,46,100});
+        DrawRectangleLinesEx(tile,1.8f,(Color){255,75,75,255});
+        DrawLineEx((Vector2){tile.x+3,tile.y+3},(Vector2){tile.x+13,tile.y+13},1.3f,WHITE);
+        DrawLineEx((Vector2){tile.x+13,tile.y+3},(Vector2){tile.x+3,tile.y+13},1.3f,WHITE);
+    }
+    CoreBuildingView *selected=game_building(s,a->selected_building);
+    int candidate=a->build_type>=0 && mouse_on_map;
+    if(candidate || selected) {
+        CoreFacilityView facility;
+        int type=candidate?a->build_type:selected->type;
+        int bx=candidate?x:selected->x,by=candidate?y:selected->y;
+        CoreExpansionBuildingInfo info;core_expansion_building_info(type,&info);
+        int rotation=candidate?a->rotation:selected->rotation;
+        int bw=(rotation&1)?info.h:info.w,bh=(rotation&1)?info.w:info.h;
+        if(core_expansion_facility(s->world,candidate?0:selected->id,type,bx,by,rotation,&facility)==CORE_OK) {
+            int radius=facility.range>0?facility.range:facility.radius;
+            if(radius>0) {
+                Vector2 center={(bx+bw*.5f)*16,(by+bh*.5f)*16};
+                Color color=facility.range?SKYBLUE:GREEN;
+                DrawCircleLinesV(center,radius*16.0f,Fade(color,.7f));
+                for(int yy=by-radius;yy<by+bh+radius;yy++)for(int xx=bx-radius;xx<bx+bw+radius;xx++) {
+                    if(xx<0||yy<0||xx>=s->summary.map_width||yy>=s->summary.map_height)continue;
+                    int lx=bx+(bw-1)/2,rx=bx+bw/2,ty=by+(bh-1)/2,bot=by+bh/2;
+                    int distance=(xx<lx?lx-xx:xx>rx?xx-rx:0)+(yy<ty?ty-yy:yy>bot?yy-bot:0);
+                    if(distance<=radius && (!s->visibility||s->visibility[yy*s->summary.map_width+xx]>=2)) {
+                        DrawRectangle(xx*16,yy*16,16,16,Fade(color,.10f));
+                        DrawRectangleLines(xx*16,yy*16,16,16,Fade(color,.20f));
+                    }
+                }
+            }
+        }
+    }
+    if (a->build_type < 0 || !mouse_on_map)
         return;
     {
         CoreBuildingDefView *d = &s->building_defs[a->build_type];
@@ -883,6 +918,7 @@ void game_render_world(GameApp *a) {
     status_bubbles(a);
 }
 void game_world_input(GameApp *a, float delta) {
+    if(a->raid_alert_id)return;
     int x, y, inside = world_mouse(a, &x, &y);
     GameSession *s = &a->session;
     if (a->panel != PANEL_NONE || !a->in_game)
@@ -924,8 +960,8 @@ void game_world_input(GameApp *a, float delta) {
             a->build_type = -1;
             a->demolish = 0;
             a->dragging = 0;
-        } else if (a->selected_building || a->selected_villager)
-            a->selected_building = a->selected_villager = 0;
+        } else if (a->selection_kind || a->selected_building || a->selected_villager)
+            game_select(a,0,0);
         else
             game_app_open(a, PANEL_PAUSE);
     }
@@ -1008,22 +1044,35 @@ void game_world_input(GameApp *a, float delta) {
             (void)game_session_refresh(s);
             game_session_events(s);
         } else {
-            int i;
-            Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), a->camera);
-            float best = 8;
-            a->selected_villager = 0;
-            a->selected_building = id;
-            a->inspector_scroll = 0;
-            for (i = 0; i < s->actor_count; i++) {
-                CoreVillagerView *v = game_villager(s, s->actors[i].id);
-                float distance =
-                    game_distance(s->actors[i].position, (GamePoint){mouse.x / 16, mouse.y / 16}) * 16;
-                if (v && !v->inside_building && !(v->state == CORE_VS_FLEE && v->at_target) &&
-                    distance < best) {
-                    best = distance;
-                    a->selected_villager = v->id;
-                    a->selected_building = 0;
-                }
+            Vector2 mouse=GetScreenToWorld2D(GetMousePosition(),a->camera);
+            float best=1000000;game_select(a,id?1:0,id);
+            for(int i=0;i<s->actor_count;i++) {
+                GameActor *actor=&s->actors[i];CoreVillagerView *v=game_villager(s,actor->id);
+                if(!v||v->inside_building)continue;
+                GameSpriteBox box=game_actor_sprite(actor->position.x*16,actor->position.y*16,GAME_ACTOR_HEIGHT);
+                Rectangle hit={box.x,box.y,box.w,box.h};
+                float dx=mouse.x-hit.x-hit.width/2,dy=mouse.y-hit.y-hit.height/2,distance=dx*dx+dy*dy;
+                if(CheckCollisionPointRec(mouse,hit)&&distance<best){best=distance;game_select(a,2,v->id);}
+            }
+            for(int i=0;i<s->animal_count;i++) {
+                CoreAnimalView *animal=&s->animals[i];if(!animal->alive)continue;
+                int cell=animal->y_milli/1000*s->summary.map_width+animal->x_milli/1000;
+                if(s->visibility&&s->visibility[cell]<2)continue;
+                CoreAnimalInfo info;core_expansion_animal_info(animal->kind,&info);
+                float width=info.width_milli*16/1000.0f,height=info.height_milli*16/1000.0f;
+                Vector2 feet={s->animal_actors[i].position.x*16,s->animal_actors[i].position.y*16};
+                Rectangle hit={feet.x-width/2,feet.y-height,width,height};
+                float dx=mouse.x-hit.x-hit.width/2,dy=mouse.y-hit.y-hit.height/2,distance=dx*dx+dy*dy;
+                if(CheckCollisionPointRec(mouse,hit)&&distance<best){best=distance;game_select(a,3,animal->id);}
+            }
+            for(int i=0;i<s->enemy_count;i++) {
+                GameEnemy *enemy=&s->enemies[i];if(enemy->hp<=0)continue;
+                int cell=(int)enemy->actor.position.y*s->summary.map_width+(int)enemy->actor.position.x;
+                if(s->visibility&&s->visibility[cell]<2)continue;
+                float width=enemy->info.width_milli*16/1000.0f,height=enemy->info.height_milli*16/1000.0f;
+                Rectangle hit={enemy->actor.position.x*16-width/2,enemy->actor.position.y*16-height,width,height};
+                float dx=mouse.x-hit.x-hit.width/2,dy=mouse.y-hit.y-hit.height/2,distance=dx*dx+dy*dy;
+                if(CheckCollisionPointRec(mouse,hit)&&distance<best){best=distance;game_select(a,4,enemy->actor.id);}
             }
         }
     }

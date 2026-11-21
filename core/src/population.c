@@ -185,7 +185,9 @@ void population_remove_departed(World *world, Villager *villager)
 
 void population_kill(World *world, Villager *villager, int32_t cause)
 {
-    events_push_villager(&world->events, CORE_EVT_VILLAGER_DIED, villager->id, cause, 0, villager->name);
+    Event death={0};death.type=CORE_EVT_VILLAGER_DIED;death.as.villager.id=villager->id;death.as.villager.detail=cause;
+    memcpy(death.text,villager->name,sizeof(death.text));death.cause_kind=villager->damage_kind;
+    death.source_id=villager->damage_source;death.event_tick=world->clock.tick;events_push(&world->events,&death);
     world->stats.villagers_died++;
     world->mourning += POP_MOURNING_PER_DEATH;
     if (world->mourning > POP_MOURNING_MAX) {

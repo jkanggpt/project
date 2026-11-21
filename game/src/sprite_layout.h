@@ -5,7 +5,7 @@
 
 #define GAME_TILE_SIZE 16.0f
 #define GAME_ACTOR_HEIGHT 24.0f
-#define GAME_VILLAGER_DESIGNS 12
+#define GAME_VILLAGER_DESIGNS 48
 #define GAME_VILLAGER_DIRECTIONS 3
 typedef enum GameFacing { FACE_DOWN, FACE_RIGHT, FACE_UP, FACE_LEFT } GameFacing;
 typedef struct GameSpriteFrame {

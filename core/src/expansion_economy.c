@@ -69,42 +69,37 @@ static int room(const World *w, int resource) {
     return value > INT32_MAX ? INT32_MAX : value < 0 ? 0 : (int)value;
 }
 static void logging(World *w, Building *b, int factor) {
-    static const int ages[4] = {16000, 28000, 48000, 72000};
-    int budget = (int)((int64_t)expansion_spec(b->type)->output[CORE_RES_LOGS] * factor / 1000), i,
-        r = expansion_spec(b->type)->radius;
-    if (budget > room(w, CORE_RES_LOGS))
-        budget = room(w, CORE_RES_LOGS);
-    /* 모든 벌목 시설이 같은 나무의 실제 잔량만 차감합니다. */
-    for (i = 0; i < w->expansion->cells && budget > 0; i++) {
-        CoreExpansionTileView *t = &w->expansion->tiles[i];
-        int take, kind = t->tree_kind;
-        if (kind < 1 || kind > 4 || t->tree_age < ages[kind - 1] ||
-            expansion_center_distance(b, i % w->grid.width, i / w->grid.width) > r)
-            continue;
-        take = t->tree_logs_milli;
-        if (take > t->tree_logs_milli)
-            take = t->tree_logs_milli;
-        if (take > budget)
-            take = budget;
-        if (take <= 0)
-            continue;
-        take = expansion_bank_add(w, CORE_RES_LOGS, take, CORE_LEDGER_PRODUCTION);
-        budget -= take;
-        t->tree_logs_milli -= take;
-        t->tree_used_milli += take;
-        if (kind == 4)
-            w->expansion->magic_logs_milli += take;
-        if (!t->tree_logs_milli) {
-            static const int lo[4] = {6, 9, 13, 35}, hi[4] = {12, 16, 24, 60};
-            t->regrow_milli = rng_range(&w->rng, lo[kind - 1], hi[kind - 1]) * 1000;
-            t->tree_age = 0;
-            w->grid.terrain[i] = CORE_TERRAIN_GRASS;
-            if (rng_range(&w->rng, 0, 99) < (int[]){20, 10, 25, 25}[kind - 1])
-                (void)expansion_bank_add(w, kind == 4 ? CORE_RES_HERBS : CORE_RES_FOOD,
-                                         kind == 3 ? 2000 : 1000, CORE_LEDGER_PRODUCTION);
+    int budget=(int)((int64_t)expansion_spec(b->type)->output[CORE_RES_LOGS]*factor/1000);
+    int radius=expansion_spec(b->type)->radius,count=0;
+    int *candidates=w->expansion->queue;
+    if(budget>room(w,CORE_RES_LOGS))budget=room(w,CORE_RES_LOGS);
+    for(int y=b->y-radius;y<b->y+b->h+radius;y++)for(int x=b->x-radius;x<b->x+b->w+radius;x++) {
+        if(!grid_in_bounds(&w->grid,x,y)||expansion_center_distance(b,x,y)>radius)continue;
+        int p=grid_index(&w->grid,x,y);CoreExpansionTileView *t=&w->expansion->tiles[p];
+        if(t->tree_kind>0&&t->tree_logs_milli>0&&t->tree_age>=core_expansion_tree_mature_age(t->tree_kind))candidates[count++]=p;
+    }
+    while(budget>0&&count>0) {
+        int share=budget/count,remainder=budget%count,active=0;
+        int start=b->logging_cursor%count;
+        for(int k=0;k<count;k++) {
+            int n=(start+k)%count;CoreExpansionTileView *t=&w->expansion->tiles[candidates[n]];
+            int take=share+(k<remainder);if(take>t->tree_logs_milli)take=t->tree_logs_milli;
+            take=expansion_bank_add(w,CORE_RES_LOGS,take,CORE_LEDGER_PRODUCTION);
+            budget-=take;t->tree_logs_milli-=take;t->tree_used_milli+=take;
+            if(t->tree_kind==4)w->expansion->magic_logs_milli+=take;
+            if(!t->tree_logs_milli) {
+                int kind=t->tree_kind;
+                t->regrow_milli=rng_range(&w->rng,(int[]){6,9,13,12}[kind-1],(int[]){12,16,24,24}[kind-1])*1000;
+                t->tree_age=0;w->grid.terrain[candidates[n]]=CORE_TERRAIN_GRASS;
+                if(rng_range(&w->rng,0,99)<(int[]){20,10,25,25}[kind-1])
+                    (void)expansion_bank_add(w,kind==4?CORE_RES_HERBS:CORE_RES_FOOD,kind==3?2000:1000,CORE_LEDGER_PRODUCTION);
+            }
         }
+        for(int k=0;k<count;k++)if(w->expansion->tiles[candidates[k]].tree_logs_milli>0)candidates[active++]=candidates[k];
+        count=active;b->logging_cursor++;
     }
 }
+
 static int ore_value(int res) {
     return res == CORE_RES_STONE      ? 1
            : res == CORE_RES_COAL     ? 2
@@ -120,34 +115,30 @@ static int mine_accept(int type, int res) {
                : ore_value(res) > 0;
 }
 static void mining(World *w, Building *b, int factor) {
-    int i, r = expansion_spec(b->type)->radius,
-           budget = (b->type == CORE_BLD_QUARRY ? 8000
-                     : b->type == CORE_BLD_MINE ? 24000
-                                                : 50000) *
-                    factor / 1000;
-    if (b->type != CORE_BLD_QUARRY && expansion_event_active(w, CORE_NATURE_MINE_COLLAPSE)) budget = budget * 60 / 100;
-    int64_t weight = 0;
-    for (i = 0; i < w->expansion->cells; i++) {
-        CoreExpansionTileView *t = &w->expansion->tiles[i];
-        if (t->ore_milli > 0 && mine_accept(b->type, t->ore_kind) &&
-            expansion_center_distance(b, i % w->grid.width, i / w->grid.width) <= r)
-            weight += (int64_t)t->ore_milli * ore_value(t->ore_kind);
+    int radius=expansion_spec(b->type)->radius;
+    int budget=(int)((int64_t)(b->type==CORE_BLD_QUARRY?8000:b->type==CORE_BLD_MINE?24000:50000)*factor/1000);
+    if(b->type!=CORE_BLD_QUARRY&&expansion_event_active(w,CORE_NATURE_MINE_COLLAPSE))budget=budget*60/100;
+    int64_t weight=0;
+    for(int y=b->y-radius;y<b->y+b->h+radius;y++)for(int x=b->x-radius;x<b->x+b->w+radius;x++) {
+        if(!grid_in_bounds(&w->grid,x,y)||expansion_center_distance(b,x,y)>radius)continue;
+        CoreExpansionTileView *t=&w->expansion->tiles[grid_index(&w->grid,x,y)];
+        weight+=t->stone_milli;
+        if(mine_accept(b->type,t->ore_kind))weight+=(int64_t)t->ore_milli*ore_value(t->ore_kind);
     }
-    if (!weight)
-        return;
-    for (i = 0; i < w->expansion->cells; i++) {
-        CoreExpansionTileView *t = &w->expansion->tiles[i];
-        int take;
-        if (t->ore_milli <= 0 || !mine_accept(b->type, t->ore_kind) ||
-            expansion_center_distance(b, i % w->grid.width, i / w->grid.width) > r)
-            continue;
-        take = (int)((int64_t)budget * t->ore_milli / weight);
-        if (take > t->ore_milli)
-            take = t->ore_milli;
-        take = expansion_bank_add(w, t->ore_kind, take, CORE_LEDGER_PRODUCTION);
-        t->ore_milli -= take;
+    int remaining=budget;if(!weight)return;
+    for(int y=b->y-radius;y<b->y+b->h+radius;y++)for(int x=b->x-radius;x<b->x+b->w+radius;x++) {
+        if(!grid_in_bounds(&w->grid,x,y)||expansion_center_distance(b,x,y)>radius)continue;
+        CoreExpansionTileView *t=&w->expansion->tiles[grid_index(&w->grid,x,y)];
+        for(int layer=0;layer<2;layer++) {
+            int res=layer?t->ore_kind:CORE_RES_STONE;int *stock=layer?&t->ore_milli:&t->stone_milli;
+            int value=ore_value(res);if(!value||!mine_accept(b->type,res)||*stock<=0)continue;
+            int take=(int)((int64_t)budget*(*stock)/weight);
+            if(take>*stock)take=*stock;if(take>remaining/value)take=remaining/value;
+            take=expansion_bank_add(w,res,take,CORE_LEDGER_PRODUCTION);*stock-=take;remaining-=take*value;
+        }
     }
 }
+
 static int fish_request(const World *w, const Building *b, int *water) {
     int *counts = w->grid.scratch_queue, water_count = w->expansion->water_count, x, y, id, chosen = 0,
         best = 0, desire;
@@ -384,31 +375,15 @@ void expansion_daily(World *w) {
                 b->hunts_milli += 4 * factor;
                 while (b->hunts_milli >= 1000) {
                     int roll = rng_range(&w->rng, 0, 99),
-                        swamp =
-                            w->expansion->tiles[grid_index(&w->grid, b->x, b->y)].biome ==
-                                CORE_BIOME_WETLAND ||
-                            w->expansion->tiles[grid_index(&w->grid, b->x, b->y)].biome == CORE_BIOME_SWAMP,
-                        res = swamp ? (roll < 20   ? CORE_RES_FOOD
-                                       : roll < 60 ? CORE_RES_HERBS
-                                                   : CORE_RES_CLAY)
-                                    : (roll < 60 ? CORE_RES_FOOD : CORE_RES_HERBS);
+                        biome=w->expansion->tiles[grid_index(&w->grid,b->x,b->y)].biome,
+                        food=biome==CORE_BIOME_SWAMP?15:biome==CORE_BIOME_WETLAND?20:55,
+                        herbs=biome==CORE_BIOME_SWAMP?30:35+(biome==CORE_BIOME_WETLAND?5:0),
+                        res=roll<food?CORE_RES_FOOD:roll<food+herbs?CORE_RES_HERBS:CORE_RES_CLAY;
                     b->hunts_milli -= 1000;
                     (void)expansion_bank_add(w, res, 1000, CORE_LEDGER_PRODUCTION);
                 }
             } else if (s->field == 5) {
-                b->hunts_milli = exp_clamp(b->hunts_milli + (b->type == CORE_BLD_HUNTER_CAMP ? 4000 : 9000) *
-                                                                factor / 1000,
-                                           0, 30000);
-                for (i = 0; i < w->expansion->animal_count && b->hunts_milli >= 1000; i++) {
-                    CoreAnimalView *a = &w->expansion->animals[i];
-                    if (a->alive && !a->owner &&
-                        expansion_center_distance(b, a->x_milli / 1000, a->y_milli / 1000) <= s->radius) {
-                        if (b->hunts_milli < EXP_ANIMALS[a->kind].food * 1000)
-                            continue;
-                        b->hunts_milli -= EXP_ANIMALS[a->kind].food * 1000;
-                        (void)core_expansion_damage_animal(w, a->id, a->hp);
-                    }
-                }
+                /* 수렵 보상은 실제 화살 명중·처치에서만 발생합니다. */
             } else if (b->type != CORE_BLD_FISHING_SPOT && b->type != CORE_BLD_PORT && !s->annual_yield)
                 recipe(w, b, factor);
         }
@@ -422,7 +397,7 @@ void expansion_daily(World *w) {
     expansion_collect_harvest(w);
 }
 void expansion_growth(World *w) {
-    static const int ages[4] = {16000,28000,48000,72000}, logs[4] = {12000,28000,50000,24000};
+    static const int logs[4] = {12000,28000,50000,24000};
     static const int weights[10][3] = {{65,20,15},{35,10,55},{10,90,0},{35,55,10},{70,20,10},
                                      {15,85,0},{0,0,0},{0,0,0},{40,25,35},{65,0,35}};
     ExpansionState *e = w->expansion;
@@ -447,7 +422,7 @@ void expansion_growth(World *w) {
                 w->grid.terrain[i] = CORE_TERRAIN_FOREST;
             }
         } else if (t->tree_age)
-            t->tree_age = exp_clamp(t->tree_age + 1000 + power * 8 / 10, 0, ages[t->tree_kind - 1]);
+            t->tree_age = exp_clamp(t->tree_age + 1000 + power * 8 / 10, 0, core_expansion_tree_mature_age(t->tree_kind));
     }
     for (int j = 0; j < w->building_count; j++) {
         Building *b = w->buildings[j];

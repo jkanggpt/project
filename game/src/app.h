@@ -23,6 +23,7 @@ typedef struct GameApp {
     int in_game,speed,saved_speed,build_type,category,demolish,selected_building,selected_villager;
     int drag_x,drag_y,dragging,scroll,sort_column,sort_reverse,difficulty,quit,automated,stress,rotation;
     int inspector_scroll;
+    int selection_kind,selection_id,skill_tab,raid_alert_id,raid_alert_speed;
     int autosave_day,autosave_pending,shown_outcome,save_count,backup_slot,confirm_action;
     char castle_name[CORE_NAME_BYTES],seed_text[32],message[512],confirm_text[512];
     char user_dir[GAME_PATH_BYTES],save_dir[GAME_PATH_BYTES],settings_path[GAME_PATH_BYTES];
@@ -47,4 +48,11 @@ void game_render_connection_preview(GameApp *app);
 void game_render_free(GameApp *app);
 void game_render_interface(GameApp *app);
 void game_world_input(GameApp *app,float delta);
+void game_select(GameApp *app,int kind,int id);
+void game_building_label(const GameSession *session,int id,char *out,size_t capacity);
+Color game_stat_color(int value);
+float game_person_details(GameApp *app,const CoreVillagerView *villager,float x,float y,float width);
+float game_facility_details(GameApp *app,const CoreBuildingView *building,float x,float y,float width);
+int game_unit_details(GameApp *app,float x,float *y,float width);
+void game_raid_alert(GameApp *app);
 #endif

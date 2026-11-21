@@ -5,33 +5,33 @@
 #include <stdlib.h>
 static const EnemyDef RAIDERS[28] = {
     {"outlaw",45,5,20,1350,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
-    {"plunderer",50,5,30,1100,5,CORE_BEHAVIOR_MONSTER,-1,0,0},
+    {"plunderer",50,5,30,1100,4,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"captain",110,10,20,1150,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"bandit_chief",235,17,30,1120,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"goblin",38,5,20,1300,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"hobgoblin",90,8,20,1000,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
-    {"goblin_shaman",70,8,30,900,5,CORE_BEHAVIOR_MONSTER,-1,0,0},
+    {"goblin_shaman",70,8,30,900,4,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"orc",170,15,30,850,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"ogre",300,23,40,650,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"skeleton",65,7,20,950,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
-    {"skeleton_archer",48,6,30,900,5,CORE_BEHAVIOR_MONSTER,-1,0,0},
+    {"skeleton_archer",48,6,30,900,4,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"ghoul",95,7,20,1400,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"wraith",120,10,30,1150,2,CORE_BEHAVIOR_MONSTER,-1,0,0},
-    {"necromancer",150,12,30,750,5,CORE_BEHAVIOR_MONSTER,-1,0,0},
+    {"necromancer",150,12,30,750,4,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"leshy",70,6,30,950,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"lizardman",90,9,20,1150,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
-    {"druid",105,9,30,920,5,CORE_BEHAVIOR_MONSTER,-1,0,0},
+    {"druid",105,9,30,920,4,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"drake",185,17,30,1100,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"treant",390,27,40,520,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"northern_raider",75,9,20,1120,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"ice_shield",145,8,30,750,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
-    {"frost_shaman",100,10,30,850,5,CORE_BEHAVIOR_MONSTER,-1,0,0},
+    {"frost_shaman",100,10,30,850,4,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"yeti",300,24,40,800,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"believer",55,6,20,1080,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"martyr",65,4,20,1220,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
-    {"flame_priest",85,10,30,900,5,CORE_BEHAVIOR_MONSTER,-1,0,0},
+    {"flame_priest",85,10,30,900,4,CORE_BEHAVIOR_MONSTER,-1,0,0},
     {"paladin",190,16,30,900,1,CORE_BEHAVIOR_MONSTER,-1,0,0},
-    {"inquisitor",245,18,30,950,5,CORE_BEHAVIOR_MONSTER,-1,0,0},
+    {"inquisitor",245,18,30,950,4,CORE_BEHAVIOR_MONSTER,-1,0,0},
 };
 static const CoreRaiderInfo RAIDER_INFO[28] = {
     {0,5,1,950,1450,0,u8"무법자"},
@@ -83,7 +83,7 @@ CORE_API int32_t core_expansion_summon(CoreWorld *w,int32_t parent_id,int32_t *i
     Raid *r=&w->threat.raid;
     if (parent_id<1 || parent_id>r->enemy_count || r->enemies[parent_id-1].state!=CORE_ENEMY_ALIVE || r->enemies[parent_id-1].type!=13) return CORE_ERR_REJECTED;
     if (!reserve(r,r->enemy_count+1)) {w->expansion->deferred_summons++;return CORE_ERR_OUT_OF_MEMORY;}
-    *id=++r->enemy_count; r->enemies[*id-1]=(Enemy){*id,9,CORE_ENEMY_ALIVE,parent_id,0};
+    *id=++r->enemy_count; r->enemies[*id-1]=(Enemy){*id,9,CORE_ENEMY_ALIVE,parent_id,0,{0}};
     w->expansion->summons_total++;return CORE_OK;
 }
 CORE_API int32_t core_expansion_slow(CoreWorld *w,int32_t id) {
@@ -95,7 +95,11 @@ CORE_API int32_t core_expansion_slow(CoreWorld *w,int32_t id) {
 static int elite(int type) {return type==3||type==8||type==13||type==18||type==22||type==27;}
 void expansion_raids_tick(World *w) {
     ExpansionState *e=w->expansion;Raid *r=&w->threat.raid;
-    if (r->id) {if(w->clock.tick-r->started_tick>=72){threat_abort_raid(w);e->alarm=0;}return;}
+    if (r->id) {
+        if(!r->phase){r->phase=CORE_RAID_ASSAULT;r->assault_end_tick=r->started_tick+432;r->initial_count=r->enemy_count;}
+        if(w->clock.tick>=r->assault_end_tick)r->phase=CORE_RAID_RETREAT;
+        return;
+    }
     if (!e->next_raid_tick) {
         int first=(int[]){28,18,14}[w->difficulty];
         e->next_raid_tick=(first-1)*144+rng_range(&w->rng,0,3)*144+rng_range(&w->rng,36,138);
@@ -119,7 +123,7 @@ void expansion_raids_tick(World *w) {
             !(w->threat.raids_done>=2&&RAIDERS[t].range>1&&ranged*5>=((i+1)*2)))choices[count++]=t;
         if(!count)break;
         int t=choices[rng_range(&w->rng,0,count-1)];
-        r->enemies[r->enemy_count++]=(Enemy){i+1,t,CORE_ENEMY_ALIVE,0,0};budget-=RAIDER_INFO[t].cost;
+        r->enemies[r->enemy_count++]=(Enemy){i+1,t,CORE_ENEMY_ALIVE,0,0,{0}};budget-=RAIDER_INFO[t].cost;
         used_elite|=elite(t);ranged+=RAIDERS[t].range>1;
     }
     if(!r->enemy_count)return;
@@ -135,9 +139,14 @@ void expansion_raids_tick(World *w) {
         int score=exp_dist(xx,yy,tx,ty)+(d>40?1000+d:0)+(e->visible[p]?50:0);
         if(score<best){best=score;bx=xx;by=yy;}
     }
-    x=bx;y=by;
+    /* 실제 지도 가장자리 진입점을 유지합니다. 가까운 지점으로 순간 생성하지 않습니다. */
+    (void)bx;(void)by;
     r->id=w->threat.next_raid_id++;r->type=1+faction;r->direction=rng_range(&w->rng,0,3);
     r->spawn_x=x;r->spawn_y=y;r->started_tick=w->clock.tick;r->killed=r->escaped=r->stolen=r->fallen=0;
+    r->phase=CORE_RAID_ASSAULT;r->assault_end_tick=w->clock.tick+432;r->initial_count=r->enemy_count;r->first_discovered=0;
+    memset(r->initial_types,0,sizeof(r->initial_types));
+    for(int i=0;i<r->enemy_count;i++)r->initial_types[r->enemies[i].type]++;
+    for(int i=0;i<w->villager_count;i++)expansion_mood_event(w,w->villagers[i],15,-3,r->id,0,0);
     int interval=rng_range(&w->rng,(int[]){15,12,10}[w->difficulty],(int[]){22,18,15}[w->difficulty]);
     e->next_raid_tick=(day+interval-1)*144+rng_range(&w->rng,36,138);
 }

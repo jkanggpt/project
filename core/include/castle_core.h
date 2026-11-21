@@ -35,9 +35,9 @@ extern "C" {
 #endif
 
 /* 외부 호출자의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
-#define CORE_ABI_VERSION 11
+#define CORE_ABI_VERSION 12
 /* 지금 세이브 파일 형식의 버전 (첫 줄 "MAGICCASTLE_SAVE <버전>") */
-#define CORE_SAVE_VERSION 9
+#define CORE_SAVE_VERSION 10
 
 /* 성채·주민 이름 버퍼 크기 (UTF-8 바이트, 끝의 '\0' 포함) */
 #define CORE_NAME_BYTES 48
@@ -172,7 +172,8 @@ typedef enum CoreBuildingType {
     CORE_BLD_HUNTING_LODGE = 62,
     CORE_BLD_STONE_ROAD = 63,
     CORE_BLD_BRIDGE = 64,
-    CORE_BLD_COUNT = 65
+    CORE_BLD_GARRISON = 65, /* 군영: 기존 저장 번호 뒤에 추가 */
+    CORE_BLD_COUNT = 66
 } CoreBuildingType;
 
 typedef enum CoreBuildingState {
@@ -237,7 +238,8 @@ typedef enum CorePlaceResult {
     CORE_PLACE_NEEDS_WATER = 17,   /* 수변 시설에 필요한 물이 없음 */
     CORE_PLACE_NOT_VISIBLE = 18, /* 현재 시야 밖 */
     CORE_PLACE_TRADE_EXISTS = 19, /* 기존 거래 시설을 먼저 철거 */
-    CORE_PLACE_COUNT = 20
+    CORE_PLACE_RAID_BUILD_LOCK = 20, /* 습격·철수 중 신규 건설 금지 */
+    CORE_PLACE_COUNT = 21
 } CorePlaceResult;
 
 /* 주민 상태 (상태마다 C 의 처리 함수가 하나씩 있음) */
@@ -648,6 +650,7 @@ typedef struct CoreEventView {
     int32_t b;
     int32_t c;
     int32_t d;
+    int32_t cause_kind,source_id,event_tick,type_serial;
     char text[CORE_NAME_BYTES]; /* 관련 주민의 이름 (없으면 빈 문자열) */
 } CoreEventView;
 
@@ -687,6 +690,7 @@ typedef struct CoreVillagerView {
     int32_t happiness, long_hunger, long_rest, long_safety, mood_cause, incoming;
     int32_t current_x_milli, current_y_milli;
     int32_t sex, appearance, work_efficiency, combat_max_hp;
+    int32_t mission,mission_target,shift_kind,duty_minutes,mood_event_tick,mood_event_amount,leisure_elapsed,leisure_duration;
     char name[CORE_NAME_BYTES];
 } CoreVillagerView;
 
@@ -716,6 +720,7 @@ typedef struct CoreBuildingView {
     int32_t rotation,kind_flags,job_field,completed_day,mode,upkeep,operating,blocked_reason;
     int32_t crop_labor_milli,pending_harvest_milli;
     int32_t labor_milli, service_credit_milli, breeding_progress[4], feed_milli, actual_work_milli;
+    int32_t type_serial,combat_guard_id;
 } CoreBuildingView;
 
 /* 건물 정의 (정의 파일에서 읽은 값 + 이 월드에서 지을 수 있는지) */
@@ -787,14 +792,22 @@ typedef struct CoreRaidView {
     int32_t alive;
     int32_t started_tick;
     int32_t stolen;          /* 지금까지 빼앗긴 양 (금화 등 합계) */
+    int32_t phase,assault_end_tick,initial_count,first_discovered;
+    int32_t initial_types[28];
 } CoreRaidView;
 
 /* 습격의 적 한 명 (위치와 체력은 C 그래픽 프런트엔드 이 가짐) */
+typedef struct CoreEnemyRuntime {
+    int32_t valid,hp,x_milli,y_milli,entry_x,entry_y,cooldown_milli,special_milli;
+    int32_t attack_elapsed_milli,attack_serial,attack_applied,attack_kind,attack_target;
+    int32_t attack_x_milli,attack_y_milli,fleeing,retreat_index,inbound_count,inbound[128];
+} CoreEnemyRuntime;
 typedef struct CoreEnemyView {
     int32_t id;
     int32_t type;            /* 적 종류 (core_get_enemy_def) */
     int32_t state;           /* CoreEnemyState */
     int32_t summoner_id;
+    CoreEnemyRuntime runtime;
 } CoreEnemyView;
 
 /* 특성 정의 */

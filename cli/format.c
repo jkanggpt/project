@@ -72,7 +72,7 @@ static const char *const PLACE_RESULTS[CORE_PLACE_COUNT] = {
     u8"다른 건물의 문 앞을 막습니다", u8"문 앞 자리가 막혀 있습니다", u8"근처에 숲이 부족합니다",
     u8"바로 옆에 바위 지대가 있어야 합니다", u8"마정석 광맥 위에 지어야 합니다", u8"등급이 모자랍니다",
     u8"자원이 모자랍니다", u8"이미 있습니다", u8"다른 건물이나 지도 밖으로 가는 길을 막습니다",
-    u8"탐험한 땅과 성채 입구의 연결 도로를 확인하세요", u8"수변 시설에 필요한 물이 없습니다",u8"점유할 모든 칸이 현재 시야 안에 있어야 합니다",u8"기존 노점·시장·교역소를 먼저 철거하세요"};
+    u8"탐험한 땅과 성채 입구의 연결 도로를 확인하세요", u8"수변 시설에 필요한 물이 없습니다",u8"점유할 모든 칸이 현재 시야 안에 있어야 합니다",u8"기존 노점·시장·교역소를 먼저 철거하세요",u8"습격 중 건설 불가 · 적 철수 완료 후 재개"};
 
 static const char *const VILLAGER_STATES[CORE_VS_COUNT] = {u8"쉬는 중", u8"자는 중",   u8"일하러 가는 중",
                                                             u8"일하는 중", u8"먹으러 감", u8"치료받으러 감",
@@ -303,16 +303,15 @@ static void format_warning(const CoreEventView *event, char *out, size_t size)
     }
 }
 
-static void format_building_event(const CoreEventView *event, char *out, size_t size)
-{
-    const char *verb = event->type == CORE_EVT_BUILDING_PLACED      ? u8"짓기 시작했습니다"
-                       : event->type == CORE_EVT_BUILDING_COMPLETED ? u8"다 지었습니다"
-                       : event->type == CORE_EVT_BUILDING_DAMAGED   ? u8"폭풍이 부쉈습니다"
-                       : event->type == CORE_EVT_BUILDING_RUINED    ? u8"폭풍이 무너뜨렸습니다"
-                       : event->type == CORE_EVT_BUILDING_REPAIRED  ? u8"고쳤습니다"
-                                                                    : u8"철거했습니다";
-    const char *name = fmt_building_name(event->b);
-    snprintf(out, size, "%s(%d, %d)%s %s.", name, (int)event->c, (int)event->d, fmt_josa(name, u8"을", u8"를"), verb);
+static void format_building_event(const CoreEventView *event,char *out,size_t size) {
+    const char *name=core_expansion_building_name(event->b);
+    const char *verb=event->type==CORE_EVT_BUILDING_PLACED?u8"착공":event->type==CORE_EVT_BUILDING_COMPLETED?u8"완공":event->type==CORE_EVT_BUILDING_DAMAGED?u8"피해":event->type==CORE_EVT_BUILDING_RUINED?u8"파괴":event->type==CORE_EVT_BUILDING_REPAIRED?u8"수리":u8"철거";
+    char source[160]={0};
+    if(event->cause_kind==1) {CoreRaiderInfo info;if(core_expansion_raider_info(event->source_id,&info)==CORE_OK)snprintf(source,sizeof(source),u8"%s의 공격",info.name);else snprintf(source,sizeof(source),u8"습격 적의 공격");}
+    else if(event->cause_kind==2){CoreAnimalInfo info;if(core_expansion_animal_info(event->source_id,&info)==CORE_OK)snprintf(source,sizeof(source),u8"%s의 반격",info.name);}
+    else if(event->cause_kind==3)snprintf(source,sizeof(source),u8"폭풍");
+    if(event->type==CORE_EVT_BUILDING_RUINED)snprintf(out,size,u8"%s#%d %s · %s (%d일 %02d:%02d)",name,event->type_serial?event->type_serial:event->a,verb,source[0]?source:u8"원인 확인 불가",event->event_tick/144+1,event->event_tick%144/6,event->event_tick%6*10);
+    else snprintf(out,size,u8"%s#%d %s (%d,%d)",name,event->type_serial?event->type_serial:event->a,verb,event->c,event->d);
 }
 
 static void format_produced(const CoreEventView *event, char *out, size_t size)

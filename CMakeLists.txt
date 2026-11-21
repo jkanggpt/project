@@ -1,7 +1,7 @@
 # 마법성채 키우기 — 최상위 CMake 설정
 # C 코어, 그래픽 게임, CLI, 밸런스 도구와 테스트를 빌드합니다.
 cmake_minimum_required(VERSION 3.20)
-project(MagicCastle VERSION 1.2.1 LANGUAGES C)
+project(MagicCastle VERSION 1.2.2 LANGUAGES C)
 
 option(CASTLE_SANITIZE "AddressSanitizer + UBSan + LeakSanitizer (GCC/Clang 전용)" OFF)
 option(CASTLE_WERROR "경고를 오류로 처리 (CI에서 켭니다)" OFF)

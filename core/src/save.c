@@ -869,7 +869,7 @@ static int parse_villager(LoadState *state, const char *key, char *value)
     villager->blocked_day = v[30];
     villager->sick_ticks = v[31];
     villager->heal_ticks = v[32];
-    if (v[33] < 0 || v[33] > 1 || v[34] < 0 || v[34] > 11 || (v[34] % 2) != v[33])
+    if (v[33] < 0 || v[33] > 1 || v[34] < 0 || v[34] > 47 || (v[34] % 2) != v[33])
         return CORE_ERR_FORMAT;
     villager->sex = v[33];
     villager->appearance = v[34];
@@ -1180,7 +1180,7 @@ static int check_header(const char *line)
     if (!parse_i32(line + magic_length + 1, 0, INT32_MAX, &version)) {
         return CORE_ERR_FORMAT;
     }
-    return version == SAVE_VERSION ? CORE_OK : CORE_ERR_VERSION;
+    return version == SAVE_VERSION || version == 9 ? CORE_OK : CORE_ERR_VERSION;
 }
 
 int32_t save_peek_version(const char *path)

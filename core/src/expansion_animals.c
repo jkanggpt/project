@@ -1,6 +1,7 @@
 /* expansion_animals.c — 실제 야생 개체와 먹이·번식·수용량을 갖는 가축 */
 #include "expansion.h"
 #include "population.h"
+#include "placement.h"
 #include <string.h>
 
 static const int MATURE[4] = {24, 12, 16, 8}, PERIOD[4] = {24, 12, 16, 8}, BABIES[4] = {1, 2, 1, 2};
@@ -13,6 +14,22 @@ static int livestock(int kind) {
         if (KINDS[i] == kind)
             return i;
     return -1;
+}
+CORE_API int32_t core_expansion_hit_animal(CoreWorld *w,int32_t id,int32_t damage,int32_t source_kind,int32_t source_id) {
+    if(!w)return CORE_ERR_NULL_ARG;
+    if(!w->expansion||source_kind<1||source_kind>2)return CORE_ERR_INVALID_ARG;
+    if(source_kind==1?!entity_find_building(w,source_id):!entity_find_villager(w,source_id))return CORE_ERR_NOT_FOUND;
+    for(int i=0;i<w->expansion->animal_count;i++) {
+        CoreAnimalView *a=&w->expansion->animals[i];
+        if(a->id!=id||!a->alive)continue;
+        if(a->owner)return CORE_ERR_REJECTED;
+        if(damage>0) {
+            a->attacker_kind=source_kind;a->attacker_id=source_id;a->retaliation_until=w->clock.tick+144;
+            a->retaliate_id=source_kind==2?source_id:0;a->threat_until_tick=w->clock.tick+144;
+        }
+        return core_expansion_damage_animal(w,id,damage);
+    }
+    return CORE_ERR_NOT_FOUND;
 }
 static CoreAnimalView *new_animal(World *w, int kind, int owner, int age) {
     ExpansionState *e = w->expansion;
@@ -134,20 +151,6 @@ CORE_API int32_t core_expansion_damage_animal(CoreWorld *w, int32_t animal_id, i
         if (a->id != animal_id || !a->alive)
             continue;
         a->hp = exp_clamp(a->hp - damage, 0, EXP_ANIMALS[a->kind].hp);
-        if (EXP_ANIMALS[a->kind].behavior == 1 && EXP_ANIMALS[a->kind].attack) {
-            int best = INT32_MAX;
-            for (int j = 0; j < w->villager_count; j++) {
-                Villager *v = w->villagers[j];
-                if (v->inside_building || v->incoming || v->state == CORE_VS_LEAVING)
-                    continue;
-                int d = exp_dist(a->x_milli / 1000, a->y_milli / 1000, v->current_x_milli / 1000,
-                                 v->current_y_milli / 1000);
-                if (d < best) {
-                    best = d;
-                    a->retaliate_id = v->id;
-                }
-            }
-        }
         if (!a->hp) {
             a->alive = 0;
             a->attack_remaining_milli = 0;
@@ -158,8 +161,9 @@ CORE_API int32_t core_expansion_damage_animal(CoreWorld *w, int32_t animal_id, i
                                          CORE_LEDGER_PRODUCTION);
                 (void)expansion_bank_add(w, CORE_RES_MANA, EXP_ANIMALS[a->kind].mana_drop * 1000, CORE_LEDGER_PRODUCTION);
                 if (a->kind >= 24) {
-                    static const int lo[6] = {60,36,48,60,72,48}, hi[6] = {90,60,72,84,96,72};
-                    w->expansion->phantom_next_day[a->kind - 24] = exp_day(w) + rng_range(&w->rng, lo[a->kind-24], hi[a->kind-24]);
+                    static const int lo[6] = {35,24,35,45,50,30}, hi[6] = {55,40,55,65,70,50};
+                    int *timers=a->phantom_slot?w->expansion->phantom_second_day:w->expansion->phantom_next_day;
+                    timers[a->kind-24]=exp_day(w)+rng_range(&w->rng,lo[a->kind-24],hi[a->kind-24]);
                 }
                 if (a->region >= 0 && a->region < 30)
                     w->expansion->region_hunt_days[a->region][exp_day(w) % 12]++;
@@ -172,6 +176,17 @@ CORE_API int32_t core_expansion_damage_animal(CoreWorld *w, int32_t animal_id, i
 }
 static void animal_impact(World *w, CoreAnimalView *a) {
     a->attack_remaining_milli = 0;
+    if(a->target_id<0) {
+        Building *b=entity_find_building(w,-a->target_id);
+        if(!a->alive||!b||b->state!=CORE_BSTATE_ACTIVE||a->attacker_kind!=1||a->attacker_id!=b->id||a->retaliation_until<w->clock.tick)return;
+        int x=a->x_milli/1000,y=a->y_milli/1000;
+        int distance=(x<b->x?b->x-x:x>=b->x+b->w?x-b->x-b->w+1:0)+(y<b->y?b->y-y:y>=b->y+b->h?y-b->y-b->h+1:0);
+        if(distance<=EXP_ANIMALS[a->kind].attack_range) {
+            b->damage_kind=2;b->damage_source=a->kind;b->damage_tick=w->clock.tick;
+            placement_damage(w,b,EXP_ANIMALS[a->kind].attack);
+        }
+        return;
+    }
     Villager *v = entity_find_villager(w, a->target_id);
     if (!a->alive || !v || v->inside_building || v->incoming || v->state == CORE_VS_LEAVING ||
         exp_dist(a->x_milli / 1000, a->y_milli / 1000, v->current_x_milli / 1000, v->current_y_milli / 1000) >
@@ -181,6 +196,7 @@ static void animal_impact(World *w, CoreAnimalView *a) {
     int damage = EXP_ANIMALS[a->kind].attack;
     if(v->workplace && v->workplace->type==CORE_BLD_BARRACKS)
         damage=(damage*100+exp_clamp(100+8*(v->stats.vitality-4),76,148)/2)/exp_clamp(100+8*(v->stats.vitality-4),76,148);
+    v->damage_kind=2;v->damage_source=a->kind;
     v->health -= damage;
     expansion_hurt(w, v, damage, 0);
     v->needs.safety = exp_clamp(v->needs.safety - 10, 0, 100);
@@ -211,10 +227,26 @@ void expansion_animals_tick(World *w) {
         int active = 0, aggressive = info->behavior == 2 || a->retaliate_id;
         if (!a->alive || a->owner)
             continue;
+        if(a->retaliation_until<w->clock.tick){a->attacker_kind=0;a->attacker_id=0;a->retaliate_id=0;}
         a->attack_cooldown_milli = exp_clamp(a->attack_cooldown_milli - 10000, 0, 60000);
         /* 순수 코어 호출자는 세부 시간을 보고하지 않으므로 다음 틱에서 미처리 타격을 마칩니다. */
         if (a->attack_remaining_milli > 0 && a->attack_tick < w->clock.tick)
             animal_impact(w, a);
+        if(a->attacker_kind==1 && info->attack) {
+            Building *b=entity_find_building(w,a->attacker_id);
+            if(!b||b->state!=CORE_BSTATE_ACTIVE){a->attacker_kind=0;a->attacker_id=0;continue;}
+            int building_distance=(x<b->x?b->x-x:x>=b->x+b->w?x-b->x-b->w+1:0)+(y<b->y?b->y-y:y>=b->y+b->h?y-b->y-b->h+1:0);
+            if(building_distance<=info->attack_range && !a->attack_cooldown_milli && !a->attack_remaining_milli) {
+                a->target_id=-b->id;a->attack_tick=w->clock.tick;a->attack_remaining_milli=2400;a->attack_cooldown_milli=info->attack_minutes*1000;
+            } else if(building_distance>info->attack_range) {
+                int xx=x+(b->door_x>x?1:b->door_x<x?-1:0),yy=y;
+                if(xx==x)yy+=b->door_y>y?1:b->door_y<y?-1:0;
+                if(grid_in_bounds(&w->grid,xx,yy)&&!w->grid.block[grid_index(&w->grid,xx,yy)]&&w->grid.cost[grid_index(&w->grid,xx,yy)]) {
+                    a->x_milli=xx*1000+500;a->y_milli=yy*1000+500;
+                }
+            }
+            continue;
+        }
         for (int j = 0; j < w->villager_count; j++) {
             Villager *v = w->villagers[j];
             int d = exp_dist(x, y, v->current_x_milli / 1000, v->current_y_milli / 1000);

@@ -28,11 +28,13 @@ typedef struct CoreExpansionBuildingInfo {
 typedef struct CoreExpansionTileView {
     int32_t biome, tree_kind, tree_age, tree_logs_milli, tree_used_milli, regrow_milli;
     int32_t ore_kind, ore_milli, water_id, explored;
+    int32_t stone_milli, rock_variant;
 } CoreExpansionTileView;
 typedef struct CoreAnimalView {
     int32_t id, kind, x_milli, y_milli, hp, age, owner, breed_day, starve_days, alive;
     int32_t region, attack_tick, target_id, retaliate_id, move_acc, attack_remaining_milli;
     int32_t threat_until_tick, attack_cooldown_milli;
+    int32_t attacker_kind, attacker_id, retaliation_until, phantom_slot;
 } CoreAnimalView;
 
 enum CoreBiome {
@@ -151,5 +153,25 @@ CORE_API int32_t core_expansion_slow(CoreWorld *world,int32_t villager_id);
 typedef struct CoreEventLayers {int32_t plague_days,economic_event,economic_days;} CoreEventLayers;
 CORE_API int32_t core_expansion_events(const CoreWorld *world,CoreEventLayers *out);
 CORE_API int32_t core_expansion_efficiency(const CoreWorld *world,int32_t villager_id,int32_t building_type,int32_t *out_percent);
+
+/* v1.2.2: UI·시뮬레이터가 공유하는 실제 규칙 질의입니다. */
+enum CoreRaidPhase { CORE_RAID_COMPLETE, CORE_RAID_ASSAULT, CORE_RAID_RETREAT };
+enum CoreMission { CORE_MISSION_NONE, CORE_MISSION_SCOUT, CORE_MISSION_HUNT,
+    CORE_MISSION_PATROL, CORE_MISSION_COMBAT, CORE_MISSION_RETURN, CORE_MISSION_WALK };
+typedef struct CoreFacilityView {
+    int32_t id, type_serial, radius, sight, attack, range, cooldown, assigned, present;
+    int32_t labor_milli, mature_trees, logs_milli, magic_logs_milli, deposits[CORE_RES_COUNT];
+    int32_t nominal_milli, stopped_reason, combat_guard_id;
+} CoreFacilityView;
+typedef struct CoreWorkSchedule { int32_t start, end, second_start, second_end, sleep_start, sleep_end, on_duty, shift; } CoreWorkSchedule;
+CORE_API int32_t core_expansion_tree_mature_age(int32_t kind);
+CORE_API int32_t core_expansion_facility(const CoreWorld *world,int32_t id,int32_t type,int32_t x,int32_t y,int32_t rotation,CoreFacilityView *out);
+CORE_API int32_t core_expansion_schedule(const CoreWorld *world,int32_t villager_id,CoreWorkSchedule *out);
+CORE_API int32_t core_expansion_build_locked(const CoreWorld *world);
+CORE_API int32_t core_expansion_set_shift(CoreWorld *world,int32_t villager_id,int32_t shift);
+CORE_API int32_t core_expansion_enemy_runtime(CoreWorld *world,int32_t enemy_id,const CoreEnemyRuntime *state);
+CORE_API int32_t core_expansion_hit_animal(CoreWorld *world,int32_t animal_id,int32_t damage,int32_t source_kind,int32_t source_id);
+CORE_API int32_t core_expansion_building_hit(CoreWorld *world,int32_t building_id,int32_t damage,int32_t source_kind,int32_t source_type);
+CORE_API int32_t core_expansion_person_hit(CoreWorld *world,int32_t villager_id,int32_t damage,int32_t source_kind,int32_t source_type);
 
 #endif

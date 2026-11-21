@@ -82,6 +82,12 @@ struct Villager {
     int32_t hub_id, hub_revision, hub_kind, hub_job, hub_day;
     int32_t sex, appearance, xp_work_minutes[12], work_day, work_day_minutes;
     int32_t mood_fraction_milli, healing_progress_milli, slow_until_tick;
+    int32_t shift_kind, shift_changed_day, shift_adapt_days, duty_minutes, duty_day;
+    int32_t mission, mission_target, mission_waypoint, mission_next_tick;
+    int32_t leisure_building, leisure_elapsed, leisure_duration, leisure_day, education_day;
+    int32_t walk_origin_x, walk_origin_y, walk_reward_day;
+    int32_t mood_ticks[24], mood_counts[24], mood_day, mood_event_tick, mood_event_amount;
+    int32_t thirst_stage, hunger_stage, damage_kind, damage_source;
 };
 
 struct Building {
@@ -108,6 +114,9 @@ struct Building {
     int32_t crop_work_carry;
     int32_t service_credit_milli, service_carry, breeding_progress[4], feed_milli;
     int32_t expansion_loaded;
+
+    int32_t type_serial, logging_cursor, combat_guard_id;
+    int32_t damage_kind,damage_source,damage_tick;
 
     Villager **workers;    /* 일꾼 (id 순으로 정렬) */
     int32_t worker_count;

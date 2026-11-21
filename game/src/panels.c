@@ -125,7 +125,7 @@ static void hud(GameApp *a) {
     }
 }
 static void build_bar(GameApp *a) {
-    static const int groups[] = {1, 7, 8, 9, 10, 11, 12, 3, 4, 16, 17, 5, 13, 14, 15, 6};
+    static const int groups[] = {1, 7, 9, 10, 11, 15, 8, 12, 3, 5, 13, 14, 17, 16, 4, 6};
     static const char *const names[] = {u8"특수",      u8"주거",   u8"자원", u8"저장·거래", u8"성벽·성문",
                                         u8"의료·위생", u8"도로",   u8"농업", u8"축산",      u8"임업",
                                         u8"광업",      u8"어업",   u8"가공", u8"문화·교육", u8"마법",
@@ -166,7 +166,7 @@ static void build_bar(GameApp *a) {
             }
         }
     }
-    for (int display = 0; display < 64; display++) {
+    for (int display = 0; display < CORE_BLD_COUNT - 1; display++) {
         i = core_expansion_display_building(display);
         CoreBuildingDefView *d = &a->session.building_defs[i];
         CoreExpansionBuildingInfo info;
@@ -206,7 +206,6 @@ static void inspector(GameApp *a) {
     GameSession *s = &a->session;
     CoreBuildingView *b = game_building(s, a->selected_building);
     CoreVillagerView *v = game_villager(s, a->selected_villager);
-    char text[1000];
     int blocked = u->input_blocked;
     Rectangle viewport = rect(x - 6, 135, 346, GetScreenHeight() - 330.0f);
     ui_box(rect(x - 6, 135, 346, GetScreenHeight() - 330.0f), UI_PANEL);
@@ -220,16 +219,12 @@ static void inspector(GameApp *a) {
         u->input_blocked = 1;
     y -= a->inspector_scroll;
     ui_clip_begin((int)viewport.x, (int)viewport.y, (int)viewport.width, (int)viewport.height);
-    if (b) {
-        ui_text(u, x + 8, y, UI_GOLD, "%s #%d", core_expansion_building_name(b->type), b->id);
+    if(game_unit_details(a,x+8,&y,width-24)) {
+    } else if (b) {
+        ui_text(u, x + 8, y, UI_GOLD, "%s #%d", core_expansion_building_name(b->type), b->type_serial);
         y += 40;
-        (void)snprintf(
-            text, sizeof(text),
-            u8"체력 %d / %d\n일꾼 %d / %d (작업 중 %d)\n거주민 %d / %d\n생산성 %d%%\n문 앞 (%d, %d)", b->hp,
-            b->max_hp, b->workers, b->worker_slots, b->working_now, b->residents, b->resident_slots,
-            b->productivity, b->door_x, b->door_y);
-        ui_wrap(u, rect(x + 8, y, width - 24, 205), UI_TEXT, text);
-        y += 215;
+        ui_small(u,x+8,y,UI_TEXT,u8"체력 %d/%d · 거주 %d/%d",b->hp,b->max_hp,b->residents,b->resident_slots);y+=30;
+        y=game_facility_details(a,b,x+8,y,width-24);
         {
             CoreExpansionBuildingInfo info;
             (void)core_expansion_building_info(b->type, &info);
@@ -320,52 +315,7 @@ static void inspector(GameApp *a) {
             ui_button(u, rect(x + 8, y, width - 24, 36), u8"철거 (비용 절반 환불)", 1, 0, NULL))
             command(a, core_demolish(s->world, b->id), 0);
     } else if (v) {
-        ui_text(u, x + 8, y, UI_GOLD, "%s #%d", v->name, v->id);
-        y += 40;
-        (void)snprintf(text, sizeof(text),
-                       u8"%d세 · %s%s\n행복도 %d/100 · 기분 %+d/200\n건강 %d · 포만 %d / 휴식 %d\n물 %d / "
-                       u8"위생 %d\n힘 %d · "
-                       u8"민첩 %d · 체력 %d\n손재주 %d · 지능 %d\n집 #%d / 일터 #%d",
-                       v->age, fmt_villager_state(v->state), v->inside_building ? u8" · 실내" : "",
-                       v->happiness, v->mood, v->health, v->hunger, v->rest, v->water, v->hygiene,
-                       v->strength, v->agility, v->vitality, v->dexterity, v->intellect, v->home_id,
-                       v->workplace_id);
-        ui_wrap(u, rect(x + 8, y, width - 24, 280), UI_TEXT, text);
-        y += 285;
-        ui_small(u, x + 8, y, UI_MUTED, u8"장기 포만/휴식/안전 %d/%d/%d", v->long_hunger, v->long_rest,
-                 v->long_safety);
-        y += 28;
-        static const char *const causes[] = {u8"평온한 생활", u8"장시간 굶주림", u8"임금 체불",  u8"부상",
-                                             u8"중상",        u8"습격 위협",     u8"주점 방문",  u8"목욕",
-                                             u8"극장 방문",   u8"교회 방문",     u8"이웃의 사망"};
-        ui_small(u, x + 8, y, UI_MUTED, u8"최근 기분 원인: %s",
-                 v->mood_cause >= 0 && v->mood_cause < 11 ? causes[v->mood_cause] : u8"생활 사건");
-        y += 28;
-        if (v->contract_end_tick) {
-            ui_small(u, x + 8, y, UI_GOLD, u8"계약 남은 기간 %.1f일",
-                     (v->contract_end_tick - s->summary.tick) / 144.0);
-            y += 32;
-        }
-        {
-            static const char *const stats[] = {u8"힘", u8"민첩", u8"체력", u8"손재주", u8"지능"};
-            int k;
-            for (k = 0; k < 5; k++) {
-                ui_small(u, x + 8, y, UI_MUTED, u8"%s 초기 %d / 성장 XP %.2f", stats[k], v->initial_stats[k],
-                         v->stat_xp[k] / 1000.0);
-                y += 25;
-            }
-        }
-        {
-            static const char *const fields[] = {u8"농업", u8"임업", u8"광업", u8"축산", u8"어업", u8"수렵",
-                                                 u8"가공", u8"경비", u8"의료", u8"교역", u8"학술", u8"마법"};
-            int k;
-            for (k = 0; k < 12; k++)
-                if (v->skill_minutes[k]) {
-                    ui_small(u, x + 8, y, UI_TEXT, u8"%s 숙련 %.1f일", fields[k],
-                             v->skill_minutes[k] / 540.0);
-                    y += 25;
-                }
-        }
+        y=game_person_details(a,v,x+8,y,width-24);
         if (ui_button(u, rect(x + 8, y, width - 24, 36), u8"일터 직접 선택", 1, 0, NULL))
             game_app_open(a, PANEL_ASSIGN);
         y += 44;
@@ -789,16 +739,14 @@ static int sort_column = 0, sort_reverse = 0;
 static int villager_compare(const void *left, const void *right) {
     const CoreVillagerView *a = (const CoreVillagerView *)left, *b = (const CoreVillagerView *)right;
     int result;
-    if (sort_column == 0)
-        result = strcmp(a->name, b->name);
-    else if (sort_column == 1)
-        result = (a->job > b->job) - (a->job < b->job);
-    else if (sort_column == 2)
-        result = (a->happiness > b->happiness) - (a->happiness < b->happiness);
-    else
-        result = (a->health > b->health) - (a->health < b->health);
-    return sort_reverse ? -result : result;
+    if(sort_column==0)result=(a->personal_id>b->personal_id)-(a->personal_id<b->personal_id);
+    else if(sort_column==1)result=strcmp(a->name,b->name);
+    else if(sort_column==2)result=(a->job>b->job)-(a->job<b->job);
+    else result=(a->happiness>b->happiness)-(a->happiness<b->happiness);
+    if(!result)return (a->id>b->id)-(a->id<b->id);
+    return sort_reverse?-result:result;
 }
+
 static void villagers(GameApp *a) {
     Rectangle b = modal(a, u8"주민 목록 · 제목을 눌러 정렬", 1120, 760);
     GameSession *s = &a->session;
@@ -851,7 +799,7 @@ static void villagers(GameApp *a) {
     ui_small(&a->ui, b.x + 38, b.y + 145, UI_MUTED, u8"조건·규모는 심사 때 다시 계산합니다. 전체 사유는 마우스를 올려 확인하세요.");
     if (CheckCollisionPointRec(GetMousePosition(), summary))
         snprintf(a->ui.tooltip, sizeof(a->ui.tooltip), "%s", details);
-    static const char *const labels[] = {u8"이름", u8"일터", u8"행복도", u8"체력"};
+    static const char *const labels[] = {u8"번호",u8"이름",u8"일터",u8"행복도"};
     for (i = 0; i < 4; i++)
         if (ui_button(&a->ui, rect(b.x + 28 + i * (b.width - 56) / 4, b.y + 179, (b.width - 64) / 4, 36),
                       labels[i], 1, a->sort_column == i, NULL)) {
@@ -880,8 +828,7 @@ static void villagers(GameApp *a) {
         if (ui_button(&a->ui, rect(b.x + 28, y, b.width - 56, 40), label, 1, a->selected_villager == v->id,
                       NULL)) {
             GameActor *actor = game_actor(s, v->id);
-            a->selected_villager = v->id;
-            a->selected_building = 0;
+            game_select(a,2,v->id);
             a->inspector_scroll=0;
             if (actor)
                 a->camera.target = (Vector2){actor->position.x * 16, actor->position.y * 16};
@@ -890,38 +837,33 @@ static void villagers(GameApp *a) {
     }
 }
 static void assign(GameApp *a) {
-    Rectangle b = modal(a, u8"일꾼 직접 배치", 1000, 730);
-    GameSession *s = &a->session;
-    int building = a->selected_building, count = building ? s->villager_count : s->building_count, i;
-    float y = scroll_start(a, b, count, 55);
-    for (i = 0; i < count; i++, y += 55) {
-        char label[260];
-        int target;
-        if (y < b.y + 70 || y + 45 > b.y + b.height - 42)
-            continue;
-        if (building) {
-            CoreVillagerView *v = &s->villagers[i];
-            target = v->id;
-            (void)snprintf(label, sizeof(label), u8"%s · %s · 힘 %d / 지능 %d / 손재주 %d", v->name,
-                           v->job < 0 ? u8"일터 없음" : core_expansion_building_name(v->job), v->strength,
-                           v->intellect, v->dexterity);
-        } else {
-            CoreBuildingView *d = &s->buildings[i];
-            target = d->id;
-            if (!d->worker_slots)
-                continue;
-            (void)snprintf(label, sizeof(label), u8"%s #%d · 일꾼 %d/%d",
-                           core_expansion_building_name(d->type), d->id, d->workers, d->worker_slots);
+    Rectangle b=modal(a,u8"일꾼 직접 배치",1080,760);GameSession *s=&a->session;
+    int building=a->selected_building,source_count=building?s->villager_count:s->building_count,valid=0;
+    for(int i=0;i<source_count;i++) {
+        if(building){if(!s->villagers[i].incoming&&s->villagers[i].state!=CORE_VS_LEAVING)valid++;}
+        else if(s->buildings[i].worker_slots&&s->buildings[i].state==CORE_BSTATE_ACTIVE)valid++;
+    }
+    float y=scroll_start(a,b,valid,76);
+    CoreVillagerView *selected=game_villager(s,a->selected_villager);
+    for(int i=0;i<source_count;i++) {
+        CoreVillagerView *v=building?&s->villagers[i]:selected;
+        CoreBuildingView *job=building?game_building(s,building):&s->buildings[i];
+        if(!v||!job||(!building&&(!job->worker_slots||job->state!=CORE_BSTATE_ACTIVE))||(building&&(v->incoming||v->state==CORE_VS_LEAVING)))continue;
+        float row_y=y;y+=76;if(row_y<b.y+70||row_y+67>b.y+b.height-42)continue;
+        char label[320],work[120];game_building_label(s,building?v->workplace_id:job->id,work,sizeof(work));
+        int field=job->job_field,minutes=field>=0?v->skill_minutes[field]:0;
+        const char *level=minutes>=75*540?u8"장인":minutes>=30*540?u8"직인":minutes>=8*540?u8"도제":u8"초보";
+        snprintf(label,sizeof(label),u8"%s · %s · %s %.1f일 · %s",v->name,work,level,minutes/540.0,fmt_villager_state(v->state));
+        if(ui_button(&a->ui,rect(b.x+28,row_y,b.width-56,67),"",1,0,label)) {
+            int rc=core_assign_worker(s->world,v->id,job->id);command(a,rc,0);if(rc==CORE_OK)game_app_close(a);
         }
-        if (ui_button(&a->ui, rect(b.x + 28, y, b.width - 56, 42), label, 1, 0, NULL)) {
-            int rc = core_assign_worker(s->world, building ? target : a->selected_villager,
-                                        building ? building : target);
-            command(a, rc, 0);
-            if (rc == CORE_OK)
-                game_app_close(a);
-        }
+        ui_small(&a->ui,b.x+40,row_y+6,UI_TEXT,"%s",label);
+        const int values[5]={v->strength,v->agility,v->vitality,v->dexterity,v->intellect};
+        const char *const names[5]={u8"힘",u8"민첩",u8"체력",u8"손재주",u8"지능"};
+        for(int k=0;k<5;k++)ui_small(&a->ui,b.x+40+k*170,row_y+35,game_stat_color(values[k]),u8"%s %d",names[k],values[k]);
     }
 }
+
 static void ledger(GameApp *a) {
     Rectangle b = modal(a, u8"자원 장부", 920, 710);
     CoreLedgerView l;
@@ -1101,11 +1043,11 @@ void game_render_interface(GameApp *a) {
                                  water.capacity_milli / 1000.0);
                 } else if (tile->tree_kind && tile->tree_logs_milli) {
                     static const char *const names[] = {u8"자작나무", u8"소나무", u8"참나무", u8"마력수"};
-                    int mature = (int[]){28000, 48000, 84000, 112000}[tile->tree_kind - 1];
+                    int mature = core_expansion_tree_mature_age(tile->tree_kind);
                     snprintf(a->ui.tooltip, sizeof(a->ui.tooltip),
                              u8"%s · %s\n성장 %.1f/%d일 · 원목 잔량 %.1f\n생물군계: %s",
                              names[tile->tree_kind - 1],
-                             tile->tree_age < mature / 4 ? u8"묘목"
+                             tile->tree_age < mature * 3 / 10 ? u8"묘목"
                              : tile->tree_age < mature   ? u8"유목"
                                                          : u8"성목",
                              tile->tree_age / 1000.0, mature / 1000, tile->tree_logs_milli / 1000.0,
@@ -1115,5 +1057,6 @@ void game_render_interface(GameApp *a) {
             }
         }
     }
+    game_raid_alert(a);
     ui_tooltip(&a->ui);
 }

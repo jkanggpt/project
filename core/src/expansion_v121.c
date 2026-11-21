@@ -15,9 +15,12 @@ int expansion_centers_distance(const Building *a, const Building *b) {
 int expansion_working_present(const World *w, const Building *b, const Villager *v) {
     (void)w;
     if (!b || !v || b->state != CORE_BSTATE_ACTIVE || v->health <= 0 || v->workplace != b ||
-        v->target != b || !v->at_target || v->incoming ||
+        v->incoming ||
         (v->state != CORE_VS_WORKING && v->state != CORE_VS_GUARD_POST))
         return 0;
+    CoreWorkSchedule schedule;if(!expansion_schedule(w,v,&schedule))return 0;
+    if(v->mission==CORE_MISSION_SCOUT||v->mission==CORE_MISSION_HUNT||v->mission==CORE_MISSION_PATROL||v->mission==CORE_MISSION_COMBAT)return 1;
+    if(v->target!=b||!v->at_target)return 0;
     int x = v->current_x_milli / 1000, y = v->current_y_milli / 1000;
     return v->inside_building == b->id || (x == b->door_x && y == b->door_y) ||
            (x >= b->x && x < b->x + b->w && y >= b->y && y < b->y + b->h);
@@ -136,11 +139,21 @@ int expansion_begin_work(World *w, Villager *v, Building *b) {
     return minutes;
 }
 int expansion_trade_limit(const World *w) {
-    int level = expansion_market_level(w);
-    if (!level)
-        return 0;
-    return exp_clamp(w->expansion->trade_capacity_milli / 1000, 0, (int[]){0, 20, 80, 260}[level]);
+    int level=expansion_market_level(w),total=0,count=0;
+    if(!level)return 0;
+    for(int i=0;i<w->building_count;i++) {
+        const Building *b=w->buildings[i];
+        int n=b->type==CORE_BLD_STALL?1:b->type==CORE_BLD_MARKET?2:b->type==CORE_BLD_TRADING_POST?3:0;
+        if(n!=level||b->state!=CORE_BSTATE_ACTIVE)continue;
+        for(int j=0;j<b->worker_count;j++)if(expansion_working_present(w,b,b->workers[j])) {
+            total+=expansion_work_percent(w,b->workers[j],b->type);count++;
+        }
+    }
+    if(!count)return 0;
+    int average=total/count,base=(int[]){0,20,80,260}[level];
+    return base+base*exp_clamp(average-100,0,200)/800-base*exp_clamp(100-average,0,75)/750;
 }
+
 void expansion_choose_identity(World *w, Villager *v) {
     const char *entry = NULL, *name = NULL;
     int sex = 0;
@@ -159,7 +172,15 @@ void expansion_choose_identity(World *w, Villager *v) {
         name = u8"주민";
     strcpy(v->name, name);
     v->sex = sex;
-    v->appearance = rng_range(&w->rng, 0, 5) * 2 + sex;
+    v->appearance = rng_range(&w->rng, 0, 23) * 2 + sex;
+    for(int attempt=0;attempt<4;attempt++) {
+        int recent=0,checked=0;
+        for(int i=w->villager_count-1;i>=0 && checked<8;i--)if(w->villagers[i]!=v&&w->villagers[i]->sex==sex) {
+            checked++;recent|=w->villagers[i]->appearance==v->appearance;
+        }
+        if(!recent||rng_range(&w->rng,0,3)==0)break;
+        v->appearance=rng_range(&w->rng,0,23)*2+sex;
+    }
 }
 CORE_API int32_t core_expansion_events(const CoreWorld *w,CoreEventLayers *out) {
     if(!w || !out)return CORE_ERR_NULL_ARG;

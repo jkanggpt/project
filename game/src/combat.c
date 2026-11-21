@@ -79,9 +79,21 @@ int game_combat_sync(GameSession *s) {
             enemy->hp = enemy->def.hp;
             enemy->actor.grid_revision = -1;
             enemy->actor.position = (GamePoint){s->raid.spawn_x + 0.5f, s->raid.spawn_y + 0.5f};
+            enemy->entry_x=s->raid.spawn_x;enemy->entry_y=s->raid.spawn_y;
             if (enemy->summoner_id) {
                 GameEnemy *parent = game_enemy(s,enemy->summoner_id);
                 if (parent) enemy->actor.position=parent->actor.position;
+            }
+            const CoreEnemyRuntime *r=&views[i].runtime;
+            if(r->valid) {
+                enemy->hp=r->hp;enemy->actor.position=(GamePoint){r->x_milli/1000.0f,r->y_milli/1000.0f};
+                enemy->entry_x=r->entry_x;enemy->entry_y=r->entry_y;
+                enemy->actor.cooldown=r->cooldown_milli/1000.0f;enemy->special_clock=r->special_milli/1000.0f;
+                enemy->attack_elapsed=r->attack_elapsed_milli/1000.0f;enemy->attack_serial=r->attack_serial;
+                enemy->attack_applied=r->attack_applied;enemy->attack_kind=r->attack_kind;enemy->attack_target=r->attack_target;
+                enemy->attack_to=(GamePoint){r->attack_x_milli/1000.0f,r->attack_y_milli/1000.0f};
+                enemy->fleeing=r->fleeing;enemy->retreat_index=r->retreat_index;enemy->inbound_count=r->inbound_count;
+                memcpy(enemy->inbound,r->inbound,sizeof(enemy->inbound));enemy->retreat_started=enemy->fleeing;
             }
         }
     }
@@ -89,7 +101,7 @@ int game_combat_sync(GameSession *s) {
     return CORE_OK;
 }
 static int guard(const CoreVillagerView *v) {
-    return v->state == CORE_VS_GUARD_POST && v->at_target && v->health > 0;
+    return v->state == CORE_VS_GUARD_POST && !v->inside_building && v->health > 0;
 }
 static int exposed(const GameSession *s,const CoreVillagerView *v) {
     return v->health > 0 && !v->inside_building && !v->incoming && v->state != CORE_VS_LEAVING &&
@@ -121,7 +133,7 @@ static void hurt_enemy(GameSession *s, int id, int damage) {
     }
 }
 static void impact(GameSession *s, const GameProjectile *p) {
-    if (p->raid_id != s->raid_id)
+    if (p->target_kind!=TARGET_ANIMAL && p->raid_id != s->raid_id)
         return;
     if (p->target_kind == TARGET_ENEMY) {
         GameEnemy *e = game_enemy(s, p->target_id);
@@ -139,15 +151,15 @@ static void impact(GameSession *s, const GameProjectile *p) {
                     game_distance(where, s->enemies[i].actor.position) <= p->radius)
                     hurt_enemy(s, s->enemies[i].actor.id, p->damage);
     } else if (p->target_kind == TARGET_BUILDING) {
-        (void)core_report_building_damage(s->world, p->raid_id, p->target_id, p->damage);
+        (void)(s->summary.ruleset?core_expansion_building_hit(s->world,p->target_id,p->damage,1,p->source_type):core_report_building_damage(s->world,p->raid_id,p->target_id,p->damage));
         if(p->radius>0 && p->source_type==27)hostile_area(s,p->to,p->radius,p->damage,TARGET_BUILDING,p->target_id);
     } else if (p->target_kind == TARGET_VILLAGER) {
-        int applied=core_report_villager_damage(s->world, p->raid_id, p->target_id, p->damage);
+        int applied=s->summary.ruleset?core_expansion_person_hit(s->world,p->target_id,p->damage,1,p->source_type):core_report_villager_damage(s->world,p->raid_id,p->target_id,p->damage);
         if(applied==CORE_OK && p->source_type==21)(void)core_expansion_slow(s->world,p->target_id);
         if(p->radius>0 && p->source_type==27)hostile_area(s,p->to,p->radius,p->damage,TARGET_VILLAGER,p->target_id);
     } else if (p->target_kind == TARGET_ANIMAL) {
         int i;
-        if (core_expansion_damage_animal(s->world, p->target_id, p->damage) == CORE_OK)
+        if (core_expansion_hit_animal(s->world,p->target_id,p->damage,p->source_type>=100?1:2,p->source_id) == CORE_OK)
             for (i = 0; i < s->animal_count; i++)
                 if (s->animals[i].id == p->target_id) {
                     s->animals[i].hp -= p->damage;
@@ -157,9 +169,10 @@ static void impact(GameSession *s, const GameProjectile *p) {
                 }
     }
 }
-static void fire(GameSession *s, GamePoint from, GamePoint to, int kind, int id, int damage, float radius,int source) {
+static void fire(GameSession *s, GamePoint from, GamePoint to, int kind, int id, int damage, float radius,int source,int source_id) {
     GameProjectile p = {0};
     p.source_type = source;
+    p.source_id=source_id;
     p.from = from;
     p.to = to;
     p.elapsed = 0;
@@ -225,12 +238,13 @@ static CoreAnimalView *nearest_animal(GameSession *s, GamePoint position, float 
         CoreAnimalView *a = &s->animals[i];
         int x = a->x_milli / 1000, y = a->y_milli / 1000;
         float distance;
-        if (!a->alive || a->owner || a->threat_until_tick <= s->summary.tick ||
+        CoreAnimalInfo species;core_expansion_animal_info(a->kind,&species);
+        if (!a->alive || a->owner || (species.behavior!=2 && a->threat_until_tick<=s->summary.tick) ||
             s->visibility[y * s->summary.map_width + x] < 2)
             continue;
         GamePoint point={a->x_milli/1000.0f,a->y_milli/1000.0f};
         distance=source?building_radius(point,source):game_distance(position,point);
-        if (distance < range) {
+        if (distance <= range) {
             best = a;
             range = distance;
         }
@@ -255,110 +269,94 @@ static GameTower *tower_state(GameSession *s, int id) {
     s->towers[s->tower_count] = (GameTower){id, 0};
     return &s->towers[s->tower_count++];
 }
-static void towers_step(GameSession *s, float minutes) {
-    int i;
-    for (i = 0; i < s->building_count; i++) {
-        CoreBuildingView *b = &s->buildings[i];
-        CoreBuildingDefView *d = &s->building_defs[b->type];
-        GameTower *state;
-        GameEnemy *enemy;
-        if (b->state != CORE_BSTATE_ACTIVE || d->attack <= 0 || b->type == CORE_BLD_BARRACKS)
-            continue;
-        if (s->summary.ruleset && (d->category != CORE_CAT_TOWERS || !b->working_now))
-            continue;
-        state = tower_state(s, b->id);
-        if (!state)
-            return;
-        state->cooldown = fmaxf(0,state->cooldown)-minutes;
-        if (state->cooldown > 0)
-            continue;
-        enemy = nearest_enemy(s, center(b), (float)d->attack_range, 1,b);
-        if (enemy) {
-            if (s->summary.ruleset && core_expansion_fire(s->world, b->id) != CORE_OK)
-                continue;
-            float efficiency = 0; int workers = 0;
-            for (int k=0;k<s->villager_count;k++) {CoreVillagerView *v=&s->villagers[k];if(v->workplace_id==b->id&&v->state==CORE_VS_WORKING&&v->at_target){efficiency+=v->work_efficiency/100.0f;workers++;}}
-            float ratio = workers ? .75f+.25f*efficiency/workers : 1;
-            state->cooldown += d->attack_cooldown / fminf(1.6f,fmaxf(.65f,ratio));
-            fire(s, center(b), enemy->actor.position, TARGET_ENEMY, enemy->actor.id, d->attack,
-                 b->type == CORE_BLD_CANNON_TOWER ? (researched(s, 12) ? 2.0f : 1.0f) : 0.0f,100+b->type);
-        } else {
-            CoreAnimalView *animal = nearest_animal(s, center(b), (float)d->attack_range,b);
-            if (animal && core_expansion_fire(s->world, b->id) == CORE_OK) {
-                float efficiency = 0; int workers = 0;
-            for (int k=0;k<s->villager_count;k++) {CoreVillagerView *v=&s->villagers[k];if(v->workplace_id==b->id&&v->state==CORE_VS_WORKING&&v->at_target){efficiency+=v->work_efficiency/100.0f;workers++;}}
-            float ratio = workers ? .75f+.25f*efficiency/workers : 1;
-            state->cooldown += d->attack_cooldown / fminf(1.6f,fmaxf(.65f,ratio));
-                fire(s, center(b), (GamePoint){animal->x_milli / 1000.0f, animal->y_milli / 1000.0f},
-                     TARGET_ANIMAL, animal->id, d->attack, 0,100+b->type);
-            }
-        }
+static CoreAnimalView *hunt_target(GameSession *s,const CoreVillagerView *v,const CoreBuildingView *base,GamePoint position,float range) {
+    CoreAnimalView *best=NULL;float nearest=range;
+    for(int i=0;i<s->animal_count;i++) {
+        CoreAnimalView *a=&s->animals[i];CoreAnimalInfo info;core_expansion_animal_info(a->kind,&info);
+        if(!a->alive||a->owner)continue;
+        float distance=game_distance(position,(GamePoint){a->x_milli/1000.0f,a->y_milli/1000.0f});
+        float radius=base->type==CORE_BLD_HUNTER_CAMP?8.0f:15.0f;
+        if(building_radius((GamePoint){a->x_milli/1000.0f,a->y_milli/1000.0f},base)>radius)continue;
+        if(base->type==CORE_BLD_HUNTER_CAMP&&info.biomass>4 && a->attacker_id!=(v?v->id:base->id))continue;
+        int cell=a->y_milli/1000*s->summary.map_width+a->x_milli/1000;
+        if(s->visibility&&s->visibility[cell]<2)continue;
+        if(distance<=nearest){nearest=distance;best=a;}
+    }
+    return best;
+}
+static void towers_step(GameSession *s,float minutes) {
+    for(int i=0;i<s->building_count;i++) {
+        CoreBuildingView *b=&s->buildings[i];CoreBuildingDefView *d=&s->building_defs[b->type];
+        int manor=s->summary.ruleset&&b->type==CORE_BLD_KEEP;
+        int hunting=s->summary.ruleset&&(b->type==CORE_BLD_HUNTER_CAMP||b->type==CORE_BLD_HUNTING_LODGE);
+        if(b->state!=CORE_BSTATE_ACTIVE)continue;
+        if(!manor && (s->summary.ruleset?(!b->working_now||(!hunting&&d->category!=CORE_CAT_TOWERS)):d->attack<=0))continue;
+        int damage=manor?(int[]){6,9,13,18,26,35}[s->summary.rank]:hunting?(b->type==CORE_BLD_HUNTER_CAMP?2:4):d->attack;
+        int range=manor?4+s->summary.rank:hunting?(b->type==CORE_BLD_HUNTER_CAMP?3:4):d->attack_range;
+        int cooldown=manor?25:hunting?(b->type==CORE_BLD_HUNTER_CAMP?30:25):d->attack_cooldown;
+        GameTower *state=tower_state(s,b->id);if(!state)return;
+        state->cooldown=fmaxf(0,state->cooldown)-minutes;if(state->cooldown>0)continue;
+        GameEnemy *enemy=hunting?NULL:nearest_enemy(s,center(b),(float)range,1,b);
+        CoreAnimalView *animal=enemy?NULL:hunting?hunt_target(s,NULL,b,center(b),(float)range):nearest_animal(s,center(b),(float)range,b);
+        if(!enemy&&!animal)continue;
+        if(!hunting&&s->summary.ruleset&&core_expansion_fire(s->world,b->id)!=CORE_OK)continue;
+        state->cooldown+=cooldown;
+        if(enemy)fire(s,center(b),enemy->actor.position,TARGET_ENEMY,enemy->actor.id,damage,b->type==CORE_BLD_CANNON_TOWER?1.0f:0,100+b->type,b->id);
+        else fire(s,center(b),(GamePoint){animal->x_milli/1000.0f,animal->y_milli/1000.0f},TARGET_ANIMAL,animal->id,damage,0,100+b->type,b->id);
     }
 }
-static void guards_step(GameSession *s, float minutes) {
-    CoreBuildingDefView *d = &s->building_defs[CORE_BLD_BARRACKS];
-    int i;
-    for (i = 0; i < s->villager_count; i++) {
-        CoreVillagerView *v = &s->villagers[i];
-        GameActor *a;
-        GameEnemy *enemy;
-        CoreAnimalView *animal = NULL;
-        GamePoint post, goal;
-        int kind = TARGET_NONE, id = 0, barrier;
-        if (!guard(v))
-            continue;
-        a = game_actor(s, v->id);
-        if (!a)
-            continue;
-        post = (GamePoint){v->loc_x + 0.5f, v->loc_y + 0.5f};
-        enemy = nearest_enemy(s, a->position, s->summary.ruleset ? 400.0f : 8.0f, 0,NULL);
-        goal = post;
-        if (enemy && (!s->summary.ruleset || s->dispatch_delay <= 0)) {
-            goal = enemy->actor.position;
-            kind = TARGET_ENEMY;
-            id = enemy->actor.id;
-        } else if ((animal = nearest_animal(s, a->position, 8.0f,NULL)) != NULL) {
-            goal = (GamePoint){animal->x_milli / 1000.0f, animal->y_milli / 1000.0f};
-            kind = TARGET_ANIMAL;
-            id = animal->id;
-        }
-        if (kind) {
-            a->chasing = 1;
-            a->chase_goal = goal;
-        } else if (a->chasing) {
-            goal = a->chase_goal;
-            if (game_distance(a->position, goal) < 0.6f) {
-                a->chasing = 0;
-                goal = post;
-            }
-        }
-        a->cooldown = fmaxf(0,a->cooldown)-minutes;
-        if (kind && game_distance(a->position, goal) <= fmaxf(1, (float)d->attack_range)) {
-            if (a->cooldown <= 0) {
-                a->cooldown += s->summary.ruleset ? fmaxf(8,roundf(15/(.9f+.1f*v->work_efficiency/100.0f))) : (float)d->attack_cooldown;
-                int damage = s->summary.ruleset ? (int)roundf(7*(.7f+.3f*v->work_efficiency/100.0f)) : d->attack;
-                if (kind == TARGET_ENEMY)
-                    hurt_enemy(s, id, damage);
-                else {
-                    GameProjectile hit = {0};
-                    hit.raid_id = s->raid_id;
-                    hit.target_kind = TARGET_ANIMAL;
-                    hit.target_id = id;
-                    hit.damage = damage;
-                    impact(s, &hit);
+static void guards_step(GameSession *s,float minutes) {
+    for(int i=0;i<s->villager_count;i++) {
+        CoreVillagerView *v=&s->villagers[i];CoreBuildingView *base=game_building(s,v->workplace_id);
+        GameActor *a=game_actor(s,v->id);if(!a||!base||!guard(v)||v->mission==CORE_MISSION_RETURN)continue;
+        int hunting=base->type==CORE_BLD_HUNTER_CAMP||base->type==CORE_BLD_HUNTING_LODGE;
+        if(!hunting&&base->type!=CORE_BLD_BARRACKS&&base->type!=CORE_BLD_GARRISON)continue;
+        a->outfit=hunting?(base->type==CORE_BLD_HUNTER_CAMP?1:2):(base->type==CORE_BLD_GARRISON?4:3);
+        float sight=(float)(3+v->agility/3),range=hunting?(base->type==CORE_BLD_HUNTER_CAMP?3.0f:4.0f):1.0f;
+        a->cooldown=fmaxf(0,a->cooldown)-minutes;
+        if(a->attack_serial&&a->attack_elapsed<4.8f) {
+            a->attack_elapsed+=minutes;
+            if(!a->attack_applied&&a->attack_elapsed>=2.4f) {
+                a->attack_applied=1;
+                int attack_base=hunting?(base->type==CORE_BLD_HUNTER_CAMP?4:6):(base->type==CORE_BLD_GARRISON?13:10);
+                int damage=(int)roundf(attack_base*(hunting?.8f+.2f*v->work_efficiency/100.0f:.7f+.3f*v->work_efficiency/100.0f));
+                if(a->attack_kind==TARGET_ENEMY) {
+                    GameEnemy *e=game_enemy(s,a->attack_target);
+                    if(e&&e->hp>0&&game_distance(a->position,e->actor.position)<=range)hurt_enemy(s,e->actor.id,damage);
+                } else for(int j=0;j<s->animal_count;j++) {
+                    CoreAnimalView *animal=&s->animals[j];if(animal->id!=a->attack_target||!animal->alive)continue;
+                    GamePoint to={animal->x_milli/1000.0f,animal->y_milli/1000.0f};
+                    if(game_distance(a->position,to)<=range) {
+                        if(hunting)fire(s,a->position,to,TARGET_ANIMAL,animal->id,damage,0,50,v->id);
+                        else (void)core_expansion_hit_animal(s->world,animal->id,damage,2,v->id);
+                    }
+                    break;
                 }
             }
+            continue;
+        }
+        GameEnemy *enemy=hunting?NULL:nearest_enemy(s,a->position,sight,0,NULL);
+        CoreAnimalView *animal=enemy?NULL:hunting?hunt_target(s,v,base,a->position,sight):nearest_animal(s,a->position,sight,NULL);
+        GamePoint goal=enemy?enemy->actor.position:animal?(GamePoint){animal->x_milli/1000.0f,animal->y_milli/1000.0f}:(GamePoint){v->target_x+.5f,v->target_y+.5f};
+        int kind=enemy?TARGET_ENEMY:animal?TARGET_ANIMAL:TARGET_NONE,id=enemy?enemy->actor.id:animal?animal->id:0;
+        if(!kind) {a->chasing=0;continue;}
+        a->chasing=1;
+        a->facing=game_walk_facing(goal.x-a->position.x,goal.y-a->position.y,a->facing);
+        if(game_distance(a->position,goal)<=range) {
+            if(a->cooldown<=0) {
+                a->cooldown+=hunting?(base->type==CORE_BLD_HUNTER_CAMP?30:25):fmaxf(8,roundf(15/(.9f+.1f*v->work_efficiency/100.0f)));
+                a->attack_serial++;a->attack_elapsed=0;a->attack_applied=0;a->attack_kind=kind;a->attack_target=id;
+            }
         } else {
-            if (a->target_x != (int)goal.x || a->target_y != (int)goal.y ||
-                a->grid_revision != s->grid_revision || !a->path.count)
-                (void)game_actor_plan(s, a, (int)goal.x, (int)goal.y, 0);
-            if (game_actor_walk(s, a, minutes * v->walk_speed / 1000.0f / s->config.minutes_per_tick, 0,
-                                &barrier) &&
-                !kind)
-                a->chasing = 0;
+            int barrier;
+            if(a->target_x!=(int)goal.x||a->target_y!=(int)goal.y||a->grid_revision!=s->grid_revision||!a->path.count)
+                (void)game_actor_plan(s,a,(int)goal.x,(int)goal.y,0);
+            (void)game_actor_walk(s,a,minutes*v->walk_speed/1000.0f/s->config.minutes_per_tick,0,&barrier);
+            (void)core_expansion_report_position(s->world,v->id,(int)(a->position.x*1000),(int)(a->position.y*1000));
         }
     }
 }
+
 static int target_valid(GameSession *s, const GameEnemy *e) {
     if (e->target_kind == TARGET_VILLAGER) {
         CoreVillagerView *v = game_villager(s, e->target_id);
@@ -394,7 +392,7 @@ static void choose_target(GameSession *s, GameEnemy *e) {
     for (i = 0; i < s->building_count; i++) {
         CoreBuildingView *b = &s->buildings[i];
         float distance;
-        if (b->hp <= 0 || b->state == CORE_BSTATE_RUINED || b->type == CORE_BLD_WALL ||
+        if (b->hp <= 0 || b->state != CORE_BSTATE_ACTIVE || b->type == CORE_BLD_WALL ||
             b->type == CORE_BLD_GATE)
             continue;
         if (e->def.behavior == CORE_BEHAVIOR_THIEF && b->type != CORE_BLD_KEEP &&
@@ -443,7 +441,7 @@ static void hostile_area(GameSession *s,GamePoint p,float radius,int damage,int 
     }
     for(int i=0;i<s->building_count;i++) {
         CoreBuildingView *b=&s->buildings[i];
-        if(b->state!=CORE_BSTATE_RUINED && !(exclude_kind==TARGET_BUILDING&&exclude_id==b->id) && building_distance(p,b)<=radius)
+        if(b->state==CORE_BSTATE_ACTIVE && !(exclude_kind==TARGET_BUILDING&&exclude_id==b->id) && building_distance(p,b)<=radius)
             (void)core_report_building_damage(s->world,s->raid_id,b->id,damage);
     }
 }
@@ -457,9 +455,9 @@ static void attack_impact(GameSession *s,GameEnemy *e) {
         if(e->info.ability==6)damage=damage*3/2;
     }
     if(e->def.range>1) {
-        fire(s,e->actor.position,e->attack_to,kind,id,damage,e->info.ability==10?1.0f:0.0f,e->def.type);
+        fire(s,e->actor.position,e->attack_to,kind,id,damage,e->info.ability==10?1.0f:0.0f,e->def.type,e->actor.id);
     } else {
-        if(kind==TARGET_BUILDING)(void)core_report_building_damage(s->world,s->raid_id,id,damage);
+        if(kind==TARGET_BUILDING)(void)(s->summary.ruleset?core_expansion_building_hit(s->world,id,damage,1,e->def.type):core_report_building_damage(s->world,s->raid_id,id,damage));
         else (void)core_report_villager_damage(s->world,s->raid_id,id,damage);
         if(e->info.ability==8) hostile_area(s,e->attack_to,1.5f,damage/2,kind,id);
     }
@@ -476,9 +474,15 @@ static void enemy_step(GameSession *s, GameEnemy *e, float minutes) {
     float distance = 1e9f;
     int barrier = 0, arrived;
     e->actor.cooldown=fmaxf(0,e->actor.cooldown)-minutes;
+    if(s->summary.ruleset && s->raid.phase==CORE_RAID_RETREAT) {
+        if(!e->retreat_started) {
+            e->retreat_started=1;e->fleeing=1;e->retreat_index=e->inbound_count-1;
+            e->attack_serial=0;e->target_kind=TARGET_NONE;e->actor.grid_revision=-1;
+        }
+    }
     /* 주기 능력은 공격 자세를 재생하는 시간에도 같은 게임 시계를 사용합니다. */
     e->special_clock += minutes;
-    if(s->summary.ruleset && e->special_clock>=120) {
+    if(s->summary.ruleset && !e->fleeing && e->special_clock>=120) {
         if(e->info.ability==4) {int32_t id=0;if(core_expansion_summon(s->world,e->actor.id,&id)!=CORE_OK)e->special_clock=118;}
         if(e->info.ability==5) {
             for(int i=0;i<s->enemy_count;i++) {GameEnemy *other=&s->enemies[i];if(other!=e && other->hp>0 && other->hp<other->def.hp && game_distance(e->actor.position,other->actor.position)<=5){other->hp+=15;if(other->hp>other->def.hp)other->hp=other->def.hp;break;}}
@@ -492,7 +496,12 @@ static void enemy_step(GameSession *s, GameEnemy *e, float minutes) {
     }
     e->retarget -= minutes;
     if (e->fleeing) {
-        goal = (GamePoint){s->raid.spawn_x + 0.5f, s->raid.spawn_y + 0.5f};
+        goal = (GamePoint){e->entry_x+.5f,e->entry_y+.5f};
+        while(e->retreat_index>=0) {
+            GamePoint waypoint={e->inbound[e->retreat_index*2]+.5f,e->inbound[e->retreat_index*2+1]+.5f};
+            if(game_distance(e->actor.position,waypoint)<.7f){e->retreat_index--;continue;}
+            goal=waypoint;break;
+        }
     } else {
         if (!target_valid(s, e) || e->retarget <= 0) {
             choose_target(s, e);
@@ -542,7 +551,8 @@ static void enemy_step(GameSession *s, GameEnemy *e, float minutes) {
             s->barrier_hits++;
         }
     }
-    if (arrived && e->fleeing) {
+    if (arrived && e->fleeing && e->retreat_index<0 &&
+        ((int)e->actor.position.x==0 || (int)e->actor.position.y==0 || (int)e->actor.position.x==s->summary.map_width-1 || (int)e->actor.position.y==s->summary.map_height-1)) {
         (void)core_report_enemy_escaped(s->world, s->raid_id, e->actor.id);
         e->hp = 0;
     }
@@ -573,5 +583,20 @@ void game_combat_step(GameSession *s, float minutes) {
             }
     towers_step(s, minutes);
     guards_step(s, minutes);
+    if(s->summary.ruleset && s->raid_id)for(int n=0;n<s->enemy_count;n++) {
+        GameEnemy *e=&s->enemies[n];if(e->hp<=0)continue;
+        int x=(int)e->actor.position.x,y=(int)e->actor.position.y;
+        if(!e->fleeing && (!e->inbound_count || abs(e->inbound[(e->inbound_count-1)*2]-x)+abs(e->inbound[(e->inbound_count-1)*2+1]-y)>=3)) {
+            if(e->inbound_count==64){memmove(e->inbound+2,e->inbound+4,124*sizeof(int));e->inbound_count=63;}
+            e->inbound[e->inbound_count*2]=x;e->inbound[e->inbound_count*2+1]=y;e->inbound_count++;
+        }
+        CoreEnemyRuntime r={0};r.valid=1;r.hp=e->hp;r.x_milli=(int)(e->actor.position.x*1000);r.y_milli=(int)(e->actor.position.y*1000);
+        r.entry_x=e->entry_x;r.entry_y=e->entry_y;r.cooldown_milli=(int)(fmaxf(0,e->actor.cooldown)*1000);
+        r.special_milli=(int)(e->special_clock*1000);r.attack_elapsed_milli=(int)(e->attack_elapsed*1000);
+        r.attack_serial=e->attack_serial;r.attack_applied=e->attack_applied;r.attack_kind=e->attack_kind;r.attack_target=e->attack_target;
+        r.attack_x_milli=(int)(e->attack_to.x*1000);r.attack_y_milli=(int)(e->attack_to.y*1000);r.fleeing=e->fleeing;
+        r.retreat_index=e->retreat_index;r.inbound_count=e->inbound_count;memcpy(r.inbound,e->inbound,sizeof(r.inbound));
+        (void)core_expansion_enemy_runtime(s->world,e->actor.id,&r);
+    }
     (void)game_combat_sync(s);
 }

@@ -59,18 +59,18 @@ void expansion_hurt(World *w, Villager *v, int damage, int raid) {
     if (damage <= 0)
         return;
     if (!v->injury_tick || w->clock.tick - v->injury_tick >= 12) {
-        v->mood -= 8;
+        v->mood -= 5;
         v->injury_tick = w->clock.tick ? w->clock.tick : 1;
         v->mood_cause = 3;
     }
     if (v->health < 30 && !v->critical) {
-        v->mood -= 25;
+        v->mood -= 4;
         v->critical = 1;
         v->mood_cause = 4;
     } else if (v->health >= 30)
         v->critical = 0;
     if (raid && v->threat_raid != raid) {
-        v->mood -= 15;
+        v->mood -= 5;
         v->threat_raid = raid;
         v->mood_cause = 5;
     }
@@ -90,12 +90,12 @@ CORE_API int32_t core_expansion_immigration(const CoreWorld *w, CoreImmigrationV
     rank = w->rank;
     out->permanent = expansion_permanent(w);
     out->last_day = e->last_arrival_day;
-    out->next_day = e->last_arrival_day + 4;
+    out->next_day = e->immigration_day;
     out->special_waves = e->starter_waves - (e->pending_arrivals > 0 && e->pending_type == 1);
     out->refill_day = e->refill_day;
     out->vacant = expansion_available_housing((World *)w);
     out->required_happiness = (int[]){0, 42, 50, 58, 66, 75}[rank];
-    out->food_needed = out->permanent * 1200 * (int[]){0, 8, 10, 12, 12, 12}[rank];
+    out->food_needed = ((out->permanent * 3 + 1) / 2 + (int[]){0,20,35,50,70,90}[rank]) * 1000;
     out->food_available = expansion_bank_have(w, CORE_RES_FOOD);
     out->road_ok = 1;
     for (i = 0; i < w->villager_count; i++) {
@@ -122,8 +122,10 @@ CORE_API int32_t core_expansion_immigration(const CoreWorld *w, CoreImmigrationV
         out->minimum = out->maximum = e->starter_waves < 2 ? 2 : out->permanent < 8;
         return CORE_OK;
     }
-    out->minimum = 1;
-    out->maximum = rank + 2;
+    out->minimum = (int[]){0,2,3,3,3,4}[rank];
+    out->maximum = (int[]){0,4,4,5,6,6}[rank];
+    if (out->maximum > out->vacant) out->maximum = out->vacant;
+    if (out->minimum > out->maximum) out->minimum = out->maximum;
     if (exp_season(w) == 3) {
         out->minimum = (out->minimum + 1) / 2;
         out->maximum = (out->maximum + 1) / 2;

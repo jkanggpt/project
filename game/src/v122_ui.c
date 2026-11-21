@@ -1,0 +1,155 @@
+/* v122_ui.c — 코어와 같은 수치를 보여 주는 주민·시설·전투 검사창 */
+#include "app.h"
+#include "format.h"
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+static float clamp01(float n){return fminf(1,fmaxf(0,n));}
+static Rectangle area(float x,float y,float w,float h){return (Rectangle){x,y,w,h};}
+Color game_stat_color(int value) {
+    static const unsigned colors[10]={0xF5F5F5FF,0xFFF59DFF,0xFDE047FF,0xA3E635FF,0x22C55EFF,0x38BDF8FF,0x3B82F6FF,0x9B5DE5FF,0xF032B0FF,0xEF4444FF};
+    return GetColor(colors[value<1?0:value>10?9:value-1]);
+}
+void game_select(GameApp *a,int kind,int id) {
+    a->selection_kind=id?kind:0;a->selection_id=id;
+    a->selected_building=kind==1?id:0;a->selected_villager=kind==2?id:0;a->inspector_scroll=0;
+}
+void game_building_label(const GameSession *s,int id,char *out,size_t capacity) {
+    const CoreBuildingView *b=NULL;
+    for(int i=0;i<s->building_count;i++)if(s->buildings[i].id==id){b=&s->buildings[i];break;}
+    if(!b){snprintf(out,capacity,u8"없음");return;}
+    if(b->type==CORE_BLD_KEEP)snprintf(out,capacity,u8"영주관");
+    else snprintf(out,capacity,"%s#%d",core_expansion_building_name(b->type),b->type_serial);
+}
+static void life_icons(GameApp *a,float x,float y,int icon,int count,float proportion) {
+    Texture2D t=a->assets.life_icons;int quarters=(int)roundf(clamp01(proportion)*count*4);
+    for(int i=0;i<count;i++) {
+        Rectangle dest={x+i*27,y,23,23},source={icon*64.0f,0,64,64};
+        if(t.id) {
+            DrawTexturePro(t,source,dest,(Vector2){0,0},0,(Color){80,80,85,255});
+            int q=quarters-i*4;if(q<0)q=0;if(q>4)q=4;
+            if(q){source.width*=q/4.0f;dest.width*=q/4.0f;DrawTexturePro(t,source,dest,(Vector2){0,0},0,WHITE);}
+        } else {
+            DrawRectangleLinesEx(dest,1,UI_MUTED);DrawRectangleRec(area(dest.x,dest.y,dest.width*clamp01((quarters-i*4)/4.0f),dest.height),UI_GOLD);
+        }
+    }
+}
+static const char *const fields[12]={u8"농업",u8"임업",u8"광업",u8"축산",u8"어업",u8"수렵",u8"가공",u8"경비",u8"의료",u8"교역",u8"학술",u8"마법"};
+static const char *const skill_names[4]={u8"초보",u8"도제",u8"직인",u8"장인"};
+static Color skill_color(int level){return GetColor((unsigned[]){0x9CA3AFFF,0x6366F1FF,0xE11D48FF,0xFACC15FF}[level]);}
+static int skill_level(int minutes){return minutes>=75*540?3:minutes>=30*540?2:minutes>=8*540?1:0;}
+float game_person_details(GameApp *a,const CoreVillagerView *v,float x,float y,float width) {
+    GameUi *u=&a->ui;char label[180],job[120];game_building_label(&a->session,v->workplace_id,job,sizeof(job));
+    ui_small(u,x,y,UI_GOLD,u8"%s #%d · %s",v->name,v->personal_id,fmt_villager_state(v->state));y+=30;
+    ui_small(u,x,y,UI_TEXT,u8"일터: %s",job);y+=27;
+    CoreWorkSchedule schedule;core_expansion_schedule(a->session.world,v->id,&schedule);
+    ui_small(u,x,y,UI_MUTED,u8"근무 %02d:%02d~%02d:%02d %s",schedule.start/60,schedule.start%60,schedule.end/60,schedule.end%60,schedule.on_duty?u8"근무조":u8"비번");y+=26;
+    if(schedule.second_end){ui_small(u,x,y,UI_MUTED,u8"후반 %02d:%02d~%02d:%02d",schedule.second_start/60,schedule.second_start%60,schedule.second_end/60,schedule.second_end%60);y+=25;}
+    if(v->workplace_id && ui_button(u,area(x,y,width,30),u8"일터 선택·범위 보기",1,0,job))game_select(a,1,v->workplace_id);
+    if(v->workplace_id)y+=38;
+    const int values[5]={v->strength,v->agility,v->vitality,v->dexterity,v->intellect};
+    static const char *const names[5]={u8"힘",u8"민첩",u8"체력",u8"손재주",u8"지능"};
+    static const int thresholds[9]={12,24,40,66,90,124,172,236,300};
+    for(int i=0;i<5;i++) {
+        int value=values[i],maximum=value>=10||value>=v->initial_stats[i]+3;
+        Color color=game_stat_color(value);
+        ui_small(u,x,y,color,u8"%s %d/10",names[i],value);
+        if(maximum)ui_small(u,x+150,y,UI_MUTED,"MAX");
+        else ui_small(u,x+116,y,UI_MUTED,"%.1f/%d XP",v->stat_xp[i]/1000.0,thresholds[value-1]);
+        y+=24;
+        for(int n=0;n<10;n++)DrawRectangleRec(area(x+n*width/10,y,width/10-2,7),n<value?color:UI_BG);
+        y+=10;ui_bar(area(x,y,width,3),maximum?1:v->stat_xp[i]/(thresholds[value-1]*1000.0f),maximum?UI_MUTED:color);y+=14;
+    }
+    int skill=a->skill_tab;if(skill<0||skill>=12)skill=0;
+    for(int i=0;i<12;i++) {
+        int level=skill_level(v->skill_minutes[i]);
+        if(ui_button(u,area(x+i%3*width/3,y+i/3*30,width/3-3,27),fields[i],1,skill==i,skill_names[level]))a->skill_tab=i;
+        DrawRectangleLinesEx(area(x+i%3*width/3,y+i/3*30,width/3-3,27),1,skill_color(level));
+    }
+    y+=127;int level=skill_level(v->skill_minutes[skill]);float days=v->skill_minutes[skill]/540.0f;
+    ui_small(u,x,y,skill_color(level),u8"%s · %s · %.1f/75일",fields[skill],skill_names[level],days);y+=26;
+    ui_bar(area(x,y,width,9),days/75.0f,skill_color(level));y+=17;
+    if(level==3)ui_small(u,x,y,skill_color(level),u8"MAX · 장인");
+    else ui_small(u,x,y,UI_MUTED,u8"다음 단계까지 %.1f일",(int[]){8,30,75}[level]-days);y+=30;
+    const char *const life_names[]={u8"행복도",u8"기분",u8"포만",u8"휴식",u8"안전"};
+    float proportions[]={v->happiness/100.0f,(v->mood+200)/400.0f,v->hunger/100.0f,v->rest/100.0f,v->safety/100.0f};
+    for(int i=0;i<5;i++) {
+        int value=(int[]){v->happiness,v->mood,v->hunger,v->rest,v->safety}[i];
+        snprintf(label,sizeof(label),i==1?u8"%s %+d/200":u8"%s %d/100",life_names[i],value);
+        ui_small(u,x,y,UI_TEXT,"%s",label);life_icons(a,x+122,y, i,i==0?5:4,proportions[i]);y+=31;
+    }
+    ui_small(u,x,y,UI_TEXT,"HP %d/%d",v->health*v->combat_max_hp/100,v->combat_max_hp);y+=25;
+    ui_bar(area(x,y,width,12),v->health/100.0f,UI_GOOD);y+=25;
+    static const char *const causes[24]={u8"식사",u8"물 마시기",u8"갈증 발생",u8"식수 부족",u8"배고픔 시작",u8"허기 지속",u8"충분한 수면",u8"근무 성취",u8"장시간 근무",u8"안전 산책",u8"교육 방문",u8"보호구역 안전",u8"일상 피로",u8"위험 목격",u8"근무조 적응",u8"습격 불안",u8"근접 위협",u8"피격",u8"중상",u8"사망 목격",u8"습격 종료",u8"문화 방문",u8"식수 중단",u8"통근 피로"};
+    if(v->mood_cause>=32&&v->mood_cause<56)ui_small(u,x,y,UI_MUTED,u8"%s %+d · %d일 %02d:%02d",causes[v->mood_cause-32],v->mood_event_amount,v->mood_event_tick/144+1,(v->mood_event_tick%144)*10/60,(v->mood_event_tick%6)*10);
+    else ui_small(u,x,y,UI_MUTED,u8"기분 변화: 생활·문화·부상 사건");y+=30;
+    return y;
+}
+float game_facility_details(GameApp *a,const CoreBuildingView *b,float x,float y,float width) {
+    CoreFacilityView f;GameUi *u=&a->ui;
+    if(core_expansion_facility(a->session.world,b->id,b->type,b->x,b->y,b->rotation,&f)!=CORE_OK)return y;
+    ui_small(u,x,y,UI_TEXT,u8"배치 %d/%d · 현장 %d · 실제 F %.2f",f.assigned,b->worker_slots,f.present,f.labor_milli/1000.0);y+=28;
+    if(b->state==CORE_BSTATE_CONSTRUCTING) {
+        ui_wrap(u,area(x,y,width,55),UI_GOLD,core_expansion_build_locked(a->session.world)?u8"습격 중 공사 중단 · 적 철수 완료 후 재개":u8"공사 중 · 생산 시작 전");y+=58;
+    }
+    if(f.radius) {ui_small(u,x,y,UI_MUTED,u8"작업 반경 %d · 명목 %.1f/일",f.radius,f.nominal_milli/1000.0);y+=27;}
+    if(f.range){ui_small(u,x,y,SKYBLUE,u8"공격 %d · 사거리 %d · 주기 %d분",f.attack,f.range,f.cooldown);y+=27;}
+    if(b->job_field==1) {ui_wrap(u,area(x,y,width,66),UI_TEXT,TextFormat(u8"성목 %d그루\n일반 원목 %.1f · 마력수 원목 %.1f",f.mature_trees,f.logs_milli/1000.0,f.magic_logs_milli/1000.0));y+=70;}
+    if(b->job_field==2)for(int i=0;i<CORE_RES_COUNT;i++) {
+        int resource=core_expansion_display_resource(i);if(!f.deposits[resource])continue;
+        ui_small(u,x,y,UI_TEXT,u8"%s 재고 %.1f",fmt_resource_name(resource),f.deposits[resource]/1000.0);y+=25;
+    }
+    if(b->worker_slots&&!f.present){ui_small(u,x,y,UI_BAD,u8"현장 직원 없음 · 근무·이동 상태 확인");y+=28;}
+    for(int i=0;i<a->session.villager_count;i++) {
+        const CoreVillagerView *v=&a->session.villagers[i];if(v->workplace_id!=b->id)continue;
+        char label[180];snprintf(label,sizeof(label),u8"%s · %s%s",v->name,v->mission==CORE_MISSION_SCOUT?u8"정찰":v->mission==CORE_MISSION_PATROL?u8"순찰":fmt_villager_state(v->state),v->id==b->combat_guard_id?u8" · 전투 담당":"");
+        if(ui_button(u,area(x,y,width,30),label,1,0,u8"주민 상세 보기"))game_select(a,2,v->id);y+=36;
+    }
+    return y;
+}
+int game_unit_details(GameApp *a,float x,float *yp,float width) {
+    if(a->selection_kind!=3&&a->selection_kind!=4)return 0;
+    GameSession *s=&a->session;float y=*yp;char text[700];int hp=0,maximum=1,px=0,py=0;
+    if(a->selection_kind==3) {
+        CoreAnimalView *animal=NULL;CoreAnimalInfo info;
+        for(int i=0;i<s->animal_count;i++)if(s->animals[i].id==a->selection_id){animal=&s->animals[i];break;}
+        if(!animal){ui_text(&a->ui,x,y,UI_MUTED,u8"처치됨 / 사라짐");*yp=y+40;return 1;}
+        px=animal->x_milli/1000;py=animal->y_milli/1000;core_expansion_animal_info(animal->kind,&info);
+        if(s->visibility[py*s->summary.map_width+px]<2){ui_text(&a->ui,x,y,UI_MUTED,u8"현재 시야 밖");*yp=y+40;return 1;}
+        hp=animal->hp;maximum=info.hp;
+        snprintf(text,sizeof(text),u8"%s #%d · %s\n성향 %s · 생물량 %d\n공격 %d · 주기 %d분 · 사거리 %d\n속도 %.2f · 수영 %.2f\n행동: %s\n전리품 식량%d / 가죽%d / 마정석%d\n지역 %d · 나이 %d일",
+          info.name,animal->id,animal->owner?u8"가축":animal->kind>=24?u8"환상종":u8"야생",info.behavior==2?u8"공격적":info.behavior==1?u8"중립":u8"온순",info.biomass,info.attack,info.attack_minutes,info.attack_range,info.speed_milli/1000.0,info.swim_milli/1000.0,animal->attack_remaining_milli?u8"공격":animal->retaliation_until>s->summary.tick?u8"반격":u8"이동",info.food,info.leather,info.mana_drop,animal->region,animal->age);
+        if(animal->owner) {char home[120];game_building_label(s,animal->owner,home,sizeof(home));size_t n=strlen(text);snprintf(text+n,sizeof(text)-n,u8"\n소속 %s · 굶은 날 %d\n다음 번식 후보 %d일",home,animal->starve_days,animal->breed_day);}
+    } else {
+        GameEnemy *enemy=game_enemy(s,a->selection_id);
+        if(!enemy||enemy->hp<=0){ui_text(&a->ui,x,y,UI_MUTED,u8"처치됨 / 사라짐");*yp=y+40;return 1;}
+        px=(int)enemy->actor.position.x;py=(int)enemy->actor.position.y;
+        if(s->visibility[py*s->summary.map_width+px]<2){ui_text(&a->ui,x,y,UI_MUTED,u8"현재 시야 밖");*yp=y+40;return 1;}
+        hp=enemy->hp;maximum=enemy->def.hp;
+        static const char *const factions[]={u8"도적",u8"마물",u8"언데드",u8"숲",u8"북방",u8"광신도"};
+        snprintf(text,sizeof(text),u8"%s #%d · %s\n공격 %d · 주기 %d분 · 사거리 %d\n이동속도 %.2f · 특수능력 %d\n현재: %s\n소환자 #%d\n공격기간 남음 %.1f시간",
+            enemy->info.name,enemy->actor.id,factions[enemy->info.faction],enemy->def.damage,enemy->def.cooldown,enemy->def.range,enemy->def.speed/1000.0,enemy->info.ability,enemy->fleeing?u8"철수":enemy->attack_serial&&enemy->attack_elapsed<4.8f?u8"공격":u8"접근",enemy->summoner_id,fmaxf(0,(s->raid.assault_end_tick-s->summary.tick)/6.0f));
+    }
+    ui_wrap(&a->ui,area(x,y,width,350),UI_TEXT,text);y+=355;
+    ui_small(&a->ui,x,y,UI_GOOD,"HP %d/%d",hp,maximum);y+=28;ui_bar(area(x,y,width,14),hp/(float)maximum,UI_GOOD);y+=32;
+    *yp=y;return 1;
+}
+void game_raid_alert(GameApp *a) {
+    if(!a->raid_alert_id)return;
+    GameSession *s=&a->session;float width=fminf(800,GetScreenWidth()-40.0f),height=fminf(600,GetScreenHeight()-40.0f);
+    Rectangle box={(GetScreenWidth()-width)/2,(GetScreenHeight()-height)/2,width,height};
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){0,0,0,180});ui_box(box,UI_PANEL);
+    float x=box.x+26,y=box.y+20;ui_text(&a->ui,x,y,UI_BAD,u8"습격 경보 · 게임 일시정지");y+=44;
+    int found=0;for(int i=0;i<s->enemy_count;i++) {
+        GameEnemy *e=&s->enemies[i];int p=(int)e->actor.position.y*s->summary.map_width+(int)e->actor.position.x;
+        found+=e->hp>0&&p>=0&&p<s->cells&&s->visibility[p]>=2;
+    }
+    ui_small(&a->ui,x,y,UI_TEXT,u8"최초 편성 %d명 · 현재 발견 %d명 · 생존 %d명",s->raid.initial_count,found,s->raid.alive);y+=33;
+    for(int i=0;i<28;i++)if(s->raid.initial_types[i]) {
+        CoreRaiderInfo info;core_expansion_raider_info(i,&info);ui_small(&a->ui,x,y,UI_GOLD,u8"%s %d명",info.name,s->raid.initial_types[i]);y+=27;
+    }
+    ui_small(&a->ui,x,y,UI_MUTED,u8"공격기간 남음 %.1f시간 · 철수 중 %d명",fmaxf(0,(s->raid.assault_end_tick-s->summary.tick)/6.0f),s->raid.phase==CORE_RAID_RETREAT?s->raid.alive:0);
+    if(ui_button(&a->ui,area(x,box.y+box.height-66,width-52,40),u8"확인하고 계속",1,0,u8"이 경보가 만든 정지만 해제합니다.")) {
+        a->raid_alert_id=0;a->speed=a->raid_alert_speed;
+    }
+}

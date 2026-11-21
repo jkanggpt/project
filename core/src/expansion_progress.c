@@ -238,6 +238,7 @@ int expansion_rank_up(World *w, int *reason) {
     int rc = core_expansion_rank(w, &v);
     if (rc != CORE_OK)
         return rc;
+    if(core_expansion_build_locked(w)){*reason=CORE_DENY_RAID;return CORE_ERR_REJECTED;}
     *reason = v.reason;
     if (!v.ready)
         return CORE_ERR_REJECTED;
@@ -319,9 +320,18 @@ void expansion_candidate_price(const World *w, CoreCandidateView *c) {
 void expansion_candidates(World *w) {
     ExpansionState *e = w->expansion;
     int period = (exp_day(w) - 1) / 3, level = expansion_market_level(w), count = 15, i;
-    if ((exp_day(w) - 1) % 6 == 0)
+    if (exp_day(w) >= e->market_next_restock_day)
         for (i = 1; i < 15; i++)
             e->trade_stock[i] = level == 3 ? 260 : level == 2 ? 80 : 20;
+    if(exp_day(w)>=e->market_next_restock_day) {
+        int sum=0,restock_count=0;
+        for(int n=0;n<w->building_count;n++) {
+            Building *b=w->buildings[n];
+            if(b->type!=CORE_BLD_STALL&&b->type!=CORE_BLD_MARKET&&b->type!=CORE_BLD_TRADING_POST)continue;
+            for(int j=0;j<b->worker_count;j++)if(expansion_working_present(w,b,b->workers[j])) {sum+=expansion_work_percent(w,b->workers[j],b->type);restock_count++;}
+        }
+        int average=restock_count?sum/restock_count:0;e->market_next_restock_day=exp_day(w)+(average>=300?4:average>=200?5:6);
+    }
     if (e->candidate_day == period && e->candidate_count == count)
         return;
     e->candidate_day = period;
@@ -532,6 +542,7 @@ void expansion_read_building(const World *w, const Building *b, CoreBuildingView
     memcpy(out->breeding_progress,b->breeding_progress,sizeof(out->breeding_progress));
     out->feed_milli = b->feed_milli;
     out->actual_work_milli = b->actual_work_milli;
+    out->type_serial=b->type_serial;out->combat_guard_id=b->combat_guard_id;
 }
 void expansion_read_villager(const World *w, const Villager *v, CoreVillagerView *out) {
     out->agility = v->stats.agility;
@@ -552,4 +563,8 @@ void expansion_read_villager(const World *w, const Villager *v, CoreVillagerView
     out->incoming = v->incoming;
     out->current_x_milli = v->current_x_milli;
     out->current_y_milli = v->current_y_milli;
+    out->mission=v->mission;out->mission_target=v->mission_target;out->shift_kind=v->shift_kind;
+    out->duty_minutes=v->duty_minutes;out->mood_event_tick=v->mood_event_tick;out->mood_event_amount=v->mood_event_amount;
+    out->leisure_elapsed=v->leisure_elapsed;out->leisure_duration=v->leisure_duration;
+    if(v->workplace&&expansion_military(v->workplace->type))out->combat_max_hp=out->combat_max_hp*(v->workplace->type==CORE_BLD_GARRISON?150:125)/100;
 }

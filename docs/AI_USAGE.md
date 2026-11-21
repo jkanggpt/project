@@ -394,3 +394,59 @@ Codex가 학생의 HTML 변경 명세와 이름 ZIP, 추가 요청을 읽고 C �
 최종 QA/배포에는 `docs/v121_balance_results.csv`, `docs/v121_performance_results.csv`를 생성하고 문서·스크린숏을 함께 설치합니다. 집계용 임시 Python은 artifacts/v121에만 두며 게임과 소스 도구의 C 구현에는 포함하지 않습니다.
 
 2026-11-21 최종 검증 기록:144판 결과·저장 해시·성장 병목·초기/최종 성능8회·미달 목표와 실제 설치본/임시 드라이브 해제 확인을 PROGRESS/README/QA 및 결과 CSV에 정리했습니다. 사용자 미추적 백업 파일은 제외했습니다.
+
+## 2026-11-21 v1.2.2 구현 진행
+
+사용자 명세와 추가 요구로 C 규칙·저장·지도·전투·UI의 중간 구현을 편집했습니다. 아직 전체 검증과 아트 적용 전입니다. 내장 이미지 생성 도구를 사용했고 주민/농장 화풍 교정을 반영하여 기존 원화를 직접 참조한 4×6 주민 원화로 다시 제작 중입니다.
+
+편집 파일:
+- CMakeLists.txt
+- PROGRESS.md
+- cli/format.c
+- core/CMakeLists.txt
+- core/include/castle_core.h
+- core/include/castle_expansion.h
+- core/src/api.c
+- core/src/entity.h
+- core/src/events.c
+- core/src/events.h
+- core/src/expansion.h
+- core/src/expansion_animals.c
+- core/src/expansion_catalog.c
+- core/src/expansion_commands.c
+- core/src/expansion_ecology.c
+- core/src/expansion_economy.c
+- core/src/expansion_people.c
+- core/src/expansion_prices.c
+- core/src/expansion_progress.c
+- core/src/expansion_raids.c
+- core/src/expansion_save.c
+- core/src/expansion_v121.c
+- core/src/expansion_wellbeing.c
+- core/src/expansion_world.c
+- core/src/nature.c
+- core/src/placement.c
+- core/src/population.c
+- core/src/save.c
+- core/src/threat.c
+- core/src/threat.h
+- game/CMakeLists.txt
+- game/src/app.h
+- game/src/assets.h
+- game/src/combat.c
+- game/src/main.c
+- game/src/panels.c
+- game/src/render.c
+- game/src/session.c
+- game/src/session.h
+- game/src/sprite_layout.h
+- tests/CMakeLists.txt
+- tests/test_list.h
+- core/src/expansion_v122.c
+- game/src/v122_ui.c
+- tests/test_v122.c
+- docs/V1_2_2_SPEC.md
+- docs/V1_2_2_IMPLEMENTATION.md
+- art/V122_RESIDENT_PROMPTS.json
+- art/V122_FARM_PROMPTS.json
+- art/V122_MISC_PROMPTS.json

@@ -774,6 +774,13 @@ int placement_remove_road(World *world, int32_t x, int32_t y)
 /* ---- 피해와 수리 ----------------------------------------------------- */
 
 /* 무너진 건물에서는 일도 잠도 못 하므로 일꾼·거주민을 양쪽 모두 떼어 냅니다 (자동 배치가 다른 곳을 찾아 줌) */
+static void damage_event(World *world,Building *b,CoreEventType type) {
+    Event event={0};event.type=type;event.as.building.id=b->id;event.as.building.type=b->type;
+    event.as.building.x=b->x;event.as.building.y=b->y;
+    event.cause_kind=b->damage_tick==world->clock.tick?b->damage_kind:0;
+    event.source_id=b->damage_source;event.event_tick=world->clock.tick;event.type_serial=b->type_serial;
+    events_push(&world->events,&event);
+}
 static void ruin_building(World *world, Building *building)
 {
     building->state = CORE_BSTATE_RUINED;
@@ -787,8 +794,7 @@ static void ruin_building(World *world, Building *building)
     while (building->resident_count > 0) {
         entity_unlink_resident(building->residents[building->resident_count - 1]);
     }
-    events_push_building(&world->events, CORE_EVT_BUILDING_RUINED, building->id, building->type, building->x,
-                         building->y);
+    damage_event(world,building,CORE_EVT_BUILDING_RUINED);
     if (world->expansion || building->type == CORE_BLD_WALL || building->type == CORE_BLD_GATE) {
         placement_rebuild_layers(world); /* 무너진 성벽·성문은 지나갈 수 있음 → 비용 격자가 바뀜 */
     }
@@ -801,7 +807,7 @@ void placement_damage(World *world, Building *building, int32_t damage)
     if (damage <= 0 || building->state == CORE_BSTATE_RUINED) {
         return;
     }
-    if (building->state == CORE_BSTATE_CONSTRUCTING) {
+    if (!world->expansion && building->state == CORE_BSTATE_CONSTRUCTING) {
         /* 짓는 중이면 공사가 뒤로 밀립니다 */
         building->build_progress = building->build_progress > 6 ? building->build_progress - 6 : 0;
         events_push_building(&world->events, CORE_EVT_BUILDING_DAMAGED, building->id, building->type, building->x,

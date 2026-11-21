@@ -1,6 +1,7 @@
 /* expansion_save.c — 확장 상태의 명시적 정수 직렬화·해시·범위 검사 */
 #include "expansion.h"
 #include "text.h"
+#include "mem.h"
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -118,6 +119,13 @@ static const Field CANDIDATE[] = {F(CoreCandidateView, person_id, 1), F(CoreCand
                                   F(CoreCandidateView, traits, 2),    F(CoreCandidateView, hired, 1),
     F(CoreCandidateView, sex, 1), F(CoreCandidateView, appearance, 1)};
 #define COUNT(a) ((int)(sizeof(a) / sizeof((a)[0])))
+static const Field STATE122[]={F(ExpansionState,next_type_serial,CORE_BLD_COUNT),F(ExpansionState,last_immigration_edge,1),F(ExpansionState,market_next_restock_day,1),F(ExpansionState,phantom_second_day,6)};
+static const Field TILE122[]={F(CoreExpansionTileView,stone_milli,1),F(CoreExpansionTileView,rock_variant,1)};
+static const Field BUILDING122[]={F(Building,type_serial,1),F(Building,logging_cursor,1),F(Building,combat_guard_id,1),F(Building,damage_kind,1),F(Building,damage_source,1),F(Building,damage_tick,1)};
+static const Field ANIMAL122[]={F(CoreAnimalView,attacker_kind,1),F(CoreAnimalView,attacker_id,1),F(CoreAnimalView,retaliation_until,1),F(CoreAnimalView,phantom_slot,1)};
+static const Field PERSON122[]={F(Villager,shift_kind,1),F(Villager,shift_changed_day,1),F(Villager,shift_adapt_days,1),F(Villager,duty_minutes,1),F(Villager,duty_day,1),F(Villager,mission,1),F(Villager,mission_target,1),F(Villager,mission_waypoint,1),F(Villager,mission_next_tick,1),F(Villager,leisure_building,1),F(Villager,leisure_elapsed,1),F(Villager,leisure_duration,1),F(Villager,leisure_day,1),F(Villager,education_day,1),F(Villager,walk_origin_x,1),F(Villager,walk_origin_y,1),F(Villager,walk_reward_day,1),F(Villager,mood_ticks,24),F(Villager,mood_counts,24),F(Villager,mood_day,1),F(Villager,mood_event_tick,1),F(Villager,mood_event_amount,1),F(Villager,thirst_stage,1),F(Villager,hunger_stage,1),F(Villager,damage_kind,1),F(Villager,damage_source,1)};
+static const Field RAID122[]={F(Raid,id,1),F(Raid,type,1),F(Raid,direction,1),F(Raid,spawn_x,1),F(Raid,spawn_y,1),F(Raid,started_tick,1),F(Raid,enemy_count,1),F(Raid,killed,1),F(Raid,escaped,1),F(Raid,stolen,1),F(Raid,fallen,1),F(Raid,phase,1),F(Raid,assault_end_tick,1),F(Raid,initial_count,1),F(Raid,first_discovered,1),F(Raid,initial_types,28)};
+static const Field ENEMY122[]={F(Enemy,id,1),F(Enemy,type,1),F(Enemy,state,1),F(Enemy,summoner_id,1),F(Enemy,looted,1),F(Enemy,runtime,(int)(sizeof(CoreEnemyRuntime)/sizeof(int32_t)))};
 static int32_t get_int(const void *object, size_t offset) {
     int32_t value;
     memcpy(&value, (const char *)object + offset, sizeof(value));
@@ -152,25 +160,34 @@ int expansion_save(FILE *f, const World *w) {
     fputs("[expansion]\nstate=1", f);
     write_fields(f, e, STATE, COUNT(STATE));
     fputc('\n', f);
+    fputs("v122state=10",f);write_fields(f,e,STATE122,COUNT(STATE122));fputc('\n',f);
+    fputs("v122raid=1",f);write_fields(f,&w->threat.raid,RAID122,COUNT(RAID122));fputc('\n',f);
+    for(i=0;i<w->threat.raid.enemy_count;i++) {
+        fprintf(f,"v122enemy=%d",i);write_fields(f,&w->threat.raid.enemies[i],ENEMY122,COUNT(ENEMY122));fputc('\n',f);
+    }
     for (i = 0; i < e->cells; i++) {
         fprintf(f, "tile=%d", i);
         write_fields(f, &e->tiles[i], TILE, COUNT(TILE));
         fputc('\n', f);
+        fprintf(f,"v122tile=%d",i);write_fields(f,&e->tiles[i],TILE122,COUNT(TILE122));fputc('\n',f);
     }
     for (i = 0; i < w->building_count; i++) {
         fprintf(f, "building=%d", w->buildings[i]->id);
         write_fields(f, w->buildings[i], BUILDING, COUNT(BUILDING));
         fputc('\n', f);
+        fprintf(f,"v122building=%d",w->buildings[i]->id);write_fields(f,w->buildings[i],BUILDING122,COUNT(BUILDING122));fputc('\n',f);
     }
     for (i = 0; i < w->villager_count; i++) {
         fprintf(f, "villager=%d", w->villagers[i]->id);
         write_fields(f, w->villagers[i], VILLAGER, COUNT(VILLAGER));
         fputc('\n', f);
+        fprintf(f,"v122person=%d",w->villagers[i]->id);write_fields(f,w->villagers[i],PERSON122,COUNT(PERSON122));fputc('\n',f);
     }
     for (i = 0; i < e->animal_count; i++) {
         fprintf(f, "animal=%d", i);
         write_fields(f, &e->animals[i], ANIMAL, COUNT(ANIMAL));
         fputc('\n', f);
+        fprintf(f,"v122animal=%d",i);write_fields(f,&e->animals[i],ANIMAL122,COUNT(ANIMAL122));fputc('\n',f);
     }
     for (i = 0; i < e->candidate_count; i++) {
         fprintf(f, "candidate=%d", i);
@@ -230,6 +247,29 @@ int expansion_load_line(World *w, const char *key, char *value) {
     }
     if (!e->load_mask)
         return CORE_ERR_FORMAT;
+    if(strcmp(key,"v122state")==0) {
+        if(index!=10||e->loaded_version==10||!read_fields(&cursor,e,STATE122,COUNT(STATE122))||*cursor)return CORE_ERR_FORMAT;
+        e->loaded_version=10;return CORE_OK;
+    }
+    if(strncmp(key,"v122",4)==0) {
+        if(strcmp(key,"v122raid")==0) {
+            Raid *r=&w->threat.raid;
+            if(index!=1||!read_fields(&cursor,r,RAID122,COUNT(RAID122))||*cursor||r->enemy_count<0||r->enemy_count>10000)return CORE_ERR_FORMAT;
+            if(r->enemy_count){r->enemies=mem_calloc((size_t)r->enemy_count,sizeof(*r->enemies));if(!r->enemies)return CORE_ERR_OUT_OF_MEMORY;r->enemy_capacity=r->enemy_count;}
+            return CORE_OK;
+        }
+        if(strcmp(key,"v122enemy")==0) {
+            Raid *r=&w->threat.raid;
+            if(index<0||index>=r->enemy_count||!r->enemies||r->enemies[index].id)return CORE_ERR_FORMAT;
+            return read_fields(&cursor,&r->enemies[index],ENEMY122,COUNT(ENEMY122)) && !*cursor?CORE_OK:CORE_ERR_FORMAT;
+        }
+        void *object=NULL;const Field *fields=NULL;int count=0;
+        if(strcmp(key,"v122tile")==0&&index>=0&&index<e->cells){object=&e->tiles[index];fields=TILE122;count=COUNT(TILE122);}
+        if(strcmp(key,"v122animal")==0&&index>=0&&index<e->animal_count){object=&e->animals[index];fields=ANIMAL122;count=COUNT(ANIMAL122);}
+        if(strcmp(key,"v122building")==0){object=entity_find_building(w,index);fields=BUILDING122;count=COUNT(BUILDING122);}
+        if(strcmp(key,"v122person")==0){object=entity_find_villager(w,index);fields=PERSON122;count=COUNT(PERSON122);}
+        return object && read_fields(&cursor,object,fields,count) && !*cursor?CORE_OK:CORE_ERR_FORMAT;
+    }
     if (strcmp(key, "tile") == 0) {
         if (index < 0 || index >= e->cells || e->visible[index] ||
             !read_fields(&cursor, &e->tiles[index], TILE, COUNT(TILE)) || *cursor)
@@ -283,6 +323,7 @@ int expansion_finish_load(World *w) {
         e->loaded_candidates != e->candidate_count || e->loaded_archive != e->archive_count ||
         e->loaded_buildings != w->building_count || e->loaded_villagers != w->villager_count)
         return CORE_ERR_FORMAT;
+    expansion_v122_migrate(w);
     if (expansion_validate(w))
         return CORE_ERR_FORMAT;
     w->bank.individual_limits = 1;
@@ -298,6 +339,13 @@ uint64_t expansion_hash(const World *w, uint64_t hash) {
     int i;
     hash = hash_int(hash, 1);
     hash = hash_fields(hash, e, STATE, COUNT(STATE));
+    hash = hash_fields(hash,e,STATE122,COUNT(STATE122));
+    hash = hash_fields(hash,&w->threat.raid,RAID122,COUNT(RAID122));
+    for(i=0;i<w->threat.raid.enemy_count;i++)hash=hash_fields(hash,&w->threat.raid.enemies[i],ENEMY122,COUNT(ENEMY122));
+    for(i=0;i<e->cells;i++)hash=hash_fields(hash,&e->tiles[i],TILE122,COUNT(TILE122));
+    for(i=0;i<w->building_count;i++)hash=hash_fields(hash,w->buildings[i],BUILDING122,COUNT(BUILDING122));
+    for(i=0;i<w->villager_count;i++)hash=hash_fields(hash,w->villagers[i],PERSON122,COUNT(PERSON122));
+    for(i=0;i<e->animal_count;i++)hash=hash_fields(hash,&e->animals[i],ANIMAL122,COUNT(ANIMAL122));
     for (i = 0; i < e->cells; i++)
         hash = hash_fields(hash, &e->tiles[i], TILE, COUNT(TILE));
     for (i = 0; i < w->building_count; i++)
@@ -398,7 +446,7 @@ int expansion_validate(const World *w) {
         for (j = 0; j < 5; j++)
             bad += stats[j] < 1 || stats[j] > 10 || v->initial_stats[j] < 1 || v->initial_stats[j] > 9 ||
                    stats[j] > v->initial_stats[j] + 3 || v->stat_xp[j] < 0;
-        bad += v->sex < 0 || v->sex > 1 || v->appearance < 0 || v->appearance > 11 || v->appearance % 2 != v->sex || v->work_day_minutes < 0 || v->work_day_minutes > 540 || v->incoming < 0 || v->incoming > 1 || v->need_samples < 0 || v->need_samples > 144;
+        bad += v->sex < 0 || v->sex > 1 || v->appearance < 0 || v->appearance > 47 || v->appearance % 2 != v->sex || v->work_day_minutes < 0 || v->work_day_minutes > 540 || v->incoming < 0 || v->incoming > 1 || v->need_samples < 0 || v->need_samples > 144;
         bad += v->mood_fraction_milli<0 || v->mood_fraction_milli>=1000 || v->healing_progress_milli<0 || v->healing_progress_milli>270000 || v->slow_until_tick<0;
         for (j = 0; j < 3; j++)
             bad += v->long_needs[j] < 0 || v->long_needs[j] > 100000 || v->need_sums[j] < 0 ||
@@ -426,7 +474,7 @@ int expansion_validate(const World *w) {
         if (a->kind >= 0 && a->kind < CORE_EXP_ANIMALS) {
             bad += a->hp < 0 || a->hp > EXP_ANIMALS[a->kind].hp || (a->alive && a->hp < 1);
             bad += a->attack_remaining_milli > 0 &&
-                   (!a->alive || a->owner || !EXP_ANIMALS[a->kind].attack || a->target_id <= 0 ||
+                   (!a->alive || a->owner || !EXP_ANIMALS[a->kind].attack || a->target_id == 0 ||
                     a->attack_tick < 0 || a->attack_tick > w->clock.tick);
         }
         bad += a->id >= e->next_animal_id || a->age < 0 || a->starve_days < 0 || a->breed_day < 0;
@@ -445,7 +493,7 @@ int expansion_validate(const World *w) {
         bad += c->person_id < 1 || c->person_id >= e->next_person_id || c->fee < 1 || c->fee > 1000000 ||
                c->field < 0 || c->field >= 12 || c->age < 0 || c->age > 120 || c->hired < 0 || c->hired > 1 ||
                !text_is_valid_name(c->name, CORE_NAME_BYTES);
-        bad += c->sex<0 || c->sex>1 || c->appearance<0 || c->appearance>11 || c->appearance%2!=c->sex;
+        bad += c->sex<0 || c->sex>1 || c->appearance<0 || c->appearance>47 || c->appearance%2!=c->sex;
         for (j = 0; j < 5; j++)
             bad += c->initial[j] < 1 || c->initial[j] > 9 || c->stats[j] < c->initial[j] ||
                    c->stats[j] > 10 || c->stats[j] > c->initial[j] + 3 || c->xp[j] < 0 || c->xp[j] > 300000;

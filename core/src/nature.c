@@ -90,6 +90,7 @@ static void storm_start(World *world) {
         }
         damage = def->max_hp * rng_range(&world->rng, 25, 60) / 100 *
                  difficulty_preset(world->difficulty)->nature_pct / 100;
+        building->damage_kind=3;building->damage_tick=world->clock.tick;
         placement_damage(world, building, damage);
         hits--;
     }

@@ -275,6 +275,7 @@ static void end_raid(World *world)
     }
     events_push_raid(&world->events, CORE_EVT_RAID_ENDED, raid->killed, raid->enemy_count, raid->stolen, raid->fallen);
     raid->id = 0;
+    raid->phase = CORE_RAID_COMPLETE;
     raid->enemy_count = 0; /* 배열은 다음 습격에 다시 씀 */
     state->raids_done++;
     schedule_next(world);
@@ -335,7 +336,7 @@ void threat_tick(World *world)
 int threat_is_guard(const World *world, const Villager *villager)
 {
     (void)world;
-    return villager->workplace != NULL && villager->workplace->type == CORE_BLD_BARRACKS &&
+    return villager->workplace != NULL && (villager->workplace->type == CORE_BLD_BARRACKS || villager->workplace->type == CORE_BLD_GARRISON) &&
            villager->workplace->state == CORE_BSTATE_ACTIVE;
 }
 
@@ -366,12 +367,14 @@ int threat_report_building_damage(World *world, int32_t raid_id, int32_t buildin
     if (building == NULL) {
         return CORE_ERR_NOT_FOUND;
     }
+    if(world->expansion && building->state==CORE_BSTATE_CONSTRUCTING)return CORE_IGNORED;
     /* 연구 "마법 결계": 건물이 받는 피해가 줄어듦 */
     if(world->expansion && expansion_has_research(world,21) && world->expansion->protected_cells[grid_index(&world->grid,building->x,building->y)]){
         int cost=expansion_has_research(world,22)?900:1000;
         if(expansion_bank_have(world,CORE_RES_MANA)>=cost){(void)expansion_bank_add(world,CORE_RES_MANA,-cost,CORE_LEDGER_RAID);damage=(int32_t)((int64_t)damage*85/100);}
     }
     damage = (int32_t)((int64_t)damage * (100 - world->research.ward_pct) / 100);
+    if(world->expansion){building->damage_kind=1;building->damage_tick=world->clock.tick;}
     placement_damage(world, building, damage);
     if (building->type == CORE_BLD_KEEP && building->state == CORE_BSTATE_RUINED) {
         rank_lose(world, CORE_LOSE_KEEP); /* 성채가 무너지면 패배 (습격도 여기서 끝남) */

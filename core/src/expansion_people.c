@@ -315,7 +315,7 @@ static void gain_xp(Villager *v, int field, int type, int minutes) {
     v->xp_work_minutes[field] += minutes;
     while (v->xp_work_minutes[field] >= 360) {
         v->xp_work_minutes[field] -= 360;
-        for (int i = 0; i < 5; i++) expansion_add_xp(v, i, weights[i] * 50);
+        for (int i = 0; i < 5; i++) expansion_add_xp(v, i, weights[i] * (i == 4 ? 30 : 60));
     }
 }
 static int patient_limit(const World *w, const Building *b) {
@@ -337,7 +337,7 @@ static int service_efficiency(const World *w,const Building *b) {
     int staff=expansion_working_count(w,b);
     return staff ? exp_clamp(b->daily_work_milli / (staff * 540), 0, 7500) : 0;
 }
-static void leisure_reward(World *w,Villager *v, Building *b, int day) {
+void expansion_leisure_reward(World *w,Villager *v, Building *b, int day) {
     int x = service_efficiency(w,b), type = b->type;
     b->service_credit_milli -= 1000;
     b->visits_today++;
@@ -365,6 +365,7 @@ void expansion_people_tick(World *w) {
     for (i = w->villager_count - 1; i >= 0; i--) {
         Villager *v = w->villagers[i];
         Building *job = v->workplace;
+        CoreWorkSchedule schedule;expansion_schedule(w,v,&schedule);
         if (v->health >= 30)
             v->critical = 0;
         if (v->state == CORE_VS_LEAVING) {
@@ -384,6 +385,7 @@ void expansion_people_tick(World *w) {
                 continue;
             expansion_arrival_join(w, v);
         }
+        expansion_v122_life(w,v);
         expansion_wellbeing_sample(w, v);
         if (!v->at_target)
             w->expansion->travel_minutes += 10;
@@ -422,9 +424,9 @@ void expansion_people_tick(World *w) {
         if (w->expansion->alarm || v->hold_ticks > 0) {
             if (v->hold_ticks > 0)
                 v->hold_ticks--;
-            if (job && (job->type == CORE_BLD_BARRACKS || expansion_spec(job->type)->category == CORE_CAT_TOWERS)) {
+            if (job && (expansion_military(job->type) || (expansion_tower(job->type) && schedule.on_duty))) {
                 v->inside_building = 0;
-                to_building(w, v, job->type == CORE_BLD_BARRACKS ? CORE_VS_GUARD_POST : CORE_VS_WORKING, job, keep);
+                to_building(w, v, expansion_military(job->type) ? CORE_VS_GUARD_POST : CORE_VS_WORKING, job, keep);
                 if (expansion_working_present(w, job, v)) gain_xp(v, 7, job->type, expansion_begin_work(w, v, job));
             } else if (v->state != CORE_VS_FLEE ||
                        (v->refuge_revision != w->grid.cost_rev &&
@@ -442,10 +444,12 @@ void expansion_people_tick(World *w) {
                 (void)expansion_bank_add(w, CORE_RES_FOOD, -1200, CORE_LEDGER_CONSUMPTION);
                 v->meal_day = exp_day(w);
                 v->needs.hunger = 100;
+                expansion_mood_event(w,v,0,2,0,1,3);
             }
             continue;
         }
-        if (minute < 360 || minute >= 1260) {
+        int sleeping=schedule.sleep_start<schedule.sleep_end ? minute>=schedule.sleep_start&&minute<schedule.sleep_end : minute>=schedule.sleep_start||minute<schedule.sleep_end;
+        if (sleeping && !schedule.on_duty) {
             to_building(w, v, CORE_VS_SLEEP, v->home, keep);
             if (v->at_target)
                 v->needs.rest = exp_clamp(v->needs.rest + 2, 0, 100);
@@ -492,14 +496,17 @@ void expansion_people_tick(World *w) {
             if (v->at_target && expansion_bank_have(w, CORE_RES_FOOD) >= 1200) {
                 (void)expansion_bank_add(w, CORE_RES_FOOD, -1200, CORE_LEDGER_CONSUMPTION);
                 v->needs.hunger = 100;
+                expansion_mood_event(w,v,0,2,0,1,3);
                 v->meal_day = exp_day(w);
                 if (hub && hub->type != CORE_BLD_KEEP)
                     w->expansion->hub_visits++;
                 else
                     w->expansion->manor_visits++;
                 v->hub_revision = -1;
-                if (well_near(w, v))
+                if (well_near(w, v)) {
                     v->water = 100;
+                    expansion_mood_event(w,v,1,1,0,12,3);
+                }
             }
             if (v->meal_day < exp_day(w) && (minute < 480 || expansion_bank_have(w, CORE_RES_FOOD) >= 1200))
                 continue;
@@ -511,6 +518,7 @@ void expansion_people_tick(World *w) {
                 v->inside_building = 0;
                 if (v->at_target) {
                     v->water = 100;
+                    expansion_mood_event(w,v,1,1,0,12,3);
                     if (v->hygiene < 65)
                         v->hygiene = 65;
                 }
@@ -518,7 +526,11 @@ void expansion_people_tick(World *w) {
             }
         }
         if (job && job->state == CORE_BSTATE_ACTIVE &&
-            (expansion_service_shift(job->type) ? minute >= 720 && minute < 1260 : minute >= 480 && minute < 1020)) {
+            schedule.on_duty) {
+            v->leisure_building=0;v->leisure_elapsed=0;
+            if(expansion_duty(w,v,job)) {
+                gain_xp(v,expansion_spec(job->type)->field,job->type,expansion_begin_work(w,v,job));continue;
+            }
             int input = 0;
             for (j = 0; j < CORE_RES_COUNT; j++)
                 input |= expansion_spec(job->type)->input[j] > 0;
@@ -536,7 +548,7 @@ void expansion_people_tick(World *w) {
                         w->expansion->hub_visits++;
                 }
             }
-            if (job->type == CORE_BLD_BARRACKS) {
+            if (expansion_military(job->type)) {
                 to_building(w, v, CORE_VS_GUARD_POST, job, keep);
                 if (v->at_target) {
                     gain_xp(v, 7, job->type, expansion_begin_work(w, v, job));
@@ -552,7 +564,7 @@ void expansion_people_tick(World *w) {
             }
             continue;
         }
-        if (minute >= 1020 && minute < 1260 && v->visit_day < exp_day(w)) {
+        if (0) {
             Building *service = NULL;
             int best = INT32_MAX;
             for (j = 0; j < w->building_count; j++) {
@@ -574,11 +586,13 @@ void expansion_people_tick(World *w) {
                 to_building(w, v, CORE_VS_IDLE, service, keep);
                 if (v->at_target) {
                     v->visit_day = exp_day(w);
-                    leisure_reward(w,v, service, exp_day(w));
+                    expansion_leisure_reward(w,v, service, exp_day(w));
                 }
                 continue;
             }
         }
+        if(expansion_leisure(w,v))continue;
+        v->mission=CORE_MISSION_NONE;
         to_building(w, v, CORE_VS_IDLE, v->home ? v->home : expansion_hub(w, v, 0, NULL), keep);
     }
 }
@@ -590,7 +604,7 @@ void expansion_arrival_join(World *w, Villager *v) {
     events_push_villager(&w->events, CORE_EVT_IMMIGRANT, v->id, 0, 0, v->name);
     if (!v->contract_end_tick && e->pending_arrivals > 0 && --e->pending_arrivals == 0) {
         e->last_arrival_day = exp_day(w);
-        e->immigration_day = e->last_arrival_day + 4;
+        e->immigration_day = e->last_arrival_day + rng_range(&w->rng, 2, 3);
         e->arrived_today = e->pending_total;
         e->arrival_type = e->pending_type;
         if (e->pending_type == 1 && e->starter_waves == 2)
@@ -600,11 +614,16 @@ void expansion_arrival_join(World *w, Villager *v) {
 static int immigrate(World *w, int count, int local) {
     Villager *created[8] = {0};
     int x = 0, y = 0, i;
-    if (local || !expansion_edge(w, w->keep_x, 0, &x, &y)) {
+    int edge=rng_range(&w->rng,0,3);
+    if(edge==w->expansion->last_immigration_edge && rng_range(&w->rng,0,1))edge=(edge+rng_range(&w->rng,1,3))%4;
+    int edge_x=edge==1?w->grid.width-1:edge==3?0:rng_range(&w->rng,0,w->grid.width-1);
+    int edge_y=edge==0?0:edge==2?w->grid.height-1:rng_range(&w->rng,0,w->grid.height-1);
+    if (local || !expansion_edge(w, edge_x, edge_y, &x, &y)) {
         Building *keep = world_keep(w);
         x = keep->door_x;
         y = keep->door_y;
     }
+    if(!local)w->expansion->last_immigration_edge=edge;
     for (i = 0; i < count; i++) {
         created[i] = population_create(w, x, y);
         if (!created[i]) {
@@ -723,7 +742,10 @@ void expansion_people_daily(World *w) {
         core_expansion_immigration(w, &status);
         if (status.reasons || status.maximum <= 0)
             return;
-        int count = rng_range(&w->rng, 1, w->rank+2);
+        int minimum=(int[]){0,2,3,3,3,4}[w->rank], maximum=(int[]){0,4,4,5,6,6}[w->rank];
+        if(maximum>status.vacant)maximum=status.vacant;
+        if(minimum>maximum)minimum=maximum;
+        int count = rng_range(&w->rng, minimum, maximum);
         if(exp_season(w)==CORE_SEASON_WINTER)count=(count+1)/2;
         if (count > status.vacant) count = status.vacant;
         if (immigrate(w, count, 0)) {

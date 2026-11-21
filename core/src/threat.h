@@ -39,6 +39,7 @@ typedef struct Enemy {
     int32_t state;  /* CoreEnemyState */
     int32_t summoner_id;
     int32_t looted; /* 이미 훔쳤으면 1 (두 번 훔치지 못함) */
+    CoreEnemyRuntime runtime;
 } Enemy;
 
 typedef struct Raid {
@@ -55,6 +56,7 @@ typedef struct Raid {
     int32_t escaped;
     int32_t stolen;
     int32_t fallen;       /* 쓰러진 주민 */
+    int32_t phase,assault_end_tick,initial_count,first_discovered,initial_types[28];
 } Raid;
 
 typedef struct ThreatState {

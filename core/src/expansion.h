@@ -43,6 +43,8 @@ typedef struct ExpansionState {
     int32_t plague_days, plague_cooldown, economic_event, economic_days, economic_cooldown;
     int32_t trade_capacity_milli, trade_capacity_carry;
     int32_t raid_drops[CORE_RES_COUNT], summons_total, deferred_summons;
+    int32_t next_type_serial[CORE_BLD_COUNT], last_immigration_edge, market_next_restock_day;
+    int32_t phantom_second_day[6], loaded_version;
 } ExpansionState;
 
 static inline int exp_day(const World *w) { return w->clock.tick / 144 + 1; }
@@ -150,4 +152,15 @@ void expansion_raids_tick(World *world);
 int expansion_debug_town(World *world, int villagers, int enemies);
 void expansion_raider_definitions(Defs *defs);
 void expansion_raider_drops(World *w,int type);
+void expansion_v122_generate(World *w);
+void expansion_v122_migrate(World *w);
+void expansion_v122_numbers(World *w);
+void expansion_mood_event(World *w,Villager *v,int kind,int amount,int source,int cooldown,int daily_cap);
+int expansion_schedule(const World *w,const Villager *v,CoreWorkSchedule *out);
+int expansion_leisure(World *w,Villager *v);
+void expansion_leisure_reward(World *w,Villager *v,Building *b,int day);
+int expansion_military(int type);
+int expansion_tower(int type);
+int expansion_duty(World *w,Villager *v,Building *b);
+void expansion_v122_life(World *w,Villager *v);
 #endif

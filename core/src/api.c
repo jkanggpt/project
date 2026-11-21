@@ -689,6 +689,9 @@ CORE_API int32_t core_get_raid(const CoreWorld *world, CoreRaidView *out)
     out->enemy_count = raid->enemy_count;
     out->started_tick = raid->started_tick;
     out->stolen = raid->stolen;
+    out->phase=raid->phase;out->assault_end_tick=raid->assault_end_tick;
+    out->initial_count=raid->initial_count;out->first_discovered=raid->first_discovered;
+    memcpy(out->initial_types,raid->initial_types,sizeof(out->initial_types));
     for (i = 0; i < raid->enemy_count; i++) {
         out->alive += raid->enemies[i].state == CORE_ENEMY_ALIVE;
     }
@@ -714,6 +717,7 @@ CORE_API int32_t core_copy_enemies(const CoreWorld *world, CoreEnemyView *out, i
         out[i].type = raid->enemies[i].type;
         out[i].state = raid->enemies[i].state;
         out[i].summoner_id = raid->enemies[i].summoner_id;
+        out[i].runtime = raid->enemies[i].runtime;
     }
     return CORE_OK;
 }
@@ -1235,7 +1239,7 @@ CORE_API int32_t core_save(const CoreWorld *world, const char *path_utf8)
     if (path_utf8[0] == '\0') {
         return CORE_ERR_INVALID_ARG;
     }
-    if (threat_raid_active(world)) {
+    if (!world->expansion && threat_raid_active(world)) {
         return CORE_ERR_REJECTED; /* 습격 중에는 저장할 수 없음 (끝난 뒤에) */
     }
     return save_write(world, path_utf8);

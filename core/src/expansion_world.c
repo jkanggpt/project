@@ -106,9 +106,9 @@ static int biome_at(int x, int y, int seed) {
     return chosen;
 }
 static void set_tree(CoreExpansionTileView *t, int kind, int mature) {
-    static const int ages[4] = {16, 28, 48, 72}, logs[4] = {12, 28, 50, 24};
+    static const int logs[4] = {12, 28, 50, 24};
     t->tree_kind = kind;
-    t->tree_age = mature ? ages[kind - 1] * 1000 : 1000;
+    t->tree_age = mature ? core_expansion_tree_mature_age(kind) : 1000;
     t->tree_logs_milli = logs[kind - 1] * 1000;
 }
 void expansion_water_bodies(World *w) {
@@ -242,6 +242,7 @@ int expansion_new_world(World *w) {
         e->tiles[i].ore_kind = -1;
         w->grid.terrain[i] = CORE_TERRAIN_GRASS;
     }
+    expansion_v122_generate(w);
     expansion_capacity(w);
     expansion_rebuild(w);
     expansion_ecology_init(w);
@@ -358,7 +359,7 @@ void expansion_tick(World *w) {
         e->alarm = 0;
     for (i = 0; i < w->building_count; i++) {
         Building *b = w->buildings[i];
-        if (b->state == CORE_BSTATE_CONSTRUCTING) {
+        if (b->state == CORE_BSTATE_CONSTRUCTING && !core_expansion_build_locked(w)) {
             if (++b->build_progress >= world_building_def(w, b->type)->build_ticks) {
                 b->state = CORE_BSTATE_ACTIVE;
                 b->completed_day = exp_day(w);
@@ -373,7 +374,8 @@ void expansion_tick(World *w) {
         expansion_assign(w);
         expansion_rebuild(w);
     }
-    expansion_promotion_tick(w);
+    expansion_v122_numbers(w);
+    if (!core_expansion_build_locked(w)) expansion_promotion_tick(w);
     expansion_people_tick(w);
     expansion_animals_tick(w);
     expansion_collect_harvest(w);

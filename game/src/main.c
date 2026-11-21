@@ -116,7 +116,7 @@ void game_app_close(GameApp *a)
 static void enter_game(GameApp *a)
 {
     a->in_game=1; a->panel=PANEL_NONE; a->return_panel=PANEL_NONE; a->panel_depth=0; a->speed=1;
-    a->selected_building=0; a->selected_villager=0; a->build_type=-1; a->demolish=0; a->dragging=0; a->inspector_scroll=0;
+    game_select(a,0,0); a->raid_alert_id=0; a->build_type=-1; a->demolish=0; a->dragging=0; a->inspector_scroll=0;
     a->shown_outcome=a->session.summary.outcome==CORE_OUTCOME_WON?CORE_OUTCOME_WON:CORE_OUTCOME_NONE;
     a->camera.target=(Vector2){a->session.summary.keep_x*16.0f,a->session.summary.keep_y*16.0f};
     a->camera.zoom=3; a->accumulator=0; a->autosave_day=a->session.summary.day; a->autosave_pending=0; a->notice_count=0;
@@ -197,6 +197,7 @@ static void event(void *context,const CoreEventView *e)
     else fmt_event(e,text,sizeof(text));
     if(a->session.summary.ruleset){
         if(e->type==CORE_EVT_RAID_STARTED) {
+            if(!a->automated && !a->raid_alert_id) {a->raid_alert_id=e->a;a->raid_alert_speed=a->speed;a->speed=0;}
             static const char *const factions[]={u8"도적",u8"마물",u8"언데드",u8"숲",u8"북방",u8"광신도"};
             (void)snprintf(text,sizeof(text),u8"경보! %s %d명이 발견되었습니다. 가까운 보호구역으로 대피합니다.",e->b>=1&&e->b<=6?factions[e->b-1]:u8"습격군",e->c);
         }
@@ -309,7 +310,7 @@ static int run(int argc,char **argv)
         if (strlen(o.save_dir)>=sizeof(a->save_dir)) { free(a); return 2; }
         strcpy(a->save_dir,o.save_dir);
     } else if (!game_join_path(a->save_dir, sizeof(a->save_dir), a->automated ? exe : a->user_dir,
-                               a->automated ? "saves_v9_automated" : "saves_v9")) {
+                               a->automated ? "saves_v10_automated" : "saves_v10")) {
         free(a);
         return 1;
     }
