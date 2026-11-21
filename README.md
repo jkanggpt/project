@@ -31,12 +31,6 @@ Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 ![성벽과 성문 연결·동물30종](docs/screenshots/v121_connections.png)
 ![온실을 포함한 건물 회전](docs/screenshots/v121_rotations.png)
 
-![C 실행판 게임 화면](docs/screenshots/native_game.png)
-![C 실행판 제목 화면](docs/screenshots/native_title.png)
-![주민 외형 8종과 방향별 걷기](docs/screenshots/native_villagers.png)
-![새 건물 4방향 비교](docs/screenshots/expansion_rotations.png)
-![자동 연결 성벽과 동물 걷기](docs/screenshots/fortification_connections.png)
-
 ## Windows 빌드와 실행
 
 배포 ZIP을 받은 경우 압축을 풀고 `MagicCastle-v1.2.1/castle_game.exe`를 실행하면 됩니다. `assets/`와 `data/` 폴더도 함께 두세요.
@@ -152,7 +146,7 @@ ctest --preset linux-debug -j8
 `tools/screenshots.cmake`, `tools/smoke_test.cmake`로도 실행할 수 있습니다.
 각 실행 파일은 `--help`를 제공합니다.
 
-v1.1.1의 두 Windows 빌드에서120개 테스트가 모두 통과했습니다. 144개 장기 검사에서 봇의 왕성 도달과 최대 부하 프레임 목표는 미달이며, 결과와 남은 튜닝은 [검증 기록](docs/V1_1_1_QA.md)에 공개합니다.
+v1.2.1의 두 Windows 빌드에서 각각129개 검사가 통과했습니다. 144판 장기 평가의 실행 오류0·저장 해시144개 일치를 확인했습니다. 봇의 마을 이상 성장과 최대 정상 부하 프레임 목표는 미달이며 [검증 기록](docs/V1_2_1_QA.md)에 결과와 범위를 공개합니다.
 
 ## 구조
 

@@ -79,6 +79,9 @@ if(CASTLE_BUILD_GAME)
     ${PROJECT_SOURCE_DIR}/docs/v111_balance_results.csv DESTINATION docs)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/V1_2_1_SPEC.md ${PROJECT_SOURCE_DIR}/docs/V1_2_1_SPEC.html
     ${PROJECT_SOURCE_DIR}/docs/V1_2_1_IMPLEMENTATION.md ${PROJECT_SOURCE_DIR}/docs/V1_2_1_QA.md DESTINATION docs)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/AI_USAGE.md
+    ${PROJECT_SOURCE_DIR}/docs/v121_balance_results.csv
+    ${PROJECT_SOURCE_DIR}/docs/v121_performance_results.csv DESTINATION docs)
   install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/expansion DESTINATION docs)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/native_title.png
     ${PROJECT_SOURCE_DIR}/docs/screenshots/native_game.png
