@@ -1,5 +1,5 @@
 # 화면과 분리된 C 실행 계층은 그래픽 라이브러리 없이도 테스트합니다.
-add_library(castle_frontend STATIC src/path.c src/session.c src/combat.c src/storage.c src/sprite_layout.c src/effects.c)
+add_library(castle_frontend STATIC src/path.c src/session.c src/combat.c src/storage.c src/sprite_layout.c src/effects.c src/runtime.c)
 target_include_directories(castle_frontend PUBLIC src PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 target_link_libraries(castle_frontend PUBLIC castle_core_static PRIVATE castle_warnings)
 if(NOT WIN32)
@@ -70,6 +70,16 @@ if(CASTLE_BUILD_GAME)
     ${PROJECT_SOURCE_DIR}/art/TOPOLOGY_ANIMATION_PROMPTS.md
     ${PROJECT_SOURCE_DIR}/art/V111_PROMPTS.md ${PROJECT_SOURCE_DIR}/art/V121_PROMPTS.md DESTINATION art)
   install(FILES ${PROJECT_SOURCE_DIR}/art/expansion/ALPHA_REPAIR.md DESTINATION art/expansion)
+  install(FILES ${PROJECT_SOURCE_DIR}/art/V122_PROMPTS.md
+    ${PROJECT_SOURCE_DIR}/art/V122_RESIDENT_PROMPTS.json
+    ${PROJECT_SOURCE_DIR}/art/V122_UNIFORM_PROMPTS.json
+    ${PROJECT_SOURCE_DIR}/art/V122_FARM_PROMPTS.json
+    ${PROJECT_SOURCE_DIR}/art/V122_FARM_ADDITIONAL_PROMPT.json
+    ${PROJECT_SOURCE_DIR}/art/V122_MISC_PROMPTS.json
+    ${PROJECT_SOURCE_DIR}/art/V122_CORRECTION_PROMPTS_FINAL.json
+    ${PROJECT_SOURCE_DIR}/art/V122_YELLOW_WALK_PROMPTS.json
+    ${PROJECT_SOURCE_DIR}/art/V122_ARCHERY_RETRY_PROMPTS.json
+    ${PROJECT_SOURCE_DIR}/art/V122_ALPHA_PROMPTS.json DESTINATION art)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/NATIVE_PORT.md ${PROJECT_SOURCE_DIR}/docs/ARCHITECTURE.md
     ${PROJECT_SOURCE_DIR}/docs/QA.md
     ${PROJECT_SOURCE_DIR}/docs/V1_1_1_SPEC.md
@@ -82,6 +92,19 @@ if(CASTLE_BUILD_GAME)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/AI_USAGE.md
     ${PROJECT_SOURCE_DIR}/docs/v121_balance_results.csv
     ${PROJECT_SOURCE_DIR}/docs/v121_performance_results.csv DESTINATION docs)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/V1_2_2_SPEC.md
+    ${PROJECT_SOURCE_DIR}/docs/V1_2_2_IMPLEMENTATION.md
+    ${PROJECT_SOURCE_DIR}/docs/V1_2_2_QA.md
+    ${PROJECT_SOURCE_DIR}/docs/v122_balance_results.csv
+    ${PROJECT_SOURCE_DIR}/docs/v122_performance_results.csv DESTINATION docs)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_game.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_villagers.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_uniforms.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_farms.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_connections.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_population.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_market.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_load.png DESTINATION docs/screenshots)
   install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/expansion DESTINATION docs)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/native_title.png
     ${PROJECT_SOURCE_DIR}/docs/screenshots/native_game.png

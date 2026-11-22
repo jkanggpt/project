@@ -26,6 +26,7 @@ static void observe(GameSession *s, int category, int id, int hp, int max, int s
     if (!e)
         return;
     if (e->seen && hp < e->hp) {
+        if(category==0){CoreVillagerView *v=game_villager(s,id);if(v && v->mood_source_kind==2)game_hit_fx(s,p,3);}
         e->hurt_started = s->visual_time;
         e->hurt_until = s->visual_time + 0.18f;
         e->bar_until = s->visual_time + 2.5f;
@@ -79,6 +80,11 @@ void game_effects_sync(GameSession *s) {
     }
 }
 void game_effects_event(GameSession *s, const CoreEventView *event) {
+    if(event->type==CORE_EVT_BUILDING_DAMAGED && (event->cause_kind==2 || event->cause_kind==3)) {
+        CoreBuildingView *b=game_building(s,event->a);if(b)game_hit_fx(s,(GamePoint){b->x+b->w*.5f,b->y+b->h*.5f},event->cause_kind==2?3:2);
+    }
+    if(event->type==CORE_EVT_VILLAGER_DIED && event->b==CORE_DEATH_WILDLIFE){GameEffect *fx=game_effect(s,0,event->a);if(fx)game_hit_fx(s,fx->position,3);}
+
     int category = event->type == CORE_EVT_VILLAGER_DIED ? 0 : event->type == CORE_EVT_ENEMY_KILLED ? 2 : -1;
     if (category >= 0) {
         GameEffect *e = game_effect(s, category, event->a);
@@ -88,4 +94,22 @@ void game_effects_event(GameSession *s, const CoreEventView *event) {
             e->death_started = e->hurt_started > s->visual_time ? e->hurt_started : s->visual_time;
         }
     }
+}
+
+int game_hit_style(int source) {
+    if(source==50)return 1;
+    if(source==100+CORE_BLD_CANNON_TOWER)return 7;
+    if(source==100+CORE_BLD_ARCANE_TOWER)return 6;
+    if(source>=100)return 1;
+    if(source==25)return 4;
+    if(source==12 || source==21)return 5;
+    if(source==6 || source==13 || source==16 || source==27)return 6;
+    return 1;
+}
+void game_hit_fx(GameSession *s,GamePoint position,int style) {
+    int x=(int)position.x,y=(int)position.y;
+    if(x<0||y<0||x>=s->summary.map_width||y>=s->summary.map_height ||
+       (s->visibility && s->visibility[y*s->summary.map_width+x]<2))return;
+    int n=s->hit_cursor;s->hit_cursor=(n+1)%160;
+    s->hit_fx[n]=(GameHitFx){position,s->visual_time,style,1};
 }

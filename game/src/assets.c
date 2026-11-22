@@ -102,29 +102,33 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
     a->snow = texture(a, dir, "painted/snow.png");
     a->props = texture(a, dir, "painted/props.png");
     a->construction = texture(a, dir, "painted/construction.png");
-    a->villagers = texture(a, dir, "expansion/villagers_v121.png");
-    a->enemies = texture(a, dir, "expansion/raider_walk.png");
+    a->villagers = texture(a, dir, "expansion/villagers_v122.png");
+    a->enemies = texture(a, dir, "expansion/raider_walk_v122.png");
     a->arrow = texture(a, dir, "painted/arrow.png");
-    if (a->villagers.id && (a->villagers.width != 1152 || a->villagers.height != 1152)) {
-        fprintf(stderr, "Incompatible villager atlas: expected 1152x1152\n");
+    if (a->villagers.id && (a->villagers.width != 1152 || a->villagers.height != 4608)) {
+        fprintf(stderr, "Incompatible villager atlas: expected 1152x4608\n");
         a->missing++;
     }
     a->status_icons = texture(a, dir, "expansion/status_icons.png");
-    a->animals = texture(a, dir, "expansion/animals_v121.png");
-    a->animal_walk=texture(a,dir,"expansion/animal_walk_v121.png");
+    a->life_icons=texture(a,dir,"expansion/life_icons.png");
+    a->rocks=texture(a,dir,"expansion/rocks.png");
+    static const char *const uniform_names[4]={"camp","lodge","barracks","garrison"};
+    for(i=0;i<4;i++){snprintf(name,sizeof(name),"expansion/uniform_%s.png",uniform_names[i]);a->uniforms[i]=texture(a,dir,name);}
+    a->animals = texture(a, dir, "expansion/animals_v122.png");
+    a->animal_walk=texture(a,dir,"expansion/animal_walk_v122.png");
     a->wall_links=texture(a,dir,"expansion/wall_links.png");
     a->biomes = texture(a, dir, "expansion/biomes.png");
     a->gates=texture(a,dir,"expansion/gates_v121.png");
-    a->farms=texture(a,dir,"expansion/farms_v121.png");
+    a->farms=texture(a,dir,"expansion/farms_v122.png");
     a->greenhouse_turns=atlas_texture(a,dir,"expansion/greenhouse_turns.png",a->greenhouse_sources,4,4);
-    a->raider_attack=texture(a,dir,"expansion/raider_attack.png");
+    a->raider_attack=texture(a,dir,"expansion/raider_attack_v122.png");
     a->animal_babies=texture(a,dir,"expansion/animal_babies.png");
     a->trees = texture(a, dir, "expansion/trees_v121.png");
     a->biome_edges = texture(a, dir, "expansion/biome_edges.png");
     a->shores = texture(a, dir, "expansion/shores.png");
     a->road_tiles = texture(a, dir, "expansion/road_connections.png");
     a->animal_swim = texture(a, dir, "expansion/animal_swim.png");
-    a->animal_attack = texture(a, dir, "expansion/animal_attack_v121.png");
+    a->animal_attack = texture(a, dir, "expansion/animal_attack_v122.png");
     for (i = 0; i < 6; i++) {
         snprintf(name, sizeof(name), "expansion/manor_%d.png", i);
         a->manors[i] = texture(a, dir, name);
@@ -169,6 +173,9 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
     return a->missing == 0;
 }
 void game_assets_free(GameAssets *a) {
+    if(a->life_icons.id)UnloadTexture(a->life_icons);
+    if(a->rocks.id)UnloadTexture(a->rocks);
+    for(int k=0;k<4;k++)if(a->uniforms[k].id)UnloadTexture(a->uniforms[k]);
     if(a->gates.id)UnloadTexture(a->gates);
     if(a->farms.id)UnloadTexture(a->farms);
     if(a->greenhouse_turns.id)UnloadTexture(a->greenhouse_turns);

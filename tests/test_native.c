@@ -39,6 +39,12 @@ static void paths(void) {
     cost[6] = 30;
     EXPECT(game_path_find(&finder, cost, 5, 5, 0, 0, 4, 0, 0, &path) == 1);
     EXPECT(path.count == 5); /* 일곱 칸 우회보다 네 번 움직이는 길이 쌉니다. */
+    memset(cost,10,sizeof(cost));
+    cost[7]=cost[11]=cost[13]=CORE_COST_WALL;
+    EXPECT(game_path_find(&finder,cost,5,5,2,2,-1,-1,3,&path)==1);
+    EXPECT(path.count>=3 && path.cells[path.count-1]/5==4);
+    cost[17]=CORE_COST_WALL;
+    EXPECT(game_path_find(&finder,cost,5,5,2,2,-1,-1,3,&path)==0);
     game_path_free(&path);
     game_pathfinder_free(&finder);
 }
@@ -112,7 +118,7 @@ static void sprite_layout(void) {
         int i, seen = 0;
         for (i = 1; i <= 12; i++)
             seen |= 1 << game_villager_art(i);
-        EXPECT(seen == 4095 && game_villager_art(13) == game_villager_art(1));
+        EXPECT(seen == 4095 && game_villager_art(49) == game_villager_art(1));
         EXPECT(game_villager_art(-1) == 0);
     }
     EXPECT(game_walk_facing(0, 0, FACE_UP) == FACE_UP);
@@ -344,6 +350,31 @@ static void ability_during_attack(const char *data) {
         game_session_free(s);free(s);
     }
 }
+static void actual_retreat(const char *data) {
+    GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
+    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;
+    EXPECT(game_session_new(s,u8"철수 우회 검사",42,0)==CORE_OK);
+    EXPECT(threat_debug_raid(s->world,CORE_THREAT_BANDITS,CORE_DIR_EAST,1)==CORE_OK);
+    EXPECT(game_session_refresh(s)==CORE_OK);
+    GameEnemy *e=&s->enemies[0];int x=s->summary.keep_x+14,y=s->summary.keep_y+14;
+    while(x<s->summary.map_width-2 && !game_path_cost(s->cost[y*s->summary.map_width+x],3))x++;
+    e->actor.position=(GamePoint){x+.5f,y+.5f};e->actor.grid_revision=-1;
+    e->entry_x=s->summary.map_width-1;e->entry_y=y;
+    e->inbound_count=1;e->inbound[0]=s->summary.keep_x;e->inbound[1]=s->summary.keep_y;
+    s->world->threat.raid.phase=CORE_RAID_ASSAULT;
+    s->world->threat.raid.started_tick=0;s->world->threat.raid.assault_end_tick=1;
+    EXPECT(core_tick(s->world,1)==CORE_OK);
+    EXPECT(s->world->threat.raid.phase==CORE_RAID_RETREAT);
+    EXPECT(core_expansion_build_locked(s->world));EXPECT(game_session_refresh(s)==CORE_OK);
+    float before=e->actor.position.x;
+    EXPECT(game_session_step(s,1)==CORE_OK);EXPECT(e->actor.position.x<before+2);
+    for(int i=0;i<720 && s->raid_id;i++)EXPECT(game_session_step(s,10)==CORE_OK);
+    EXPECT(s->raid_id==0);EXPECT(!core_expansion_build_locked(s->world));
+    EXPECT(s->world->threat.raid.escaped==1);EXPECT(s->world->threat.raid.killed==0);
+    GameActor *resident=game_actor(s,s->villagers[0].id);EXPECT(resident!=NULL);
+    if(resident){resident->chasing=1;resident->attack_serial=7;resident->attack_elapsed=1;resident->outfit=4;EXPECT(game_session_step(s,1)==CORE_OK);EXPECT(!resident->chasing && !resident->attack_serial && !resident->outfit);}
+    EXPECT(core_validate(s->world)==0);game_session_free(s);free(s);
+}
 int main(int argc, char **argv) {
     if (argc != 2)
         return 2;
@@ -358,6 +389,7 @@ int main(int argc, char **argv) {
     raid_attack_frames(argv[1]);
     bot_trade_recovery(argv[1]);
     ability_during_attack(argv[1]);
+    actual_retreat(argv[1]);
     if (!failed)
         puts("C native runtime tests passed");
     return failed ? 1 : 0;

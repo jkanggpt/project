@@ -307,8 +307,8 @@ static void format_building_event(const CoreEventView *event,char *out,size_t si
     const char *name=core_expansion_building_name(event->b);
     const char *verb=event->type==CORE_EVT_BUILDING_PLACED?u8"착공":event->type==CORE_EVT_BUILDING_COMPLETED?u8"완공":event->type==CORE_EVT_BUILDING_DAMAGED?u8"피해":event->type==CORE_EVT_BUILDING_RUINED?u8"파괴":event->type==CORE_EVT_BUILDING_REPAIRED?u8"수리":u8"철거";
     char source[160]={0};
-    if(event->cause_kind==1) {CoreRaiderInfo info;if(core_expansion_raider_info(event->source_id,&info)==CORE_OK)snprintf(source,sizeof(source),u8"%s의 공격",info.name);else snprintf(source,sizeof(source),u8"습격 적의 공격");}
-    else if(event->cause_kind==2){CoreAnimalInfo info;if(core_expansion_animal_info(event->source_id,&info)==CORE_OK)snprintf(source,sizeof(source),u8"%s의 반격",info.name);}
+    if(event->cause_kind==1) {CoreRaiderInfo info;if(core_expansion_raider_info(event->source_type-1,&info)==CORE_OK)snprintf(source,sizeof(source),u8"%s의 공격",info.name);else snprintf(source,sizeof(source),u8"습격 적의 공격");}
+    else if(event->cause_kind==2){CoreAnimalInfo info;if(core_expansion_animal_info(event->source_type-1,&info)==CORE_OK)snprintf(source,sizeof(source),u8"%s의 반격",info.name);}
     else if(event->cause_kind==3)snprintf(source,sizeof(source),u8"폭풍");
     if(event->type==CORE_EVT_BUILDING_RUINED)snprintf(out,size,u8"%s#%d %s · %s (%d일 %02d:%02d)",name,event->type_serial?event->type_serial:event->a,verb,source[0]?source:u8"원인 확인 불가",event->event_tick/144+1,event->event_tick%144/6,event->event_tick%6*10);
     else snprintf(out,size,u8"%s#%d %s (%d,%d)",name,event->type_serial?event->type_serial:event->a,verb,event->c,event->d);
@@ -333,6 +333,15 @@ static void format_villager_event(const CoreEventView *event, char *out, size_t 
         snprintf(out, size, u8"%s%s 마을을 떠났습니다.", event->text, ga);
         break;
     case CORE_EVT_VILLAGER_DIED:
+        if((event->b==CORE_DEATH_RAID || event->b==CORE_DEATH_WILDLIFE) && event->c>0 && (event->cause_kind==1 || event->cause_kind==2)) {
+            CoreRaiderInfo enemy;CoreAnimalInfo animal;
+            const char *source=u8"공격자";
+            if(event->cause_kind==1 && core_expansion_raider_info(event->c-1,&enemy)==CORE_OK)source=enemy.name;
+            if(event->cause_kind==2 && core_expansion_animal_info(event->c-1,&animal)==CORE_OK)source=animal.name;
+            snprintf(out,size,u8"%s%s %s #%d의 공격으로 사망했습니다. (%d일 %02d:%02d)",
+                event->text,ga,source,event->source_id,event->event_tick/144+1,(event->event_tick%144)/6,(event->event_tick%6)*10);
+            break;
+        }
         snprintf(out, size, u8"%s%s %s세상을 떠났습니다.", event->text, ga,
                  event->b == CORE_DEATH_STARVATION ? u8"굶주림으로 "
                  : event->b == CORE_DEATH_ILLNESS  ? u8"병으로 "

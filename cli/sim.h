@@ -27,6 +27,8 @@ int sim_bot_exists(const char *bot_name);
 /* 그래픽 자동 검사도 같은 C 봇의 명령을 쓰되, 이동과 전투는 자신의 실행 계층이 풉니다. */
 int sim_bot_daily(CoreWorld *world, const char *bot_name);
 int sim_expansion_bot_daily(CoreWorld *world);
+/* 실제 거래 직원이 일하는 정오에 호출합니다. */
+void sim_expansion_bot_trade(CoreWorld *world);
 /* 봇 이름 목록을 출력 */
 void sim_print_bots(void);
 

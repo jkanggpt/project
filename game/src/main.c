@@ -26,7 +26,7 @@ static void help(void)
     puts("Magic Castle - C / raylib\ncastle_game [--data dir] [--assets dir] [--save-dir dir]\n"
          "  --smoke-test [--days 20] [--seed 42]  C runtime test without a window\n"
          "  --stress | --stress-probe              150 villagers + 40 enemies\n"
-         "  --screenshot file.png [--screen title|game|villagers|population|rotations|connections|research|rank|market|load]\n"
+         "  --screenshot file.png [--screen title|game|villagers|uniforms|farms|population|rotations|connections|research|rank|market|load]\n"
          "  --frames N --autoplay --no-audio --width 1440 --height 900\n"
          "  --difficulty peaceful|normal|harsh (or 0|1|2)");
 }
@@ -81,7 +81,7 @@ static int options(int argc,char **argv,Options *o)
         } else
             return 0;
     }
-    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"population") && strcmp(o->screen,"rotations") && strcmp(o->screen,"connections") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load")) return 0;
+    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"population") && strcmp(o->screen,"rotations") && strcmp(o->screen,"connections") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load") && strcmp(o->screen,"uniforms") && strcmp(o->screen,"farms")) return 0;
     return 1;
 }
 void game_app_notice(GameApp *a,const char *text)
@@ -151,6 +151,24 @@ int game_app_save(GameApp *a,int slot)
     } else game_app_result(a,rc,0,0);
     return rc;
 }
+void game_app_legacy_slot_path(GameApp *a,int slot,int backup,char path[GAME_PATH_BYTES]) {
+    char directory[GAME_PATH_BYTES],name[48];
+    if(slot==0)snprintf(name,sizeof(name),"autosave.sav%s",backup?".bak":"");
+    else snprintf(name,sizeof(name),"slot%d.sav%s",slot,backup?".bak":"");
+    if(!game_join_path(directory,sizeof(directory),a->user_dir,"saves_v9") ||
+       !game_join_path(path,GAME_PATH_BYTES,directory,name))path[0]=0;
+}
+int game_app_import_v9(GameApp *a,int slot,int backup) {
+    char source[GAME_PATH_BYTES],destination[GAME_PATH_BYTES];int target=0,line=0;
+    for(int i=1;i<=3;i++){game_app_slot_path(a,i,0,destination);if(!platform_file_exists(destination)){target=i;break;}}
+    if(!target){snprintf(a->message,sizeof(a->message),u8"기존 저장을 보존하려면 v10의 빈 수동 저장 슬롯이 필요합니다.");return 0;}
+    game_app_legacy_slot_path(a,slot,backup,source);
+    int rc=game_session_load(&a->session,source,&line);
+    if(rc!=CORE_OK){snprintf(a->message,sizeof(a->message),u8"v9 가져오기 실패: %s (%d번째 줄)",fmt_result_message(rc),line);return 0;}
+    enter_game(a);rc=game_app_save(a,target);
+    if(rc==CORE_OK){a->load_legacy=0;game_app_notice(a,u8"v9 원본을 보존하고 빈 슬롯에 v10으로 저장했습니다.");return 1;}
+    game_app_notice(a,u8"v9를 불러왔지만 새 저장에 실패했습니다. 원본은 보존되어 있습니다.");return 0;
+}
 int game_app_load(GameApp *a,int slot,int backup)
 {
     char path[GAME_PATH_BYTES]; int rc,line=0;
@@ -219,6 +237,7 @@ static int smoke(GameApp *a,const Options *o)
 {
     int day=0,rc=CORE_OK,target=o->days*144,i; uint64_t before=0,after=0;
     char path[GAME_PATH_BYTES]; unsigned long arrivals,shots,kills;
+    uint8_t cost_before[256*256],cost_after[256*256];
     a->in_game=1;
     rc=game_session_new(&a->session,u8"자동 검사 성채",o->seed,o->difficulty);
     if (rc!=CORE_OK) return 1;
@@ -226,6 +245,7 @@ static int smoke(GameApp *a,const Options *o)
         if (day!=a->session.summary.day) {
             day=a->session.summary.day; (void)sim_bot_daily(a->session.world,"reasonable");
         }
+        if(a->session.summary.minute_of_day==720)sim_expansion_bot_trade(a->session.world);
         rc=game_session_step(&a->session,10);
         if (rc!=CORE_OK || core_validate(a->session.world)!=0 || a->session.summary.outcome==CORE_OUTCOME_LOST) {
             fprintf(stderr,"SMOKE FAILED: day=%d result=%d population=%d\n",a->session.summary.day,rc,a->session.summary.population); return 1;
@@ -236,8 +256,21 @@ static int smoke(GameApp *a,const Options *o)
     for (i=0;a->session.summary.raid_id && i<150;i++) if (game_session_step(&a->session,10)!=CORE_OK) return 1;
     if (!game_make_dirs(a->save_dir) || !game_join_path(path,sizeof(path),a->save_dir,"roundtrip.sav")) return 1;
     arrivals=a->session.arrivals; shots=a->session.shots; kills=a->session.kills;
-    if (core_state_hash(a->session.world,&before)!=CORE_OK || core_save(a->session.world,path)!=CORE_OK ||
-        game_session_load(&a->session,path,NULL)!=CORE_OK || core_state_hash(a->session.world,&after)!=CORE_OK || before!=after || core_validate(a->session.world)!=0) return 1;
+    (void)core_copy_cost_grid(a->session.world,cost_before,256*256,NULL);
+    rc=core_state_hash(a->session.world,&before);
+    if(rc==CORE_OK)rc=core_save(a->session.world,path);
+    if(rc!=CORE_OK){fprintf(stderr,"SMOKE SAVE FAILED: result=%d validate=%d\n",rc,core_validate(a->session.world));return 1;}
+    int load_line=0;rc=game_session_load(&a->session,path,&load_line);
+    if(rc!=CORE_OK){fprintf(stderr,"SMOKE LOAD FAILED: result=%d line=%d\n",rc,load_line);return 1;}
+    rc=core_state_hash(a->session.world,&after);
+    if(rc!=CORE_OK || before!=after || core_validate(a->session.world)!=0) {
+        (void)core_copy_cost_grid(a->session.world,cost_after,256*256,NULL);
+        int mismatches=0;for(int p=0;p<a->session.cells;p++)if(cost_before[p]!=cost_after[p]){if(mismatches<8)fprintf(stderr,"cost mismatch %d,%d: %d/%d\n",p%a->session.summary.map_width,p/a->session.summary.map_width,cost_before[p],cost_after[p]);mismatches++;}
+        fprintf(stderr,"grid mismatches=%d\n",mismatches);
+        fprintf(stderr,"SMOKE ROUNDTRIP FAILED: result=%d before=%llu after=%llu validate=%d\n",rc,(unsigned long long)before,(unsigned long long)after,core_validate(a->session.world));
+        if(game_join_path(path,sizeof(path),a->save_dir,"roundtrip_loaded.sav"))(void)core_save(a->session.world,path);
+        return 1;
+    }
     printf("SMOKE PASS: days=%d population=%d rank=%d research=%d arrivals=%lu shots=%lu kills=%lu saves=%d hash=%llu\n",
         o->days,a->session.summary.population,a->session.summary.rank,a->session.summary.research_done,arrivals,shots,kills,a->save_count,(unsigned long long)after);
     return 0;
@@ -246,12 +279,15 @@ static void screenshot_screen(GameApp *a,const Options *o)
 {
     if (!strcmp(o->screen,"title")) { a->panel=PANEL_TITLE; a->in_game=0; return; }
     (void)game_session_new(&a->session,u8"바람언덕",o->seed,o->difficulty); enter_game(a);
-    if(!strcmp(o->screen,"villagers") || !strcmp(o->screen,"rotations") || !strcmp(o->screen,"connections")){a->speed=0;return;}
+    if(!strcmp(o->screen,"uniforms") || !strcmp(o->screen,"farms") || !strcmp(o->screen,"villagers") || !strcmp(o->screen,"rotations") || !strcmp(o->screen,"connections")){a->speed=0;return;}
     {
         int day;
-        for(day=0;day<16;day++){
+        int preview_days=!strcmp(o->screen,"market")?40:16;
+        for(day=0;day<preview_days;day++){
             (void)sim_expansion_bot_daily(a->session.world);
-            (void)game_session_step(&a->session,1440);
+            (void)game_session_step(&a->session,720);
+            sim_expansion_bot_trade(a->session.world);
+            (void)game_session_step(&a->session,720);
         }
         {
             int x,y,placed=0;int32_t id=0,reason=0;
@@ -294,7 +330,7 @@ static int compare_double(const void *left, const void *right) {
 static int run(int argc,char **argv)
 {
     Options o; GameApp *a; char exe[GAME_PATH_BYTES],data[GAME_PATH_BYTES],assets[GAME_PATH_BYTES];
-    int status=0,frame=0,last_bot_day=-1; double frame_total=0,frame_max=0;
+    int status=0,frame=0,last_bot_day=-1,last_trade_day=-1; double frame_total=0,frame_max=0;
     double samples[600], sim_total = 0, render_total = 0;
     int measured = 0, min_villagers = 100000, min_enemies = 100000, min_wild = 100000;
     int min_livestock=100000,max_enemies=0;
@@ -364,6 +400,7 @@ static int run(int argc,char **argv)
         if (a->panel!=PANEL_NONE && a->panel!=PANEL_TITLE && IsKeyPressed(KEY_ESCAPE)) game_app_close(a);
         else game_world_input(a,delta);
         if (o.autoplay && a->in_game && a->session.summary.day!=last_bot_day) { last_bot_day=a->session.summary.day; (void)sim_bot_daily(a->session.world,"reasonable"); }
+        if(o.autoplay && a->in_game && a->session.summary.minute_of_day>=720 && last_trade_day!=a->session.summary.day) {last_trade_day=a->session.summary.day;sim_expansion_bot_trade(a->session.world);}
         if(o.autoplay && a->in_game && a->session.summary.rank_ready) {int32_t why=0;(void)core_rank_up(a->session.world,&why);}
         if (a->in_game && a->panel==PANEL_NONE && a->speed>0 && a->session.summary.outcome!=CORE_OUTCOME_LOST) {
             float minutes=a->session.summary.ruleset?delta*a->speed*12.0f:delta*a->speed*1000/a->session.config.real_ms_per_tick*a->session.config.minutes_per_tick;
@@ -384,6 +421,8 @@ static int run(int argc,char **argv)
         render_started = GetTime();
         BeginDrawing(); ClearBackground(UI_BG);
         if (o.screenshot && !strcmp(o.screen,"villagers")) game_render_villager_preview(a);
+        else if (o.screenshot && !strcmp(o.screen,"uniforms")) game_render_uniform_preview(a);
+        else if (o.screenshot && !strcmp(o.screen,"farms")) game_render_farm_preview(a);
         else if (o.screenshot && !strcmp(o.screen,"rotations")) game_render_rotation_preview(a);
         else if (o.screenshot && !strcmp(o.screen,"connections")) game_render_connection_preview(a);
         else { game_render_world(a); game_render_interface(a); }

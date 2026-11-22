@@ -86,8 +86,13 @@ struct Villager {
     int32_t mission, mission_target, mission_waypoint, mission_next_tick;
     int32_t leisure_building, leisure_elapsed, leisure_duration, leisure_day, education_day;
     int32_t walk_origin_x, walk_origin_y, walk_reward_day;
-    int32_t mood_ticks[24], mood_counts[24], mood_day, mood_event_tick, mood_event_amount;
+    int32_t mood_ticks[32], mood_counts[32], mood_day, mood_event_tick, mood_event_amount;
+    int32_t mood_recent[32][3], mood_recent_cursor;
+    int32_t mood_source_kind, mood_source_type;
     int32_t thirst_stage, hunger_stage, damage_kind, damage_source;
+    int32_t xp_pending[12][5]; /* 분야별 6시간 미정산 능력치 분자와 소수 잔여 */
+    int32_t frontend_actor[20];
+    int32_t shift_sleep_day,mood_event_source;
 };
 
 struct Building {
@@ -108,6 +113,7 @@ struct Building {
     int32_t flags;         /* CORE_BF_* (난방 못 함 등) */
     int32_t rotation,completed_day,mode,mode_day,operating,blocked_reason;
     int32_t daily_work_milli,crop_labor_milli,crop_year,crop_drought,pending_harvest_milli,harvest_expiry;
+    int32_t research_work_milli;
     int32_t processing_milli[CORE_RES_COUNT],hunts_milli,shots,visits_today;
     int32_t water_served;
     int32_t actual_work_milli, agriculture_work_milli, forestry_carry_milli;
@@ -117,6 +123,8 @@ struct Building {
 
     int32_t type_serial, logging_cursor, combat_guard_id;
     int32_t damage_kind,damage_source,damage_tick;
+    int32_t frontend_tower[2];
+    int32_t combat_until_tick;
 
     Villager **workers;    /* 일꾼 (id 순으로 정렬) */
     int32_t worker_count;

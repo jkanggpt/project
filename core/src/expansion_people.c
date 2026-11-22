@@ -116,6 +116,19 @@ int expansion_qualified(const World *w, const Building *b) {
     default: return b->worker_count > 0 || !expansion_spec(b->type)->workers;
     }
 }
+int expansion_qualified_present(const World *w,const Building *b) {
+    int sum=0,highest=0,count=0;
+    for(int i=0;i<b->worker_count;i++)if(expansion_working_present(w,b,b->workers[i])) {
+        int n=b->workers[i]->stats.intellect;sum+=n;count++;if(n>highest)highest=n;
+    }
+    switch(b->type) {
+    case CORE_BLD_HEALER:return count>=1 && highest>=4;
+    case CORE_BLD_HOSPITAL:return count>=2 && highest>=6 && sum>=10;
+    case CORE_BLD_SCHOOL:return highest>=5 && sum>=7;
+    case CORE_BLD_ACADEMY:return highest>=7 && sum>=15;
+    default:return count>0 || !expansion_spec(b->type)->workers;
+    }
+}
 void expansion_assign(World *w) {
     int i, j, pass;
     for (i = 0; i < w->villager_count; i++) {
@@ -169,8 +182,10 @@ void expansion_assign(World *w) {
                     best = v;
                 }
             }
-            if (best && entity_link_worker(b, best, slots) != CORE_OK)
-                w->expansion->error = CORE_ERR_OUT_OF_MEMORY;
+            if(best) {
+                if(entity_link_worker(b,best,slots)!=CORE_OK)w->expansion->error=CORE_ERR_OUT_OF_MEMORY;
+                else expansion_initialize_shift(w,b,best);
+            }
         }
     expansion_water_supply(w);
 }
@@ -276,6 +291,7 @@ static void intent(Villager *v, int state, Building *b, int x, int y) {
         v->inside_building = b->id;
 }
 static void to_building(const World *w, Villager *v, int state, Building *b, const Building *keep) {
+    if(state!=CORE_VS_GUARD_POST && state!=CORE_VS_WORKING && v->mission!=CORE_MISSION_WALK)v->mission=CORE_MISSION_NONE;
     if (!b) {
         int attempt;
         for (attempt = 0; attempt < 15; attempt++) {
@@ -307,15 +323,29 @@ void expansion_add_xp(Villager *v, int index, int amount) {
     if (level == 10 || level == v->initial_stats[index] + 3)
         v->stat_xp[index] = 0;
 }
-static void gain_xp(Villager *v, int field, int type, int minutes) {
+void expansion_gain_xp(Villager *v, int field, int type, int minutes) {
     static const int ranged[5] = {0, 40, 20, 40, 0};
     if (field < 0 || field >= 12 || !minutes) return;
     const int *weights = expansion_spec(type)->category == CORE_CAT_TOWERS ? ranged : WEIGHTS[field];
     v->skill_minutes[field] += minutes;
-    v->xp_work_minutes[field] += minutes;
-    while (v->xp_work_minutes[field] >= 360) {
-        v->xp_work_minutes[field] -= 360;
-        for (int i = 0; i < 5; i++) expansion_add_xp(v, i, weights[i] * (i == 4 ? 30 : 60));
+    while(minutes>0) {
+        int chunk=360-v->xp_work_minutes[field];if(chunk>minutes)chunk=minutes;
+        for(int i=0;i<5;i++)v->xp_pending[field][i]+=weights[i]*(i==4?30:60)*chunk;
+        v->xp_work_minutes[field]+=chunk;minutes-=chunk;
+        if(v->xp_work_minutes[field]==360) {
+            v->xp_work_minutes[field]=0;
+            for(int i=0;i<5;i++) {
+                expansion_add_xp(v,i,v->xp_pending[field][i]/360);
+                v->xp_pending[field][i]%=360;
+            }
+        }
+    }
+}
+void expansion_migrate_xp(Villager *v) {
+    static const int ranged[5]={0,40,20,40,0};
+    for(int f=0;f<12;f++)for(int i=0;i<5;i++) {
+        const int *weights=f==7 && v->workplace && expansion_tower(v->workplace->type)?ranged:WEIGHTS[f];
+        v->xp_pending[f][i]=v->xp_work_minutes[f]*weights[i]*(i==4?30:60);
     }
 }
 static int patient_limit(const World *w, const Building *b) {
@@ -327,10 +357,6 @@ static int patient_limit(const World *w, const Building *b) {
             if (n > highest) highest = n;
         }
     if (b->type == CORE_BLD_HEALER ? highest < 4 : count < 2 || highest < 6 || sum < 10) return 0;
-    return b->visits_today + b->service_credit_milli / 1000;
-}
-static int service_limit(const World *w, const Building *b) {
-    if (!expansion_service_shift(b->type) || !expansion_qualified(w, b) || !expansion_working_count(w, b)) return 0;
     return b->visits_today + b->service_credit_milli / 1000;
 }
 static int service_efficiency(const World *w,const Building *b) {
@@ -365,6 +391,7 @@ void expansion_people_tick(World *w) {
     for (i = w->villager_count - 1; i >= 0; i--) {
         Villager *v = w->villagers[i];
         Building *job = v->workplace;
+        if(job && job->combat_until_tick<=w->clock.tick)job->combat_guard_id=0;
         CoreWorkSchedule schedule;expansion_schedule(w,v,&schedule);
         if (v->health >= 30)
             v->critical = 0;
@@ -426,8 +453,9 @@ void expansion_people_tick(World *w) {
                 v->hold_ticks--;
             if (job && (expansion_military(job->type) || (expansion_tower(job->type) && schedule.on_duty))) {
                 v->inside_building = 0;
+                (void)expansion_duty(w,v,job);
                 to_building(w, v, expansion_military(job->type) ? CORE_VS_GUARD_POST : CORE_VS_WORKING, job, keep);
-                if (expansion_working_present(w, job, v)) gain_xp(v, 7, job->type, expansion_begin_work(w, v, job));
+                if (expansion_working_present(w, job, v)) expansion_gain_xp(v, 7, job->type, expansion_begin_work(w, v, job));
             } else if (v->state != CORE_VS_FLEE ||
                        (v->refuge_revision != w->grid.cost_rev &&
                         !(grid_in_bounds(&w->grid, v->target_x, v->target_y) &&
@@ -453,6 +481,10 @@ void expansion_people_tick(World *w) {
             to_building(w, v, CORE_VS_SLEEP, v->home, keep);
             if (v->at_target)
                 v->needs.rest = exp_clamp(v->needs.rest + 2, 0, 100);
+            if(v->at_target && job && expansion_tower(job->type) && schedule.shift && v->shift_adapt_days<3 && v->shift_sleep_day!=exp_day(w)) {
+                expansion_mood_event(w,v,14,(int[]){-8,-5,-2}[v->shift_adapt_days],job->id,144,1);
+                v->shift_adapt_days++;v->shift_sleep_day=exp_day(w);
+            }
             if (v->at_target && minute % 60 == 0 && !v->sick_ticks && v->meal_day >= exp_day(w) - 1)
                 v->health = exp_clamp(v->health + 1, 1, 100);
             continue;
@@ -462,7 +494,7 @@ void expansion_people_tick(World *w) {
             for (j = 0; j < w->building_count; j++) {
                 Building *b = w->buildings[j];
                 if ((b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) && b != job &&
-                    b->state == CORE_BSTATE_ACTIVE && expansion_qualified(w, b) &&
+                    b->state == CORE_BSTATE_ACTIVE && expansion_qualified_present(w, b) &&
                     patient_limit(w, b) > b->visits_today) {
                     clinic = b;
                     break;
@@ -511,7 +543,7 @@ void expansion_people_tick(World *w) {
             if (v->meal_day < exp_day(w) && (minute < 480 || expansion_bank_have(w, CORE_RES_FOOD) >= 1200))
                 continue;
         }
-        if (minute < 480 && v->water_building) {
+        if (minute < 480 && v->water_building && v->water<80) {
             Building *well = entity_find_building(w, v->water_building);
             if (well) {
                 to_building(w, v, CORE_VS_IDLE, well, keep);
@@ -529,7 +561,7 @@ void expansion_people_tick(World *w) {
             schedule.on_duty) {
             v->leisure_building=0;v->leisure_elapsed=0;
             if(expansion_duty(w,v,job)) {
-                gain_xp(v,expansion_spec(job->type)->field,job->type,expansion_begin_work(w,v,job));continue;
+                expansion_gain_xp(v,expansion_spec(job->type)->field,job->type,expansion_begin_work(w,v,job));continue;
             }
             int input = 0;
             for (j = 0; j < CORE_RES_COUNT; j++)
@@ -551,7 +583,7 @@ void expansion_people_tick(World *w) {
             if (expansion_military(job->type)) {
                 to_building(w, v, CORE_VS_GUARD_POST, job, keep);
                 if (v->at_target) {
-                    gain_xp(v, 7, job->type, expansion_begin_work(w, v, job));
+                    expansion_gain_xp(v, 7, job->type, expansion_begin_work(w, v, job));
                 }
                 continue;
             }
@@ -560,37 +592,11 @@ void expansion_people_tick(World *w) {
             if (v->at_target) {
                 v->state = CORE_VS_WORKING;
                 if (expansion_qualified(w, job))
-                    gain_xp(v, expansion_spec(job->type)->field, job->type, expansion_begin_work(w, v, job));
+                    expansion_gain_xp(v, expansion_spec(job->type)->field, job->type, expansion_begin_work(w, v, job));
             }
             continue;
         }
-        if (0) {
-            Building *service = NULL;
-            int best = INT32_MAX;
-            for (j = 0; j < w->building_count; j++) {
-                Building *b = w->buildings[j];
-                if (b->state == CORE_BSTATE_ACTIVE && b->operating && b->visits_today < service_limit(w, b)) {
-                    int score = exp_dist(v->loc_x, v->loc_y, b->door_x, b->door_y) +
-                                (v->id * 7 + b->id * 3 + exp_day(w)) % 17;
-                    if (v->target == b)
-                        score -= 50;
-                    if (b->type == CORE_BLD_BATHHOUSE && v->hygiene < 50)
-                        score -= 100;
-                    if (score < best) {
-                        best = score;
-                        service = b;
-                    }
-                }
-            }
-            if (service) {
-                to_building(w, v, CORE_VS_IDLE, service, keep);
-                if (v->at_target) {
-                    v->visit_day = exp_day(w);
-                    expansion_leisure_reward(w,v, service, exp_day(w));
-                }
-                continue;
-            }
-        }
+        if(v->mission!=CORE_MISSION_WALK)v->mission=CORE_MISSION_NONE;
         if(expansion_leisure(w,v))continue;
         v->mission=CORE_MISSION_NONE;
         to_building(w, v, CORE_VS_IDLE, v->home ? v->home : expansion_hub(w, v, 0, NULL), keep);

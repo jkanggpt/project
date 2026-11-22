@@ -90,6 +90,7 @@ static int adopt(GameSession *s, CoreWorld *world) {
     next->ruleset = s->ruleset;
     next->exp_tick = -1;
     rc = game_session_refresh(next);
+    if(rc==CORE_OK)rc=game_session_checkpoint(next,1);
     if (rc == CORE_OK) {
         clear_world(s);
         *s = *next;
@@ -347,18 +348,22 @@ int game_actor_plan(GameSession *s, GameActor *a, int x, int y, int enemy) {
     s->finder.normal_cost = s->summary.ruleset ? 100 : 10;
     const uint8_t *cost=s->cost;
     if(enemy && s->summary.ruleset) {
-        if(!s->enemy_cost)s->enemy_cost=malloc((size_t)s->cells);
+        if(!s->enemy_cost){s->enemy_cost=malloc((size_t)s->cells);s->enemy_cost_revision=-1;}
         if(!s->enemy_cost){s->last_error=CORE_ERR_OUT_OF_MEMORY;return -1;}
+        if(s->enemy_cost_revision!=s->grid_revision) {
         memcpy(s->enemy_cost,s->cost,(size_t)s->cells);
         for(int i=0;i<s->building_count;i++) {
             const CoreBuildingView *b=&s->buildings[i];if(b->state!=CORE_BSTATE_CONSTRUCTING)continue;
             for(int yy=b->y;yy<b->y+b->h;yy++)for(int xx=b->x;xx<b->x+b->w;xx++)s->enemy_cost[yy*s->summary.map_width+xx]=100;
+        }
+        s->enemy_cost_revision=s->grid_revision;
         }
         cost=s->enemy_cost;
     }
     int rc = game_path_find(&s->finder, cost, s->summary.map_width, s->summary.map_height,
                             (int)a->position.x, (int)a->position.y, x, y, enemy, &a->path);
     a->next = 1;
+    if(rc>0 && x==-1 && y==-1){int last=a->path.cells[a->path.count-1];x=last%s->summary.map_width;y=last/s->summary.map_width;}
     a->target_x = x;
     a->target_y = y;
     a->grid_revision = s->grid_revision;
@@ -519,6 +524,7 @@ int game_session_step(GameSession *s, float minutes) {
         s->steps++;
     }
     rc = game_session_refresh(s);
+    if(rc==CORE_OK)rc=game_session_checkpoint(s,0);
     if (rc == CORE_OK)
         game_session_events(s);
     return rc;

@@ -449,7 +449,7 @@ static void villager_to_view(const World *world, const Villager *v, CoreVillager
     out->sex = v->sex;
     out->appearance = v->appearance;
     out->work_efficiency = v->workplace && world->expansion ? expansion_work_percent(world, v, v->workplace->type) : 100;
-    out->combat_max_hp = v->workplace && v->workplace->type == CORE_BLD_BARRACKS ?
+    out->combat_max_hp = v->workplace && expansion_military(v->workplace->type) ?
         100 * exp_clamp(100 + 8 * (v->stats.vitality - 4), 76, 148) / 100 : 100;
     memcpy(out->name, v->name, CORE_NAME_BYTES);
     out->name[CORE_NAME_BYTES - 1] = '\0';

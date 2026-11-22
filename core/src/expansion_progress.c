@@ -324,13 +324,8 @@ void expansion_candidates(World *w) {
         for (i = 1; i < 15; i++)
             e->trade_stock[i] = level == 3 ? 260 : level == 2 ? 80 : 20;
     if(exp_day(w)>=e->market_next_restock_day) {
-        int sum=0,restock_count=0;
-        for(int n=0;n<w->building_count;n++) {
-            Building *b=w->buildings[n];
-            if(b->type!=CORE_BLD_STALL&&b->type!=CORE_BLD_MARKET&&b->type!=CORE_BLD_TRADING_POST)continue;
-            for(int j=0;j<b->worker_count;j++)if(expansion_working_present(w,b,b->workers[j])) {sum+=expansion_work_percent(w,b->workers[j],b->type);restock_count++;}
-        }
-        int average=restock_count?sum/restock_count:0;e->market_next_restock_day=exp_day(w)+(average>=300?4:average>=200?5:6);
+        int average=e->market_staff_day>=exp_day(w)-1?e->market_staff_efficiency:0;
+        e->market_next_restock_day=exp_day(w)+(average>=300?4:average>=200?5:6);
     }
     if (e->candidate_day == period && e->candidate_count == count)
         return;
@@ -565,6 +560,7 @@ void expansion_read_villager(const World *w, const Villager *v, CoreVillagerView
     out->current_y_milli = v->current_y_milli;
     out->mission=v->mission;out->mission_target=v->mission_target;out->shift_kind=v->shift_kind;
     out->duty_minutes=v->duty_minutes;out->mood_event_tick=v->mood_event_tick;out->mood_event_amount=v->mood_event_amount;
+    out->mood_event_source=v->mood_event_source;out->mood_source_kind=v->mood_source_kind;out->mood_source_type=v->mood_source_type;
     out->leisure_elapsed=v->leisure_elapsed;out->leisure_duration=v->leisure_duration;
     if(v->workplace&&expansion_military(v->workplace->type))out->combat_max_hp=out->combat_max_hp*(v->workplace->type==CORE_BLD_GARRISON?150:125)/100;
 }

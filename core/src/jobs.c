@@ -326,7 +326,7 @@ int jobs_assign_manual(World *world, Villager *villager, Building *building)
     rc = entity_link_worker(building, villager, def->worker_slots);
     if (rc == CORE_OK) {
         villager->flags |= CORE_VF_MANUAL;
-        if(world->expansion)world->expansion->dirty=1;
+        if(world->expansion){world->expansion->dirty=1;expansion_initialize_shift(world,building,villager);}
         events_push_villager(&world->events, CORE_EVT_STORY, villager->id, CORE_STORY_NEW_JOB, building->type,
                              villager->name);
     }

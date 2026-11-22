@@ -14,8 +14,8 @@ void game_pathfinder_free(GamePathfinder *f)
 int game_path_cost(uint8_t cost, int enemy)
 {
     if (cost == CORE_COST_BLOCKED) return 0;
-    if (cost == CORE_COST_WALL) return enemy == 2 ? 100 : enemy ? 120 : 0;
-    if (cost == CORE_COST_GATE) return enemy == 2 ? 100 : enemy ? 120 : CORE_COST_NORMAL;
+    if (cost == CORE_COST_WALL) return enemy == 3 ? 0 : enemy == 2 ? 100 : enemy ? 120 : 0;
+    if (cost == CORE_COST_GATE) return enemy == 3 ? 0 : enemy == 2 ? 100 : enemy ? 120 : CORE_COST_NORMAL;
     return cost;
 }
 static int reserve(GamePathfinder *f, int cells)
@@ -36,6 +36,7 @@ static int reserve(GamePathfinder *f, int cells)
 }
 static int score(const GamePathfinder *f, int cell)
 {
+    if(f->goal<0)return f->distance[cell];
     /* 최소 통행 비용 이하의 휴리스틱으로 최단 경로를 보장합니다. */
     return f->distance[cell] + abs(cell % f->width - f->goal % f->width) +
                               abs(cell / f->width - f->goal / f->width);
@@ -74,10 +75,11 @@ int game_path_find(GamePathfinder *f, const uint8_t *cost, int w, int h,
     static const int dx[4] = {0, 1, 0, -1}, dy[4] = {-1, 0, 1, 0};
     int cells, start, goal, i, found = 0, count;
     out->count = 0;
-    if (!cost || w < 1 || h < 1 || w > 512 || h > 512 || sx < 0 || sy < 0 || tx < 0 || ty < 0 ||
-        sx >= w || tx >= w || sy >= h || ty >= h) return 0;
-    cells = w * h; start = sy * w + sx; goal = ty * w + tx;
-    if (!game_path_cost(cost[goal], enemy)) return 0;
+    int edge=tx==-1 && ty==-1 && enemy;
+    if (!cost || w < 1 || h < 1 || w > 512 || h > 512 || sx < 0 || sy < 0 ||
+        sx >= w || sy >= h || (!edge && (tx<0 || ty<0 || tx>=w || ty>=h))) return 0;
+    cells = w * h; start = sy * w + sx; goal = edge?-1:ty * w + tx;
+    if (!edge && !game_path_cost(cost[goal], enemy)) return 0;
     if (!reserve(f, cells)) return -1;
     f->width = w; f->goal = goal; f->heap_count = 1; f->heap[0] = start;
     memset(f->closed, 0, (size_t)cells);
@@ -85,7 +87,7 @@ int game_path_find(GamePathfinder *f, const uint8_t *cost, int w, int h,
     f->distance[start] = 0; f->heap_index[start] = 0;
     while (f->heap_count > 0) {
         int current = pop(f), d;
-        if (current == goal) { found = 1; break; }
+        if (current == goal || (edge && (current%w==0 || current%w==w-1 || current/w==0 || current/w==h-1))) { goal=current;found = 1; break; }
         f->closed[current] = 1;
         for (d = 0; d < 4; d++) {
             int x = current % w + dx[d], y = current / w + dy[d], next, step;

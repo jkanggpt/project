@@ -186,8 +186,15 @@ void population_remove_departed(World *world, Villager *villager)
 void population_kill(World *world, Villager *villager, int32_t cause)
 {
     Event death={0};death.type=CORE_EVT_VILLAGER_DIED;death.as.villager.id=villager->id;death.as.villager.detail=cause;
-    memcpy(death.text,villager->name,sizeof(death.text));death.cause_kind=villager->damage_kind;
-    death.source_id=villager->damage_source;death.event_tick=world->clock.tick;events_push(&world->events,&death);
+    memcpy(death.text,villager->name,sizeof(death.text));death.event_tick=world->clock.tick;
+    if(cause==CORE_DEATH_RAID || cause==CORE_DEATH_WILDLIFE) {
+        death.cause_kind=villager->damage_kind;death.source_id=villager->damage_source;
+        if(death.cause_kind==1 && death.source_id>=1 && death.source_id<=world->threat.raid.enemy_count)
+            death.as.villager.value=world->threat.raid.enemies[death.source_id-1].type+1;
+        if(death.cause_kind==2 && world->expansion)for(int i=0;i<world->expansion->animal_count;i++)
+            if(world->expansion->animals[i].id==death.source_id)death.as.villager.value=world->expansion->animals[i].kind+1;
+    }
+    events_push(&world->events,&death);
     world->stats.villagers_died++;
     world->mourning += POP_MOURNING_PER_DEATH;
     if (world->mourning > POP_MOURNING_MAX) {
@@ -199,15 +206,10 @@ void population_kill(World *world, Villager *villager, int32_t cause)
             Villager *other = world->villagers[i];
             if (other == villager || other->contract_end_tick)
                 continue;
-            if (other->death_mood_day != exp_day(world)) {
-                other->death_mood_day = exp_day(world);
-                other->death_mood_count = 0;
-            }
-            if (other->death_mood_count < 5) {
-                other->mood = exp_clamp(other->mood - 12, -200, 200);
-                other->death_mood_count++;
-                other->mood_cause = 10;
-            }
+            int witness=!other->inside_building && exp_dist(other->current_x_milli/1000,other->current_y_milli/1000,
+                villager->current_x_milli/1000,villager->current_y_milli/1000)<=4;
+            /* 같은 사망에 목격 충격과 공동체 충격을 함께 더하지 않습니다. */
+            expansion_mood_event(world,other,witness?19:27,witness?-8:-12,villager->id,1000000000,5);
         }
     }
     entity_remove_villager(world, villager);

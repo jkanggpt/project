@@ -1,0 +1,17 @@
+{
+  "prompt": "Remove the white/off-white background and the gray backdrop or ground shadows from this sprite sheet. Make all space between and around the 24 full-body sprites truly transparent alpha, including narrow gaps. Preserve every character, face, hairstyle, hair color, clothing, equipment, gesture, pose, scale, pixel texture and the exact 4-column x6-row layout. Do not draw new poses or change any character pixels. Preserve ivory clothing and light hair as opaque character details. Output a transparent PNG cutout sprite sheet with no checkerboard or solid background.",
+  "files": [
+    "uniform_barracks_blond_1_walk",
+    "uniform_barracks_red_3_attack",
+    "uniform_camp_navy_1_walk",
+    "uniform_camp_red_1_walk",
+    "uniform_camp_silver_2_walk",
+    "uniform_garrison_blond_3_walk",
+    "uniform_garrison_red_4_walk",
+    "uniform_garrison_silver_1_attack",
+    "uniform_lodge_black_1_attack",
+    "uniform_lodge_blond_2_walk",
+    "uniform_lodge_silver_1_walk"
+  ],
+  "transparent_background": true
+}

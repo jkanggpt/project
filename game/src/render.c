@@ -202,21 +202,12 @@ static void terrain(GameApp *a) {
                 if (s->summary.season == CORE_SEASON_WINTER && s->terrain[i] != CORE_TERRAIN_WATER)
                     sprite(a->assets.snow, (Rectangle){variant * 64.0f, 0, 64, 64}, dest,
                            (Color){255, 255, 255, 225});
-                if (s->exp_tiles && s->exp_tiles[i].explored && s->exp_tiles[i].ore_milli > 0 &&
-                    !game_building_at(s, x, y)) {
-                    int resource = s->exp_tiles[i].ore_kind;
-                    if (resource >= 0 && resource < CORE_RES_COUNT) {
-                        Texture2D icon = a->assets.resources[resource];
-                        DrawCircle(x * 16 + 8, y * 16 + 9, 7, (Color){39, 33, 36, 210});
-                        sprite(icon, (Rectangle){0, 0, (float)icon.width, (float)icon.height},
-                               (Rectangle){x * 16.0f + 1, y * 16.0f + 2, 14, 14}, WHITE);
-                    }
-                }
+
             }
 }
 static Rectangle box_rect(GameSpriteBox b) { return (Rectangle){b.x, b.y, b.w, b.h}; }
 static int farm_row(int type) {
-    return type==CORE_BLD_CROPLAND?0:type==CORE_BLD_FARM?1:type==CORE_BLD_IRRIGATED_FARM?2:type==CORE_BLD_ORCHARD?3:type==CORE_BLD_GREENHOUSE?4:-1;
+    return type==CORE_BLD_CROPLAND?0:type==CORE_BLD_FARM?1:type==CORE_BLD_IRRIGATED_FARM?2:type==CORE_BLD_ORCHARD?3:type==CORE_BLD_GARDEN?4:-1;
 }
 static Rectangle building_rect(const GameApp *a,const CoreBuildingView *b, Texture2D t) {
     if(b->type==CORE_BLD_GREENHOUSE) {
@@ -241,7 +232,11 @@ static Rectangle building_source(const GameApp *a, const CoreBuildingView *b, Te
         return (Rectangle){b->rotation*128.0f,row*128.0f,128,128};
     }
     int row=farm_row(b->type);
-    if(row>=0)return (Rectangle){a->session.summary.season*256.0f,row*256.0f,256,256};
+    if(row>=0){
+        int atlas_row=row*4+a->session.summary.season;
+        if(b->type==CORE_BLD_ORCHARD && a->session.summary.day-b->completed_day<24)atlas_row=20;
+        return (Rectangle){b->rotation*256.0f,atlas_row*256.0f,256,256};
+    }
     if (b->kind_flags & CORE_EXP_WALL) {
         int style = b->type == CORE_BLD_PALISADE    ? 0
                     : b->type == CORE_BLD_BARRIER   ? 1
@@ -306,7 +301,17 @@ static void villager(GameApp *a, int index) {
     frame = game_villager_frame(v->appearance + 1, unit->facing, unit->walk_distance,
                                 moving || (unit->indoor > 0 && unit->indoor < 1));
     Rectangle dest = box_rect(game_actor_sprite(p.x, p.y, GAME_ACTOR_HEIGHT));
-    sprite(a->assets.villagers,
+    Texture2D clothes=a->assets.villagers;
+    if(unit->outfit>0 && unit->outfit<=4 && v->workplace_id &&
+        (v->job==CORE_BLD_HUNTER_CAMP || v->job==CORE_BLD_HUNTING_LODGE || v->job==CORE_BLD_BARRACKS || v->job==CORE_BLD_GARRISON) && v->state==CORE_VS_GUARD_POST) {
+        int dir=unit->facing==FACE_LEFT?1:unit->facing;
+        if(dir<0 || dir>2)dir=0;
+        int attacking=unit->attack_serial && unit->attack_elapsed<4.8f;
+        int pose=attacking?(int)(unit->attack_elapsed/1.2f):game_walk_frame(unit->walk_distance,moving||unit->chasing);
+        if(pose>3)pose=3;
+        frame.column=dir*8+attacking*4+pose;clothes=a->assets.uniforms[unit->outfit-1];
+    }
+    sprite(clothes,
            (Rectangle){frame.column * 96.0f, frame.row * 96.0f, frame.flip ? -96.0f : 96.0f, 96}, dest,
            Fade(effect_tint(a, 0, v->id), 1 - unit->indoor));
     if (unit->indoor < 0.5f)
@@ -340,6 +345,8 @@ static int prop_type(const GameApp *a, int x, int y) {
         return -1;
     if (s->roads[i] || a->decor_blocked[i])
         return -1;
+    if(s->exp_tiles && type!=CORE_TERRAIN_WATER && s->exp_tiles[i].rock_variant>0 &&
+       (s->exp_tiles[i].stone_milli>0 || s->exp_tiles[i].ore_milli>0))return 21;
     if (s->exp_tiles && s->exp_tiles[i].tree_kind && s->exp_tiles[i].tree_logs_milli > 0)
         return 20;
     if (s->exp_tiles && type == CORE_TERRAIN_FOREST)
@@ -366,6 +373,13 @@ static void prop(GameApp *a, int cell_index) {
     int x = cell_index % s->summary.map_width, y = cell_index / s->summary.map_width,
         type = prop_type(a, x, y);
     float size = type < 4 ? 34.0f : (type < 8 ? 22.0f : 13.0f), cx = (x + 0.5f) * 16, feet = (y + 0.8f) * 16;
+    if(type==21) {
+        CoreExpansionTileView *t=&s->exp_tiles[cell_index];int row=0;
+        if(t->ore_milli>0)row=t->ore_kind==CORE_RES_COAL?1:t->ore_kind==CORE_RES_IRON_ORE?2:t->ore_kind==CORE_RES_GOLD_ORE?3:t->ore_kind==CORE_RES_MANA?4:0;
+        size=20.0f+(float)(tile_noise(x,y)%4);
+        sprite(a->assets.rocks,(Rectangle){(t->rock_variant-1)*128.0f,row*128.0f,128,128},
+               (Rectangle){cx-size/2,feet-size,size,size},WHITE);return;
+    }
     if (type == 20) {
         CoreExpansionTileView *t = &s->exp_tiles[cell_index];
         int mature = core_expansion_tree_mature_age(t->tree_kind);
@@ -559,6 +573,36 @@ static void objects(GameApp *a) {
         }
     }
 }
+static void hit_effects(GameApp *a) {
+    GameSession *s=&a->session;
+    for(int i=0;i<160;i++) {
+        GameHitFx *fx=&s->hit_fx[i];float elapsed=s->visual_time-fx->started;
+        if(!fx->active || elapsed<0 || elapsed>.32f)continue;
+        Vector2 p={fx->position.x*16,fx->position.y*16-6};
+        Vector2 screen=GetWorldToScreen2D(p,a->camera);
+        if(screen.x<0||screen.y<135||screen.x>GetScreenWidth()-350||screen.y>GetScreenHeight()-195)continue;
+        int x=(int)fx->position.x,y=(int)fx->position.y;
+        if(s->visibility && s->visibility[y*s->summary.map_width+x]<2)continue;
+        float t=elapsed/.32f,alpha=1-t,r=2+7*t;
+        if(fx->style==0) {
+            DrawLineEx((Vector2){p.x-5+r*.3f,p.y+4},(Vector2){p.x+5,p.y-5+r*.3f},1.5f,Fade(RAYWHITE,alpha));
+            DrawRectangle((int)p.x+3,(int)p.y-4,2,2,Fade(GOLD,alpha));
+        } else if(fx->style==1) {
+            for(int k=0;k<3;k++)DrawLineEx(p,(Vector2){p.x+(k-1)*r,p.y-r+k*3},1,Fade((Color){225,211,163,255},alpha));
+        } else if(fx->style==2 || fx->style==7) {
+            DrawCircleLines((int)p.x,(int)p.y,r*(fx->style==7?1.7f:1),Fade(fx->style==7?ORANGE:BEIGE,alpha));
+            for(int k=0;k<6;k++){float angle=k*PI/3;DrawRectangle((int)(p.x+cosf(angle)*r),(int)(p.y+sinf(angle)*r),2,2,Fade(fx->style==7?GOLD:BROWN,alpha));}
+        } else if(fx->style==3) {
+            for(int k=0;k<3;k++)DrawLineEx((Vector2){p.x-4+k*3,p.y-4},(Vector2){p.x-1+k*3,p.y+4},1.3f,Fade(RED,alpha));
+        } else if(fx->style==4) {
+            for(int k=0;k<5;k++)DrawRectangle((int)(p.x-5+k*2),(int)(p.y-3-k%2*3-t*8),2,3,Fade(k%2?ORANGE:GOLD,alpha));
+        } else if(fx->style==5) {
+            for(int k=0;k<4;k++){float angle=k*PI/2;Vector2 q={p.x+cosf(angle)*r,p.y+sinf(angle)*r};DrawTriangle((Vector2){q.x,q.y-3},(Vector2){q.x-2,q.y+2},(Vector2){q.x+2,q.y+2},Fade(SKYBLUE,alpha));}
+        } else {
+            DrawPolyLines(p,4,r,45,Fade(SKYBLUE,alpha));DrawPolyLines(p,4,r*.6f,45+t*90,Fade(PURPLE,alpha));DrawRectangle((int)p.x-1,(int)p.y-1,2,2,Fade(WHITE,alpha));
+        }
+    }
+}
 static void livestock_proxies(GameApp *a) {
     GameSession *s = &a->session;
     static const int kinds[4] = {7, 9, 8, 10};
@@ -641,30 +685,22 @@ void game_render_free(GameApp *a) {
     a->decor_capacity = 0;
 }
 void game_render_villager_preview(GameApp *a) {
-    static const char *const names[12] = {u8"갈색 남성",      u8"갈색 여성",      u8"금발 남성",
-                                         u8"금발 여성",      u8"검은 머리 남성", u8"검은 머리 여성",
-                                         u8"붉은 머리 남성", u8"붉은 머리 여성",u8"은발 남성",u8"은발 여성",u8"남색 머리 남성",u8"남색 머리 여성"};
-    static const char *const directions[4] = {u8"정면", u8"오른쪽", u8"뒷면", u8"왼쪽"};
-    float gap = (GetScreenWidth() - 150.0f) / 12, row_height = (GetScreenHeight() - 140.0f) / 4;
-    int appearance, direction;
-    Texture2D t = a->assets.villagers;
-    ClearBackground((Color){23, 32, 33, 255});
-    ui_text(&a->ui, 24, 18, UI_GOLD, u8"주민 외형 12종 · 방향별 걷기");
-    ui_small(&a->ui, 24, 54, UI_TEXT, u8"직업을 바꿔도 외형 유지 · 주민 1×1칸 / 그림 1.5타일 높이");
-    for (appearance = 0; appearance < 12; appearance++)
-        ui_small(&a->ui, 140 + appearance * gap, 92, UI_GOLD, "%s", names[appearance]);
-    for (direction = 0; direction < 4; direction++) {
-        float top = 140 + direction * row_height;
-        ui_small(&a->ui, 24, top + 30, UI_TEXT, "%s", directions[direction]);
-        for (appearance = 0; appearance < 12; appearance++) {
-            float cx = 140 + appearance * gap + gap * 0.35f, feet = top + 100;
-            GameSpriteFrame frame =
-                game_villager_frame(appearance + 1, direction, (float)GetTime() * 0.5f, 1);
-            DrawRectangleLinesEx((Rectangle){cx - 32, feet - 32, 64, 64}, 1, (Color){65, 81, 75, 255});
-            DrawEllipse((int)cx, (int)feet, 16, 5, (Color){0, 0, 0, 70});
-            sprite(t, (Rectangle){frame.column * 96.0f, frame.row * 96.0f, frame.flip ? -96.0f : 96.0f, 96},
-                   (Rectangle){cx - 48, feet - 96, 96, 96}, WHITE);
-        }
+    static const char *const hairs[6]={u8"갈색",u8"금발",u8"흑발",u8"적발",u8"은발",u8"남색"};
+    static const char *const directions[4]={u8"정면",u8"오른쪽",u8"후면",u8"왼쪽"};
+    int direction=((int)GetTime()/3)%4;
+    float gap=(GetScreenWidth()-48.0f)/6,row_height=(GetScreenHeight()-130.0f)/8;
+    float height=fminf(72,row_height-24);
+    ClearBackground((Color){23,32,33,255});
+    ui_text(&a->ui,24,18,UI_GOLD,u8"주민 외형48종 · 방향별 걷기");
+    ui_small(&a->ui,24,54,UI_TEXT,u8"기존12종 + 추가36종 · 밝은 금발 · 현재 %s",directions[direction]);
+    for(int appearance=0;appearance<48;appearance++) {
+        int hair=appearance<12?appearance/2:(appearance-12)/6;
+        int variant=appearance<12?1:2+(appearance-12)%6/2;
+        float cx=24+(appearance%6+.5f)*gap,feet=112+(appearance/6)*row_height+height;
+        GameSpriteFrame frame=game_villager_frame(appearance+1,direction,(float)GetTime()*.5f,1);
+        sprite(a->assets.villagers,(Rectangle){frame.column*96.0f,frame.row*96.0f,frame.flip?-96.0f:96.0f,96},
+               (Rectangle){cx-height/2,feet-height,height,height},WHITE);
+        ui_small(&a->ui,cx-gap*.43f,feet+3,UI_TEXT,u8"%02d %s %d · %s",appearance,hairs[hair],variant,appearance%2?u8"여":u8"남");
     }
 }
 static int world_mouse(GameApp *a, int *x, int *y) {
@@ -705,6 +741,7 @@ static void overlay(GameApp *a) {
         CoreExpansionBuildingInfo info;core_expansion_building_info(type,&info);
         int rotation=candidate?a->rotation:selected->rotation;
         int bw=(rotation&1)?info.h:info.w,bh=(rotation&1)?info.w:info.h;
+        if(candidate){bx-=(bw-1)/2;by-=(bh-1)/2;a->build_preview_x=bx;a->build_preview_y=by;}
         if(core_expansion_facility(s->world,candidate?0:selected->id,type,bx,by,rotation,&facility)==CORE_OK) {
             int radius=facility.range>0?facility.range:facility.radius;
             if(radius>0) {
@@ -732,7 +769,7 @@ static void overlay(GameApp *a) {
         y -= (bh - 1) / 2;
         if (core_can_place_rotated(s->world, a->build_type, x, y, a->rotation, &preview) != CORE_OK)
             return;
-        if (d->work_radius > 0) {
+        if (!s->summary.ruleset && d->work_radius > 0) {
             float cx = x + d->w * 0.5f, cy = y + d->h * 0.5f;
             DrawCircleLines((int)(cx * 16), (int)(cy * 16), (float)d->work_radius * 16, Fade(UI_GOLD, 0.7f));
             for (ty = y - d->work_radius; ty <= y + d->h + d->work_radius; ty++)
@@ -868,6 +905,7 @@ void game_render_world(GameApp *a) {
     objects(a);
     livestock_proxies(a);
     corpses(a);
+    hit_effects(a);
     fog(a);
     for (i = 0; i < a->session.villager_count; i++) {
         CoreVillagerView *v = &a->session.villagers[i];
@@ -1075,5 +1113,37 @@ void game_world_input(GameApp *a, float delta) {
                 if(CheckCollisionPointRec(mouse,hit)&&distance<best){best=distance;game_select(a,4,enemy->actor.id);}
             }
         }
+    }
+}
+
+void game_render_uniform_preview(GameApp *a) {
+    const char *const directions[]={u8"정면 · 화면 아래로",u8"오른쪽",u8"후면 · 화면 위로"};
+    ClearBackground((Color){25,33,33,255});
+    ui_text(&a->ui,24,20,UI_GOLD,u8"금발 사냥꾼 · 방향별 활 동작4프레임");
+    ui_small(&a->ui,24,56,UI_TEXT,u8"기존1번 금발의 얼굴·밝은 노란 머리 · 준비 / 당기기 / 발사 / 복귀");
+    float cell=(GetScreenWidth()-48.0f)/12,row=(GetScreenHeight()-170.0f)/4;
+    for(int d=0;d<3;d++)ui_small(&a->ui,24+d*cell*4,94,UI_MUTED,"%s",directions[d]);
+    for(int person=0;person<4;person++) {
+        int outfit=person/2,appearance=2+person%2;
+        float y=130+person*row,height=fminf(cell-8,row-35);
+        ui_small(&a->ui,24,y,UI_GOLD,u8"%s · %s",outfit?u8"수렵기지":u8"야영지",person%2?u8"여성":u8"남성");
+        for(int d=0;d<3;d++)for(int f=0;f<4;f++) {
+            float x=24+(d*4+f+.5f)*cell;
+            sprite(a->assets.uniforms[outfit],(Rectangle){(d*8+4+f)*96.0f,appearance*96.0f,96,96},(Rectangle){x-height/2,y+28,height,height},WHITE);
+        }
+    }
+}
+void game_render_farm_preview(GameApp *a) {
+    const char *const names[]={u8"경작지",u8"농장",u8"관개농장",u8"과수원 · 조성 전",u8"과수원 · 조성 후",u8"텃밭"};
+    const char *const directions[]={u8"정면",u8"오른쪽",u8"후면",u8"왼쪽"};
+    ClearBackground((Color){25,33,33,255});
+    ui_text(&a->ui,24,20,UI_GOLD,u8"농장류 · 울타리와4방향 · 여름 원화");
+    float cell=(GetScreenWidth()-180.0f)/4,row=(GetScreenHeight()-110.0f)/6;
+    for(int d=0;d<4;d++)ui_small(&a->ui,180+d*cell+cell/2-25,66,UI_TEXT,"%s",directions[d]);
+    for(int item=0;item<6;item++) {
+        int atlas_row=item==3?20:item==4?13:item==5?17:item*4+1;
+        float y=110+item*row,height=fminf(row-8,cell-16);
+        ui_small(&a->ui,24,y+row/2,UI_GOLD,"%s",names[item]);
+        for(int d=0;d<4;d++)sprite(a->assets.farms,(Rectangle){d*256.0f,atlas_row*256.0f,256,256},(Rectangle){180+d*cell+(cell-height)/2,y,height,height},WHITE);
     }
 }

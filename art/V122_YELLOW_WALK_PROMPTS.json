@@ -1,0 +1,98 @@
+[
+  {
+    "name": "uniform_camp_blond_1_walk",
+    "color": "blond",
+    "variant": 1,
+    "outfit": "camp",
+    "action": "walk",
+    "references": [
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_blond.png",
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png"
+    ],
+    "prompt": "Use case: precise-object-edit. Image1 is the exact adult blond man/woman pair to dress, image2 is ONLY the work clothing material reference. Preserve exact identity, faces, exposed hairstyle shapes and BRIGHT LIGHT YELLOW hair in every frame. Match the existing fine pixel-art style exactly. Exactly4columns x6rows, with man front/right/back in top3rows and woman front/right/back in bottom3rows. This sheet is WALKING ONLY. Copy image1's four alternating foot/arm WALKING stride frames per direction. Equipment RESTING, bow lowered or slung, hands relaxed while walking; no aiming or drawing a bowstring. Clothes rough brown cloth shawl/tunic, leather straps and quiver. Never replace the walking cycle with an archery exercise. Same full-body scale, generous gutters, true transparentalpha, no text/grid."
+  },
+  {
+    "name": "uniform_lodge_blond_1_walk",
+    "color": "blond",
+    "variant": 1,
+    "outfit": "lodge",
+    "action": "walk",
+    "references": [
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_blond.png",
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png"
+    ],
+    "prompt": "Use case: precise-object-edit. Image1 is the exact adult blond man/woman pair to dress, image2 is ONLY the work clothing material reference. Preserve exact identity, faces, exposed hairstyle shapes and BRIGHT LIGHT YELLOW hair in every frame. Match the existing fine pixel-art style exactly. Exactly4columns x6rows, with man front/right/back in top3rows and woman front/right/back in bottom3rows. This sheet is WALKING ONLY. Copy image1's four alternating foot/arm WALKING stride frames per direction. Equipment RESTING, bow lowered or slung, hands relaxed while walking; no aiming or drawing a bowstring. Clothes white/ivory wrapped hunting cloth, leather straps and quiver. Never replace the walking cycle with an archery exercise. Same full-body scale, generous gutters, true transparentalpha, no text/grid."
+  },
+  {
+    "name": "uniform_camp_blond_2_walk",
+    "color": "blond",
+    "variant": 2,
+    "outfit": "camp",
+    "action": "walk",
+    "references": [
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_2.png",
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png"
+    ],
+    "prompt": "Use case: precise-object-edit. Image1 is the exact adult blond man/woman pair to dress, image2 is ONLY the work clothing material reference. Preserve exact identity, faces, exposed hairstyle shapes and BRIGHT LIGHT YELLOW hair in every frame. Match the existing fine pixel-art style exactly. Exactly4columns x6rows, with man front/right/back in top3rows and woman front/right/back in bottom3rows. This sheet is WALKING ONLY. Copy image1's four alternating foot/arm WALKING stride frames per direction. Equipment RESTING, bow lowered or slung, hands relaxed while walking; no aiming or drawing a bowstring. Clothes rough brown cloth shawl/tunic, leather straps and quiver. Never replace the walking cycle with an archery exercise. Same full-body scale, generous gutters, true transparentalpha, no text/grid."
+  },
+  {
+    "name": "uniform_lodge_blond_2_walk",
+    "color": "blond",
+    "variant": 2,
+    "outfit": "lodge",
+    "action": "walk",
+    "references": [
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_2.png",
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png"
+    ],
+    "prompt": "Use case: precise-object-edit. Image1 is the exact adult blond man/woman pair to dress, image2 is ONLY the work clothing material reference. Preserve exact identity, faces, exposed hairstyle shapes and BRIGHT LIGHT YELLOW hair in every frame. Match the existing fine pixel-art style exactly. Exactly4columns x6rows, with man front/right/back in top3rows and woman front/right/back in bottom3rows. This sheet is WALKING ONLY. Copy image1's four alternating foot/arm WALKING stride frames per direction. Equipment RESTING, bow lowered or slung, hands relaxed while walking; no aiming or drawing a bowstring. Clothes white/ivory wrapped hunting cloth, leather straps and quiver. Never replace the walking cycle with an archery exercise. Same full-body scale, generous gutters, true transparentalpha, no text/grid."
+  },
+  {
+    "name": "uniform_camp_blond_3_walk",
+    "color": "blond",
+    "variant": 3,
+    "outfit": "camp",
+    "action": "walk",
+    "references": [
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_3.png",
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png"
+    ],
+    "prompt": "Use case: precise-object-edit. Image1 is the exact adult blond man/woman pair to dress, image2 is ONLY the work clothing material reference. Preserve exact identity, faces, exposed hairstyle shapes and BRIGHT LIGHT YELLOW hair in every frame. Match the existing fine pixel-art style exactly. Exactly4columns x6rows, with man front/right/back in top3rows and woman front/right/back in bottom3rows. This sheet is WALKING ONLY. Copy image1's four alternating foot/arm WALKING stride frames per direction. Equipment RESTING, bow lowered or slung, hands relaxed while walking; no aiming or drawing a bowstring. Clothes rough brown cloth shawl/tunic, leather straps and quiver. Never replace the walking cycle with an archery exercise. Same full-body scale, generous gutters, true transparentalpha, no text/grid."
+  },
+  {
+    "name": "uniform_lodge_blond_3_walk",
+    "color": "blond",
+    "variant": 3,
+    "outfit": "lodge",
+    "action": "walk",
+    "references": [
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_3.png",
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png"
+    ],
+    "prompt": "Use case: precise-object-edit. Image1 is the exact adult blond man/woman pair to dress, image2 is ONLY the work clothing material reference. Preserve exact identity, faces, exposed hairstyle shapes and BRIGHT LIGHT YELLOW hair in every frame. Match the existing fine pixel-art style exactly. Exactly4columns x6rows, with man front/right/back in top3rows and woman front/right/back in bottom3rows. This sheet is WALKING ONLY. Copy image1's four alternating foot/arm WALKING stride frames per direction. Equipment RESTING, bow lowered or slung, hands relaxed while walking; no aiming or drawing a bowstring. Clothes white/ivory wrapped hunting cloth, leather straps and quiver. Never replace the walking cycle with an archery exercise. Same full-body scale, generous gutters, true transparentalpha, no text/grid."
+  },
+  {
+    "name": "uniform_camp_blond_4_walk",
+    "color": "blond",
+    "variant": 4,
+    "outfit": "camp",
+    "action": "walk",
+    "references": [
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_4.png",
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png"
+    ],
+    "prompt": "Use case: precise-object-edit. Image1 is the exact adult blond man/woman pair to dress, image2 is ONLY the work clothing material reference. Preserve exact identity, faces, exposed hairstyle shapes and BRIGHT LIGHT YELLOW hair in every frame. Match the existing fine pixel-art style exactly. Exactly4columns x6rows, with man front/right/back in top3rows and woman front/right/back in bottom3rows. This sheet is WALKING ONLY. Copy image1's four alternating foot/arm WALKING stride frames per direction. Equipment RESTING, bow lowered or slung, hands relaxed while walking; no aiming or drawing a bowstring. Clothes rough brown cloth shawl/tunic, leather straps and quiver. Never replace the walking cycle with an archery exercise. Same full-body scale, generous gutters, true transparentalpha, no text/grid."
+  },
+  {
+    "name": "uniform_lodge_blond_4_walk",
+    "color": "blond",
+    "variant": 4,
+    "outfit": "lodge",
+    "action": "walk",
+    "references": [
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_4.png",
+      "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png"
+    ],
+    "prompt": "Use case: precise-object-edit. Image1 is the exact adult blond man/woman pair to dress, image2 is ONLY the work clothing material reference. Preserve exact identity, faces, exposed hairstyle shapes and BRIGHT LIGHT YELLOW hair in every frame. Match the existing fine pixel-art style exactly. Exactly4columns x6rows, with man front/right/back in top3rows and woman front/right/back in bottom3rows. This sheet is WALKING ONLY. Copy image1's four alternating foot/arm WALKING stride frames per direction. Equipment RESTING, bow lowered or slung, hands relaxed while walking; no aiming or drawing a bowstring. Clothes white/ivory wrapped hunting cloth, leather straps and quiver. Never replace the walking cycle with an archery exercise. Same full-body scale, generous gutters, true transparentalpha, no text/grid."
+  }
+]

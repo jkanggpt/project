@@ -650,7 +650,7 @@ typedef struct CoreEventView {
     int32_t b;
     int32_t c;
     int32_t d;
-    int32_t cause_kind,source_id,event_tick,type_serial;
+    int32_t cause_kind,source_id,event_tick,type_serial,source_type;
     char text[CORE_NAME_BYTES]; /* 관련 주민의 이름 (없으면 빈 문자열) */
 } CoreEventView;
 
@@ -691,6 +691,7 @@ typedef struct CoreVillagerView {
     int32_t current_x_milli, current_y_milli;
     int32_t sex, appearance, work_efficiency, combat_max_hp;
     int32_t mission,mission_target,shift_kind,duty_minutes,mood_event_tick,mood_event_amount,leisure_elapsed,leisure_duration;
+    int32_t mood_event_source,mood_source_kind,mood_source_type;
     char name[CORE_NAME_BYTES];
 } CoreVillagerView;
 
@@ -801,6 +802,7 @@ typedef struct CoreEnemyRuntime {
     int32_t valid,hp,x_milli,y_milli,entry_x,entry_y,cooldown_milli,special_milli;
     int32_t attack_elapsed_milli,attack_serial,attack_applied,attack_kind,attack_target;
     int32_t attack_x_milli,attack_y_milli,fleeing,retreat_index,inbound_count,inbound[128];
+    int32_t retarget_milli;
 } CoreEnemyRuntime;
 typedef struct CoreEnemyView {
     int32_t id;

@@ -133,7 +133,8 @@ static void mining(World *w, Building *b, int factor) {
             int res=layer?t->ore_kind:CORE_RES_STONE;int *stock=layer?&t->ore_milli:&t->stone_milli;
             int value=ore_value(res);if(!value||!mine_accept(b->type,res)||*stock<=0)continue;
             int take=(int)((int64_t)budget*(*stock)/weight);
-            if(take>*stock)take=*stock;if(take>remaining/value)take=remaining/value;
+            if(take>*stock)take=*stock;
+            if(take>remaining/value)take=remaining/value;
             take=expansion_bank_add(w,res,take,CORE_LEDGER_PRODUCTION);*stock-=take;remaining-=take*value;
         }
     }
@@ -204,10 +205,9 @@ static void fishing(World *w) {
         (void)expansion_bank_add(w, CORE_RES_FOOD, request, CORE_LEDGER_PRODUCTION);
     }
 }
-static void recipe(World *w, Building *b, int factor) {
+int expansion_recipe_plan(const World *w,const Building *b,int factor,int attendance,int constrained,int *in,int *out,int *fuel_out) {
     const ExpansionBuildingSpec *s = expansion_spec(b->type);
-    int in[CORE_RES_COUNT], out[CORE_RES_COUNT], fuel = s->fuel, r, ratio = 1000;
-    int attendance = s->workers ? exp_clamp(b->actual_work_milli / (s->workers * 540), 0, 1000) : 0;
+    int fuel=s->fuel,r,ratio=1000;
     int inputs_fixed = s->research > 0 || expansion_service_shift(b->type);
     int input_factor = inputs_fixed ? attendance : factor;
     for (r = 0; r < CORE_RES_COUNT; r++) {
@@ -226,7 +226,7 @@ static void recipe(World *w, Building *b, int factor) {
         out[CORE_RES_FOOD] /= 2;
     if (b->type == CORE_BLD_ORCHARD &&
         (exp_day(w) - b->completed_day < 24 || (exp_season(w) != 1 && exp_season(w) != 2)))
-        return;
+        {memset(in,0,CORE_RES_COUNT*sizeof(int));memset(out,0,CORE_RES_COUNT*sizeof(int));*fuel_out=0;return 0;}
     if (b->type == CORE_BLD_GREENHOUSE && exp_season(w) == 3)
         fuel = 1000;
     if (expansion_event_active(w, CORE_NATURE_COLD_SNAP) && b->type == CORE_BLD_GREENHOUSE) fuel = fuel * 130 / 100;
@@ -237,14 +237,21 @@ static void recipe(World *w, Building *b, int factor) {
     for (r = 0; r < CORE_RES_COUNT; r++) {
         in[r] = (int)((int64_t)in[r] * input_factor / 1000);
         out[r] = (int)((int64_t)out[r] * factor / 1000);
-        if (in[r] > 0 && (int64_t)in[r] * ratio / 1000 > expansion_bank_have(w, r))
+        if (constrained && in[r] > 0 && (int64_t)in[r] * ratio / 1000 > expansion_bank_have(w, r))
             ratio = expansion_bank_have(w, r) * 1000 / in[r];
-        if (out[r] > 0 && (int64_t)out[r] * ratio / 1000 > room(w, r))
+        if (constrained && out[r] > 0 && (int64_t)out[r] * ratio / 1000 > room(w, r))
             ratio = room(w, r) * 1000 / out[r];
     }
     fuel = (int)((int64_t)fuel * (inputs_fixed ? attendance : factor) / 1000);
-    if (fuel && (int64_t)fuel * ratio / 1000 > expansion_fuel(w, 0, 0))
-        ratio = expansion_fuel(w, 0, 0) * 1000 / fuel;
+    if (constrained && fuel && (int64_t)fuel * ratio / 1000 > expansion_fuel((World *)w, 0, 0))
+        ratio = expansion_fuel((World *)w, 0, 0) * 1000 / fuel;
+    *fuel_out=fuel;return ratio;
+}
+static void recipe(World *w,Building *b,int factor) {
+    const ExpansionBuildingSpec *s=expansion_spec(b->type);
+    int in[CORE_RES_COUNT],out[CORE_RES_COUNT],fuel=0,r;
+    int attendance=s->workers?exp_clamp(b->actual_work_milli/(s->workers*540),0,1000):0;
+    int ratio=expansion_recipe_plan(w,b,factor,attendance,1,in,out,&fuel);
     if (ratio <= 0) {
         b->operating = 0;
         b->blocked_reason = CORE_DENY_NO_RESOURCES;
@@ -271,7 +278,10 @@ static void recipe(World *w, Building *b, int factor) {
         if (out[r])
             (void)expansion_bank_add(w, r, out[r] * ratio / 1000, CORE_LEDGER_PRODUCTION);
     if (s->research && w->research.active >= 0) {
-        int points = (int)((int64_t)s->research * factor * ratio / 1000000);
+        int research_factor=factor;
+        if(b->type==CORE_BLD_LIBRARY || b->type==CORE_BLD_ACADEMY)
+            research_factor=s->workers?exp_clamp(b->research_work_milli/(s->workers*540),0,7500):0;
+        int points = (int)((int64_t)s->research * research_factor * ratio / 1000000);
         const ResearchDef *research = &w->defs.research[w->research.active];
         if (b->type == CORE_BLD_MAGE_TOWER && expansion_has_research(w, 20))
             points = points * 120 / 100;
@@ -326,6 +336,15 @@ void expansion_collect_harvest(World *w) {
             expansion_bank_add(w, CORE_RES_FOOD, b->pending_harvest_milli, CORE_LEDGER_PRODUCTION);
     }
 }
+int expansion_production_factor(const World *w,const Building *b) {
+    const ExpansionBuildingSpec *s=expansion_spec(b->type);
+    if(b->state!=CORE_BSTATE_ACTIVE || !b->operating)return 0;
+    int factor=labor(w,b)*logistics(w,b)/100;
+    if(s->field==0 && !s->annual_yield && s->workers)
+        factor=(int)((int64_t)b->agriculture_work_milli*1000/(s->workers*540000LL));
+    if(!s->annual_yield)factor=factor*local_bonus(w,b)/100;
+    return factor;
+}
 void expansion_daily(World *w) {
     int id, i;
     expansion_collect_harvest(w);
@@ -359,13 +378,7 @@ void expansion_daily(World *w) {
             else
                 (void)expansion_fuel(w, fuel, 1);
         }
-        factor = labor(w, b) * logistics(w, b) / 100;
-        if (s->field == 0 && !s->annual_yield && s->workers)
-            factor = (int)((int64_t)b->agriculture_work_milli * 1000 / (s->workers * 540000LL));
-        if (!b->operating)
-            factor = 0;
-        if (!s->annual_yield)
-            factor = factor * local_bonus(w, b) / 100;
+        factor=expansion_production_factor(w,b);
         if (factor > 0) {
             if (b->type == CORE_BLD_LOGGING_SITE || b->type == CORE_BLD_LUMBER)
                 logging(w, b, factor);
@@ -390,6 +403,7 @@ void expansion_daily(World *w) {
     }
     fishing(w);
     for (i = 0; i < w->building_count; i++) {
+        w->buildings[i]->research_work_milli=0;
         w->buildings[i]->daily_work_milli = 0;
         w->buildings[i]->actual_work_milli = 0;
         w->buildings[i]->agriculture_work_milli = 0;
@@ -449,4 +463,5 @@ void expansion_growth(World *w) {
         b->forestry_carry_milli %= 1000;
     }
     grid_rebuild_costs(&w->grid);
+    expansion_terrain_costs(w);
 }

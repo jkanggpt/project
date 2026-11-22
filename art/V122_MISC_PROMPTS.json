@@ -1,0 +1,22 @@
+[
+  [
+    "manors",
+    "Medieval fantasy game pixel-art building atlas EXACT3 columns by2 rows,6 distinct stages of the SAME central LORD MANOR/KEEP. Orthogonal45degree overhead with visible roofs, square4x4 ground footprint aligned horizontal/vertical, frontdoor at bottom in every cell, ONE direction only. Rowmajor stages:1 rough timberplank pioneer lodge low wooden palisade and simple roof;2 cutstone small keep low watchturret;3 bright whitebrick miniature castle blue slate crenellatedroof;4 taller central tower citykeep with battlements;5 reinforced castle darkiron armored corners and heavy irontrim;6 regal castle with glowing blueviolet mana crystal towers and ornatepillars. Increasing stature, same occupied footprint, rich warm detailed pixel art, full building incl rear roof/towers and ground shadow entirely in eachcell with ampletransparentpadding. No roads/land beyond footprint, no text/grid or watermark."
+  ],
+  [
+    "gatherer",
+    "Medieval game pixelart atlas EXACT4columns by1row: four directions SOUTH/EAST/NORTH/WEST of SAME outdoor GATHERING CAMP. Orthogonal45degree overhead notisometric,2x2squareground edgesparallelimage. Thick crooked natural branches as pillars and slanted roof supports, weathered beige/brown canvas canopy, herbs bundles baskets soil sacks underneath. Modest outdoor branch-and-tarp base NOT a house or warehouse. Visible doorway orientation rotates, consistent lightpixelstyleandscale. Fullspritepadtransparent no labels/grid."
+  ],
+  [
+    "garrison",
+    "Medieval fantasy pixelart game building atlas EXACT4columns1row: SOUTH/EAST/NORTH/WEST views of SAME CITY GARRISON, robust graystone military quarters with timber yard, grayblue tiled roof, bannerpoles, smallweaponrack, darkiron accents. Orthogonal45degree overhead roof visible; occupied footprint5x3 in south/north,3x5 east/west. Frontdoor and roofhip structure change correctly for sides/back, not flatrotation. Match detailed warmoutlined pixelart building game, moderate vertical height. No people/text/labels/grid, all4fullsprites separate on transparentalpha with amplepadding."
+  ],
+  [
+    "rocks",
+    "Medieval fantasy pixelart terrainprop atlas EXACT3columns5rows =15 separate rock clusters. Transparentalpha amplegutters no backgroundland, overhead45degree orthogonal, dark finepixeloutlines. Eachrow same mineral with3different small natural groupedrock variations, irregularboulders visiblemineralinclusions. Row1 ordinary graybrown stone cluster. Row2 rock with BLACK COAL seams. Row3 rock with RUSTRED IRON ore veins. Row4 grayrock with small GOLD streaks. Row5 grayrock with pale BLUEVIOLET MANA CRYSTALS. All clusters squat 1tilewide, not UIresourceicons; natural groundobjects, no text/grid."
+  ],
+  [
+    "life_icons",
+    "Pixelart UI icon atlas EXACT5columns1row,5distinct square icons each separated ampletransparentpadding:1 smiling happy FACE gold;2 neutral expressive MOOD FACE lavender;3 loaf of BREAD goldenbrown;4 crescent MOON lightblue with pillow;5 steel SHIELD bluegraygoldrim. Filled silhouettes must remain legible after clipping into quarterwidths. Rich restrained gamepixelart darkoutline, identical24x24logicaliconproportions largerexport, no text/grid/background."
+  ]
+]

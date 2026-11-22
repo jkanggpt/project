@@ -54,6 +54,7 @@ typedef struct GameEffect {
     GamePoint position;
     float hurt_started, hurt_until, bar_until, death_started, attack_started;
 } GameEffect;
+typedef struct GameHitFx {GamePoint position;float started;int style,active;} GameHitFx;
 typedef void (*GameEventFn)(void *context, const CoreEventView *event);
 typedef struct GameSession {
     CoreWorld *world;
@@ -65,6 +66,7 @@ typedef struct GameSession {
     CoreVillagerView *villagers;
     int building_count, building_capacity, villager_count, villager_capacity;
     uint8_t *terrain, *roads, *cost, *enemy_cost;
+    int enemy_cost_revision;
     CoreExpansionTileView *exp_tiles;
     uint8_t *visibility;
     CoreAnimalView animals[CORE_EXP_MAX_ANIMALS];
@@ -89,6 +91,7 @@ typedef struct GameSession {
     GameEventFn on_event;
     void *event_context;
     GameEffect effects[2048];
+    GameHitFx hit_fx[160];int hit_cursor;
     int effect_revision;
     float visual_time;
 } GameSession;
@@ -97,6 +100,7 @@ int game_session_init(GameSession *s, const char *data_dir);
 void game_session_free(GameSession *s);
 int game_session_new(GameSession *s, const char *name, int seed, int difficulty);
 int game_session_load(GameSession *s, const char *path, int *error_line);
+int game_session_checkpoint(GameSession *s,int restore);
 int game_session_refresh(GameSession *s);
 /* 게임 속 분 단위. 프레임과 무관하게 최대 2분씩 잘라 이동·전투를 풉니다. */
 int game_session_step(GameSession *s, float minutes);
@@ -115,4 +119,6 @@ void game_combat_step(GameSession *s, float minutes);
 GameEffect *game_effect(GameSession *s, int category, int id);
 void game_effects_sync(GameSession *s);
 void game_effects_event(GameSession *s, const CoreEventView *event);
+void game_hit_fx(GameSession *s,GamePoint position,int style);
+int game_hit_style(int source);
 #endif

@@ -89,6 +89,7 @@ void test_v111_immigration_status(void) {
         return;
     w->rank = 1;
     w->expansion->last_arrival_day = 20;
+    w->expansion->immigration_day = 24;
     w->clock.tick = 22 * 144 + 36;
     CHECK_EQ(core_expansion_immigration(w, &q), CORE_OK);
     CHECK_EQ(q.next_day, 24);
@@ -100,8 +101,9 @@ void test_v111_immigration_status(void) {
     CHECK(q.reasons & CORE_IMM_HOUSING);
     CHECK_EQ(w->expansion->last_arrival_day, 20);
     w->expansion->last_arrival_day = 28;
+    w->expansion->immigration_day = 30;
     core_expansion_immigration(w, &q);
-    CHECK_EQ(q.next_day, 32);
+    CHECK_EQ(q.next_day, 30);
     w->rank = 0;
     w->expansion->starter_waves = 1;
     core_expansion_immigration(w, &q);
@@ -135,12 +137,12 @@ void test_v111_long_happiness(void) {
     v->health = 20;
     w->clock.tick = 100;
     expansion_hurt(w, v, 4, 8);
-    CHECK_EQ(v->mood, -48);
+    CHECK_EQ(v->mood, -14);
     expansion_hurt(w, v, 4, 8);
-    CHECK_EQ(v->mood, -48);
+    CHECK_EQ(v->mood, -14);
     w->clock.tick = 112;
     expansion_hurt(w, v, 4, 8);
-    CHECK_EQ(v->mood, -56);
+    CHECK_EQ(v->mood, -19);
     core_destroy(w);
 }
 void test_v111_manor_promotion_save(void) {
@@ -320,6 +322,9 @@ void test_v111_market_split_quotes(void) {
         return;
     Building *market = add_building(w, CORE_BLD_TRADING_POST, 40, 40);
     CHECK_EQ(entity_link_worker(market, w->villagers[0], 4), CORE_OK);
+    w->clock.tick=54;Villager *staff=w->villagers[0];staff->incoming=0;staff->state=CORE_VS_WORKING;staff->target=market;staff->at_target=1;
+    staff->target_x=market->door_x;staff->target_y=market->door_y;
+    staff->current_x_milli=market->door_x*1000+500;staff->current_y_milli=market->door_y*1000+500;
     w->bank.amount[CORE_RES_GOLD] = 10000;
     w->expansion->trade_capacity_milli = 260000;
     w->expansion->trade_stock[CORE_RES_IRON] = 260;

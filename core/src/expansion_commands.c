@@ -675,6 +675,9 @@ CORE_API int32_t core_expansion_fire(CoreWorld *w, int32_t id) {
             return CORE_ERR_REJECTED;
         (void)expansion_bank_add(w, CORE_RES_MANA, -cost, CORE_LEDGER_PRODUCTION);
     }
+    if(expansion_tower(b->type))for(int i=0;i<b->worker_count;i++)if(expansion_working_present(w,b,b->workers[i])) {
+        b->combat_guard_id=b->workers[i]->id;b->combat_until_tick=w->clock.tick+6;break;
+    }
     b->shots++;
     return CORE_OK;
 }

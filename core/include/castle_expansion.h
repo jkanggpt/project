@@ -162,6 +162,9 @@ typedef struct CoreFacilityView {
     int32_t id, type_serial, radius, sight, attack, range, cooldown, assigned, present;
     int32_t labor_milli, mature_trees, logs_milli, magic_logs_milli, deposits[CORE_RES_COUNT];
     int32_t nominal_milli, stopped_reason, combat_guard_id;
+    int32_t nominal_input[CORE_RES_COUNT], nominal_output[CORE_RES_COUNT];
+    int32_t actual_input[CORE_RES_COUNT], actual_output[CORE_RES_COUNT], fuel_milli, annual_yield;
+    int32_t trade_base, trade_limit, trade_used, trade_efficiency, trade_next_day;
 } CoreFacilityView;
 typedef struct CoreWorkSchedule { int32_t start, end, second_start, second_end, sleep_start, sleep_end, on_duty, shift; } CoreWorkSchedule;
 CORE_API int32_t core_expansion_tree_mature_age(int32_t kind);
@@ -173,5 +176,11 @@ CORE_API int32_t core_expansion_enemy_runtime(CoreWorld *world,int32_t enemy_id,
 CORE_API int32_t core_expansion_hit_animal(CoreWorld *world,int32_t animal_id,int32_t damage,int32_t source_kind,int32_t source_id);
 CORE_API int32_t core_expansion_building_hit(CoreWorld *world,int32_t building_id,int32_t damage,int32_t source_kind,int32_t source_type);
 CORE_API int32_t core_expansion_person_hit(CoreWorld *world,int32_t villager_id,int32_t damage,int32_t source_kind,int32_t source_type);
+
+/* 프런트엔드 전투 중간 상태도 정수로 저장해 불러올 때 공격을 재시작하지 않습니다. */
+enum CoreRuntimeKind { CORE_RUNTIME_ACTOR=1, CORE_RUNTIME_TOWER=2, CORE_RUNTIME_CLOCK=3, CORE_RUNTIME_PROJECTILE=4 };
+enum { CORE_RUNTIME_ACTOR_INTS=20, CORE_RUNTIME_TOWER_INTS=2, CORE_RUNTIME_CLOCK_INTS=2, CORE_RUNTIME_PROJECTILE_INTS=13, CORE_RUNTIME_PROJECTILES=512 };
+CORE_API int32_t core_expansion_copy_runtime(const CoreWorld *world,int32_t kind,int32_t id,int32_t *values,int32_t count);
+CORE_API int32_t core_expansion_report_runtime(CoreWorld *world,int32_t kind,int32_t id,const int32_t *values,int32_t count);
 
 #endif

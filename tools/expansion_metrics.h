@@ -31,7 +31,7 @@ static int metric_open_details(MetricContext *ctx, const char *out, int difficul
         "worker_hours\n",
         "day,id,kind,owner,alive,age,hp,starve_days,x_milli,y_milli,threat_until_tick,attack_cooldown_milli\n",
         "day,id,type,workers,actual_minutes,effective_minutes,crop_eff_minutes,crop_carry,pending_harvest,service_credit,feed_milli,breed_cow,breed_pig,breed_sheep,breed_chicken\n",
-        "day,id,sex,appearance,job,state,at_target,inside,x_milli,y_milli,target_x,target_y,actual_minutes,efficiency_percent,health,hunger\n",
+        "day,id,sex,appearance,job,state,at_target,inside,x_milli,y_milli,target_x,target_y,actual_minutes,efficiency_percent,health,hunger,mood,happiness,rest,water,safety,mission,shift,duty,leisure_day,education_day,workplace_serial\n",
         "day,tick,raid_id,base_alive,summoned_alive,summons_total,deferred_summons,killed,escaped,gold_drop,mana_drop,food_drop,wood_drop,stone_drop,herbs_drop,logs_drop,clay_drop,bricks_drop,iron_ore_drop,coal_drop,iron_drop,gold_ore_drop,gold_bar_drop,leather_drop\n"};
     FILE **files[] = {&ctx->immigration, &ctx->promotion, &ctx->habitats,
                       &ctx->people,      &ctx->prices,    &ctx->hubs,&ctx->animals,&ctx->production,&ctx->workers,&ctx->raids};
@@ -147,7 +147,7 @@ static void metric_work_details(MetricContext *ctx) {
     }
     for(int i=0;i<w->villager_count && ctx->workers;i++) {
         const Villager *v=w->villagers[i];int job=v->workplace?v->workplace->type:-1;
-        fprintf(ctx->workers,"%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",day,v->id,v->sex,v->appearance,job,v->state,v->at_target,v->inside_building,v->current_x_milli,v->current_y_milli,v->target_x,v->target_y,v->work_day_minutes,job>=0?expansion_work_percent(w,v,job):0,v->health,v->needs.hunger);
+        fprintf(ctx->workers,"%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",day,v->id,v->sex,v->appearance,job,v->state,v->at_target,v->inside_building,v->current_x_milli,v->current_y_milli,v->target_x,v->target_y,v->work_day_minutes,job>=0?expansion_work_percent(w,v,job):0,v->health,v->needs.hunger,v->mood,v->happiness,v->needs.rest,v->water,v->needs.safety,v->mission,v->shift_kind,v->duty_minutes,v->leisure_day,v->education_day,v->workplace?v->workplace->type_serial:0);
     }
 }
 static void metric_raid_details(MetricContext *ctx) {
@@ -196,13 +196,13 @@ static void metric_event(void *context, const CoreEventView *event) {
         metric_details(ctx, &s, &imm, &rank);
     if(event->type==-1 || event->type==CORE_EVT_RAID_STARTED || event->type==CORE_EVT_RAID_ENDED || event->type==CORE_EVT_ENEMY_KILLED)
         metric_raid_details(ctx);
-    fprintf(ctx->events, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", exp_day(ctx->world),
+    fprintf(ctx->events, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", exp_day(ctx->world),
             ctx->world->clock.tick, event->type, event->a, event->b, event->c, imm.reasons, imm.status,
             rank.reason, ctx->world->expansion->arrived_today, ctx->world->expansion->hub_visits,
             ctx->world->expansion->manor_visits, ctx->world->expansion->saved_travel_ticks, quote.rate_bp,
             quote.pressure_bp, ctx->no_progress, ctx->world->expansion->spawn_attempts,
             ctx->world->expansion->spawn_capacity_rejected, ctx->world->expansion->spawn_tile_rejected,
-            ctx->world->expansion->spawn_species_rejected);
+            ctx->world->expansion->spawn_species_rejected,event->cause_kind,event->source_id,event->source_type,event->event_tick);
 }
 static void metric_row(FILE *f, const World *w, double sim_ms) {
     CoreSummaryView s;

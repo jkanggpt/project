@@ -28,7 +28,7 @@ void test_v121_identity_and_save(void) {
     for(int i=0;i<80;i++) {
         Villager *v=population_create(w,w->keep_x,w->keep_y+4);CHECK(v!=NULL);
         CHECK_EQ(v->appearance%2,v->sex);CHECK(!strchr(v->name,':'));
-        male+=!v->sex;female+=v->sex;hair|=1<<(v->appearance/2);
+        male+=!v->sex;female+=v->sex;hair|=1<<(v->appearance<12?v->appearance/2:(v->appearance-12)/6);
         for(int n=0;n<w->defs.name_count;n++)if(strcmp(v->name,w->defs.names[n].text+2)==0)CHECK_EQ(w->defs.names[n].text[0],v->sex?'F':'M');
     }
     CHECK(male&&female);CHECK_EQ(hair,63);
@@ -51,7 +51,7 @@ void test_v121_actual_labor_and_xp(void) {
         expansion_people_tick(w);
     }
     CHECK_EQ(v->skill_minutes[0],360);
-    for(int i=0;i<5;i++)CHECK_EQ(v->stat_xp[i],((int[]){1750,0,1500,1000,750}[i]));
+    for(int i=0;i<5;i++)CHECK_EQ(v->stat_xp[i],((int[]){2100,0,1800,1200,450}[i]));
     CHECK_EQ(v->xp_work_minutes[0],0);CHECK_EQ(v->work_day_minutes,360);
     CHECK(expansion_labor_milli(w,b)>0);v->at_target=0;CHECK_EQ(expansion_working_count(w,b),0);
     b->daily_work_milli=7500*b->worker_count*540;
@@ -110,7 +110,7 @@ void test_v121_raids_summons_and_drops(void) {
     w->clock.tick=120*144+40;w->expansion->next_raid_tick=w->clock.tick;expansion_raids_tick(w);
     Raid *r=&w->threat.raid;CHECK(r->id);CHECK(r->enemy_count>=3&&r->enemy_count<=5);
     CHECK(expansion_center_distance(world_keep(w),r->spawn_x,r->spawn_y)>=25);
-    CHECK(expansion_center_distance(world_keep(w),r->spawn_x,r->spawn_y)<=40);
+    CHECK(r->spawn_x==0 || r->spawn_x==w->grid.width-1 || r->spawn_y==0 || r->spawn_y==w->grid.height-1);
     CHECK(!w->expansion->protected_cells[grid_index(&w->grid,r->spawn_x,r->spawn_y)]);
     r->enemies[0].type=13;
     for(int i=0;i<80;i++){int32_t id=0;CHECK_EQ(core_expansion_summon(w,1,&id),CORE_OK);CHECK(id>0);}
@@ -140,7 +140,7 @@ void test_v121_exact_crop_and_magic_cost(void) {
 }
 void test_v121_medical_actual_staff(void) {
     World *w=world121();if(!w)return;
-    Building *hospital=building121(w,CORE_BLD_HOSPITAL,70,70);
+    Building *hospital=building121(w,CORE_BLD_HOSPITAL,70,70);w->clock.tick=54;
     for(int i=0;i<3;i++){Villager *v=w->villagers[i];entity_link_worker(hospital,v,3);v->stats.intellect=i?4:6;present121(v,hospital);}
     Villager *a=w->villagers[0],*b=w->villagers[1],*off=w->villagers[2];off->at_target=0;
     int sum=expansion_work_percent(w,a,hospital->type)+expansion_work_percent(w,b,hospital->type);

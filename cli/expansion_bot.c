@@ -21,11 +21,29 @@ typedef struct ExpansionBot {
 static int trade_level(int type) {
     return type==CORE_BLD_STALL?1:type==CORE_BLD_MARKET?2:type==CORE_BLD_TRADING_POST?3:0;
 }
+static int logging_stock(const ExpansionBot *bot, const CoreBuildingView *b) {
+    CoreExpansionBuildingInfo info;
+    int total = 0;
+    (void)core_expansion_building_info(b->type, &info);
+    for (int y = b->y + b->h/2 - info.radius; y <= b->y + b->h/2 + info.radius; y++)
+        for (int x = b->x + b->w/2 - info.radius; x <= b->x + b->w/2 + info.radius; x++) {
+            if (x<0 || y<0 || x>=bot->summary.map_width || y>=bot->summary.map_height ||
+                abs(x-b->x-b->w/2)+abs(y-b->y-b->h/2)>info.radius) continue;
+            const CoreExpansionTileView *t=&bot->tiles[y*bot->summary.map_width+x];
+            if(t->tree_kind>=1 && t->tree_kind<=4 &&
+               t->tree_age>=(int[]){16000,28000,48000,72000}[t->tree_kind-1]) total+=t->tree_logs_milli;
+        }
+    return total;
+}
 static int count_type(const ExpansionBot *bot, int type) {
     int i, count = 0;
-    for (i = 0; i < bot->buildings_count; i++)
+    for (i = 0; i < bot->buildings_count; i++) {
+        const CoreBuildingView *b=&bot->buildings[i];
+        if(b->state==CORE_BSTATE_RUINED)continue;
+        if(type==CORE_BLD_LOGGING_SITE && b->type==type && b->state==CORE_BSTATE_ACTIVE && logging_stock(bot,b)<4000)continue;
         count += trade_level(type)?trade_level(bot->buildings[i].type)>=trade_level(type):
             bot->buildings[i].type == type && bot->buildings[i].state != CORE_BSTATE_RUINED;
+    }
     return count;
 }
 static int occupied(const ExpansionBot *bot, int x, int y) {
@@ -197,7 +215,7 @@ static int build(ExpansionBot *bot, int type) {
 }
 static int fortify(ExpansionBot *bot, int ring) {
     const int *bounds = bot->fort.bounds[ring];
-    int pass, x, y, placed = 0, pending_gates = 0, reserve = 6;
+    int pass, x, y, placed = 0, pending_gates = 0, reserve = ring ? 6 : 4;
     if (!bot->fort.valid[ring])
         return 0;
     for (pass = 0; pass < 2 && placed < 10; pass++) {
@@ -227,7 +245,10 @@ static int fortify(ExpansionBot *bot, int ring) {
                     continue;
                 }
                 (void)core_get_summary(bot->world, &live);
-                if (live.resources[CORE_RES_LOGS] < (gate ? 5 : 2) + reserve) {
+                CoreBuildingDefView def;
+                type = gate ? CORE_BLD_PALISADE_GATE : CORE_BLD_PALISADE;
+                (void)core_get_building_def(bot->world,type,&def);
+                if (live.resources[CORE_RES_LOGS] < def.cost[CORE_RES_LOGS] + reserve) {
                     pending_gates |= gate;
                     continue;
                 }
@@ -248,7 +269,7 @@ static int fortify(ExpansionBot *bot, int ring) {
                     int yy = y == bounds[1] ? y + 1 : y == bounds[3] ? y - 1 : y;
                     if (preview.result == CORE_PLACE_NOT_VISIBLE || !bot->tiles[y * bot->summary.map_width + x].explored) {
                         /* 일반 도로를 연장해 다음 시야 갱신에서 경계를 발견합니다. */
-                        (void)connect(bot, x, y, gate ? 5 : 2);
+                        (void)connect(bot, x, y, def.cost[CORE_RES_LOGS]);
                     } else
                         (void)connect(bot, xx, yy, 6);
                     pending_gates |= gate;
@@ -312,34 +333,68 @@ static void staffing(ExpansionBot *bot) {
     priorities[n++] = CORE_BLD_OUTPOST;
     priorities[n++] = CORE_BLD_TOWER;
     priorities[n++] = CORE_BLD_BARRACKS;
-    for (i = 0; i < bot->buildings_count; i++)
-        if (bot->buildings[i].worker_slots)
-            (void)core_set_auto_assign(bot->world, bot->buildings[i].id, 0);
-    for (i = 0; i < bot->villagers_count; i++)
-        {(void)core_unassign_worker(bot->world, bot->villagers[i].id);bot->villagers[i].workplace_id=0;}
-    /* 필요한 시설에 첫 일꾼을 나눈 뒤 식량 시설을 우선 채웁니다. */
-    {
-        int next = 0, pass;
-        for (pass = 0; pass < 5; pass++)
-            for (i = 0; i < n; i++)
-                for (j = 0; j < bot->buildings_count && next < bot->villagers_count; j++) {
-                    CoreBuildingView *b = &bot->buildings[j];
-                    int32_t rc;
-                    if (b->type != priorities[i] || b->state != CORE_BSTATE_ACTIVE || b->worker_slots <= pass)
-                        continue;
-                    if (pass > 0 && b->type != CORE_BLD_GARDEN && b->type != CORE_BLD_CROPLAND &&
-                        b->type != CORE_BLD_FARM && b->type != CORE_BLD_LOGGING_SITE)
-                        continue;
-                    int best=-1,score=-1;
-                    for(int k=0;k<bot->villagers_count;k++) {
-                        CoreVillagerView *v=&bot->villagers[k];int32_t value=0;
-                        if(v->workplace_id || v->incoming || v->state==CORE_VS_LEAVING || (b->type==CORE_BLD_HEALER && v->intellect<4))continue;
-                        if(core_expansion_efficiency(bot->world,v->id,b->type,&value)==CORE_OK && value>score){best=k;score=value;}
-                    }
-                    if(best<0)continue;
-                    rc = core_assign_worker(bot->world, bot->villagers[best].id, b->id);
-                    if (rc == CORE_OK){bot->villagers[best].workplace_id=b->id;next++;}
-                }
+    int *desired = (int *)calloc((size_t)bot->villagers_count, sizeof(int));
+    int *assigned = (int *)calloc((size_t)bot->buildings_count, sizeof(int));
+    if(!desired || !assigned){free(desired);free(assigned);return;}
+    for(i=0;i<bot->buildings_count;i++) {
+        CoreBuildingView *b=&bot->buildings[i];
+        if(b->worker_slots)(void)core_set_auto_assign(bot->world,b->id,0);
+        /* 전투 중 담당자를 매일 해제하여 교대·공격을 초기화하지 않습니다. */
+        for(j=0;j<bot->villagers_count;j++)if(bot->villagers[j].workplace_id==b->id &&
+            (bot->villagers[j].id==b->combat_guard_id || (bot->summary.raid_id &&
+             (b->type==CORE_BLD_BARRACKS || b->type==CORE_BLD_GARRISON)))) {
+            desired[j]=b->id;assigned[i]++;
+        }
+    }
+    /* 목표 배치를 먼저 정하고 바뀐 사람만 이동시켜 실제 근무·야간 적응을 유지합니다. */
+    for(int pass=0;pass<5;pass++)for(i=0;i<n;i++)for(j=0;j<bot->buildings_count;j++) {
+        CoreBuildingView *b=&bot->buildings[j];
+        if(b->type!=priorities[i] || b->state!=CORE_BSTATE_ACTIVE ||
+           b->worker_slots<=pass || assigned[j]>=b->worker_slots)continue;
+        if(b->type==CORE_BLD_LOGGING_SITE && logging_stock(bot,b)<1000)continue;
+        if(pass>0 && b->type!=CORE_BLD_GARDEN && b->type!=CORE_BLD_CROPLAND &&
+           b->type!=CORE_BLD_FARM && b->type!=CORE_BLD_LOGGING_SITE)continue;
+        int best=-1,score=-1;
+        for(int k=0;k<bot->villagers_count;k++) {
+            CoreVillagerView *v=&bot->villagers[k];int32_t value=0;
+            if(desired[k] || v->incoming || v->state==CORE_VS_LEAVING ||
+               (b->type==CORE_BLD_HEALER && v->intellect<4))continue;
+            if(core_expansion_efficiency(bot->world,v->id,b->type,&value)!=CORE_OK)continue;
+            /* 작은 효율 차이 때문에 매일 서로의 일자리를 바꾸지 않습니다. */
+            if(v->workplace_id==b->id)value+=15;
+            if(value>score){best=k;score=value;}
+        }
+        if(best>=0){desired[best]=b->id;assigned[j]++;}
+    }
+    for(i=0;i<bot->villagers_count;i++)if(desired[i]!=bot->villagers[i].workplace_id && bot->villagers[i].workplace_id)
+        (void)core_unassign_worker(bot->world,bot->villagers[i].id);
+    for(i=0;i<bot->villagers_count;i++)if(desired[i] && desired[i]!=bot->villagers[i].workplace_id)
+        (void)core_assign_worker(bot->world,bot->villagers[i].id,desired[i]);
+    free(desired);free(assigned);
+}
+static void trade_quantity(CoreWorld *w,int resource,int units) {
+    int direction=units<0?-1:1;
+    for(int n=abs(units);n>0;n--) {
+        CoreTradeQuote q;int32_t gold=0,reason=0;
+        if(core_expansion_quote(w,resource,n*direction,&q)==CORE_OK && !q.reason &&
+           core_trade(w,resource,n*direction,&gold,&reason)==CORE_OK)return;
+    }
+}
+void sim_expansion_bot_trade(CoreWorld *world) {
+    CoreSummaryView s;
+    if(core_get_summary(world,&s)!=CORE_OK || !s.ruleset || !s.market_open || s.market_limit<=s.market_used)return;
+    if(s.resources[CORE_RES_HERBS]>25)trade_quantity(world,CORE_RES_HERBS,-10);
+    else if(s.resources[CORE_RES_FOOD]>s.population*10+100)trade_quantity(world,CORE_RES_FOOD,-10);
+    (void)core_get_summary(world,&s);
+    if(s.resources[CORE_RES_FOOD]<s.population*3)trade_quantity(world,CORE_RES_FOOD,20);
+    (void)core_get_summary(world,&s);
+    if(s.resources[CORE_RES_LOGS]<20 && s.resources[CORE_RES_GOLD]>30)trade_quantity(world,CORE_RES_LOGS,10);
+    (void)core_get_summary(world,&s);
+    if(s.resources[CORE_RES_FOOD]<s.population*6)trade_quantity(world,CORE_RES_FOOD,10);
+    const int resources[]={CORE_RES_WOOD,CORE_RES_STONE,CORE_RES_CLAY,CORE_RES_IRON_ORE,CORE_RES_COAL,CORE_RES_IRON,CORE_RES_LEATHER};
+    for(int i=0;i<7;i++) {
+        (void)core_get_summary(world,&s);
+        if(s.resources[resources[i]]<10 && s.resources[CORE_RES_GOLD]>90)trade_quantity(world,resources[i],5);
     }
 }
 int sim_expansion_bot_daily(CoreWorld *world) {
@@ -489,25 +544,7 @@ int sim_expansion_bot_daily(CoreWorld *world) {
                 core_start_research(world, i, &reason) == CORE_OK)
                 break;
         }
-    if (bot.summary.market_open) {
-        int32_t sale = 0, why = 0;
-        if (bot.summary.resources[CORE_RES_HERBS] > 25)
-            (void)core_trade(world, CORE_RES_HERBS, -10, &sale, &why);
-        else if (bot.summary.resources[CORE_RES_FOOD] > bot.summary.population * 10 + 100)
-            (void)core_trade(world, CORE_RES_FOOD, -10, &sale, &why);
-        if (bot.summary.resources[CORE_RES_LOGS] < 20 && bot.summary.resources[CORE_RES_GOLD] > 45) {
-            int32_t gold = 0, reason = 0;
-            (void)core_trade(world, CORE_RES_LOGS, 10, &gold, &reason);
-        }
-        const int resources[] = {CORE_RES_WOOD, CORE_RES_STONE, CORE_RES_CLAY,   CORE_RES_IRON_ORE,
-                                 CORE_RES_COAL, CORE_RES_IRON,  CORE_RES_LEATHER};
-        for (i = 0; i < 7; i++) {
-            int r = resources[i];
-            int32_t gold = 0, reason = 0;
-            if (bot.summary.resources[r] < 10 && bot.summary.resources[CORE_RES_GOLD] > 90)
-                (void)core_trade(world, r, 5, &gold, &reason);
-        }
-    }
+
 done:
     game_pathfinder_free(&bot.finder);
     free(bot.buildings);

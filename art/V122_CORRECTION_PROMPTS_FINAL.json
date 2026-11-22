@@ -1,0 +1,906 @@
+{
+  "base_hair_prompt": "Use case: precise-object-edit. Image1 is the resident sheet to correct; image2 is ONLY the precise HAIR COLOR reference (the original first blond pair). Keep image1's exact 4columns x6rows layout, characters, faces, hairstyle shapes, skin, clothing, pixels, proportions, walking poses, direction and spacing. Change ONLY ALL hair pixels in ALL 24 frames to the same LIGHT BRIGHT YELLOW BLOND as image2: pale lemon-yellow highlights, saturated sunny golden-yellow midtones, soft amber shadows. No brown, chestnut, orange, muted ochre or beige overall hair. Both male and female must clearly look bright yellow-haired, exactly like original blond type1. Do not alter the hair shape or anything else. Genuine transparentalpha background, no text or grid.",
+  "bow_axis_sample_prompt": "Use case: precise-object-edit. Correct ONLY shooting direction in rows1,3,4,6 of this exact 4columns x6rows PIXEL-ART archer sheet. Retain every face, hair, clothes, colors, scale, detailed pixel style and spacing. Preserve right-profile rows2 and5. 4columns are ready / draw / RELEASE / recover. CRITICAL rows1&4 FRONT view: the resident faces the viewer squarely, aims the bow DIRECTLY TOWARD THE VIEWER toward the BOTTOM CENTER of the sheet. The bow and forearms MUST be FORESHORTENED in depth, not shown as a side shot. Draw the bow almost EDGE-ON in front of the lower central chest, with its limbs roughly vertical, arms extending along the viewer's depth axis. Arrow axis is straight toward the viewer, never horizontal left/right. CRITICAL rows3&6 BACK view: resident shows back of head/body, aims bow DIRECTLY AWAY toward TOP CENTER of sheet. Hands/bow are foreshortened in front of torso, partly hidden by the shoulders, aiming upscreen, never left/right. No rotated torso or profile face in front/back rows. Only profile rows2&5 aim RIGHT as before. This is a harmless solo archery exercise; no opponents, injuries or blood. No flying arrows or effects; real arrows rendered separately in game. True transparentalpha background and clear gutters, no text/grid.",
+  "safe_archery_sample_prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid.",
+  "jobs": [
+    {
+      "name": "uniform_lodge_brown_1_attack",
+      "color": "brown",
+      "variant": 1,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_brown.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_brown_2_attack",
+      "color": "brown",
+      "variant": 2,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_brown_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_brown_2_attack",
+      "color": "brown",
+      "variant": 2,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_brown_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_brown_3_attack",
+      "color": "brown",
+      "variant": 3,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_brown_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_brown_3_attack",
+      "color": "brown",
+      "variant": 3,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_brown_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_brown_4_attack",
+      "color": "brown",
+      "variant": 4,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_brown_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_brown_4_attack",
+      "color": "brown",
+      "variant": 4,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_brown_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_blond_1_walk",
+      "color": "blond",
+      "variant": 1,
+      "outfit": "camp",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_blond.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_camp_blond_1_attack",
+      "color": "blond",
+      "variant": 1,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_blond.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_lodge_blond_1_walk",
+      "color": "blond",
+      "variant": 1,
+      "outfit": "lodge",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_blond.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_lodge_blond_1_attack",
+      "color": "blond",
+      "variant": 1,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_blond.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_barracks_blond_1_walk",
+      "color": "blond",
+      "variant": 1,
+      "outfit": "barracks",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_blond.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_barracks_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep gray metal armor and small shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Same four alternating walking stride poses with equipment resting. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_barracks_blond_1_attack",
+      "color": "blond",
+      "variant": 1,
+      "outfit": "barracks",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_blond.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_barracks_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep gray metal armor and small shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Four solo sword-form poses per row: ready / lift / controlled forward form / recover. Front is south/down, profile is east/right, rear is north/up. No other figures or effects. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_garrison_blond_1_walk",
+      "color": "blond",
+      "variant": 1,
+      "outfit": "garrison",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_blond.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_garrison_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep dark iron-gray thick reinforced armor and larger shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Same four alternating walking stride poses with equipment resting. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_garrison_blond_1_attack",
+      "color": "blond",
+      "variant": 1,
+      "outfit": "garrison",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_blond.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_garrison_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep dark iron-gray thick reinforced armor and larger shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Four solo sword-form poses per row: ready / lift / controlled forward form / recover. Front is south/down, profile is east/right, rear is north/up. No other figures or effects. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_camp_blond_2_walk",
+      "color": "blond",
+      "variant": 2,
+      "outfit": "camp",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_camp_blond_2_attack",
+      "color": "blond",
+      "variant": 2,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_lodge_blond_2_walk",
+      "color": "blond",
+      "variant": 2,
+      "outfit": "lodge",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_lodge_blond_2_attack",
+      "color": "blond",
+      "variant": 2,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_barracks_blond_2_walk",
+      "color": "blond",
+      "variant": 2,
+      "outfit": "barracks",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_barracks_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep gray metal armor and small shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Same four alternating walking stride poses with equipment resting. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_barracks_blond_2_attack",
+      "color": "blond",
+      "variant": 2,
+      "outfit": "barracks",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_barracks_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep gray metal armor and small shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Four solo sword-form poses per row: ready / lift / controlled forward form / recover. Front is south/down, profile is east/right, rear is north/up. No other figures or effects. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_garrison_blond_2_walk",
+      "color": "blond",
+      "variant": 2,
+      "outfit": "garrison",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_garrison_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep dark iron-gray thick reinforced armor and larger shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Same four alternating walking stride poses with equipment resting. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_garrison_blond_2_attack",
+      "color": "blond",
+      "variant": 2,
+      "outfit": "garrison",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_garrison_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep dark iron-gray thick reinforced armor and larger shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Four solo sword-form poses per row: ready / lift / controlled forward form / recover. Front is south/down, profile is east/right, rear is north/up. No other figures or effects. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_camp_blond_3_walk",
+      "color": "blond",
+      "variant": 3,
+      "outfit": "camp",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_camp_blond_3_attack",
+      "color": "blond",
+      "variant": 3,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_lodge_blond_3_walk",
+      "color": "blond",
+      "variant": 3,
+      "outfit": "lodge",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_lodge_blond_3_attack",
+      "color": "blond",
+      "variant": 3,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_barracks_blond_3_walk",
+      "color": "blond",
+      "variant": 3,
+      "outfit": "barracks",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_barracks_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep gray metal armor and small shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Same four alternating walking stride poses with equipment resting. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_barracks_blond_3_attack",
+      "color": "blond",
+      "variant": 3,
+      "outfit": "barracks",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_barracks_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep gray metal armor and small shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Four solo sword-form poses per row: ready / lift / controlled forward form / recover. Front is south/down, profile is east/right, rear is north/up. No other figures or effects. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_garrison_blond_3_walk",
+      "color": "blond",
+      "variant": 3,
+      "outfit": "garrison",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_garrison_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep dark iron-gray thick reinforced armor and larger shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Same four alternating walking stride poses with equipment resting. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_garrison_blond_3_attack",
+      "color": "blond",
+      "variant": 3,
+      "outfit": "garrison",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_garrison_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep dark iron-gray thick reinforced armor and larger shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Four solo sword-form poses per row: ready / lift / controlled forward form / recover. Front is south/down, profile is east/right, rear is north/up. No other figures or effects. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_camp_blond_4_walk",
+      "color": "blond",
+      "variant": 4,
+      "outfit": "camp",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_camp_blond_4_attack",
+      "color": "blond",
+      "variant": 4,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_lodge_blond_4_walk",
+      "color": "blond",
+      "variant": 4,
+      "outfit": "lodge",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_lodge_blond_4_attack",
+      "color": "blond",
+      "variant": 4,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_barracks_blond_4_walk",
+      "color": "blond",
+      "variant": 4,
+      "outfit": "barracks",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_barracks_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep gray metal armor and small shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Same four alternating walking stride poses with equipment resting. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_barracks_blond_4_attack",
+      "color": "blond",
+      "variant": 4,
+      "outfit": "barracks",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_barracks_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep gray metal armor and small shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Four solo sword-form poses per row: ready / lift / controlled forward form / recover. Front is south/down, profile is east/right, rear is north/up. No other figures or effects. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_garrison_blond_4_walk",
+      "color": "blond",
+      "variant": 4,
+      "outfit": "garrison",
+      "action": "walk",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_garrison_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep dark iron-gray thick reinforced armor and larger shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Same four alternating walking stride poses with equipment resting. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_garrison_blond_4_attack",
+      "color": "blond",
+      "variant": 4,
+      "outfit": "garrison",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_blond_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_garrison_walk.png"
+      ],
+      "prompt": "Peaceful solo training/walking sprite sheet for a fantasy pixel-art game. Two ADULT residents. Image1 is exact identity: preserve faces, hairstyles, proportions, original fine PIXEL-ART. Image2 is armor reference only, keep dark iron-gray thick reinforced armor and larger shoulder guards plus a sword. Exactly4columns x6rows: man FRONT/RIGHT/BACK, then woman FRONT/RIGHT/BACK. Four solo sword-form poses per row: ready / lift / controlled forward form / recover. Front is south/down, profile is east/right, rear is north/up. No other figures or effects. Hair fully exposed, no headgear. True transparentalpha, ample gutters, full hair/feet/equipment inside each cell. No text/grid. Preserve the BRIGHT LIGHT YELLOW BLOND of image1 in all24 frames: sunny yellow midtones, pale lemon highlights, soft gold shadows. Keep hairstyle shape identical, never brown or orange overall."
+    },
+    {
+      "name": "uniform_camp_black_1_attack",
+      "color": "black",
+      "variant": 1,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_black.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_black_1_attack",
+      "color": "black",
+      "variant": 1,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_black.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_black_2_attack",
+      "color": "black",
+      "variant": 2,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_black_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_black_2_attack",
+      "color": "black",
+      "variant": 2,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_black_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_black_3_attack",
+      "color": "black",
+      "variant": 3,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_black_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_black_3_attack",
+      "color": "black",
+      "variant": 3,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_black_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_black_4_attack",
+      "color": "black",
+      "variant": 4,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_black_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_black_4_attack",
+      "color": "black",
+      "variant": 4,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_black_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_red_1_attack",
+      "color": "red",
+      "variant": 1,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_red.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_red_1_attack",
+      "color": "red",
+      "variant": 1,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\generated\\villagers_red.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_red_2_attack",
+      "color": "red",
+      "variant": 2,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_red_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_red_2_attack",
+      "color": "red",
+      "variant": 2,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_red_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_red_3_attack",
+      "color": "red",
+      "variant": 3,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_red_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_red_3_attack",
+      "color": "red",
+      "variant": 3,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_red_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_red_4_attack",
+      "color": "red",
+      "variant": 4,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_red_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_red_4_attack",
+      "color": "red",
+      "variant": 4,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_red_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_silver_1_attack",
+      "color": "silver",
+      "variant": 1,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v121\\villagers_silver.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_silver_1_attack",
+      "color": "silver",
+      "variant": 1,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v121\\villagers_silver.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_silver_2_attack",
+      "color": "silver",
+      "variant": 2,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_silver_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_silver_2_attack",
+      "color": "silver",
+      "variant": 2,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_silver_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_silver_3_attack",
+      "color": "silver",
+      "variant": 3,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_silver_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_silver_3_attack",
+      "color": "silver",
+      "variant": 3,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_silver_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_silver_4_attack",
+      "color": "silver",
+      "variant": 4,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_silver_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_silver_4_attack",
+      "color": "silver",
+      "variant": 4,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_silver_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_navy_1_attack",
+      "color": "navy",
+      "variant": 1,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v121\\villagers_navy.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_navy_1_attack",
+      "color": "navy",
+      "variant": 1,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v121\\villagers_navy.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_navy_2_attack",
+      "color": "navy",
+      "variant": 2,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_navy_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_navy_2_attack",
+      "color": "navy",
+      "variant": 2,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_navy_2.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_navy_3_attack",
+      "color": "navy",
+      "variant": 3,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_navy_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_navy_3_attack",
+      "color": "navy",
+      "variant": 3,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_navy_3.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_camp_navy_4_attack",
+      "color": "navy",
+      "variant": 4,
+      "outfit": "camp",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_navy_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_camp_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the brown cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    },
+    {
+      "name": "uniform_lodge_navy_4_attack",
+      "color": "navy",
+      "variant": 4,
+      "outfit": "lodge",
+      "action": "attack",
+      "references": [
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\villagers_navy_4.png",
+        "C:\\Users\\82105\\Desktop\\고프로젝트\\project_mywork\\art\\v122\\outfit_lodge_walk.png",
+        "C:\\Users\\82105\\.codex\\generated_images\\01a1da19-fcbd-7ea1-bce5-5ba518842319\\exec-37a9d69f-b2ce-4278-8659-5dca79c764d2.png"
+      ],
+      "prompt": "Peaceful target-archery exercise animation for a fantasy pixel-art game. Two ADULT villagers, same exact faces, hair, proportions and pixel style as image1, wearing the white/ivory cloth outfit/quiver of image2. Image3 is a posture guide only. Exact4columns x6rows. Rows1/4 SOUTH-facing front view, rows2/5 EAST-facing right profile, rows3/6 NORTH-facing rear view. Each row4poses ready / draw / release / recover. IMPORTANT SOUTH front rows: bow points along the VERTICAL screen axis toward the EMPTY BOTTOM edge of the tile, with hands and bow foreshortened, bow narrow and edge-on in front of the central chest. NORTH rear rows: bow points toward the EMPTY TOP edge of tile, hands mostly behind shoulders, foreshortened in depth. EAST side rows: bow points toward the right edge. Never turn a front/rear torso sideways or aim it left/right. No other subjects, no effects or separate arrows. Keep hair entirely exposed, identical character identities, full bodies/weapons contained in each cell, generous gutters, true transparentalpha, no text/grid."
+    }
+  ]
+}

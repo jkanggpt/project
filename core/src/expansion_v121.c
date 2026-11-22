@@ -95,7 +95,9 @@ int expansion_begin_work(World *w, Villager *v, Building *b) {
     int n = w->defs.buildings[b->type].worker_slots;
     if (!minutes || !n)
         return 0;
+    int previous_minutes=v->work_day_minutes;
     v->work_day_minutes += minutes;
+    if(previous_minutes/180<v->work_day_minutes/180 && v->work_day_minutes<=360)expansion_mood_event(w,v,7,1,b->id,1,2);
     b->actual_work_milli += minutes * 1000;
     b->daily_work_milli += effective;
     if (expansion_spec(b->type)->field == 0) {
@@ -109,7 +111,7 @@ int expansion_begin_work(World *w, Villager *v, Building *b) {
             b->crop_work_carry=(int)(amount%100000);
         }
     }
-    int service_n = n;
+    int service_n = expansion_working_count(w,b);
     int medical=b->type==CORE_BLD_HEALER || b->type==CORE_BLD_HOSPITAL,highest=0,sum=0;
     if (medical) {
         service_n=expansion_working_count(w,b);
@@ -119,7 +121,12 @@ int expansion_begin_work(World *w, Villager *v, Building *b) {
     }
     int base = expansion_service_base(b, service_n);
     if(medical && (b->type==CORE_BLD_HEALER?highest<4:service_n<2||highest<6||sum<10))base=0;
-    if (base && service_n > 0 && expansion_qualified(w, b)) {
+    int education=b->type==CORE_BLD_SCHOOL || b->type==CORE_BLD_LIBRARY || b->type==CORE_BLD_ACADEMY;
+    int teaching=education && b->service_credit_milli<base*1000;
+    if(education)for(int i=0;i<w->villager_count;i++)
+        if(w->villagers[i]->leisure_building==b->id && w->villagers[i]->at_target)teaching=1;
+    if(education && !teaching)b->research_work_milli+=effective;
+    if (base && service_n > 0 && (!education || teaching) && expansion_qualified_present(w, b)) {
         int64_t numerator = (int64_t)effective * base * (2520 / service_n);
         if ((b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) && expansion_has_research(w, 18))
             numerator = numerator * 125 / 100;
@@ -138,7 +145,7 @@ int expansion_begin_work(World *w, Villager *v, Building *b) {
     }
     return minutes;
 }
-int expansion_trade_limit(const World *w) {
+int expansion_trade_efficiency(const World *w) {
     int level=expansion_market_level(w),total=0,count=0;
     if(!level)return 0;
     for(int i=0;i<w->building_count;i++) {
@@ -150,7 +157,12 @@ int expansion_trade_limit(const World *w) {
         }
     }
     if(!count)return 0;
-    int average=total/count,base=(int[]){0,20,80,260}[level];
+    return total/count;
+}
+int expansion_trade_limit(const World *w) {
+    int average=expansion_trade_efficiency(w),level=expansion_market_level(w);
+    if(!average || !level)return 0;
+    int base=(int[]){0,20,80,260}[level];
     return base+base*exp_clamp(average-100,0,200)/800-base*exp_clamp(100-average,0,75)/750;
 }
 

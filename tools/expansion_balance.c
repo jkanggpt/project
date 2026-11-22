@@ -172,7 +172,7 @@ int main(int argc, char **argv) {
                     fputs("day,tick,event,entity,a,b,immigration_reasons,immigration_status,promotion_reason,"
                           "arrivals,hub_visits,manor_visits,saved_travel_ticks,food_rate_bp,food_pressure_bp,"
                           "no_progress_n_days,spawn_attempts,spawn_capacity_rejected,spawn_tile_rejected,"
-                          "spawn_species_rejected\n",
+                          "spawn_species_rejected,cause_kind,source_id,source_type,event_tick\n",
                           eventcsv);
                 else
                     failures++;
@@ -198,6 +198,7 @@ int main(int argc, char **argv) {
                             break;
                         }
                     }
+                    if(s->summary.minute_of_day==720)sim_expansion_bot_trade(s->world);
                     rc = game_session_step(s, 10);
                     if (rc != CORE_OK) {
                         fprintf(stderr,"step failed: difficulty=%d seed=%d day=%d result=%d\n",d,first_seed+i,s->summary.day,rc);
@@ -213,7 +214,7 @@ int main(int argc, char **argv) {
                         checkpoint.type = -1;
                         metric_event(&context, &checkpoint);
                     }
-                    if(s->summary.minute_of_day>=1010 && work_logged_day!=s->summary.day) {
+                    if(s->summary.minute_of_day>=1430 && work_logged_day!=s->summary.day) {
                         metric_work_details(&context);work_logged_day=s->summary.day;
                     }
                     /* 하루 중 충족한 장기 행복도와 보호구역 조건으로 승급합니다. */
@@ -232,7 +233,7 @@ int main(int argc, char **argv) {
                 s->on_event = NULL;
                 s->event_context = NULL;
                 (void)snprintf(save, sizeof(save), "%s/d%d_seed%d.sav", out, d, first_seed + i);
-                if (!s->raid_id) {
+                {
                     int hash_result=core_state_hash(s->world,&before);
                     int save_result=hash_result==CORE_OK?core_save(s->world,save):hash_result;
                     int load_result=save_result==CORE_OK?game_session_load(s,save,NULL):save_result;
@@ -255,7 +256,7 @@ int main(int argc, char **argv) {
                        s->summary.outcome, first_protection, peak_area, peak_protected,
                        first_protection > 0 &&
                            (!require_protection_by || first_protection <= require_protection_by),
-                       failures,s->raid_id!=0,before!=0 && before==after,(unsigned long long)after);
+                       failures,0,before!=0 && before==after,(unsigned long long)after);
                 fflush(stdout);
                 game_session_free(s);
                 free(s);

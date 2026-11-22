@@ -779,6 +779,10 @@ static void damage_event(World *world,Building *b,CoreEventType type) {
     event.as.building.x=b->x;event.as.building.y=b->y;
     event.cause_kind=b->damage_tick==world->clock.tick?b->damage_kind:0;
     event.source_id=b->damage_source;event.event_tick=world->clock.tick;event.type_serial=b->type_serial;
+    if(event.cause_kind==1 && event.source_id>=1 && event.source_id<=world->threat.raid.enemy_count)
+        event.source_type=world->threat.raid.enemies[event.source_id-1].type+1;
+    if(event.cause_kind==2 && world->expansion)for(int i=0;i<world->expansion->animal_count;i++)
+        if(world->expansion->animals[i].id==event.source_id)event.source_type=world->expansion->animals[i].kind+1;
     events_push(&world->events,&event);
 }
 static void ruin_building(World *world, Building *building)

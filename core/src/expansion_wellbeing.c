@@ -58,23 +58,11 @@ void expansion_wellbeing_daily(World *w, Villager *v) {
 void expansion_hurt(World *w, Villager *v, int damage, int raid) {
     if (damage <= 0)
         return;
-    if (!v->injury_tick || w->clock.tick - v->injury_tick >= 12) {
-        v->mood -= 5;
-        v->injury_tick = w->clock.tick ? w->clock.tick : 1;
-        v->mood_cause = 3;
-    }
-    if (v->health < 30 && !v->critical) {
-        v->mood -= 4;
-        v->critical = 1;
-        v->mood_cause = 4;
-    } else if (v->health >= 30)
-        v->critical = 0;
-    if (raid && v->threat_raid != raid) {
-        v->mood -= 5;
-        v->threat_raid = raid;
-        v->mood_cause = 5;
-    }
-    v->mood = exp_clamp(v->mood, -200, 200);
+    expansion_mood_event(w,v,17,-5,v->damage_source,12,0);
+    v->injury_tick=w->clock.tick;
+    if(v->health<35 && !v->critical){expansion_mood_event(w,v,18,-4,v->damage_source,144,1);v->critical=1;}
+    else if(v->health>=35)v->critical=0;
+    if(raid && v->threat_raid!=raid){expansion_mood_event(w,v,24,-5,raid,1000000000,0);v->threat_raid=raid;}
     v->happiness = expansion_mood(w, v);
 }
 CORE_API int32_t core_expansion_immigration(const CoreWorld *w, CoreImmigrationView *out) {

@@ -213,13 +213,19 @@ static void inspector(GameApp *a) {
         a->inspector_scroll -= (int)(GetMouseWheelMove() * 50);
         if (a->inspector_scroll < 0)
             a->inspector_scroll = 0;
-        if (a->inspector_scroll > 650)
-            a->inspector_scroll = 650;
+
     } else
         u->input_blocked = 1;
     y -= a->inspector_scroll;
     ui_clip_begin((int)viewport.x, (int)viewport.y, (int)viewport.width, (int)viewport.height);
-    if(game_unit_details(a,x+8,&y,width-24)) {
+    if(a->build_type>=0 && !a->demolish) {
+        CoreExpansionBuildingInfo info;core_expansion_building_info(a->build_type,&info);
+        CoreBuildingView candidate={0};candidate.type=a->build_type;candidate.x=a->build_preview_x;candidate.y=a->build_preview_y;
+        candidate.rotation=a->rotation;candidate.w=(a->rotation&1)?info.h:info.w;candidate.h=(a->rotation&1)?info.w:info.h;
+        candidate.state=CORE_BSTATE_ACTIVE;candidate.worker_slots=info.workers;candidate.job_field=info.job_field;
+        ui_text(u,x+8,y,UI_GOLD,u8"%s · 건설 후보",info.name);y+=40;
+        y=game_facility_details(a,&candidate,x+8,y,width-24);
+    } else if(game_unit_details(a,x+8,&y,width-24)) {
     } else if (b) {
         ui_text(u, x + 8, y, UI_GOLD, "%s #%d", core_expansion_building_name(b->type), b->type_serial);
         y += 40;
@@ -343,6 +349,8 @@ static void inspector(GameApp *a) {
             }
         }
     }
+    int max_scroll=(int)fmaxf(0,y+a->inspector_scroll-viewport.y-viewport.height+24);
+    if(a->inspector_scroll>max_scroll)a->inspector_scroll=max_scroll;
     ui_clip_end();
     u->input_blocked = blocked;
 }
@@ -467,13 +475,15 @@ static void pause_menu(GameApp *a) {
 }
 static void slots(GameApp *a, int saving) {
     Rectangle b = modal(a, saving ? u8"저장하기" : u8"불러오기", 1000, 610);
-    float y = b.y + 78;
+    int legacy=!saving && a->load_legacy;
+    if(!saving && ui_button(&a->ui,rect(b.x+28,b.y+55,340,30),legacy?u8"v10 저장 보기":u8"기존 v9 저장 가져오기",1,legacy,u8"원본을 보존하고 빈 v10 슬롯에 이관합니다."))a->load_legacy=!a->load_legacy;
+    float y = b.y + 102;
     int slot;
     for (slot = saving ? 1 : 0; slot <= 3; slot++) {
         char path[GAME_PATH_BYTES], summary[512], label[600];
         CoreSaveInfoView info;
         int ok, backup = 0;
-        game_app_slot_path(a, slot, 0, path);
+        if(legacy)game_app_legacy_slot_path(a,slot,0,path);else game_app_slot_path(a, slot, 0, path);
         ok = core_peek_save(path, a->session.defs, &info) == CORE_OK;
         if (ok)
             (void)snprintf(summary, sizeof(summary), u8"%s · %d년 %s · %d일 %02d:%02d · %s · %d명",
@@ -483,7 +493,7 @@ static void slots(GameApp *a, int saving) {
         else {
             (void)snprintf(summary, sizeof(summary), "%s",
                            info.result == CORE_ERR_FILE_OPEN ? u8"빈 슬롯" : fmt_result_message(info.result));
-            game_app_slot_path(a, slot, 1, path);
+            if(legacy)game_app_legacy_slot_path(a,slot,1,path);else game_app_slot_path(a, slot, 1, path);
             backup = core_peek_save(path, a->session.defs, &info) == CORE_OK;
         }
         (void)snprintf(label, sizeof(label), u8"%s%d · %s%s", slot ? u8"슬롯 " : u8"자동 저장 ", slot,
@@ -500,13 +510,13 @@ static void slots(GameApp *a, int saving) {
                     game_app_open(a, PANEL_CONFIRM);
                 } else
                     (void)game_app_save(a, slot);
-            } else
-                (void)game_app_load(a, slot, 0);
+            } else if(legacy)(void)game_app_import_v9(a,slot,!ok && backup);
+            else (void)game_app_load(a, slot, 0);
         }
         y += 96;
     }
     ui_small(&a->ui, b.x + 28, b.y + b.height - 50, UI_MUTED,
-             u8"습격 중 저장은 습격 종료 후로 미뤄집니다. 저장 형식 v%d", CORE_SAVE_VERSION);
+             u8"전투 중 상태도 저장합니다. v9 원본 보존 · 현재 저장 형식 v%d", CORE_SAVE_VERSION);
 }
 static void settings(GameApp *a) {
     Rectangle b = modal(a, u8"설정", 760, 610);
@@ -686,10 +696,13 @@ static void market(GameApp *a, int contracts) {
                     u8"노점·시장·교역소를 짓고 일꾼을 배치하면 거래할 수 있습니다.");
             return;
         }
-        ui_small(&a->ui, b.x + 30, b.y + 74, m.open ? UI_GOOD : UI_BAD,
-                 u8"하루 거래 %d / %d개 · 6일마다 재고 보충 · 아래 가격은 개당", s->summary.market_used,
-                 s->summary.market_limit);
-        y = scroll_start(a, b, 14, 64) + 45;
+        CoreFacilityView trade={0};
+        for(int n=0;n<s->building_count;n++)if(s->buildings[n].type==CORE_BLD_STALL || s->buildings[n].type==CORE_BLD_MARKET || s->buildings[n].type==CORE_BLD_TRADING_POST) {
+            CoreBuildingView *shop=&s->buildings[n];core_expansion_facility(s->world,shop->id,shop->type,shop->x,shop->y,shop->rotation,&trade);break;
+        }
+        ui_small(&a->ui,b.x+30,b.y+74,UI_TEXT,u8"거래 %d / %d개 · 기준 %d · 직원 E %.2f · 보정 %+d개",trade.trade_used,trade.trade_limit,trade.trade_base,trade.trade_efficiency/100.0,trade.trade_limit-trade.trade_base);
+        ui_small(&a->ui,b.x+30,b.y+101,trade.present?UI_MUTED:UI_BAD,u8"현장 %d명 · 다음 재입고 %d일 · %s",trade.present,trade.trade_next_day,trade.present?u8"직원 변경은 한도에 즉시 반영 · 사용량 유지":u8"현재 근무 직원 없음 · 09~18시 근무");
+        y = scroll_start(a, b, 14, 64) + 72;
         for (int display = 1; display < 15; display++, y += 64) {
             i = core_expansion_display_resource(display);
             CoreTradeQuote q1, q10, qs;
@@ -700,7 +713,7 @@ static void market(GameApp *a, int contracts) {
             char label[96];
             int enabled = m.open && q1.reason != CORE_DENY_NOT_TRADABLE,
                 stock = core_expansion_market_stock(s->world, i);
-            if (y < b.y + 120 || y + 54 > b.y + b.height - 45)
+            if (y < b.y + 148 || y + 54 > b.y + b.height - 45)
                 continue;
             ui_small(&a->ui, b.x + 30, y + 8, UI_TEXT, u8"%s · 보유 %d / 재고 %d", fmt_resource_name(i),
                      s->summary.resources[i], stock);
@@ -819,11 +832,11 @@ static void villagers(GameApp *a) {
     y = scroll_start(a, list, s->villager_count + 1, 48) + 48;
     for (i = 0; i < s->villager_count; i++, y += 48) {
         CoreVillagerView *v = &s->villagers[i];
-        char label[300];
+        char label[300],workplace[120];game_building_label(s,v->workplace_id,workplace,sizeof(workplace));
         if (y < b.y + 222 || y + 42 > b.y + b.height - 42)
             continue;
-        (void)snprintf(label, sizeof(label), u8"%s #%d | %s | 행복 %d · 기분 %+d | 체력 %d | %s", v->name, v->id,
-                       v->job < 0 ? u8"일터 없음" : core_expansion_building_name(v->job), v->happiness,
+        (void)snprintf(label, sizeof(label), u8"#%d %s | %s | 행복 %d · 기분 %+d | 체력 %d | %s", v->personal_id,v->name,
+                       workplace, v->happiness,
                        v->mood, v->health, fmt_villager_state(v->state));
         if (ui_button(&a->ui, rect(b.x + 28, y, b.width - 56, 40), label, 1, a->selected_villager == v->id,
                       NULL)) {

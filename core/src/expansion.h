@@ -44,7 +44,9 @@ typedef struct ExpansionState {
     int32_t trade_capacity_milli, trade_capacity_carry;
     int32_t raid_drops[CORE_RES_COUNT], summons_total, deferred_summons;
     int32_t next_type_serial[CORE_BLD_COUNT], last_immigration_edge, market_next_restock_day;
+    int32_t market_staff_efficiency, market_staff_day;
     int32_t phantom_second_day[6], loaded_version;
+    int32_t frontend_clock[2], frontend_projectiles[512][13];
 } ExpansionState;
 
 static inline int exp_day(const World *w) { return w->clock.tick / 144 + 1; }
@@ -75,6 +77,7 @@ void expansion_candidate_price(const World *world, CoreCandidateView *candidate)
 int expansion_edge(World *world,int near_x,int near_y,int *x,int *y);
 int expansion_work_percent(const World *world, const Villager *v, int type);
 int expansion_qualified(const World *world, const Building *b);
+int expansion_qualified_present(const World *world, const Building *b);
 void expansion_rebuild(World *world);
 void expansion_capacity(World *world);
 void expansion_visibility(World *world);
@@ -147,6 +150,7 @@ int expansion_agriculture_event(const World *world, int type);
 int expansion_event_active(const World *world, int event);
 int expansion_service_shift(int type);
 int expansion_trade_limit(const World *world);
+int expansion_trade_efficiency(const World *world);
 void expansion_choose_identity(World *world, Villager *villager);
 void expansion_raids_tick(World *world);
 int expansion_debug_town(World *world, int villagers, int enemies);
@@ -160,7 +164,13 @@ int expansion_schedule(const World *w,const Villager *v,CoreWorkSchedule *out);
 int expansion_leisure(World *w,Villager *v);
 void expansion_leisure_reward(World *w,Villager *v,Building *b,int day);
 int expansion_military(int type);
+int expansion_defend_damage(const Villager *v,int damage);
 int expansion_tower(int type);
 int expansion_duty(World *w,Villager *v,Building *b);
 void expansion_v122_life(World *w,Villager *v);
+void expansion_gain_xp(Villager *v,int field,int type,int minutes);
+void expansion_migrate_xp(Villager *v);
+void expansion_initialize_shift(World *w,Building *b,Villager *v);
+int expansion_production_factor(const World *w,const Building *b);
+int expansion_recipe_plan(const World *w,const Building *b,int factor,int attendance,int constrained,int *in,int *out,int *fuel);
 #endif

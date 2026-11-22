@@ -182,7 +182,7 @@ static void animal_impact(World *w, CoreAnimalView *a) {
         int x=a->x_milli/1000,y=a->y_milli/1000;
         int distance=(x<b->x?b->x-x:x>=b->x+b->w?x-b->x-b->w+1:0)+(y<b->y?b->y-y:y>=b->y+b->h?y-b->y-b->h+1:0);
         if(distance<=EXP_ANIMALS[a->kind].attack_range) {
-            b->damage_kind=2;b->damage_source=a->kind;b->damage_tick=w->clock.tick;
+            b->damage_kind=2;b->damage_source=a->id;b->damage_tick=w->clock.tick;
             placement_damage(w,b,EXP_ANIMALS[a->kind].attack);
         }
         return;
@@ -194,9 +194,8 @@ static void animal_impact(World *w, CoreAnimalView *a) {
         return;
     a->threat_until_tick = w->clock.tick + 144;
     int damage = EXP_ANIMALS[a->kind].attack;
-    if(v->workplace && v->workplace->type==CORE_BLD_BARRACKS)
-        damage=(damage*100+exp_clamp(100+8*(v->stats.vitality-4),76,148)/2)/exp_clamp(100+8*(v->stats.vitality-4),76,148);
-    v->damage_kind=2;v->damage_source=a->kind;
+    damage=expansion_defend_damage(v,damage);
+    v->damage_kind=2;v->damage_source=a->id;
     v->health -= damage;
     expansion_hurt(w, v, damage, 0);
     v->needs.safety = exp_clamp(v->needs.safety - 10, 0, 100);

@@ -310,7 +310,10 @@ static void check_all(const char *dir) {
     check_atlas(dir, "road_tiles.png", 3, 1, 64, 1, 1, 0);
     for (int r = 0; r < 6; r++) {
         snprintf(name, sizeof(name), "manor_%d.png", r);
-        check_atlas(dir, name, 1, 1, 256, 1, 0, 0);
+        Image im=read_image(dir,name);
+        if(!im.data || im.width<64 || im.height<64 || im.width>384 || im.height>384)errors++;
+        if(im.data){Rectangle bounds=GetImageAlphaBorder(im,.1f);if(bounds.width<32 || bounds.height<32)errors++;}
+        UnloadImage(im);
     }
 }
 int main(int argc, char **argv) {

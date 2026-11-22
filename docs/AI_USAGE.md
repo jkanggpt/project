@@ -450,3 +450,20 @@ Codex가 학생의 HTML 변경 명세와 이름 ZIP, 추가 요청을 읽고 C �
 - art/V122_RESIDENT_PROMPTS.json
 - art/V122_FARM_PROMPTS.json
 - art/V122_MISC_PROMPTS.json
+- tools/pack_v122_art.c와 game/src/runtime.c: 원화 셀 경계·메타데이터·복장 렌더링, 아군/투사체/적 중간 저장 상태를 C로 구현했습니다.
+- art/V122_PROMPTS.md, art/V122_UNIFORM_PROMPTS.json, art/V122_CORRECTION_PROMPTS_FINAL.json: 기존 프로젝트의4×6 원화와 텃밭·주택을 직접 참조해 내장 image_gen으로 추가 주민·업무복·농장류를 제작했습니다. 사용자 교정에 따라 밝은 금발과 전후 방향 활 자세를 재제작해 적용했습니다. 폐기한 시안은 배포 대상에서 제외했습니다.
+
+### v1.2.2 최종 교정·검증 (2026-11-22)
+
+Codex와 내장 image_gen을 사용했습니다. 실행 게임과 패킹 도구는 C이며, PowerShell은 Windows 빌드·검사 프로세스만 실행합니다. 생성형 AI가 추가로 수정/생성한 범위는 다음과 같습니다.
+
+- art/v122/*.png226장, art/V122_*PROMPTS*.json와 V122_FARM_ADDITIONAL_PROMPT.json: 신규 주민·192업무복·농장·기타 수정 원화, 최종 걷기/공격/배경 교정 프롬프트. 원본과 실제 적용 순서는 V122_PROMPTS.md를 따릅니다.
+- game/assets/expansion의 villagers_v122, uniform_*, farms_v122, animal_*_v122, animals_v122, raider_*_v122, manor_*, gatherer_*, garrison_*, rocks, life_icons PNG와 sprites_v122.csv: C 패커 산출물.
+- cli/expansion_bot.c, cli/sim.h, cli/format.c: 변경 배치·고갈 벌목지·정오 거래·첫 보호구역 자재 예약, 정확한 사건 설명.
+- core/include/castle_core.h, castle_expansion.h와 core/src의 api/entity/events/expansion/defs_builtin/jobs/placement/population/threat 관련 C·헤더: ABI12/저장10·실제 근무/XP/기분/거래·수렵/군사·생태/이주·피해 원인·구버전 이관.
+- game/src/runtime.c, v122_ui.c, combat.c, session.c/h, path.c/h, effects.c, render.c, assets.c/h, panels.c, main.c, app.h: 실제 연속 이동/전투/철수 저장, 상세 UI·공통 시설 계산·원화 적용·갤러리·피격 VFX.
+- tests/test_v122.c, test_native.c, test_api.c, test_save.c, test_v111.c, test_v121.c와 run_cli_script.cmake: 의미 있는 기능 회귀 및 의도한 새 규칙의 기대값 반영. tests/fixtures/expansion_v9.sav는 이전 실제 실행판의 저장을 복사한 이관 자료입니다.
+- tools/check_v122_worlds.c, quality_v122.ps1, screenshots_v122.ps1, expansion_balance.c, expansion_metrics.h, pack_v122_art.c, pack_v111_art.c, tools/CMakeLists.txt, game/CMakeLists.txt:100지도/실제v9·144판·스크린숏·아트/배포 검사.
+- README, PROGRESS, CREDITS, art/README와 docs의 SPEC/ARCHITECTURE/DECISIONS/V1_2_2_IMPLEMENTATION/V1_2_2_QA, v122_balance_results.csv, v122_performance_results.csv, screenshots/v122_*.png: 최종 설명·출처·실제 측정 자료. 성장/성능 목표 미달과 수동 검사의 범위를 명시합니다.
+
+임시 분석/패치 스크립트와 중단한 평가 로그는 무시되는 artifacts/v122에만 보관하며 게임 실행이나 배포에 필요하지 않습니다. Python 이미지 편집이나 외부 이미지 API CLI는 사용하지 않았습니다.

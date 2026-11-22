@@ -2,6 +2,7 @@
  * entity.c — 주민과 건물의 생성, 연결, 삭제 (설명은 entity.h)
  */
 #include "entity.h"
+#include "castle_expansion.h"
 
 #include <string.h>
 
@@ -159,6 +160,8 @@ int entity_link_resident(Building *building, Villager *villager, int32_t slots)
 void entity_unlink_worker(Villager *villager)
 {
     if (villager->workplace != NULL) {
+        if(villager->workplace->combat_guard_id==villager->id){villager->workplace->combat_guard_id=0;villager->workplace->combat_until_tick=0;}
+        villager->mission=CORE_MISSION_NONE;
         remove_from(villager->workplace->workers, &villager->workplace->worker_count, villager);
         villager->workplace = NULL;
     }

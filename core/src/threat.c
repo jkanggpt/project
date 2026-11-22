@@ -273,6 +273,8 @@ static void end_raid(World *world)
             raid->escaped++;
         }
     }
+    if(world->expansion && world->outcome!=CORE_OUTCOME_LOST && raid->first_discovered)
+        for(i=0;i<world->villager_count;i++)expansion_mood_event(world,world->villagers[i],20,3,raid->id,1000000000,0);
     events_push_raid(&world->events, CORE_EVT_RAID_ENDED, raid->killed, raid->enemy_count, raid->stolen, raid->fallen);
     raid->id = 0;
     raid->phase = CORE_RAID_COMPLETE;
@@ -393,9 +395,8 @@ int threat_report_villager_damage(World *world, int32_t raid_id, int32_t village
         return CORE_ERR_NOT_FOUND;
     }
     if(world->expansion && villager->inside_building)return CORE_IGNORED;
-    if(world->expansion && villager->workplace && villager->workplace->type==CORE_BLD_BARRACKS && expansion_has_research(world,11))damage=(int32_t)((int64_t)damage*90/100);
-    if (world->expansion && threat_is_guard(world,villager))
-        damage = (damage * 100 + exp_clamp(100 + 8 * (villager->stats.vitality - 4),76,148) / 2) / exp_clamp(100 + 8 * (villager->stats.vitality - 4),76,148);
+    if(world->expansion && villager->workplace && expansion_military(villager->workplace->type) && expansion_has_research(world,11))damage=(int32_t)((int64_t)damage*90/100);
+    if(world->expansion)damage=expansion_defend_damage(villager,damage);
     villager->health -= damage;
     if (world->expansion)
         expansion_hurt(world, villager, damage, raid_id);
