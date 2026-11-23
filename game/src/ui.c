@@ -90,6 +90,20 @@ void ui_wrap(GameUi *ui, Rectangle area, Color color, const char *text) {
     }
     ui_clip_end();
 }
+float ui_wrap_height(GameUi *ui,float width,const char *text) {
+    float x=0;int lines=1,offset=0;
+    while(text[offset]) {
+        int bytes=0,code=GetCodepointNext(text+offset,&bytes);char glyph[5]={0};
+        if(bytes<1||bytes>4)break;
+        offset+=bytes;
+        if(code=='\n'){lines++;x=0;continue;}
+        memcpy(glyph,text+offset-bytes,(size_t)bytes);
+        float w=MeasureTextEx(ui->assets->font,glyph,ui->font_size,0).x;
+        if(x+w>width){lines++;x=0;}
+        x+=w;
+    }
+    return lines*(ui->font_size+8)-8;
+}
 void ui_box(Rectangle area, Color color) {
     DrawRectangleRec(area, color);
     DrawRectangleLinesEx(area, 1, UI_EDGE);

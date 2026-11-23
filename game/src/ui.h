@@ -17,6 +17,7 @@ void ui_clip_end(void);
 void ui_text(GameUi *ui,float x,float y,Color color,const char *format,...);
 void ui_small(GameUi *ui,float x,float y,Color color,const char *format,...);
 void ui_wrap(GameUi *ui,Rectangle area,Color color,const char *text);
+float ui_wrap_height(GameUi *ui,float width,const char *text);
 void ui_box(Rectangle area,Color color);
 int ui_button(GameUi *ui,Rectangle area,const char *text,int enabled,int selected,const char *tooltip);
 void ui_bar(Rectangle area,float fraction,Color color);

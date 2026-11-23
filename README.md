@@ -1,6 +1,7 @@
 # 마법성채 키우기
 
 현재 버전은 **v1.2.2**입니다. [변경 명세](docs/V1_2_2_SPEC.md)와 학생의 추가 요청을 적용합니다.
+2026-11-23 [후속 보완판](docs/V1_2_2_PATCH1.md)은 발견/첫 공격부터48시간 습격·시야 밖 철수 종료, 칸에 맞춘 농장, 주민 프로필/숫자스탯, 최초 근무조 선택, 세력별 경보와 방향별 이미지 이펙트를 포함합니다.
 변경 규칙은 [적용 기록](docs/V1_2_2_IMPLEMENTATION.md), 실제 검사 결과와 미달 목표는 [검증 기록](docs/V1_2_2_QA.md)에 있습니다.
 행복도와 사건 기분을 분리하고, 일반 이주·인구 하한·저장 허브·10개 생물군계·수역 온도·30종 동물·거래 시세를 적용했습니다.
 시작 건물은 회전하지 않는 4×4 영주관이며 등급별 그림 6개와 하루 승급 공사를 사용합니다.
@@ -25,7 +26,7 @@ Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 보호구역 안에서는 주민의 안전 욕구가 회복되고, 위험 시 걸어갈 수 있는 가까운 보호구역으로 대피합니다. 성문 철거에도 도로 연결 검사를 적용합니다.
 개척지에는 5~8일과 10~13일에 각각 2명이 조건 없이 한 번씩 이주합니다. 두 번째 합류 이후 3일마다 1명씩 영구 인구 8명까지 보충합니다.
 
-![v1.2.2 게임 화면](docs/screenshots/v122_game.png)
+![v1.2.2 보완판 게임 화면](docs/screenshots/v122_patch1_game_1440.png)
 
 ![주민48외형](docs/screenshots/v122_villagers.png)
 ![성벽과 성문 연결·동물30종](docs/screenshots/v121_connections.png)
@@ -33,7 +34,7 @@ Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 
 ## Windows 빌드와 실행
 
-배포 ZIP을 받은 경우 압축을 풀고 `MagicCastle-v1.2.2/castle_game.exe`를 실행하면 됩니다. `assets/`와 `data/` 폴더도 함께 두세요.
+배포 ZIP을 받은 경우 압축을 풀고 `MagicCastle-v1.2.2-patch1/castle_game.exe`를 실행하면 됩니다. `assets/`와 `data/` 폴더도 함께 두세요.
 아래 도구 설치는 직접 소스를 빌드할 때 필요합니다.
 
 준비물: CMake 3.21 이상과 Visual Studio 2022 C/C++ 개발 도구 또는 MinGW-w64 + Ninja.
@@ -143,6 +144,8 @@ ctest --preset linux-debug -j8
 ./build/windows-msvc/bin/Release/castle_v121_art.exe --check game/assets/expansion
 ./build/windows-msvc/bin/Release/castle_v122_art.exe
 ./build/windows-msvc/bin/Release/castle_v122_art.exe --check game/assets/expansion
+./build/windows-msvc/bin/Release/castle_ui_art.exe
+./build/windows-msvc/bin/Release/castle_ui_art.exe --check game/assets/expansion
 ```
 
 `castle_game --screenshot <파일.png> --screen title|game|villagers|uniforms|farms|rotations|connections|population|research|rank|market|load --no-audio`로 화면을 촬영합니다. `tools/screenshots_v122.ps1`은 두 해상도의 검사용 화면을 만듭니다.

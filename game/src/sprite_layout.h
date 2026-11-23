@@ -14,7 +14,7 @@ typedef struct GameSpriteFrame {
 typedef struct GameSpriteBox {
     float x, y, w, h;
 } GameSpriteBox;
-typedef enum GameDrawKind { DRAW_PROP, DRAW_BUILDING, DRAW_VILLAGER, DRAW_ENEMY, DRAW_ANIMAL } GameDrawKind;
+typedef enum GameDrawKind { DRAW_PROP, DRAW_BUILDING, DRAW_VILLAGER, DRAW_ENEMY, DRAW_ANIMAL, DRAW_HIT_FX } GameDrawKind;
 typedef struct GameDrawItem {
     float depth;
     int kind, index, key;

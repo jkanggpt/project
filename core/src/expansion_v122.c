@@ -68,7 +68,7 @@ CORE_API int32_t core_expansion_report_runtime(CoreWorld *w,int32_t kind,int32_t
     memcpy(slot,values,(size_t)count*sizeof(*values));return CORE_OK;
 }
 CORE_API int32_t core_expansion_build_locked(const CoreWorld *w) {
-    return w && w->expansion && w->threat.raid.id!=0;
+    return w && w->expansion && threat_raid_active(w);
 }
 CORE_API int32_t core_expansion_enemy_runtime(CoreWorld *w,int32_t id,const CoreEnemyRuntime *state) {
     if(!w||!state)return CORE_ERR_NULL_ARG;
@@ -335,6 +335,17 @@ CORE_API int32_t core_expansion_set_shift(CoreWorld *w,int32_t id,int32_t shift)
         other->shift_kind=v->shift_kind;other->shift_changed_day=exp_day(w);other->shift_adapt_days=0;other->shift_sleep_day=0;
     }
     v->shift_kind=shift;v->shift_changed_day=exp_day(w);v->shift_adapt_days=0;v->shift_sleep_day=0;return CORE_OK;
+}
+CORE_API int32_t core_expansion_assign_shift(CoreWorld *w,int32_t id,int32_t building_id,int32_t shift) {
+    if(!w)return CORE_ERR_NULL_ARG;
+    Villager *v=entity_find_villager(w,id);Building *b=entity_find_building(w,building_id);
+    if(!w->expansion || !v || !b)return CORE_ERR_NOT_FOUND;
+    if(!expansion_tower(b->type) || shift<0 || shift>1)return CORE_ERR_INVALID_ARG;
+    if(v->workplace==b)return core_expansion_set_shift(w,id,shift);
+    for(int i=0;i<b->worker_count;i++)if(b->workers[i]->shift_kind==shift)return CORE_ERR_REJECTED;
+    int rc=core_assign_worker(w,id,building_id);if(rc!=CORE_OK)return rc;
+    v->shift_kind=shift;v->shift_changed_day=exp_day(w);v->shift_adapt_days=0;v->shift_sleep_day=0;
+    return CORE_OK;
 }
 void expansion_mood_event(World *w,Villager *v,int kind,int amount,int source,int cooldown,int cap) {
     if(kind<0||kind>=32||!amount)return;

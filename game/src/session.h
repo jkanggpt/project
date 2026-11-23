@@ -54,7 +54,7 @@ typedef struct GameEffect {
     GamePoint position;
     float hurt_started, hurt_until, bar_until, death_started, attack_started;
 } GameEffect;
-typedef struct GameHitFx {GamePoint position;float started;int style,active;} GameHitFx;
+typedef struct GameHitFx {GamePoint position;float started,angle;int style,active;} GameHitFx;
 typedef void (*GameEventFn)(void *context, const CoreEventView *event);
 typedef struct GameSession {
     CoreWorld *world;
@@ -120,5 +120,6 @@ GameEffect *game_effect(GameSession *s, int category, int id);
 void game_effects_sync(GameSession *s);
 void game_effects_event(GameSession *s, const CoreEventView *event);
 void game_hit_fx(GameSession *s,GamePoint position,int style);
+void game_hit_fx_direction(GameSession *s,GamePoint origin,GamePoint position,int style);
 int game_hit_style(int source);
 #endif

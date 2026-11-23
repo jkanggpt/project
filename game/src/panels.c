@@ -37,10 +37,6 @@ static void hud(GameApp *a) {
     ui_small(u, 100, 48, UI_MUTED, u8"%d년 %s %d일  %02d:%02d  (시드 %d)", s->year,
              fmt_season_name(s->season), s->day_of_season, s->minute_of_day / 60, s->minute_of_day % 60,
              s->seed);
-    CoreEventLayers layers={0};(void)core_expansion_events(a->session.world,&layers);
-    if(s->nature_event || layers.plague_days || layers.economic_days)
-        ui_small(u,540,49,UI_GOLD,u8"%s %d일  %s%d  %s%d",s->nature_event?fmt_nature_name(s->nature_event):"",s->nature_days_left,
-            layers.plague_days?u8"역병 ":"",layers.plague_days,layers.economic_days?fmt_nature_name(layers.economic_event):"",layers.economic_days);
     if (ui_button(u, rect(540, 9, 46, 36), a->speed ? "||" : ">", 1, !a->speed,
                   u8"스페이스: 일시정지 / 계속"))
         a->speed = a->speed ? 0 : 1;
@@ -110,19 +106,28 @@ static void hud(GameApp *a) {
                      status.reasons & 64 ? u8"행복도" : "");
         }
     }
-    if (s->raid_id)
-        ui_small(u, 540, 49, UI_BAD, u8"습격: %s %d명 · 저장/수리 불가", fmt_threat_name(s->raid_type),
-                 s->raid_enemies_left);
-    else if (s->threat_type)
-        ui_small(u, 540, 49, UI_GOLD, u8"위협: %s %s · %d일 %d시간 후", fmt_threat_name(s->threat_type),
-                 fmt_direction_name(s->threat_direction), s->threat_ticks_left / 144,
-                 (s->threat_ticks_left % 144) / 6);
-    if (!s->raid_id && (s->season == CORE_SEASON_AUTUMN || s->season == CORE_SEASON_WINTER)) {
-        int days = s->season == CORE_SEASON_WINTER ? 13 - s->day_of_season : 12;
-        int need = (s->population * 12 * days + 9) / 10;
-        ui_small(u, 540, 49, s->resources[CORE_RES_FOOD] < need ? UI_BAD : UI_GOOD,
-                 u8"겨울 %d일분 식량 %d/%d", days, s->resources[CORE_RES_FOOD], need);
+    char lines[6][180];Color colors[6];int count=0;CoreEventLayers layers={0};
+    core_expansion_events(a->session.world,&layers);
+    if(s->nature_event){snprintf(lines[count],180,u8"%s · %d일 남음",fmt_nature_name(s->nature_event),s->nature_days_left);colors[count++]=UI_GOLD;}
+    if(layers.plague_days){snprintf(lines[count],180,u8"역병 · %d일 남음",layers.plague_days);colors[count++]=UI_BAD;}
+    if(layers.economic_days){snprintf(lines[count],180,u8"%s · %d일 남음",fmt_nature_name(layers.economic_event),layers.economic_days);colors[count++]=UI_GOLD;}
+    if(s->raid_id) {
+        if(a->session.raid.phase==CORE_RAID_RETREAT)snprintf(lines[count],180,u8"%s 철수 중 · 시야 밖으로 모두 사라지면 종료",game_faction_name(a->session.raid.type-1));
+        else snprintf(lines[count],180,u8"%s 습격 %d명 · 남은 공격 %.1f시간",game_faction_name(a->session.raid.type-1),s->raid_enemies_left,fmaxf(0,(a->session.raid.assault_end_tick-s->tick)/6.0f));
+        colors[count++]=UI_BAD;
+    } else if(s->threat_type){snprintf(lines[count],180,u8"위협: %s · %d일 %d시간 후",fmt_threat_name(s->threat_type),s->threat_ticks_left/144,s->threat_ticks_left%144/6);colors[count++]=UI_GOLD;}
+    if(s->season==CORE_SEASON_AUTUMN||s->season==CORE_SEASON_WINTER) {
+        int days=s->season==CORE_SEASON_WINTER?13-s->day_of_season:12,need=(s->population*12*days+9)/10;
+        snprintf(lines[count],180,u8"겨울 %d일분 식량 %d/%d",days,s->resources[CORE_RES_FOOD],need);colors[count++]=s->resources[CORE_RES_FOOD]<need?UI_BAD:UI_GOOD;
     }
+    float status_y=141;
+    for(int row=0;row<count;row++) {
+        float height=ui_wrap_height(u,370,lines[row])+14;
+        ui_box(rect(12,status_y,390,height),UI_PANEL);
+        ui_wrap(u,rect(22,status_y+7,370,height-10),colors[row],lines[row]);status_y+=height+5;
+    }
+    a->status_height=(int)(status_y-141);
+
 }
 static void build_bar(GameApp *a) {
     static const int groups[] = {1, 7, 9, 10, 11, 15, 8, 12, 3, 5, 13, 14, 17, 16, 4, 6};
@@ -356,19 +361,23 @@ static void inspector(GameApp *a) {
 }
 static void notices(GameApp *a) {
     int i;
-    float y = 143;
+    float y = 143.0f+a->status_height;
+    a->notice_bottom=(int)y;
     GameUi *u = &a->ui;
     for (i = a->notice_count - 1; i >= 0 && y < GetScreenHeight() - 185; i--) {
         GameNotice *n = &a->notices[i];
-        Rectangle area = rect(12, y, 390, 64);
+        float height=ui_wrap_height(u,370,n->text)+16;
+        Rectangle area=rect(12,y,390,height);
+        if(y+height>GetScreenHeight()-195)break;
         if (n->age > 16)
             continue;
         ui_box(area, Fade(UI_PANEL, n->age > 13 ? (16 - n->age) / 3 : 0.94f));
         ui_wrap(u, rect(area.x + 10, area.y + 7, area.width - 20, area.height - 10), UI_TEXT, n->text);
-        if (a->panel == PANEL_NONE && n->has_position && IsMouseButtonReleased(MOUSE_BUTTON_LEFT) &&
+        if (a->panel == PANEL_NONE && !a->raid_alert_id && n->has_position && IsMouseButtonReleased(MOUSE_BUTTON_LEFT) &&
             CheckCollisionPointRec(GetMousePosition(), area))
             a->camera.target = (Vector2){(n->x + 0.5f) * 16, (n->y + 0.5f) * 16};
-        y += 70;
+        y += height+6;
+        a->notice_bottom=(int)y;
     }
 }
 static int row_button(GameApp *a, Rectangle box, float *y, const char *label, int enabled) {
@@ -675,10 +684,10 @@ static void market(GameApp *a, int contracts) {
             char label[100];
             if (y < b.y + 120 || y + 100 > b.y + b.height - 45)
                 continue;
-            ui_text(&a->ui, b.x + 30, y, UI_GOLD, u8"%s · %s · %d세", c->name, fields[c->field], c->age);
-            ui_small(&a->ui, b.x + 30, y + 32, UI_TEXT, u8"힘 %d / 민첩 %d / 체력 %d / 손재주 %d / 지능 %d",
-                     c->stats[0], c->stats[1], c->stats[2], c->stats[3], c->stats[4]);
-            ui_small(&a->ui, b.x + 30, y + 60, UI_MUTED, u8"주 분야 근무 %.1f일 · 개인 번호 %d",
+            game_portrait(a,c->appearance,rect(b.x+30,y,64,64));
+            ui_text(&a->ui, b.x + 108, y, UI_GOLD, u8"%s · %s · %d세", c->name, fields[c->field], c->age);
+            game_stat_numbers(a,c->stats,b.x+108,y+32,48);
+            ui_small(&a->ui, b.x + 108, y + 60, UI_MUTED, u8"주 분야 근무 %.1f일 · 개인 번호 %d",
                      c->skills[c->field] / 540.0, c->person_id);
             (void)snprintf(label, sizeof(label), c->hired ? u8"고용 완료" : u8"고용 %d금", c->fee);
             if (ui_button(&a->ui, rect(b.x + b.width - 195, y + 10, 160, 44), label,
@@ -826,20 +835,21 @@ static void villagers(GameApp *a) {
     sort_column = a->sort_column;
     sort_reverse = a->sort_reverse;
     qsort(s->villagers, (size_t)s->villager_count, sizeof(*s->villagers), villager_compare);
-    Rectangle list = b;
-    list.y += 112;
-    list.height -= 112;
-    y = scroll_start(a, list, s->villager_count + 1, 48) + 48;
-    for (i = 0; i < s->villager_count; i++, y += 48) {
+    Rectangle list=rect(b.x+28,b.y+230,b.width-56,b.height-263);
+    int maximum=(int)fmaxf(0,s->villager_count*72.0f-list.height);
+    if(CheckCollisionPointRec(GetMousePosition(),list))a->scroll-=(int)(GetMouseWheelMove()*72);
+    if(a->scroll<0)a->scroll=0;
+    if(a->scroll>maximum)a->scroll=maximum;
+    y=list.y-a->scroll;ui_clip_begin((int)list.x,(int)list.y,(int)list.width,(int)list.height);
+    for (i = 0; i < s->villager_count; i++, y += 72) {
         CoreVillagerView *v = &s->villagers[i];
         char label[300],workplace[120];game_building_label(s,v->workplace_id,workplace,sizeof(workplace));
-        if (y < b.y + 222 || y + 42 > b.y + b.height - 42)
+        if (y+66<list.y || y>list.y+list.height)
             continue;
         (void)snprintf(label, sizeof(label), u8"#%d %s | %s | 행복 %d · 기분 %+d | 체력 %d | %s", v->personal_id,v->name,
                        workplace, v->happiness,
                        v->mood, v->health, fmt_villager_state(v->state));
-        if (ui_button(&a->ui, rect(b.x + 28, y, b.width - 56, 40), label, 1, a->selected_villager == v->id,
-                      NULL)) {
+        if (ui_button(&a->ui, rect(list.x,y,list.width,66),"",1,a->selected_villager==v->id,label)) {
             GameActor *actor = game_actor(s, v->id);
             game_select(a,2,v->id);
             a->inspector_scroll=0;
@@ -847,34 +857,72 @@ static void villagers(GameApp *a) {
                 a->camera.target = (Vector2){actor->position.x * 16, actor->position.y * 16};
             game_app_close(a);
         }
+        game_portrait(a,v->appearance,rect(list.x+6,y+5,56,56));
+        ui_small(&a->ui,list.x+74,y+7,UI_TEXT,u8"#%d %s · %s",v->personal_id,v->name,workplace);
+        ui_small(&a->ui,list.x+74,y+34,UI_MUTED,u8"행복%d · 기분%+d · %s",v->happiness,v->mood,fmt_villager_state(v->state));
+        int values[5]={v->strength,v->agility,v->vitality,v->dexterity,v->intellect};
+        game_stat_numbers(a,values,list.x+list.width-196,y+22,37);
     }
+    ui_clip_end();
+    if(maximum>0)ui_bar(rect(b.x+b.width-18,list.y,4,list.height),a->scroll/(float)maximum,UI_GOLD);
+}
+static int shift_occupied(GameApp *a,int building,int shift,int resident) {
+    for(int i=0;i<a->session.villager_count;i++) {
+        CoreVillagerView *v=&a->session.villagers[i];if(v->workplace_id!=building||v->id==resident)continue;
+        CoreWorkSchedule schedule;core_expansion_schedule(a->session.world,v->id,&schedule);
+        if(schedule.shift==shift)return 1;
+    }
+    return 0;
 }
 static void assign(GameApp *a) {
     Rectangle b=modal(a,u8"일꾼 직접 배치",1080,760);GameSession *s=&a->session;
     int building=a->selected_building,source_count=building?s->villager_count:s->building_count,valid=0;
+    CoreBuildingView *fixed=game_building(s,building);CoreVillagerView *selected=game_villager(s,a->selected_villager);
+    int tower=fixed&&s->building_defs[fixed->type].category==CORE_CAT_TOWERS;
+    if(a->assign_shift<0||a->assign_shift>1)a->assign_shift=0;
+    if(tower)for(int shift=0;shift<2;shift++) {
+        if(ui_button(&a->ui,rect(b.x+28+shift*240,b.y+66,230,34),shift?u8"야간 18:00~06:00":u8"주간 06:00~18:00",1,a->assign_shift==shift,u8"빈 근무조를 선택한 뒤 주민을 누르세요."))a->assign_shift=shift;
+    }
+    if(!building && selected) {
+        game_portrait(a,selected->appearance,rect(b.x+28,b.y+62,45,45));
+        ui_small(&a->ui,b.x+86,b.y+72,UI_GOLD,u8"%s · 방어탑은 주간/야간을 선택하세요",selected->name);
+    }
     for(int i=0;i<source_count;i++) {
         if(building){if(!s->villagers[i].incoming&&s->villagers[i].state!=CORE_VS_LEAVING)valid++;}
         else if(s->buildings[i].worker_slots&&s->buildings[i].state==CORE_BSTATE_ACTIVE)valid++;
     }
-    float y=scroll_start(a,b,valid,76);
-    CoreVillagerView *selected=game_villager(s,a->selected_villager);
+    Rectangle list=rect(b.x+28,b.y+119,b.width-56,b.height-151);
+    int maximum=(int)fmaxf(0,valid*80.0f-list.height);
+    if(CheckCollisionPointRec(GetMousePosition(),list))a->scroll-=(int)(GetMouseWheelMove()*80);
+    if(a->scroll<0)a->scroll=0;
+    if(a->scroll>maximum)a->scroll=maximum;
+    float y=list.y-a->scroll;ui_clip_begin((int)list.x,(int)list.y,(int)list.width,(int)list.height);
     for(int i=0;i<source_count;i++) {
         CoreVillagerView *v=building?&s->villagers[i]:selected;
-        CoreBuildingView *job=building?game_building(s,building):&s->buildings[i];
+        CoreBuildingView *job=building?fixed:&s->buildings[i];
         if(!v||!job||(!building&&(!job->worker_slots||job->state!=CORE_BSTATE_ACTIVE))||(building&&(v->incoming||v->state==CORE_VS_LEAVING)))continue;
-        float row_y=y;y+=76;if(row_y<b.y+70||row_y+67>b.y+b.height-42)continue;
-        char label[320],work[120];game_building_label(s,building?v->workplace_id:job->id,work,sizeof(work));
+        float row=y;y+=80;if(row+72<list.y||row>list.y+list.height)continue;
+        char work[120],tip[300];game_building_label(s,job->id,work,sizeof(work));
         int field=job->job_field,minutes=field>=0?v->skill_minutes[field]:0;
-        const char *level=minutes>=75*540?u8"장인":minutes>=30*540?u8"직인":minutes>=8*540?u8"도제":u8"초보";
-        snprintf(label,sizeof(label),u8"%s · %s · %s %.1f일 · %s",v->name,work,level,minutes/540.0,fmt_villager_state(v->state));
-        if(ui_button(&a->ui,rect(b.x+28,row_y,b.width-56,67),"",1,0,label)) {
-            int rc=core_assign_worker(s->world,v->id,job->id);command(a,rc,0);if(rc==CORE_OK)game_app_close(a);
+        snprintf(tip,sizeof(tip),u8"%s · %s · 숙련 %.1f일 · %s",v->name,work,minutes/540.0,fmt_villager_state(v->state));
+        int is_tower=s->building_defs[job->type].category==CORE_CAT_TOWERS;
+        if(is_tower && !building) {
+            ui_box(rect(list.x,row,list.width,72),UI_BG);
+            for(int shift=0;shift<2;shift++)if(ui_button(&a->ui,rect(list.x+list.width-166+shift*80,row+18,74,36),shift?u8"야간":u8"주간",!shift_occupied(a,job->id,shift,v->id),0,NULL)) {
+                int rc=core_expansion_assign_shift(s->world,v->id,job->id,shift);command(a,rc,0);if(rc==CORE_OK)game_app_close(a);
+            }
+        } else if(ui_button(&a->ui,rect(list.x,row,list.width,72),"",!is_tower||!shift_occupied(a,job->id,a->assign_shift,v->id),0,tip)) {
+            int rc=is_tower?core_expansion_assign_shift(s->world,v->id,job->id,a->assign_shift):core_assign_worker(s->world,v->id,job->id);
+            command(a,rc,0);if(rc==CORE_OK)game_app_close(a);
         }
-        ui_small(&a->ui,b.x+40,row_y+6,UI_TEXT,"%s",label);
-        const int values[5]={v->strength,v->agility,v->vitality,v->dexterity,v->intellect};
-        const char *const names[5]={u8"힘",u8"민첩",u8"체력",u8"손재주",u8"지능"};
-        for(int k=0;k<5;k++)ui_small(&a->ui,b.x+40+k*170,row_y+35,game_stat_color(values[k]),u8"%s %d",names[k],values[k]);
+        game_portrait(a,v->appearance,rect(list.x+5,row+5,62,62));
+        ui_small(&a->ui,list.x+79,row+7,UI_TEXT,u8"%s · %s",v->name,work);
+        int values[5]={v->strength,v->agility,v->vitality,v->dexterity,v->intellect};
+        game_stat_numbers(a,values,list.x+79,row+40,40);
+        ui_small(&a->ui,list.x+310,row+40,UI_MUTED,u8"숙련 %.1f일 · %s",minutes/540.0,fmt_villager_state(v->state));
     }
+    ui_clip_end();
+    if(maximum>0)ui_bar(rect(b.x+b.width-18,list.y,4,list.height),a->scroll/(float)maximum,UI_GOLD);
 }
 
 static void ledger(GameApp *a) {
@@ -953,13 +1001,13 @@ static void confirm(GameApp *a) {
 }
 void game_render_interface(GameApp *a) {
     if (a->in_game) {
-        a->ui.input_blocked = a->panel != PANEL_NONE;
+        a->ui.input_blocked = a->panel != PANEL_NONE || a->raid_alert_id;
         hud(a);
-        a->ui.input_blocked = a->panel != PANEL_NONE;
+        a->ui.input_blocked = a->panel != PANEL_NONE || a->raid_alert_id;
         build_bar(a);
         inspector(a);
         notices(a);
-        a->ui.input_blocked = 0;
+        a->ui.input_blocked = a->raid_alert_id!=0;
     }
     switch (a->panel) {
     case PANEL_TITLE:

@@ -23,6 +23,7 @@ typedef struct GameApp {
     int in_game,speed,saved_speed,build_type,category,demolish,selected_building,selected_villager;
     int drag_x,drag_y,dragging,scroll,sort_column,sort_reverse,difficulty,quit,automated,stress,rotation;
     int inspector_scroll;
+    int assign_shift,raid_scroll,status_height,notice_bottom;
     int build_preview_x,build_preview_y;
     int load_legacy;
     int selection_kind,selection_id,skill_tab,raid_alert_id,raid_alert_speed;
@@ -49,6 +50,7 @@ void game_render_world(GameApp *app);
 void game_render_villager_preview(GameApp *app);
 void game_render_uniform_preview(GameApp *app);
 void game_render_farm_preview(GameApp *app);
+void game_render_effect_preview(GameApp *app);
 void game_render_rotation_preview(GameApp *app);
 void game_render_connection_preview(GameApp *app);
 void game_render_free(GameApp *app);
@@ -61,4 +63,7 @@ float game_person_details(GameApp *app,const CoreVillagerView *villager,float x,
 float game_facility_details(GameApp *app,const CoreBuildingView *building,float x,float y,float width);
 int game_unit_details(GameApp *app,float x,float *y,float width);
 void game_raid_alert(GameApp *app);
+void game_portrait(GameApp *app,int appearance,Rectangle box);
+void game_stat_numbers(GameApp *app,const int *values,float x,float y,float gap);
+const char *game_faction_name(int faction);
 #endif

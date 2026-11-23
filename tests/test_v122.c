@@ -4,6 +4,49 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+void test_v122_discovery_timer_and_shift(void) {
+    CoreNewGameParams p={0};World *w=NULL,*copy=NULL;int32_t line=0;
+    strcpy(p.castle_name,u8"발견 시점과 최초 근무조");p.seed=42;p.ruleset=1;
+    CHECK_EQ(core_create(&p,NULL,&w),CORE_OK);if(!w)return;
+    CHECK_EQ(threat_debug_raid(w,CORE_THREAT_BANDITS,CORE_DIR_EAST,2),CORE_OK);
+    expansion_raids_tick(w);Raid *r=&w->threat.raid;
+    CHECK_EQ(r->phase,CORE_RAID_APPROACH);CHECK_EQ(r->assault_end_tick,0);
+    CHECK(!core_expansion_build_locked(w));CHECK(!threat_raid_active(w));
+    w->clock.tick+=500;expansion_raids_tick(w);
+    CHECK_EQ(r->phase,CORE_RAID_APPROACH);CHECK_EQ(r->assault_end_tick,0);
+    int started=w->clock.tick;
+    CHECK_EQ(core_expansion_building_hit(w,w->keep_id,1,1,1),CORE_OK);
+    CHECK_EQ(r->phase,CORE_RAID_ASSAULT);CHECK_EQ(r->started_tick,started);CHECK_EQ(r->assault_end_tick,started+288);
+    CHECK(core_expansion_build_locked(w));
+    w->clock.tick++;expansion_raid_discover(w);CHECK_EQ(r->assault_end_tick,started+288);
+    CHECK_EQ(core_save(w,"v122_discovery.sav"),CORE_OK);
+    CHECK_EQ(core_load("v122_discovery.sav",NULL,&copy,&line),CORE_OK);
+    if(copy){uint64_t a,b;core_state_hash(w,&a);core_state_hash(copy,&b);CHECK_EQ(a,b);core_destroy(copy);}
+    w->clock.tick=started+287;expansion_raids_tick(w);CHECK_EQ(r->phase,CORE_RAID_ASSAULT);
+    w->clock.tick++;expansion_raids_tick(w);CHECK_EQ(r->phase,CORE_RAID_RETREAT);
+    CHECK(core_expansion_build_locked(w));
+    CHECK_EQ(core_report_enemy_escaped(w,r->id,1),CORE_OK);
+    CHECK_EQ(core_report_enemy_escaped(w,r->id,2),CORE_OK);CHECK(!core_expansion_build_locked(w));
+    /* 다음 적 배열을 재사용할 때 이전 HP·철수·공격 상태를 물려주지 않습니다. */
+    r->enemies[0].runtime.valid=1;r->enemies[0].runtime.fleeing=1;r->enemies[0].runtime.hp=17;
+    CHECK_EQ(threat_debug_raid(w,CORE_THREAT_BANDITS,CORE_DIR_EAST,1),CORE_OK);
+    CHECK_EQ(r->enemies[0].runtime.valid,0);CHECK_EQ(r->enemies[0].runtime.fleeing,0);
+    CHECK_EQ(core_expansion_engaged(w,1),CORE_OK);CHECK_EQ(r->assault_end_tick,w->clock.tick+288);
+    CHECK_EQ(core_report_enemy_escaped(w,r->id,1),CORE_OK);
+    CHECK_EQ(threat_debug_raid(w,CORE_THREAT_BANDITS,CORE_DIR_EAST,1),CORE_OK);
+    CHECK_EQ(core_expansion_spotted(w,w->keep_x,w->keep_y),CORE_OK);
+    CHECK_EQ(r->first_discovered,1);CHECK_EQ(r->assault_end_tick,w->clock.tick+288);
+    Building *post=entity_add_building(w,CORE_BLD_OUTPOST);CHECK(post!=NULL);
+    if(post) {
+        post->x=90;post->y=90;post->w=post->h=1;post->door_x=90;post->door_y=91;post->hp=110;post->state=CORE_BSTATE_ACTIVE;
+        Villager *v=w->villagers[0],*other=w->villagers[1];
+        CHECK_EQ(core_expansion_assign_shift(w,v->id,post->id,1),CORE_OK);CHECK_EQ(v->shift_kind,1);
+        Building *previous=other->workplace;
+        CHECK_EQ(core_expansion_assign_shift(w,other->id,post->id,1),CORE_ERR_REJECTED);CHECK(other->workplace==previous);
+        CHECK_EQ(core_expansion_assign_shift(w,other->id,post->id,0),CORE_OK);CHECK_EQ(other->shift_kind,0);
+    }
+    core_destroy(w);remove("v122_discovery.sav");remove("v122_discovery.sav.bak");
+}
 void test_v122_rules_and_save(void) {
     CoreNewGameParams p={0};World *w=NULL,*loaded=NULL;int32_t line=0;
     strcpy(p.castle_name,u8"v122 저장 시험");p.seed=7;p.difficulty=1;p.ruleset=1;

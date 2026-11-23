@@ -93,11 +93,33 @@ CORE_API int32_t core_expansion_slow(CoreWorld *w,int32_t id) {
     v->slow_until_tick=w->clock.tick+3;return CORE_OK;
 }
 static int elite(int type) {return type==3||type==8||type==13||type==18||type==22||type==27;}
+void expansion_raid_discover(World *w) {
+    Raid *r=&w->threat.raid;
+    if(!r->id || r->first_discovered || r->phase==CORE_RAID_RETREAT)return;
+    r->first_discovered=1;r->phase=CORE_RAID_ASSAULT;
+    r->started_tick=w->clock.tick;r->assault_end_tick=w->clock.tick+288;
+    w->expansion->alarm=1;
+    events_push_raid(&w->events,CORE_EVT_RAID_STARTED,r->id,r->type,r->initial_count,r->direction);
+    for(int i=0;i<w->villager_count;i++)expansion_mood_event(w,w->villagers[i],15,-3,r->id,1000000000,0);
+}
+CORE_API int32_t core_expansion_engaged(CoreWorld *w,int32_t id) {
+    if(!w)return CORE_ERR_NULL_ARG;
+    Raid *r=&w->threat.raid;
+    if(!w->expansion || !r->id || id<1 || id>r->enemy_count || r->enemies[id-1].state!=CORE_ENEMY_ALIVE)return CORE_ERR_REJECTED;
+    if(r->phase==CORE_RAID_RETREAT)return CORE_IGNORED;
+    expansion_raid_discover(w);return CORE_OK;
+}
 void expansion_raids_tick(World *w) {
     ExpansionState *e=w->expansion;Raid *r=&w->threat.raid;
     if (r->id) {
-        if(!r->phase){r->phase=CORE_RAID_ASSAULT;r->assault_end_tick=r->started_tick+432;r->initial_count=r->enemy_count;}
-        if(w->clock.tick>=r->assault_end_tick)r->phase=CORE_RAID_RETREAT;
+        if(!r->initial_count)r->initial_count=r->enemy_count;
+        /* 이전 v10의 미발견 습격도 접근 단계로 정규화합니다. */
+        if(!r->first_discovered && r->phase!=CORE_RAID_RETREAT){r->phase=CORE_RAID_APPROACH;r->assault_end_tick=0;}
+        if(r->first_discovered && r->phase!=CORE_RAID_RETREAT) {
+            r->phase=CORE_RAID_ASSAULT;
+            if(!r->assault_end_tick || r->assault_end_tick>r->started_tick+288)r->assault_end_tick=r->started_tick+288;
+            if(w->clock.tick>=r->assault_end_tick)r->phase=CORE_RAID_RETREAT;
+        }
         return;
     }
     if (!e->next_raid_tick) {
@@ -143,10 +165,9 @@ void expansion_raids_tick(World *w) {
     (void)bx;(void)by;
     r->id=w->threat.next_raid_id++;r->type=1+faction;r->direction=rng_range(&w->rng,0,3);
     r->spawn_x=x;r->spawn_y=y;r->started_tick=w->clock.tick;r->killed=r->escaped=r->stolen=r->fallen=0;
-    r->phase=CORE_RAID_ASSAULT;r->assault_end_tick=w->clock.tick+432;r->initial_count=r->enemy_count;r->first_discovered=0;
+    r->phase=CORE_RAID_APPROACH;r->assault_end_tick=0;r->initial_count=r->enemy_count;r->first_discovered=0;
     memset(r->initial_types,0,sizeof(r->initial_types));
     for(int i=0;i<r->enemy_count;i++)r->initial_types[r->enemies[i].type]++;
-    for(int i=0;i<w->villager_count;i++)expansion_mood_event(w,w->villagers[i],15,-3,r->id,0,0);
     int interval=rng_range(&w->rng,(int[]){15,12,10}[w->difficulty],(int[]){22,18,15}[w->difficulty]);
     e->next_raid_tick=(day+interval-1)*144+rng_range(&w->rng,36,138);
 }

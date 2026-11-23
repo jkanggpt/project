@@ -64,6 +64,15 @@ if(CASTLE_BUILD_GAME)
   install(DIRECTORY data assets DESTINATION . PATTERN "*.import" EXCLUDE PATTERN ".gdignore" EXCLUDE)
   install(FILES ${PROJECT_SOURCE_DIR}/CREDITS.md ${PROJECT_SOURCE_DIR}/README.md DESTINATION .)
   install(FILES ${PROJECT_SOURCE_DIR}/PROGRESS.md DESTINATION .)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/V1_2_2_PATCH1.md ${PROJECT_SOURCE_DIR}/docs/v122_patch1_checks.csv DESTINATION docs)
+  install(FILES ${PROJECT_SOURCE_DIR}/art/V122_PATCH1_PROMPTS.json DESTINATION art)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch1_game_1440.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch1_population_1024.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch1_raid_1024.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch1_tower_1024.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch1_assign_1024.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch1_alerts_1024.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch1_effects_1440.png DESTINATION docs/screenshots)
   install(FILES ${PROJECT_SOURCE_DIR}/art/README.md ${PROJECT_SOURCE_DIR}/art/PROMPTS.md
     ${PROJECT_SOURCE_DIR}/art/PROMPTS_OVERHEAD.md ${PROJECT_SOURCE_DIR}/art/EXPANSION_PROMPTS.md
     ${PROJECT_SOURCE_DIR}/art/EXPANSION_ICONS_PROMPTS.md

@@ -651,12 +651,7 @@ CORE_API int32_t core_expansion_spotted(CoreWorld *w, int32_t x, int32_t y) {
         return CORE_ERR_INVALID_ARG;
     if (!w->expansion->visible[grid_index(&w->grid, x, y)])
         return CORE_IGNORED;
-    if (!w->threat.raid.first_discovered && w->threat.raid.id) {
-        w->threat.raid.first_discovered=1;
-        events_push_raid(&w->events, CORE_EVT_RAID_STARTED, w->threat.raid.id, w->threat.raid.type,
-                         w->threat.raid.initial_count, w->threat.raid.direction);
-    }
-    w->expansion->alarm = 1;
+    expansion_raid_discover(w);
     return CORE_OK;
 }
 CORE_API int32_t core_expansion_fire(CoreWorld *w, int32_t id) {

@@ -23,6 +23,11 @@ target_include_directories(castle_balance PRIVATE ${PROJECT_SOURCE_DIR}/core/src
 target_link_libraries(castle_balance PRIVATE castle_cli_support castle_frontend castle_warnings)
 
 if(TARGET raylib)
+  add_executable(castle_ui_art pack_ui_art.c)
+  target_link_libraries(castle_ui_art PRIVATE castle_frontend raylib castle_warnings)
+  if(CASTLE_BUILD_TESTS)
+    add_test(NAME ui_art_assets COMMAND castle_ui_art --check "${PROJECT_SOURCE_DIR}/game/assets/expansion")
+  endif()
   add_executable(castle_v122_art pack_v122_art.c)
   target_link_libraries(castle_v122_art PRIVATE castle_frontend raylib castle_warnings)
   if(CASTLE_BUILD_TESTS)

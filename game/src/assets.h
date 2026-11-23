@@ -12,6 +12,8 @@ typedef struct GameAssets {
     Texture2D turns[CORE_BLD_COUNT][4],status_icons,animals,biomes,animal_walk,wall_links;
     Texture2D gates, farms, greenhouse_turns, raider_attack, animal_babies;
     Texture2D life_icons, rocks, uniforms[4];
+    Texture2D portraits,combat_fx,factions;
+    Rectangle farm_sources[84];
     Rectangle greenhouse_sources[16];
     Texture2D trees, manors[6], biome_edges, shores, road_tiles, animal_swim, animal_attack;
     Sound sounds[SND_COUNT];

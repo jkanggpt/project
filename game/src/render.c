@@ -210,6 +210,7 @@ static int farm_row(int type) {
     return type==CORE_BLD_CROPLAND?0:type==CORE_BLD_FARM?1:type==CORE_BLD_IRRIGATED_FARM?2:type==CORE_BLD_ORCHARD?3:type==CORE_BLD_GARDEN?4:-1;
 }
 static Rectangle building_rect(const GameApp *a,const CoreBuildingView *b, Texture2D t) {
+    if(farm_row(b->type)>=0)return (Rectangle){b->x*16.0f,b->y*16.0f,b->w*16.0f,b->h*16.0f};
     if(b->type==CORE_BLD_GREENHOUSE) {
         Rectangle source=a->assets.greenhouse_sources[a->session.summary.season*4+b->rotation];
         return box_rect(game_expansion_building_sprite(b,(int)source.width,(int)source.height));
@@ -235,7 +236,7 @@ static Rectangle building_source(const GameApp *a, const CoreBuildingView *b, Te
     if(row>=0){
         int atlas_row=row*4+a->session.summary.season;
         if(b->type==CORE_BLD_ORCHARD && a->session.summary.day-b->completed_day<24)atlas_row=20;
-        return (Rectangle){b->rotation*256.0f,atlas_row*256.0f,256,256};
+        return a->assets.farm_sources[atlas_row*4+b->rotation];
     }
     if (b->kind_flags & CORE_EXP_WALL) {
         int style = b->type == CORE_BLD_PALISADE    ? 0
@@ -401,7 +402,7 @@ static void prop(GameApp *a, int cell_index) {
 static int draw_queue(GameApp *a) {
     GameSession *s = &a->session;
     int count = 0, i, x, y, w = s->summary.map_width, h = s->summary.map_height;
-    int needed = s->cells + s->building_count + s->villager_count + s->enemy_count + s->animal_count;
+    int needed = s->cells + s->building_count + s->villager_count + s->enemy_count + s->animal_count+160;
     Vector2 top = GetScreenToWorld2D((Vector2){0, 0}, a->camera),
             bottom =
                 GetScreenToWorld2D((Vector2){(float)GetScreenWidth(), (float)GetScreenHeight()}, a->camera);
@@ -496,9 +497,15 @@ static int draw_queue(GameApp *a) {
         a->draw_items[count++] =
             (GameDrawItem){s->animal_actors[i].position.y * 16, DRAW_ANIMAL, i, animal->id};
     }
+    for(i=0;i<160;i++) {
+        GameHitFx *fx=&s->hit_fx[i];float elapsed=s->visual_time-fx->started;
+        if(fx->active && elapsed>=0 && elapsed<.5f)
+            a->draw_items[count++]=(GameDrawItem){fx->position.y*16+.1f,DRAW_HIT_FX,i,i};
+    }
     qsort(a->draw_items, (size_t)count, sizeof(*a->draw_items), game_draw_compare);
     return count;
 }
+static void hit_effect(GameApp *a,int index);
 static void objects(GameApp *a) {
     int i, count = draw_queue(a);
     for (i = 0; i < count; i++) {
@@ -515,6 +522,9 @@ static void objects(GameApp *a) {
             break;
         case DRAW_ENEMY:
             enemy(a, item->index);
+            break;
+        case DRAW_HIT_FX:
+            hit_effect(a,item->index);
             break;
         case DRAW_ANIMAL: {
             CoreAnimalView *animal = &a->session.animals[item->index];
@@ -573,35 +583,18 @@ static void objects(GameApp *a) {
         }
     }
 }
-static void hit_effects(GameApp *a) {
-    GameSession *s=&a->session;
-    for(int i=0;i<160;i++) {
-        GameHitFx *fx=&s->hit_fx[i];float elapsed=s->visual_time-fx->started;
-        if(!fx->active || elapsed<0 || elapsed>.32f)continue;
-        Vector2 p={fx->position.x*16,fx->position.y*16-6};
-        Vector2 screen=GetWorldToScreen2D(p,a->camera);
-        if(screen.x<0||screen.y<135||screen.x>GetScreenWidth()-350||screen.y>GetScreenHeight()-195)continue;
-        int x=(int)fx->position.x,y=(int)fx->position.y;
-        if(s->visibility && s->visibility[y*s->summary.map_width+x]<2)continue;
-        float t=elapsed/.32f,alpha=1-t,r=2+7*t;
-        if(fx->style==0) {
-            DrawLineEx((Vector2){p.x-5+r*.3f,p.y+4},(Vector2){p.x+5,p.y-5+r*.3f},1.5f,Fade(RAYWHITE,alpha));
-            DrawRectangle((int)p.x+3,(int)p.y-4,2,2,Fade(GOLD,alpha));
-        } else if(fx->style==1) {
-            for(int k=0;k<3;k++)DrawLineEx(p,(Vector2){p.x+(k-1)*r,p.y-r+k*3},1,Fade((Color){225,211,163,255},alpha));
-        } else if(fx->style==2 || fx->style==7) {
-            DrawCircleLines((int)p.x,(int)p.y,r*(fx->style==7?1.7f:1),Fade(fx->style==7?ORANGE:BEIGE,alpha));
-            for(int k=0;k<6;k++){float angle=k*PI/3;DrawRectangle((int)(p.x+cosf(angle)*r),(int)(p.y+sinf(angle)*r),2,2,Fade(fx->style==7?GOLD:BROWN,alpha));}
-        } else if(fx->style==3) {
-            for(int k=0;k<3;k++)DrawLineEx((Vector2){p.x-4+k*3,p.y-4},(Vector2){p.x-1+k*3,p.y+4},1.3f,Fade(RED,alpha));
-        } else if(fx->style==4) {
-            for(int k=0;k<5;k++)DrawRectangle((int)(p.x-5+k*2),(int)(p.y-3-k%2*3-t*8),2,3,Fade(k%2?ORANGE:GOLD,alpha));
-        } else if(fx->style==5) {
-            for(int k=0;k<4;k++){float angle=k*PI/2;Vector2 q={p.x+cosf(angle)*r,p.y+sinf(angle)*r};DrawTriangle((Vector2){q.x,q.y-3},(Vector2){q.x-2,q.y+2},(Vector2){q.x+2,q.y+2},Fade(SKYBLUE,alpha));}
-        } else {
-            DrawPolyLines(p,4,r,45,Fade(SKYBLUE,alpha));DrawPolyLines(p,4,r*.6f,45+t*90,Fade(PURPLE,alpha));DrawRectangle((int)p.x-1,(int)p.y-1,2,2,Fade(WHITE,alpha));
-        }
-    }
+static void hit_effect(GameApp *a,int index) {
+    GameSession *s=&a->session;GameHitFx *fx=&s->hit_fx[index];
+    float elapsed=s->visual_time-fx->started;
+    if(!fx->active || elapsed<0 || elapsed>=.5f)return;
+    int x=(int)fx->position.x,y=(int)fx->position.y;
+    if(x<0||y<0||x>=s->summary.map_width||y>=s->summary.map_height || (s->visibility && s->visibility[y*s->summary.map_width+x]<2))return;
+    int frame=(int)(elapsed*12),style=fx->style;
+    if(frame>5)frame=5;
+    if(style<0||style>7)style=0;
+    float size=style==7?36.0f:style==0||style==3?25.0f:22.0f;
+    Rectangle source={frame*128.0f,style*128.0f,128,128};
+    DrawTexturePro(a->assets.combat_fx,source,(Rectangle){fx->position.x*16,fx->position.y*16-7,size,size},(Vector2){size/2,size/2},fx->angle,WHITE);
 }
 static void livestock_proxies(GameApp *a) {
     GameSession *s = &a->session;
@@ -705,18 +698,10 @@ void game_render_villager_preview(GameApp *a) {
 }
 static int world_mouse(GameApp *a, int *x, int *y) {
     Vector2 mouse = GetMousePosition(), world = GetScreenToWorld2D(mouse, a->camera);
-    int i;
-    float notice_y = 126;
     *x = (int)floorf(world.x / 16);
     *y = (int)floorf(world.y / 16);
     /* 위치로 이동하는 알림을 누를 때 뒤쪽 건물을 동시에 조작하지 않습니다. */
-    for (i = a->notice_count - 1; i >= 0 && notice_y < GetScreenHeight() - 185; i--) {
-        if (a->notices[i].age > 16)
-            continue;
-        if (CheckCollisionPointRec(mouse, (Rectangle){12, notice_y, 390, 64}))
-            return 0;
-        notice_y += 70;
-    }
+    if(CheckCollisionPointRec(mouse,(Rectangle){12,141,390,fmaxf(0,a->notice_bottom-141.0f)}))return 0;
     return a->panel == PANEL_NONE && mouse.y > 135 && mouse.y < GetScreenHeight() - 195 &&
            mouse.x < GetScreenWidth() - 350;
 }
@@ -905,7 +890,6 @@ void game_render_world(GameApp *a) {
     objects(a);
     livestock_proxies(a);
     corpses(a);
-    hit_effects(a);
     fog(a);
     for (i = 0; i < a->session.villager_count; i++) {
         CoreVillagerView *v = &a->session.villagers[i];
@@ -1144,6 +1128,28 @@ void game_render_farm_preview(GameApp *a) {
         int atlas_row=item==3?20:item==4?13:item==5?17:item*4+1;
         float y=110+item*row,height=fminf(row-8,cell-16);
         ui_small(&a->ui,24,y+row/2,UI_GOLD,"%s",names[item]);
-        for(int d=0;d<4;d++)sprite(a->assets.farms,(Rectangle){d*256.0f,atlas_row*256.0f,256,256},(Rectangle){180+d*cell+(cell-height)/2,y,height,height},WHITE);
+        for(int d=0;d<4;d++) {
+            Rectangle target={180+d*cell+(cell-height)/2,y,height,height};
+            for(int ty=0;ty<3;ty++)for(int tx=0;tx<3;tx++)DrawRectangleLinesEx((Rectangle){target.x+tx*height/3,target.y+ty*height/3,height/3,height/3},1,UI_EDGE);
+            sprite(a->assets.farms,a->assets.farm_sources[atlas_row*4+d],target,WHITE);
+        }
+    }
+}
+void game_render_effect_preview(GameApp *a) {
+    ClearBackground((Color){25,35,35,255});
+    ui_text(&a->ui,20,16,UI_GOLD,u8"공격 이미지 · 위 / 오른쪽 / 아래 / 왼쪽 · 위쪽 공격은 인물 뒤");
+    const char *const names[]={u8"참격",u8"화살",u8"타격",u8"발톱",u8"불꽃",u8"냉기",u8"마법",u8"폭발"};
+    float cell=(GetScreenWidth()-180.0f)/4,row=(GetScreenHeight()-60.0f)/8;
+    for(int style=0;style<8;style++) {
+        float y=56+style*row;ui_small(&a->ui,18,y+row*.4f,UI_MUTED,"%s",names[style]);
+        for(int d=0;d<4;d++) {
+            float x=180+(d+.5f)*cell,feet=y+row-3;
+            float angle=(float[]){-90,0,90,180}[d],dx=(float[]){0,1,0,-1}[d],dy=(float[]){-1,0,1,0}[d];
+            Rectangle target={x+dx*30,feet-35+dy*18,64,64};
+            if(d==0)DrawTexturePro(a->assets.combat_fx,(Rectangle){256,style*128.0f,128,128},target,(Vector2){32,32},angle,WHITE);
+            GameSpriteFrame frame=game_villager_frame(3,(int[]){FACE_UP,FACE_RIGHT,FACE_DOWN,FACE_LEFT}[d],0,0);
+            sprite(a->assets.villagers,(Rectangle){frame.column*96.0f,frame.row*96.0f,frame.flip?-96.0f:96.0f,96},(Rectangle){x-32,feet-64,64,64},WHITE);
+            if(d!=0)DrawTexturePro(a->assets.combat_fx,(Rectangle){256,style*128.0f,128,128},target,(Vector2){32,32},angle,WHITE);
+        }
     }
 }

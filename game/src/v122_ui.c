@@ -6,6 +6,24 @@
 #include <string.h>
 static float clamp01(float n){return fminf(1,fmaxf(0,n));}
 static Rectangle area(float x,float y,float w,float h){return (Rectangle){x,y,w,h};}
+const char *game_faction_name(int faction) {
+    static const char *const names[]={u8"도적",u8"마물",u8"언데드",u8"숲",u8"북방",u8"광신도"};
+    return names[faction>=0&&faction<6?faction:0];
+}
+void game_portrait(GameApp *a,int appearance,Rectangle box) {
+    if(appearance<0||appearance>=48)appearance=0;
+    DrawRectangleRec(box,UI_BG);
+    DrawTexturePro(a->assets.portraits,(Rectangle){appearance%8*64.0f,appearance/8*64.0f,64,64},box,(Vector2){0,0},0,WHITE);
+    DrawRectangleLinesEx(box,1,UI_EDGE);
+}
+void game_stat_numbers(GameApp *a,const int *values,float x,float y,float gap) {
+    static const char *const names[]={u8"힘",u8"민첩",u8"체력",u8"손재주",u8"지능"};
+    for(int i=0;i<5;i++) {
+        ui_small(&a->ui,x+i*gap,y,game_stat_color(values[i]),"%d",values[i]);
+        if(CheckCollisionPointRec(GetMousePosition(),area(x+i*gap-2,y-2,gap,26)))
+            snprintf(a->ui.tooltip,sizeof(a->ui.tooltip),u8"%s %d · 왼쪽부터 힘 / 민첩 / 체력 / 손재주 / 지능",names[i],values[i]);
+    }
+}
 Color game_stat_color(int value) {
     static const unsigned colors[10]={0xF5F5F5FF,0xFFF59DFF,0xFDE047FF,0xA3E635FF,0x22C55EFF,0x38BDF8FF,0x3B82F6FF,0x9B5DE5FF,0xF032B0FF,0xEF4444FF};
     return GetColor(colors[value<1?0:value>10?9:value-1]);
@@ -40,7 +58,9 @@ static Color skill_color(int level){return GetColor((unsigned[]){0x9CA3AFFF,0x63
 static int skill_level(int minutes){return minutes>=75*540?3:minutes>=30*540?2:minutes>=8*540?1:0;}
 float game_person_details(GameApp *a,const CoreVillagerView *v,float x,float y,float width) {
     GameUi *u=&a->ui;char label[180],job[120];game_building_label(&a->session,v->workplace_id,job,sizeof(job));
-    ui_small(u,x,y,UI_GOLD,u8"%s #%d · %s",v->name,v->personal_id,fmt_villager_state(v->state));y+=30;
+    game_portrait(a,v->appearance,area(x,y,64,64));
+    ui_small(u,x+74,y+2,UI_GOLD,u8"%s #%d",v->name,v->personal_id);
+    ui_small(u,x+74,y+31,UI_MUTED,"%s",fmt_villager_state(v->state));y+=74;
     ui_small(u,x,y,UI_TEXT,u8"일터: %s",job);y+=27;
     CoreWorkSchedule schedule;core_expansion_schedule(a->session.world,v->id,&schedule);
     ui_small(u,x,y,UI_MUTED,u8"근무 %02d:%02d~%02d:%02d %s",schedule.start/60,schedule.start%60,schedule.end/60,schedule.end%60,schedule.on_duty?u8"근무조":u8"비번");y+=26;
@@ -129,11 +149,26 @@ float game_facility_details(GameApp *a,const CoreBuildingView *b,float x,float y
     if(f.trade_base){ui_small(u,x,y,UI_TEXT,u8"거래 %d/%d · 기준 %d",f.trade_used,f.trade_limit,f.trade_base);y+=25;ui_small(u,x,y,UI_MUTED,u8"직원 E %.2f · 다음 재입고 %d일",f.trade_efficiency/100.0,f.trade_next_day);y+=27;}
     if(!b->id)return y;
     if(b->worker_slots&&!f.present){ui_small(u,x,y,UI_BAD,u8"현장 직원 없음 · 근무·이동 상태 확인");y+=28;}
+    int tower=a->session.building_defs[b->type].category==CORE_CAT_TOWERS;
+    for(int group=0;group<(tower?2:1);group++) {
+    int members=0;
+    if(tower){ui_small(u,x,y,UI_GOLD,"%s",group?u8"야간 · 18:00~06:00":u8"주간 · 06:00~18:00");y+=30;}
     for(int i=0;i<a->session.villager_count;i++) {
         const CoreVillagerView *v=&a->session.villagers[i];if(v->workplace_id!=b->id)continue;
+        CoreWorkSchedule schedule;core_expansion_schedule(a->session.world,v->id,&schedule);
+        if(tower && schedule.shift!=group)continue;
+        members++;
         char label[180];snprintf(label,sizeof(label),u8"%s · %s%s",v->name,v->mission==CORE_MISSION_SCOUT?u8"정찰":v->mission==CORE_MISSION_PATROL?u8"순찰":fmt_villager_state(v->state),v->id==b->combat_guard_id?u8" · 전투 담당":"");
-        if(ui_button(u,area(x,y,width,30),label,1,0,u8"주민 상세 보기"))game_select(a,2,v->id);
-        y+=36;
+        if(ui_button(u,area(x,y,width,48),"",1,0,label))game_select(a,2,v->id);
+        game_portrait(a,v->appearance,area(x+3,y+3,42,42));
+        ui_small(u,x+52,y+3,UI_TEXT,"%s",v->name);
+        ui_small(u,x+52,y+25,UI_MUTED,"%s%s",v->id==b->combat_guard_id?u8"전투 담당 · ":"",fmt_villager_state(v->state));y+=55;
+    }
+    if(tower && !members){ui_small(u,x,y,UI_BAD,u8"미배치");y+=29;}
+    if(tower && !members && ui_button(u,area(x,y,width,30),group?u8"야간 일꾼 선택":u8"주간 일꾼 선택",1,0,NULL)) {
+        a->assign_shift=group;game_app_open(a,PANEL_ASSIGN);
+    }
+    if(tower && !members)y+=39;
     }
     return y;
 }
@@ -171,20 +206,44 @@ int game_unit_details(GameApp *a,float x,float *yp,float width) {
 }
 void game_raid_alert(GameApp *a) {
     if(!a->raid_alert_id)return;
-    GameSession *s=&a->session;float width=fminf(800,GetScreenWidth()-40.0f),height=fminf(600,GetScreenHeight()-40.0f);
+    a->ui.input_blocked=0;a->ui.tooltip[0]='\0';
+    GameSession *s=&a->session;float width=fminf(960,GetScreenWidth()-40.0f),height=fminf(760,GetScreenHeight()-40.0f);
     Rectangle box={(GetScreenWidth()-width)/2,(GetScreenHeight()-height)/2,width,height};
-    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){0,0,0,180});ui_box(box,UI_PANEL);
-    float x=box.x+26,y=box.y+20;ui_text(&a->ui,x,y,UI_BAD,u8"습격 경보 · 게임 일시정지");y+=44;
-    int found=0;for(int i=0;i<s->enemy_count;i++) {
-        GameEnemy *e=&s->enemies[i];int p=(int)e->actor.position.y*s->summary.map_width+(int)e->actor.position.x;
+    DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){0,0,0,185});ui_box(box,UI_PANEL);
+    int faction=s->raid.type-1;if(faction<0||faction>5)faction=0;
+    DrawTexturePro(a->assets.factions,area(faction%3*128.0f,faction/3*128.0f,128,128),area(box.x+24,box.y+16,84,84),(Vector2){0,0},0,WHITE);
+    DrawTextEx(a->assets.font,game_faction_name(faction),(Vector2){box.x+124,box.y+21},34,0,UI_GOLD);
+    ui_small(&a->ui,box.x+124,box.y+66,UI_BAD,u8"습격 발견 · 최초 발견/공격부터 48시간 · 일시정지");
+    int found=0;for(int n=0;n<s->enemy_count;n++) {
+        GameEnemy *e=&s->enemies[n];int p=(int)e->actor.position.y*s->summary.map_width+(int)e->actor.position.x;
         found+=e->hp>0&&p>=0&&p<s->cells&&s->visibility[p]>=2;
     }
-    ui_small(&a->ui,x,y,UI_TEXT,u8"최초 편성 %d명 · 현재 발견 %d명 · 생존 %d명",s->raid.initial_count,found,s->raid.alive);y+=33;
-    for(int i=0;i<28;i++)if(s->raid.initial_types[i]) {
-        CoreRaiderInfo info;core_expansion_raider_info(i,&info);ui_small(&a->ui,x,y,UI_GOLD,u8"%s %d명",info.name,s->raid.initial_types[i]);y+=27;
+    ui_small(&a->ui,box.x+28,box.y+114,UI_TEXT,u8"발견 %d명 · 최초 편성 %d명 · 생존 %d명 · 공격기간 남음 %.1f시간",found,s->raid.initial_count,s->raid.alive,fmaxf(0,(s->raid.assault_end_tick-s->summary.tick)/6.0f));
+    int kinds=0;for(int n=0;n<28;n++)kinds+=s->raid.initial_types[n]>0;
+    int columns=width>=860?2:1,rows=(kinds+columns-1)/columns;
+    Rectangle list=area(box.x+24,box.y+153,width-48,height-234);
+    int maximum=(int)fmaxf(0,rows*148.0f-list.height);
+    if(CheckCollisionPointRec(GetMousePosition(),list))a->raid_scroll-=(int)(GetMouseWheelMove()*70);
+    if(a->raid_scroll<0)a->raid_scroll=0;
+    if(a->raid_scroll>maximum)a->raid_scroll=maximum;
+    ui_clip_begin((int)list.x,(int)list.y,(int)list.width,(int)list.height);
+    int slot=0;
+    for(int type=0;type<28;type++)if(s->raid.initial_types[type]) {
+        float cw=(list.width-10)/columns;
+        Rectangle card=area(list.x+(slot%columns)*cw,list.y+(slot/columns)*148-a->raid_scroll,cw-8,139);slot++;
+        if(card.y+card.height<list.y||card.y>list.y+list.height)continue;
+        ui_box(card,UI_BG);CoreEnemyDefView def;CoreRaiderInfo info;
+        core_get_enemy_def(s->world,type,&def);core_expansion_raider_info(type,&info);
+        Rectangle src={(type%4*4+1)*96.0f,(type/4*3)*96.0f,96,96};
+        DrawTexturePro(a->assets.enemies,src,area(card.x+5,card.y+17,96,108),(Vector2){0,0},0,WHITE);
+        float tx=card.x+107;ui_small(&a->ui,tx,card.y+10,UI_GOLD,u8"%s ×%d",info.name,s->raid.initial_types[type]);
+        ui_small(&a->ui,tx,card.y+40,UI_TEXT,u8"HP %d · 공격 %d",def.hp,def.damage);
+        ui_small(&a->ui,tx,card.y+67,UI_TEXT,u8"사거리 %d · 주기 %d분",def.range,def.cooldown);
+        ui_small(&a->ui,tx,card.y+94,UI_MUTED,u8"속도 %.2f · %s",def.speed/1000.0,def.range>1?u8"원거리":u8"근접");
     }
-    ui_small(&a->ui,x,y,UI_MUTED,u8"공격기간 남음 %.1f시간 · 철수 중 %d명",fmaxf(0,(s->raid.assault_end_tick-s->summary.tick)/6.0f),s->raid.phase==CORE_RAID_RETREAT?s->raid.alive:0);
-    if(ui_button(&a->ui,area(x,box.y+box.height-66,width-52,40),u8"확인하고 계속",1,0,u8"이 경보가 만든 정지만 해제합니다.")) {
-        a->raid_alert_id=0;a->speed=a->raid_alert_speed;
+    ui_clip_end();
+    if(maximum>0)ui_bar(area(box.x+width-19,list.y,4,list.height),a->raid_scroll/(float)maximum,UI_GOLD);
+    if(ui_button(&a->ui,area(box.x+24,box.y+height-61,width-48,38),u8"확인하고 계속",1,0,u8"경보가 만든 정지만 해제합니다.")) {
+        a->raid_alert_id=0;a->speed=a->raid_alert_speed;a->raid_scroll=0;
     }
 }

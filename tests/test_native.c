@@ -362,18 +362,51 @@ static void actual_retreat(const char *data) {
     e->entry_x=s->summary.map_width-1;e->entry_y=y;
     e->inbound_count=1;e->inbound[0]=s->summary.keep_x;e->inbound[1]=s->summary.keep_y;
     s->world->threat.raid.phase=CORE_RAID_ASSAULT;
+    s->world->threat.raid.first_discovered=1;
     s->world->threat.raid.started_tick=0;s->world->threat.raid.assault_end_tick=1;
     EXPECT(core_tick(s->world,1)==CORE_OK);
     EXPECT(s->world->threat.raid.phase==CORE_RAID_RETREAT);
     EXPECT(core_expansion_build_locked(s->world));EXPECT(game_session_refresh(s)==CORE_OK);
-    float before=e->actor.position.x;
+    float before=e->actor.position.x;GamePoint retreat_from=e->actor.position;e->retarget=30;
+    memset(s->visibility,2,(size_t)s->cells);
     EXPECT(game_session_step(s,1)==CORE_OK);EXPECT(e->actor.position.x<before+2);
-    for(int i=0;i<720 && s->raid_id;i++)EXPECT(game_session_step(s,10)==CORE_OK);
+    EXPECT(game_distance(e->actor.position,retreat_from)>.001f);
+    EXPECT(s->raid_id!=0);
+    memset(s->visibility,0,(size_t)s->cells);
+    EXPECT(game_session_step(s,1)==CORE_OK);
     EXPECT(s->raid_id==0);EXPECT(!core_expansion_build_locked(s->world));
     EXPECT(s->world->threat.raid.escaped==1);EXPECT(s->world->threat.raid.killed==0);
     GameActor *resident=game_actor(s,s->villagers[0].id);EXPECT(resident!=NULL);
     if(resident){resident->chasing=1;resident->attack_serial=7;resident->attack_elapsed=1;resident->outfit=4;EXPECT(game_session_step(s,1)==CORE_OK);EXPECT(!resident->chasing && !resident->attack_serial && !resident->outfit);}
     EXPECT(core_validate(s->world)==0);game_session_free(s);free(s);
+}
+static void blocked_raid_target(const char *data) {
+    GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
+    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;
+    EXPECT(game_session_new(s,u8"막힌 목표와 지속 공격",42,0)==CORE_OK);
+    Building *keep=world_keep(s->world),*pocket=entity_add_building(s->world,CORE_BLD_WAREHOUSE);
+    EXPECT(pocket!=NULL);if(!pocket){game_session_free(s);free(s);return;}
+    pocket->x=keep->x-5;pocket->y=keep->y;pocket->w=pocket->h=1;pocket->door_x=pocket->x;pocket->door_y=pocket->y+1;pocket->hp=200;pocket->state=CORE_BSTATE_ACTIVE;
+    expansion_rebuild(s->world);
+    EXPECT(threat_debug_raid(s->world,CORE_THREAT_BANDITS,CORE_DIR_WEST,1)==CORE_OK);
+    expansion_raid_discover(s->world);EXPECT(game_session_refresh(s)==CORE_OK);
+    memset(s->cost,100,(size_t)s->cells);
+    for(int y=keep->y;y<keep->y+keep->h;y++)for(int x=keep->x;x<keep->x+keep->w;x++)s->cost[y*s->summary.map_width+x]=0;
+    for(int y=pocket->y-2;y<=pocket->y+2;y++)for(int x=pocket->x-2;x<=pocket->x+2;x++)s->cost[y*s->summary.map_width+x]=0;
+    for(int v=0;v<s->villager_count;v++)s->villagers[v].inside_building=keep->id;
+    GameEnemy *e=&s->enemies[0];e->actor.position=(GamePoint){keep->x-9.5f,keep->y+.5f};e->hp=100000;e->def.damage=1;
+    e->def.range=1;e->def.cooldown=20;e->def.speed=1000;e->def.behavior=CORE_BEHAVIOR_MONSTER;
+    int hp=keep->hp;
+    for(int n=0;n<240;n++)game_combat_step(s,2);
+    if(keep->hp==hp || e->attack_serial<4)fprintf(stderr,"blocked attack: hp=%d/%d pos=%.2f,%.2f target=%d/%d path=%d/%d goal=%d,%d cd=%.1f retarget=%.1f range=%d pocket_hp=%d raid=%d\n",keep->hp,hp,e->actor.position.x,e->actor.position.y,e->target_kind,e->target_id,e->actor.next,e->actor.path.count,e->actor.target_x,e->actor.target_y,e->actor.cooldown,e->retarget,e->def.range,pocket->hp,s->raid_id);
+    EXPECT(keep->hp<hp);EXPECT(e->attack_serial>=4);EXPECT(e->target_id!=pocket->id);
+    GamePoint hit={(float)keep->x+1,(float)keep->y+1};s->visibility[((int)hit.y)*s->summary.map_width+(int)hit.x]=2;
+    game_hit_fx_direction(s,(GamePoint){hit.x,hit.y+1},hit,0);
+    GameHitFx *fx=&s->hit_fx[(s->hit_cursor+159)%160];
+    EXPECT(fx->active);EXPECT(fabsf(fx->angle+90)<.01f);
+    GameDrawItem depth[2]={{97*16,DRAW_VILLAGER,0,1},{96*16,DRAW_HIT_FX,0,2}};
+    qsort(depth,2,sizeof(*depth),game_draw_compare);EXPECT(depth[0].kind==DRAW_HIT_FX);
+    game_session_free(s);free(s);
 }
 int main(int argc, char **argv) {
     if (argc != 2)
@@ -390,6 +423,7 @@ int main(int argc, char **argv) {
     bot_trade_recovery(argv[1]);
     ability_during_attack(argv[1]);
     actual_retreat(argv[1]);
+    blocked_raid_target(argv[1]);
     if (!failed)
         puts("C native runtime tests passed");
     return failed ? 1 : 0;

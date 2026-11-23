@@ -467,3 +467,15 @@ Codex와 내장 image_gen을 사용했습니다. 실행 게임과 패킹 도구�
 - README, PROGRESS, CREDITS, art/README와 docs의 SPEC/ARCHITECTURE/DECISIONS/V1_2_2_IMPLEMENTATION/V1_2_2_QA, v122_balance_results.csv, v122_performance_results.csv, screenshots/v122_*.png: 최종 설명·출처·실제 측정 자료. 성장/성능 목표 미달과 수동 검사의 범위를 명시합니다.
 
 임시 분석/패치 스크립트와 중단한 평가 로그는 무시되는 artifacts/v122에만 보관하며 게임 실행이나 배포에 필요하지 않습니다. Python 이미지 편집이나 외부 이미지 API CLI는 사용하지 않았습니다.
+
+## v1.2.2 후속 보완 (2026-11-23)
+
+Codex와 내장 image_gen을 사용했습니다. art/v122_patch1의2원화와 V122_PATCH1_PROMPTS.json을 생성하고, tools/pack_ui_art.c로 이미지 패킹·프로필 자르기·검사를 구현했습니다. Python 이미지 편집/외부 이미지 API는 사용하지 않았습니다.
+
+- core/include/castle_expansion.h, core/src/expansion.h, expansion_raids.c, expansion_commands.c, expansion_v122.c, threat.c: 접근 단계·첫 발견/첫 공격부터48시간·건설 잠금·새 적 런타임 초기화·최초 근무조 배치.
+- game/src/combat.c, effects.c, session.h, sprite_layout.h: 도달 가능한 공격 대상/다른 접근 면·즉시 철수/시야 밖 탈출·실제 피해 방향 이펙트·월드 깊이 정렬.
+- game/src/assets.c/h, app.h, main.c, panels.c, render.c, ui.c/h, v122_ui.c: 농장 여백/피팅, 프로필·색상 숫자 스탯·주야간 배치/상세·문장/적 그림 경보·알림 줄 높이/입력 차단·촬영 모드.
+- game/assets/expansion/combat_fx.png, factions.png, portraits.png: C 패커 산출물. 첫2개는 생성 원화, 프로필은 기존 주민의 실제 픽셀을 사용합니다.
+- tests/test_v122.c, test_native.c, test_list.h, tools/CMakeLists.txt: 첫 발견·공격/타이머·저장·빈 교대 슬롯·막힌 목표/지속 공격·즉시 철수·상태 초기화·방향/깊이·한글 경로 아트 검사.
+- tools/screenshots_v122_patch1.ps1, game/CMakeLists.txt와 docs/screenshots/v122_patch1_*.png: 실제 렌더러의 두 해상도 검증과 설치 구성.
+- PROGRESS/README/CREDITS, art/README, game/assets/expansion/LICENSE.txt, docs/SPEC/V1_2_2_IMPLEMENTATION/V1_2_2_PATCH1 및 후속 결과CSV: 후속 요청·해석·출처·실제 검사 결과.

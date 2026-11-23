@@ -119,7 +119,10 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
     a->wall_links=texture(a,dir,"expansion/wall_links.png");
     a->biomes = texture(a, dir, "expansion/biomes.png");
     a->gates=texture(a,dir,"expansion/gates_v121.png");
-    a->farms=texture(a,dir,"expansion/farms_v122.png");
+    a->farms=atlas_texture(a,dir,"expansion/farms_v122.png",a->farm_sources,4,21);
+    a->portraits=texture(a,dir,"expansion/portraits.png");
+    a->combat_fx=texture(a,dir,"expansion/combat_fx.png");
+    a->factions=texture(a,dir,"expansion/factions.png");
     a->greenhouse_turns=atlas_texture(a,dir,"expansion/greenhouse_turns.png",a->greenhouse_sources,4,4);
     a->raider_attack=texture(a,dir,"expansion/raider_attack_v122.png");
     a->animal_babies=texture(a,dir,"expansion/animal_babies.png");
@@ -173,6 +176,9 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
     return a->missing == 0;
 }
 void game_assets_free(GameAssets *a) {
+    if(a->portraits.id)UnloadTexture(a->portraits);
+    if(a->combat_fx.id)UnloadTexture(a->combat_fx);
+    if(a->factions.id)UnloadTexture(a->factions);
     if(a->life_icons.id)UnloadTexture(a->life_icons);
     if(a->rocks.id)UnloadTexture(a->rocks);
     for(int k=0;k<4;k++)if(a->uniforms[k].id)UnloadTexture(a->uniforms[k]);

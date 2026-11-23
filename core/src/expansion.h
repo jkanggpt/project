@@ -153,6 +153,7 @@ int expansion_trade_limit(const World *world);
 int expansion_trade_efficiency(const World *world);
 void expansion_choose_identity(World *world, Villager *villager);
 void expansion_raids_tick(World *world);
+void expansion_raid_discover(World *world);
 int expansion_debug_town(World *world, int villagers, int enemies);
 void expansion_raider_definitions(Defs *defs);
 void expansion_raider_drops(World *w,int type);

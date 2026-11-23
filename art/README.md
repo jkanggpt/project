@@ -1,3 +1,7 @@
+# v1.2.2 후속 그림 — 2026-11-23
+
+공격 이펙트8종×6프레임과6세력 문장은 내장 image_gen으로 만들었습니다. 원본은 `v122_patch1`, 전문은 [V122_PATCH1_PROMPTS.json](V122_PATCH1_PROMPTS.json)입니다. `castle_ui_art`가 간격을 감지해 자르고 `game/assets/expansion/combat_fx.png`, `factions.png`로 패킹합니다. 같은 도구가 기본 주민의 실제 정면 프레임을 어깨 위까지 잘라 `portraits.png`48셀을 만듭니다. 프로필은 원래 외형을 보존합니다. 런타임에 농장의 투명 여백을 제외해 점유 칸에 맞춥니다. 자세한 적용은 `docs/V1_2_2_PATCH1.md`를 참고합니다.
+
 # 새 중세 판타지 픽셀아트
 
 ## v1.2.2 원화 (2026-11-22)

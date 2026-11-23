@@ -83,6 +83,7 @@ static int add_enemies(Raid *raid, int32_t type, int32_t count)
     }
     for (i = 0; i < count; i++) {
         Enemy *enemy = &raid->enemies[raid->enemy_count];
+        memset(enemy,0,sizeof(*enemy));
         enemy->id = raid->enemy_count + 1; /* 습격 안에서 1 부터 */
         enemy->type = type;
         enemy->state = CORE_ENEMY_ALIVE;
@@ -152,7 +153,7 @@ int32_t threat_strength(const World *world, int32_t type)
 
 int threat_raid_active(const World *world)
 {
-    return world->threat.raid.id != 0;
+    return world->threat.raid.id != 0 && (!world->expansion || world->threat.raid.first_discovered || world->threat.raid.phase==CORE_RAID_RETREAT);
 }
 
 /* day 일 minute 분의 틱 */
@@ -244,6 +245,11 @@ static void start_raid(World *world, const Threat *threat)
     raid->stolen = 0;
     raid->fallen = 0;
     spawn_tile(world, threat->direction, &raid->spawn_x, &raid->spawn_y);
+    if(world->expansion) {
+        raid->phase=CORE_RAID_APPROACH;raid->first_discovered=0;raid->assault_end_tick=0;raid->initial_count=raid->enemy_count;
+        memset(raid->initial_types,0,sizeof(raid->initial_types));
+        for(int i=0;i<raid->enemy_count;i++)if(raid->enemies[i].type<28)raid->initial_types[raid->enemies[i].type]++;
+    }
     if(!world->ruleset)events_push_raid(&world->events, CORE_EVT_RAID_STARTED, raid->id, raid->type, raid->enemy_count, raid->direction);
 }
 
@@ -370,6 +376,7 @@ int threat_report_building_damage(World *world, int32_t raid_id, int32_t buildin
         return CORE_ERR_NOT_FOUND;
     }
     if(world->expansion && building->state==CORE_BSTATE_CONSTRUCTING)return CORE_IGNORED;
+    if(world->expansion && damage>0)expansion_raid_discover(world);
     /* 연구 "마법 결계": 건물이 받는 피해가 줄어듦 */
     if(world->expansion && expansion_has_research(world,21) && world->expansion->protected_cells[grid_index(&world->grid,building->x,building->y)]){
         int cost=expansion_has_research(world,22)?900:1000;
@@ -395,6 +402,7 @@ int threat_report_villager_damage(World *world, int32_t raid_id, int32_t village
         return CORE_ERR_NOT_FOUND;
     }
     if(world->expansion && villager->inside_building)return CORE_IGNORED;
+    if(world->expansion && damage>0 && villager->damage_kind!=2)expansion_raid_discover(world);
     if(world->expansion && villager->workplace && expansion_military(villager->workplace->type) && expansion_has_research(world,11))damage=(int32_t)((int64_t)damage*90/100);
     if(world->expansion)damage=expansion_defend_damage(villager,damage);
     villager->health -= damage;

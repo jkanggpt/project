@@ -155,7 +155,9 @@ CORE_API int32_t core_expansion_events(const CoreWorld *world,CoreEventLayers *o
 CORE_API int32_t core_expansion_efficiency(const CoreWorld *world,int32_t villager_id,int32_t building_type,int32_t *out_percent);
 
 /* v1.2.2: UI·시뮬레이터가 공유하는 실제 규칙 질의입니다. */
-enum CoreRaidPhase { CORE_RAID_COMPLETE, CORE_RAID_ASSAULT, CORE_RAID_RETREAT };
+enum CoreRaidPhase { CORE_RAID_COMPLETE, CORE_RAID_ASSAULT, CORE_RAID_RETREAT, CORE_RAID_APPROACH };
+/* 현재 습격의 살아 있는 적이 최초 공격 동작에 들어갔음을 보고합니다. */
+CORE_API int32_t core_expansion_engaged(CoreWorld *world,int32_t enemy_id);
 enum CoreMission { CORE_MISSION_NONE, CORE_MISSION_SCOUT, CORE_MISSION_HUNT,
     CORE_MISSION_PATROL, CORE_MISSION_COMBAT, CORE_MISSION_RETURN, CORE_MISSION_WALK };
 typedef struct CoreFacilityView {
@@ -172,6 +174,8 @@ CORE_API int32_t core_expansion_facility(const CoreWorld *world,int32_t id,int32
 CORE_API int32_t core_expansion_schedule(const CoreWorld *world,int32_t villager_id,CoreWorkSchedule *out);
 CORE_API int32_t core_expansion_build_locked(const CoreWorld *world);
 CORE_API int32_t core_expansion_set_shift(CoreWorld *world,int32_t villager_id,int32_t shift);
+/* 빈 주간/야간 슬롯에 최초 배치합니다. 실패하면 기존 일터를 유지합니다. */
+CORE_API int32_t core_expansion_assign_shift(CoreWorld *world,int32_t villager_id,int32_t building_id,int32_t shift);
 CORE_API int32_t core_expansion_enemy_runtime(CoreWorld *world,int32_t enemy_id,const CoreEnemyRuntime *state);
 CORE_API int32_t core_expansion_hit_animal(CoreWorld *world,int32_t animal_id,int32_t damage,int32_t source_kind,int32_t source_id);
 CORE_API int32_t core_expansion_building_hit(CoreWorld *world,int32_t building_id,int32_t damage,int32_t source_kind,int32_t source_type);

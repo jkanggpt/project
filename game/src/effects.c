@@ -1,6 +1,11 @@
 /* effects.c — 로직에서 제거된 대상은 충돌 없는 그림 잔상만 남깁니다. */
 #include "session.h"
+#include <math.h>
 #include <string.h>
+static GamePoint wildlife_origin(const GameSession *s,int id,GamePoint fallback) {
+    for(int i=0;i<s->animal_count;i++)if(s->animals[i].id==id)return s->animal_actors[i].position;
+    return (GamePoint){fallback.x-1,fallback.y};
+}
 GameEffect *game_effect(GameSession *s, int category, int id) {
     unsigned start = ((unsigned)id * 2654435761u + (unsigned)category * 2246822519u) & 2047u;
     for (unsigned n = 0; n < 2048; n++) {
@@ -26,7 +31,7 @@ static void observe(GameSession *s, int category, int id, int hp, int max, int s
     if (!e)
         return;
     if (e->seen && hp < e->hp) {
-        if(category==0){CoreVillagerView *v=game_villager(s,id);if(v && v->mood_source_kind==2)game_hit_fx(s,p,3);}
+        if(category==0){CoreVillagerView *v=game_villager(s,id);if(v && v->mood_source_kind==2)game_hit_fx_direction(s,wildlife_origin(s,v->mood_event_source,p),p,3);}
         e->hurt_started = s->visual_time;
         e->hurt_until = s->visual_time + 0.18f;
         e->bar_until = s->visual_time + 2.5f;
@@ -81,9 +86,12 @@ void game_effects_sync(GameSession *s) {
 }
 void game_effects_event(GameSession *s, const CoreEventView *event) {
     if(event->type==CORE_EVT_BUILDING_DAMAGED && (event->cause_kind==2 || event->cause_kind==3)) {
-        CoreBuildingView *b=game_building(s,event->a);if(b)game_hit_fx(s,(GamePoint){b->x+b->w*.5f,b->y+b->h*.5f},event->cause_kind==2?3:2);
+        CoreBuildingView *b=game_building(s,event->a);if(b) {
+            GamePoint p={b->x+b->w*.5f,b->y+b->h*.5f};
+            game_hit_fx_direction(s,wildlife_origin(s,event->source_id,p),p,event->cause_kind==2?3:2);
+        }
     }
-    if(event->type==CORE_EVT_VILLAGER_DIED && event->b==CORE_DEATH_WILDLIFE){GameEffect *fx=game_effect(s,0,event->a);if(fx)game_hit_fx(s,fx->position,3);}
+    if(event->type==CORE_EVT_VILLAGER_DIED && event->b==CORE_DEATH_WILDLIFE){GameEffect *fx=game_effect(s,0,event->a);if(fx)game_hit_fx_direction(s,wildlife_origin(s,event->source_id,fx->position),fx->position,3);}
 
     int category = event->type == CORE_EVT_VILLAGER_DIED ? 0 : event->type == CORE_EVT_ENEMY_KILLED ? 2 : -1;
     if (category >= 0) {
@@ -107,9 +115,12 @@ int game_hit_style(int source) {
     return 1;
 }
 void game_hit_fx(GameSession *s,GamePoint position,int style) {
+    game_hit_fx_direction(s,(GamePoint){position.x-1,position.y},position,style);
+}
+void game_hit_fx_direction(GameSession *s,GamePoint origin,GamePoint position,int style) {
     int x=(int)position.x,y=(int)position.y;
     if(x<0||y<0||x>=s->summary.map_width||y>=s->summary.map_height ||
        (s->visibility && s->visibility[y*s->summary.map_width+x]<2))return;
     int n=s->hit_cursor;s->hit_cursor=(n+1)%160;
-    s->hit_fx[n]=(GameHitFx){position,s->visual_time,style,1};
+    s->hit_fx[n]=(GameHitFx){position,s->visual_time,atan2f(position.y-origin.y,position.x-origin.x)*57.2957795f,style,1};
 }

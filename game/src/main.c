@@ -3,6 +3,7 @@
 #include "format.h"
 #include "sim.h"
 #include "platform.h"
+#include "expansion.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -81,7 +82,7 @@ static int options(int argc,char **argv,Options *o)
         } else
             return 0;
     }
-    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"population") && strcmp(o->screen,"rotations") && strcmp(o->screen,"connections") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load") && strcmp(o->screen,"uniforms") && strcmp(o->screen,"farms")) return 0;
+    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"population") && strcmp(o->screen,"rotations") && strcmp(o->screen,"connections") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load") && strcmp(o->screen,"uniforms") && strcmp(o->screen,"farms") && strcmp(o->screen,"raid") && strcmp(o->screen,"alerts") && strcmp(o->screen,"tower") && strcmp(o->screen,"assign") && strcmp(o->screen,"effects")) return 0;
     return 1;
 }
 void game_app_notice(GameApp *a,const char *text)
@@ -215,7 +216,7 @@ static void event(void *context,const CoreEventView *e)
     else fmt_event(e,text,sizeof(text));
     if(a->session.summary.ruleset){
         if(e->type==CORE_EVT_RAID_STARTED) {
-            if(!a->automated && !a->raid_alert_id) {a->raid_alert_id=e->a;a->raid_alert_speed=a->speed;a->speed=0;}
+            if(!a->automated && !a->raid_alert_id) {a->raid_alert_id=e->a;a->raid_alert_speed=a->speed;a->raid_scroll=0;a->speed=0;}
             static const char *const factions[]={u8"도적",u8"마물",u8"언데드",u8"숲",u8"북방",u8"광신도"};
             (void)snprintf(text,sizeof(text),u8"경보! %s %d명이 발견되었습니다. 가까운 보호구역으로 대피합니다.",e->b>=1&&e->b<=6?factions[e->b-1]:u8"습격군",e->c);
         }
@@ -279,6 +280,37 @@ static void screenshot_screen(GameApp *a,const Options *o)
 {
     if (!strcmp(o->screen,"title")) { a->panel=PANEL_TITLE; a->in_game=0; return; }
     (void)game_session_new(&a->session,u8"바람언덕",o->seed,o->difficulty); enter_game(a);
+    /* 명시적인 촬영 모드의 재현 자료이며 정상 자동플레이 평가에는 사용하지 않습니다. */
+    if(!strcmp(o->screen,"effects")){a->speed=0;return;}
+    if(!strcmp(o->screen,"raid")) {
+        World *w=a->session.world;
+        (void)threat_debug_raid(w,CORE_THREAT_BANDITS,CORE_DIR_EAST,5);Raid *r=&w->threat.raid;r->type=6;
+        memset(r->initial_types,0,sizeof(r->initial_types));
+        for(int n=0;n<5;n++){r->enemies[n].type=23+n;r->initial_types[23+n]=1;}
+        expansion_raid_discover(w);(void)game_session_refresh(&a->session);
+        if(a->session.enemy_count)a->session.enemies[0].actor.position=(GamePoint){w->keep_x+1.5f,w->keep_y+4.5f};
+        a->raid_alert_id=r->id;a->raid_alert_speed=0;a->speed=0;return;
+    }
+    if(!strcmp(o->screen,"alerts")) {
+        World *w=a->session.world;w->clock.tick=36*144+66;
+        w->nature.event=CORE_NATURE_COLD_SNAP;w->nature.event_days=3;
+        w->expansion->plague_days=4;w->expansion->economic_event=CORE_NATURE_TRADE_BOOM;w->expansion->economic_days=2;
+        (void)game_session_refresh(&a->session);
+        game_app_notice(a,u8"식량 비축량이 부족합니다. 겨울을 대비해 거래와 식량 생산을 확인하세요.");
+        game_app_notice(a,u8"주민이 새로운 일터에 배치되었습니다.");a->speed=0;return;
+    }
+    if(!strcmp(o->screen,"tower") || !strcmp(o->screen,"assign")) {
+        World *w=a->session.world;Building *b=entity_add_building(w,CORE_BLD_OUTPOST);
+        if(b) {
+            b->x=w->keep_x+6;b->y=w->keep_y+2;b->w=b->h=1;b->door_x=b->x;b->door_y=b->y+1;b->hp=110;b->state=CORE_BSTATE_ACTIVE;
+            expansion_v122_numbers(w);expansion_rebuild(w);(void)core_expansion_assign_shift(w,w->villagers[0]->id,b->id,1);
+            if(!strcmp(o->screen,"tower"))(void)core_expansion_assign_shift(w,w->villagers[1]->id,b->id,0);
+            (void)game_session_refresh(&a->session);game_select(a,1,b->id);
+            a->assign_shift=0;
+            if(!strcmp(o->screen,"assign"))a->panel=PANEL_ASSIGN;
+        }
+        a->speed=0;return;
+    }
     if(!strcmp(o->screen,"uniforms") || !strcmp(o->screen,"farms") || !strcmp(o->screen,"villagers") || !strcmp(o->screen,"rotations") || !strcmp(o->screen,"connections")){a->speed=0;return;}
     {
         int day;
@@ -423,6 +455,7 @@ static int run(int argc,char **argv)
         if (o.screenshot && !strcmp(o.screen,"villagers")) game_render_villager_preview(a);
         else if (o.screenshot && !strcmp(o.screen,"uniforms")) game_render_uniform_preview(a);
         else if (o.screenshot && !strcmp(o.screen,"farms")) game_render_farm_preview(a);
+        else if (o.screenshot && !strcmp(o.screen,"effects")) game_render_effect_preview(a);
         else if (o.screenshot && !strcmp(o.screen,"rotations")) game_render_rotation_preview(a);
         else if (o.screenshot && !strcmp(o.screen,"connections")) game_render_connection_preview(a);
         else { game_render_world(a); game_render_interface(a); }
