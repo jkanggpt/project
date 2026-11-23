@@ -71,8 +71,18 @@ void expansion_initialize_villager(World *w, Villager *v) {
     v->long_needs[2] = v->needs.safety * 1000;
     v->happiness = expansion_mood(w, v);
 }
+CORE_API int32_t core_expansion_skill_threshold(int32_t level) {
+    return level>=0 && level<=3 ? (int[]){0,6912,25920,64800}[level] : -1;
+}
+CORE_API int32_t core_expansion_weights(int32_t type,int32_t out[5]) {
+    const ExpansionBuildingSpec *s=expansion_spec(type);
+    if(!out)return CORE_ERR_NULL_ARG;
+    if(!s || s->field<0 || s->field>=12)return CORE_ERR_INVALID_ARG;
+    for(int i=0;i<5;i++)out[i]=s->category==CORE_CAT_TOWERS && s->field==7 ? (int[]){0,40,20,40,0}[i] : WEIGHTS[s->field][i];
+    return CORE_OK;
+}
 static int skill_bonus(int minutes) {
-    static const int ends[4] = {0, 8 * 540, 30 * 540, 75 * 540}, bonus[4] = {0, 20, 50, 100};
+    static const int ends[4] = {0, 6912, 25920, 64800}, bonus[4] = {0, 20, 50, 100};
     int i;
     for (i = 1; i < 4; i++)
         if (minutes < ends[i])
@@ -252,7 +262,7 @@ int expansion_mood(const World *w, const Villager *v) {
     int h = v->long_needs[0], r = v->long_needs[1], s = v->long_needs[2];
     int mood = exp_clamp(v->mood, -200, 200), absolute = abs(mood);
     int fraction =
-        exp_clamp(12000 - 15 * (100000 - h) / 100 - (h < 40000 ? (40000 - h) / 2 : 0), -25000, 12000);
+        exp_clamp(10000 - 15 * (100000 - h) / 100 - (h < 40000 ? (40000 - h) / 2 : 0), -25000, 10000);
     fraction +=
         exp_clamp(10000 - 12 * (100000 - r) / 100 - (r < 30000 ? 35 * (30000 - r) / 100 : 0), -14000, 10000);
     fraction += exp_clamp(10000 - 14 * (100000 - s) / 100, -4000, 10000);
@@ -308,6 +318,39 @@ static void to_building(const World *w, Villager *v, int state, Building *b, con
         intent(v, state, b, b->x + (v->id % b->w), b->y + ((v->id / b->w) % b->h));
     } else
         intent(v, state, b, b->door_x, b->door_y);
+}
+static int outfit_type(int type) {
+    return type==CORE_BLD_HUNTER_CAMP?1:type==CORE_BLD_HUNTING_LODGE?2:type==CORE_BLD_BARRACKS?3:type==CORE_BLD_GARRISON?4:0;
+}
+CORE_API int32_t core_expansion_outfit(const CoreWorld *w,int32_t id) {
+    if(!w||!w->expansion)return 0;
+    const Villager *v=entity_find_villager(w,id);if(!v || v->mission==CORE_MISSION_EQUIP)return 0;
+    const Building *b=entity_find_building(w,v->mission_target);
+    return b && b->state==CORE_BSTATE_ACTIVE ? outfit_type(b->type) : 0;
+}
+static int uniform_tick(World *w,Villager *v,Building *job,int on_duty) {
+    Building *wardrobe=entity_find_building(w,v->mission_target);
+    int wanted=job && on_duty && outfit_type(job->type) && !(w->expansion->alarm && !expansion_military(job->type));
+    if(v->mission_target && (!wardrobe || wardrobe->state!=CORE_BSTATE_ACTIVE)) {
+        v->mission_target=0;v->mission=CORE_MISSION_NONE;v->inside_building=0;
+    }
+    if(v->mission_target && (!wanted || job!=wardrobe) && v->mission!=CORE_MISSION_UNEQUIP) {
+        v->mission=CORE_MISSION_UNEQUIP;v->mission_next_tick=0;
+    }
+    if(wanted && !v->mission_target) {
+        v->mission_target=job->id;wardrobe=job;v->mission=CORE_MISSION_EQUIP;v->mission_next_tick=0;
+    }
+    if(v->mission!=CORE_MISSION_EQUIP && v->mission!=CORE_MISSION_UNEQUIP)return 0;
+    if(!wardrobe)return 0;
+    intent(v,CORE_VS_GO_WORK,wardrobe,wardrobe->door_x,wardrobe->door_y);
+    if(!v->at_target)return 1;
+    v->inside_building=wardrobe->id;
+    if(!v->mission_next_tick){v->mission_next_tick=w->clock.tick+2;return 1;}
+    if(w->clock.tick<v->mission_next_tick)return 1;
+    int equipped=v->mission==CORE_MISSION_EQUIP;
+    if(!equipped)v->mission_target=0;
+    v->mission=CORE_MISSION_NONE;v->inside_building=0;v->mission_next_tick=0;
+    return 0;
 }
 void expansion_add_xp(Villager *v, int index, int amount) {
     static const int thresholds[9] = {12, 24, 40, 66, 90, 124, 172, 236, 300};
@@ -448,6 +491,7 @@ void expansion_people_tick(World *w) {
             v->needs.hunger = exp_clamp(v->needs.hunger - 3, 0, 100);
             v->needs.rest = exp_clamp(v->needs.rest - 2, 0, 100);
         }
+        if (uniform_tick(w,v,job,schedule.on_duty))continue;
         if (w->expansion->alarm || v->hold_ticks > 0) {
             if (v->hold_ticks > 0)
                 v->hold_ticks--;
@@ -468,8 +512,8 @@ void expansion_people_tick(World *w) {
                     intent(v, CORE_VS_FLEE, NULL, x, y);
                 v->refuge_revision = w->grid.cost_rev;
             }
-            if (v->at_target && v->meal_day < exp_day(w) && expansion_bank_have(w, CORE_RES_FOOD) >= 1200) {
-                (void)expansion_bank_add(w, CORE_RES_FOOD, -1200, CORE_LEDGER_CONSUMPTION);
+            if (v->at_target && v->meal_day < exp_day(w) && expansion_bank_have(w, CORE_RES_FOOD) >= 1000) {
+                (void)expansion_bank_add(w, CORE_RES_FOOD, -1000, CORE_LEDGER_CONSUMPTION);
                 v->meal_day = exp_day(w);
                 v->needs.hunger = 100;
                 expansion_mood_event(w,v,0,2,0,1,3);
@@ -522,11 +566,12 @@ void expansion_people_tick(World *w) {
                 continue;
             }
         }
-        if (v->meal_day < exp_day(w) || v->needs.hunger < 25) {
+        int work_hungry=job && schedule.on_duty && (expansion_spec(job->type)->field==0 || expansion_spec(job->type)->field==9) && expansion_bank_have(w,CORE_RES_FOOD)<1000;
+        if (v->meal_day < exp_day(w) && !work_hungry) {
             Building *hub = expansion_hub(w, v, 1, NULL);
             to_building(w, v, CORE_VS_EAT, hub ? hub : keep, keep);
-            if (v->at_target && expansion_bank_have(w, CORE_RES_FOOD) >= 1200) {
-                (void)expansion_bank_add(w, CORE_RES_FOOD, -1200, CORE_LEDGER_CONSUMPTION);
+            if (v->at_target && expansion_bank_have(w, CORE_RES_FOOD) >= 1000) {
+                (void)expansion_bank_add(w, CORE_RES_FOOD, -1000, CORE_LEDGER_CONSUMPTION);
                 v->needs.hunger = 100;
                 expansion_mood_event(w,v,0,2,0,1,3);
                 v->meal_day = exp_day(w);
@@ -540,7 +585,7 @@ void expansion_people_tick(World *w) {
                     expansion_mood_event(w,v,1,1,0,12,3);
                 }
             }
-            if (v->meal_day < exp_day(w) && (minute < 480 || expansion_bank_have(w, CORE_RES_FOOD) >= 1200))
+            if (v->meal_day < exp_day(w) && (minute < 480 || expansion_bank_have(w, CORE_RES_FOOD) >= 1000))
                 continue;
         }
         if (minute < 480 && v->water_building && v->water<80) {

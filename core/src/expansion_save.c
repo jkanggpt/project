@@ -449,7 +449,7 @@ int expansion_validate(const World *w) {
     for (i = 0; i < w->villager_count; i++) {
         const Villager *v = w->villagers[i];
         bad += v->shift_kind<0 || v->shift_kind>1 || v->shift_adapt_days<0 || v->shift_adapt_days>3 ||
-            v->mission<0 || v->mission>CORE_MISSION_WALK || v->leisure_elapsed<0 || v->leisure_duration<0 ||
+            v->mission<0 || v->mission>CORE_MISSION_UNEQUIP || v->leisure_elapsed<0 || v->leisure_duration<0 ||
             v->leisure_duration>180 || v->mood_recent_cursor<0 || v->mood_recent_cursor>=32;
         for(int kind=0;kind<32;kind++)bad+=v->mood_ticks[kind]<0 || v->mood_counts[kind]<0;
         for(int f=0;f<12;f++)for(int n=0;n<5;n++)bad+=v->xp_pending[f][n]<0 || v->xp_pending[f][n]>2160360;

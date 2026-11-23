@@ -216,9 +216,9 @@ void test_v111_weighted_hubs(void) {
     v->at_target = 1;
     int before = expansion_bank_have(w, CORE_RES_FOOD);
     expansion_people_tick(w);
-    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), before - 1200);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), before - 1000);
     expansion_people_tick(w);
-    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), before - 1200);
+    CHECK_EQ(expansion_bank_have(w, CORE_RES_FOOD), before - 1000);
     v->hub_revision = -1;
     w->expansion->alarm = 1;
     CHECK(expansion_hub(w, v, 1, NULL) == world_keep(w));

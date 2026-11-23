@@ -91,7 +91,7 @@ static void metric_details(MetricContext *ctx, const CoreSummaryView *s, const C
                 s->research_done < rank->research, s->resources[CORE_RES_GOLD] < rank->gold,
                 s->resources[CORE_RES_MANA] < rank->mana, s->resources[CORE_RES_GOLD_BAR] < rank->gold_bars,
                 !facility,
-                target == 1 && expansion_bank_have(w, CORE_RES_FOOD) < s->permanent_population * 9600,
+                target == 1 && expansion_bank_have(w, CORE_RES_FOOD) < s->permanent_population * 8000,
                 e->promotion_remaining, ctx->no_progress);
     for (int i = 0; i < e->region_count && ctx->habitats; i++) {
         const CoreHabitatView *r = &e->regions[i];

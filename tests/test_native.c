@@ -341,7 +341,7 @@ static void ability_during_attack(const char *data) {
         EXPECT(game_session_refresh(s)==CORE_OK);
         GameEnemy *caster=&s->enemies[0],*ally=&s->enemies[1];
         caster->actor.position=(GamePoint){100.5f,100.5f};ally->actor.position=(GamePoint){101.0f,100.5f};
-        caster->special_clock=119;caster->attack_serial=1;caster->attack_elapsed=0;
+        caster->special_clock=119;caster->attack_serial=1;caster->attack_elapsed=0;ally->pending_spawn=0;
         int before=s->world->expansion->summons_total,hp=ally->def.hp-20;
         ally->hp=hp;
         EXPECT(game_session_step(s,1)==CORE_OK);
@@ -393,6 +393,7 @@ static void blocked_raid_target(const char *data) {
     memset(s->cost,100,(size_t)s->cells);
     for(int y=keep->y;y<keep->y+keep->h;y++)for(int x=keep->x;x<keep->x+keep->w;x++)s->cost[y*s->summary.map_width+x]=0;
     for(int y=pocket->y-2;y<=pocket->y+2;y++)for(int x=pocket->x-2;x<=pocket->x+2;x++)s->cost[y*s->summary.map_width+x]=0;
+    s->enemy_cost_revision=-1;
     for(int v=0;v<s->villager_count;v++)s->villagers[v].inside_building=keep->id;
     GameEnemy *e=&s->enemies[0];e->actor.position=(GamePoint){keep->x-9.5f,keep->y+.5f};e->hp=100000;e->def.damage=1;
     e->def.range=1;e->def.cooldown=20;e->def.speed=1000;e->def.behavior=CORE_BEHAVIOR_MONSTER;
@@ -407,6 +408,52 @@ static void blocked_raid_target(const char *data) {
     GameDrawItem depth[2]={{97*16,DRAW_VILLAGER,0,1},{96*16,DRAW_HIT_FX,0,2}};
     qsort(depth,2,sizeof(*depth),game_draw_compare);EXPECT(depth[0].kind==DRAW_HIT_FX);
     game_session_free(s);free(s);
+}
+static void enclosed_enemy_keeps_attacking(const char *data) {
+    GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
+    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;EXPECT(game_session_new(s,u8"공사 완성 위치에 갇힌 적",42,0)==CORE_OK);
+    Building *b=entity_add_building(s->world,CORE_BLD_WAREHOUSE);EXPECT(b!=NULL);if(!b){game_session_free(s);free(s);return;}
+    b->x=70;b->y=70;b->w=b->h=3;b->door_x=71;b->door_y=73;b->hp=500;b->state=CORE_BSTATE_ACTIVE;expansion_rebuild(s->world);
+    EXPECT(threat_debug_raid(s->world,CORE_THREAT_MONSTERS,CORE_DIR_EAST,1)==CORE_OK);expansion_raid_discover(s->world);EXPECT(game_session_refresh(s)==CORE_OK);
+    memset(s->cost,100,(size_t)s->cells);
+    for(int y=b->y;y<b->y+b->h;y++)for(int x=b->x;x<b->x+b->w;x++)s->cost[y*s->summary.map_width+x]=0;
+    s->enemy_cost_revision=-1;
+    for(int i=0;i<s->villager_count;i++)s->villagers[i].inside_building=s->world->keep_id;
+    CoreVillagerView *v=&s->villagers[0];v->inside_building=0;v->state=CORE_VS_GUARD_POST;
+    GameActor *a=game_actor(s,v->id);a->position=(GamePoint){75.5f,71.5f};
+    GameEnemy *e=&s->enemies[0];e->actor.position=(GamePoint){71.5f,71.5f};e->def.speed=1000;e->def.range=1;e->def.damage=1;e->def.cooldown=20;e->def.behavior=CORE_BEHAVIOR_MONSTER;
+    for(int i=0;i<90;i++)game_combat_step(s,2);
+    EXPECT(b->hp<500);EXPECT(e->attack_serial>=4);
+    game_session_free(s);free(s);
+}
+static void dispersed_raid_and_global_dispatch(const char *data) {
+    GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
+    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;EXPECT(game_session_new(s,u8"분산 습격과 전역 출동",42,0)==CORE_OK);
+    EXPECT(threat_debug_raid(s->world,CORE_THREAT_BANDITS,CORE_DIR_EAST,8)==CORE_OK);EXPECT(game_session_refresh(s)==CORE_OK);
+    int pending=0,different=0;
+    for(int i=0;i<s->enemy_count;i++){pending+=s->enemies[i].pending_spawn;different+=game_distance(s->enemies[0].actor.position,s->enemies[i].actor.position)>.5f;}
+    EXPECT(pending==7);EXPECT(different>=4);EXPECT(game_enemy(s,2)==NULL);
+    EXPECT(game_session_step(s,2)==CORE_OK);EXPECT(s->enemies[1].pending_spawn);EXPECT(core_save(s->world,"native_spawn_queue.sav")==CORE_OK);
+    EXPECT(game_session_load(s,"native_spawn_queue.sav",NULL)==CORE_OK);EXPECT(s->enemies[1].pending_spawn);
+    EXPECT(game_session_step(s,3)==CORE_OK);EXPECT(!s->enemies[1].pending_spawn);EXPECT(s->enemies[2].pending_spawn);
+    for(int i=1;i<s->enemy_count;i++){s->enemies[i].hp=0;core_report_enemy_escaped(s->world,s->raid_id,s->enemies[i].actor.id);}
+    Building *b=entity_add_building(s->world,CORE_BLD_BARRACKS);EXPECT(b!=NULL);
+    if(b) {
+        b->x=s->summary.keep_x+7;b->y=s->summary.keep_y;b->w=3;b->h=3;b->door_x=b->x+1;b->door_y=b->y+3;b->hp=300;b->state=CORE_BSTATE_ACTIVE;
+        Villager *v=s->world->villagers[0];EXPECT(entity_link_worker(b,v,4)==CORE_OK);
+        v->state=CORE_VS_GUARD_POST;v->mission=CORE_MISSION_COMBAT;v->mission_target=b->id;v->inside_building=0;v->current_x_milli=b->door_x*1000+500;v->current_y_milli=b->door_y*1000+500;
+        expansion_raid_discover(s->world);expansion_rebuild(s->world);EXPECT(game_session_refresh(s)==CORE_OK);
+        memset(s->cost,100,(size_t)s->cells);s->enemy_cost_revision=-1;
+        GameActor *a=game_actor(s,v->id);a->position=(GamePoint){b->door_x+.5f,b->door_y+.5f};a->outfit=3;
+        GameEnemy *e=&s->enemies[0];e->pending_spawn=0;e->actor.position=(GamePoint){a->position.x+14,a->position.y};e->def.speed=0;
+        memset(s->visibility,0,(size_t)s->cells);s->visibility[(int)e->actor.position.y*s->summary.map_width+(int)e->actor.position.x]=2;
+        s->alarm_seen_id=s->summary.raid_id;s->dispatch_delay=0;GamePoint before=a->position;
+        game_combat_step(s,2);EXPECT(a->chasing);EXPECT(game_distance(before,a->position)>.001f);
+        /* 같은 좌표에 있던 적도 통행 가능한 칸 안에서 서로 떨어집니다. */
+        s->enemies[1].hp=100;s->enemies[1].pending_spawn=0;s->enemies[1].actor.position=e->actor.position;s->enemies[1].def.speed=0;
+        game_combat_step(s,2);EXPECT(game_distance(e->actor.position,s->enemies[1].actor.position)>.01f);
+    }
+    (void)platform_remove_file("native_spawn_queue.sav");(void)platform_remove_file("native_spawn_queue.sav.bak");game_session_free(s);free(s);
 }
 int main(int argc, char **argv) {
     if (argc != 2)
@@ -424,6 +471,8 @@ int main(int argc, char **argv) {
     ability_during_attack(argv[1]);
     actual_retreat(argv[1]);
     blocked_raid_target(argv[1]);
+    dispersed_raid_and_global_dispatch(argv[1]);
+    enclosed_enemy_keeps_attacking(argv[1]);
     if (!failed)
         puts("C native runtime tests passed");
     return failed ? 1 : 0;

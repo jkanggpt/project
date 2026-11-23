@@ -74,7 +74,7 @@ CORE_API int32_t core_expansion_enemy_runtime(CoreWorld *w,int32_t id,const Core
     if(!w||!state)return CORE_ERR_NULL_ARG;
     Raid *r=&w->threat.raid;
     if(!w->expansion||!r->id||id<1||id>r->enemy_count)return CORE_ERR_NOT_FOUND;
-    if(state->inbound_count<0||state->inbound_count>64||state->hp<0||state->hp>100000||state->x_milli<0||state->y_milli<0||state->x_milli>=w->grid.width*1000||state->y_milli>=w->grid.height*1000)return CORE_ERR_INVALID_ARG;
+    if(state->valid<0||state->valid>2||state->inbound_count<0||state->inbound_count>64||state->hp<0||state->hp>100000||state->x_milli<0||state->y_milli<0||state->x_milli>=w->grid.width*1000||state->y_milli>=w->grid.height*1000)return CORE_ERR_INVALID_ARG;
     r->enemies[id-1].runtime=*state;return CORE_OK;
 }
 void expansion_v122_numbers(World *w) {
@@ -155,11 +155,14 @@ void expansion_v122_generate(World *w) {
             t->rock_variant=1+(int)(map_noise(w->seed,p,21)%3);
     }
     expansion_water_bodies(w);expansion_v122_numbers(w);
-    e->market_next_restock_day=7;e->loaded_version=10;
+    e->market_next_restock_day=5;e->loaded_version=10;
 }
 void expansion_v122_migrate(World *w) {
     ExpansionState *e=w->expansion;
-    if(e->loaded_version>=10)return;
+    if(e->loaded_version>=10) {
+        if(e->market_next_restock_day>exp_day(w)+4)e->market_next_restock_day=exp_day(w)+4;
+        return;
+    }
     for(int p=0;p<e->cells;p++) {
         CoreExpansionTileView *t=&e->tiles[p];
         if(t->ore_kind==CORE_RES_STONE){t->stone_milli=t->ore_milli;t->ore_milli=0;t->ore_kind=-1;}
@@ -172,7 +175,7 @@ void expansion_v122_migrate(World *w) {
     for(int i=0;i<w->building_count;i++)if(expansion_tower(w->buildings[i]->type))
         for(int j=0;j<w->buildings[i]->worker_count;j++)w->buildings[i]->workers[j]->shift_kind=j%2;
     expansion_v122_numbers(w);
-    e->immigration_day=e->last_arrival_day+2;e->market_next_restock_day=exp_day(w)+6;e->loaded_version=10;
+    e->immigration_day=e->last_arrival_day+2;e->market_next_restock_day=exp_day(w)+4;e->loaded_version=10;
 }
 int expansion_duty(World *w,Villager *v,Building *b) {
     CoreWorkSchedule schedule;expansion_schedule(w,v,&schedule);
@@ -311,6 +314,7 @@ int expansion_schedule(const World *w,const Villager *v,CoreWorkSchedule *out) {
     }
     out->on_duty=out->start<out->end ? minute>=out->start&&minute<out->end : minute>=out->start||minute<out->end;
     out->on_duty|=out->second_end && minute>=out->second_start && minute<out->second_end;
+    if(expansion_military(type) && w->expansion->alarm)out->on_duty=1;
     if(expansion_tower(type)) {
         if(b->combat_guard_id && b->combat_until_tick>w->clock.tick)out->on_duty=b->combat_guard_id==v->id;
         else if(w->expansion->alarm && b->worker_count==1)out->on_duty=1;
@@ -398,7 +402,7 @@ void expansion_v122_life(World *w,Villager *v) {
     if(raid->id) {
         for(int i=0;i<raid->enemy_count;i++) {
             const Enemy *enemy=&raid->enemies[i];const CoreEnemyRuntime *r=&enemy->runtime;
-            if(enemy->state!=CORE_ENEMY_ALIVE || !r->valid)continue;
+            if(enemy->state!=CORE_ENEMY_ALIVE || r->valid!=1)continue;
             int distance=exp_dist(x,y,r->x_milli/1000,r->y_milli/1000);
             if(distance<=4)expansion_mood_event(w,v,24,-5,raid->id,1000000000,0);
             if(distance<=1 && grid_in_bounds(&w->grid,r->x_milli/1000,r->y_milli/1000) &&

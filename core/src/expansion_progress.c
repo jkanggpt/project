@@ -215,7 +215,7 @@ CORE_API int32_t core_expansion_rank(const CoreWorld *w, CoreExpansionRankView *
                  w->expansion->protected_area >= areas[target] &&
                  w->expansion->protected_population * 100 >= permanent * protected_pct[target] &&
                  w->research.done_count >= research[target] &&
-                 expansion_bank_have(w, CORE_RES_FOOD) >= permanent * 1200 * fooddays[target] && facilities;
+                 expansion_bank_have(w, CORE_RES_FOOD) >= permanent * 1000 * fooddays[target] && facilities;
     if (out->ready) {
         out->reason = w->bank.amount[CORE_RES_GOLD] < gold[target]         ? CORE_DENY_NO_GOLD
                       : w->bank.amount[CORE_RES_MANA] < mana[target]       ? CORE_DENY_NO_MANA
@@ -310,9 +310,9 @@ void expansion_candidate_price(const World *w, CoreCandidateView *c) {
             type = j;
     eff = type < 0 ? 100 : expansion_work_percent(w, &v, type);
     quality = exp_clamp(1000 + 3 * (eff - 100) +
-                            (c->skills[c->field] >= 75 * 540   ? 600
-                             : c->skills[c->field] >= 30 * 540 ? 400
-                             : c->skills[c->field] >= 8 * 540  ? 200
+                            (c->skills[c->field] >= 64800   ? 600
+                             : c->skills[c->field] >= 25920 ? 400
+                             : c->skills[c->field] >= 6912  ? 200
                                                                : 0),
                         800, 2600);
     c->fee = (18 * (type < 0 ? 1 : w->defs.buildings[type].wage) * quality + 999) / 1000 + 5;
@@ -320,12 +320,12 @@ void expansion_candidate_price(const World *w, CoreCandidateView *c) {
 void expansion_candidates(World *w) {
     ExpansionState *e = w->expansion;
     int period = (exp_day(w) - 1) / 3, level = expansion_market_level(w), count = 15, i;
-    if (exp_day(w) >= e->market_next_restock_day)
-        for (i = 1; i < 15; i++)
-            e->trade_stock[i] = level == 3 ? 260 : level == 2 ? 80 : 20;
-    if(exp_day(w)>=e->market_next_restock_day) {
-        int average=e->market_staff_day>=exp_day(w)-1?e->market_staff_efficiency:0;
-        e->market_next_restock_day=exp_day(w)+(average>=300?4:average>=200?5:6);
+    if (exp_day(w) >= e->market_next_restock_day) {
+        int efficiency=e->market_staff_efficiency>0 && e->market_staff_day>=exp_day(w)-1?e->market_staff_efficiency:100;
+        int base=0,mult=0,quantity=0;
+        core_expansion_restock(level?level:1,efficiency,&base,&mult,&quantity);
+        for (i=1;i<15;i++) e->trade_stock[i]=quantity;
+        e->market_next_restock_day=exp_day(w)+(efficiency>=300?2:efficiency>=200?3:4);
     }
     if (e->candidate_day == period && e->candidate_count == count)
         return;
@@ -348,7 +348,7 @@ void expansion_candidates(World *w) {
         c->field = rng_range(&w->rng, 0, 11);
         for (j = 0; j < 5; j++)
             c->stats[j] = c->initial[j] = temporary.initial_stats[j];
-        c->skills[c->field] = rng_range(&w->rng, 0, 75 * 540);
+        c->skills[c->field] = rng_range(&w->rng, 0, 64800);
         c->traits[0] = c->traits[1] = -1;
         expansion_choose_identity(w, &temporary);
         strcpy(c->name, temporary.name);
@@ -409,7 +409,7 @@ CORE_API int32_t core_expansion_hire(CoreWorld *w, int32_t person_id, int32_t *v
     if (c->hired || w->bank.amount[CORE_RES_GOLD] < c->fee)
         return CORE_ERR_REJECTED;
     free_housing = expansion_available_housing(w);
-    if (free_housing < 1 || expansion_bank_have(w, CORE_RES_FOOD) < 1200 ||
+    if (free_housing < 1 || expansion_bank_have(w, CORE_RES_FOOD) < 1000 ||
         !expansion_edge(w, w->keep_x, 0, &x, &y))
         return CORE_ERR_REJECTED;
     v = population_create(w, x, y);
@@ -513,7 +513,7 @@ void expansion_read_summary(const World *w, CoreSummaryView *out) {
         out->animal_count += w->expansion->animals[i].alive;
     out->threat_ticks_left = out->threat_type = out->threat_strength = 0;
     out->raid_id = w->expansion->alarm ? w->threat.raid.id : 0;
-    out->winter_food_need = w->villager_count * 1200 * 12 / 1000;
+    out->winter_food_need = w->villager_count * 12;
     for (i = 0; i < 15; i++)
         out->resource_capacity[i] = eco_bank_limit(&w->bank, i);
     (void)core_expansion_rank(w, &rank);

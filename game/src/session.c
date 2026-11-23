@@ -144,7 +144,7 @@ GameActor *game_actor(GameSession *s, int id) {
 GameEnemy *game_enemy(GameSession *s, int id) {
     int i;
     for (i = 0; i < s->enemy_count; i++)
-        if (s->enemies[i].actor.id == id && s->enemies[i].hp > 0)
+        if (s->enemies[i].actor.id == id && s->enemies[i].hp > 0 && !s->enemies[i].pending_spawn)
             return &s->enemies[i];
     return NULL;
 }
@@ -377,6 +377,11 @@ int game_actor_walk(GameSession *s, GameActor *a, float tiles, int enemy, int *b
     while (a->next < a->path.count && tiles > 0) {
         int cell = a->path.cells[a->next], c = game_path_cost(enemy&&s->enemy_cost?s->enemy_cost[cell]:s->cost[cell], enemy);
         GamePoint goal = {cell % w + 0.5f, cell / w + 0.5f};
+        if(enemy && a->next>0) {
+            int previous=a->path.cells[a->next-1];float lane=((a->id%5)-2)*.11f;
+            int dx=cell%w-previous%w,dy=cell/w-previous/w;
+            goal.x-=dy*lane;goal.y+=dx*lane;
+        }
         float distance = game_distance(a->position, goal), factor;
         GamePoint before = a->position;
         if (!c) {
@@ -415,6 +420,7 @@ static void walk_villagers(GameSession *s, float minutes) {
         if (!a)
             continue;
         if (s->summary.ruleset) {
+            a->outfit=core_expansion_outfit(s->world,v->id);
             float before = a->indoor;
             if (v->inside_building) {
                 a->indoor_building = v->inside_building;

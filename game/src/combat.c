@@ -20,6 +20,23 @@ void game_combat_clear(GameSession *s) {
     s->tower_count = 0;
     memset(&s->raid, 0, sizeof(s->raid));
 }
+static void spread_entry(GameSession *s,GameEnemy *e,int index) {
+    int w=s->summary.map_width,h=s->summary.map_height;
+    int vertical=s->raid.spawn_x==0||s->raid.spawn_x==w-1;
+    int along=vertical?s->raid.spawn_y:s->raid.spawn_x;
+    for(int attempt=0;attempt<25;attempt++) {
+        int offset=((index*7+attempt*5)%25)-12;
+        int v=along+offset;if(v<1||v>=(vertical?h:w)-1)continue;
+        int x=vertical?s->raid.spawn_x:v,y=vertical?v:s->raid.spawn_y;
+        if(!game_path_cost(s->cost[y*w+x],1))continue;
+        GamePoint original=e->actor.position;
+        e->actor.position=(GamePoint){x+.5f,y+.5f};
+        int keep=game_building_at(s,s->summary.keep_x,s->summary.keep_y);CoreBuildingView *manor=game_building(s,keep);
+        if(manor && game_actor_plan(s,&e->actor,manor->door_x,manor->door_y,1)<=0){e->actor.position=original;continue;}
+        e->entry_x=x;e->entry_y=y;break;
+    }
+    e->pending_spawn=index>0;e->retarget=index*4.0f;
+}
 int game_combat_sync(GameSession *s) {
     CoreEnemyView *views = NULL;
     int32_t count = 0;
@@ -75,12 +92,14 @@ int game_combat_sync(GameSession *s) {
             enemy->actor.grid_revision = -1;
             enemy->actor.position = (GamePoint){s->raid.spawn_x + 0.5f, s->raid.spawn_y + 0.5f};
             enemy->entry_x=s->raid.spawn_x;enemy->entry_y=s->raid.spawn_y;
+            if(s->summary.ruleset && !enemy->summoner_id)spread_entry(s,enemy,i);
             if (enemy->summoner_id) {
                 GameEnemy *parent = game_enemy(s,enemy->summoner_id);
                 if (parent) enemy->actor.position=parent->actor.position;
             }
             const CoreEnemyRuntime *r=&views[i].runtime;
             if(r->valid) {
+                enemy->pending_spawn=r->valid==2;
                 enemy->hp=r->hp;enemy->actor.position=(GamePoint){r->x_milli/1000.0f,r->y_milli/1000.0f};
                 enemy->entry_x=r->entry_x;enemy->entry_y=r->entry_y;
                 enemy->actor.cooldown=r->cooldown_milli/1000.0f;enemy->special_clock=r->special_milli/1000.0f;
@@ -213,7 +232,7 @@ static GameEnemy *nearest_enemy(GameSession *s, GamePoint position, float range,
     for (i = 0; i < s->enemy_count; i++) {
         GameEnemy *e = &s->enemies[i];
         float distance;
-        if (e->hp <= 0 || (incoming && e->incoming >= e->hp))
+        if (e->hp <= 0 || e->pending_spawn || (incoming && e->incoming >= e->hp))
             continue;
         if (s->visibility) {
             int x = (int)e->actor.position.x, y = (int)e->actor.position.y;
@@ -312,12 +331,12 @@ static void guards_step(GameSession *s,float minutes) {
         GameActor *a=game_actor(s,v->id);
         if(a)a->cooldown=fmaxf(0,a->cooldown)-minutes;
         if(!a||!base||!guard(v)||v->mission==CORE_MISSION_RETURN) {
-            if(a){a->chasing=0;a->attack_serial=0;a->attack_applied=1;a->attack_elapsed=4.8f;a->outfit=0;}
+            if(a){a->chasing=0;a->attack_serial=0;a->attack_applied=1;a->attack_elapsed=4.8f;}
             continue;
         }
         int hunting=base->type==CORE_BLD_HUNTER_CAMP||base->type==CORE_BLD_HUNTING_LODGE;
         if(!hunting&&base->type!=CORE_BLD_BARRACKS&&base->type!=CORE_BLD_GARRISON)continue;
-        a->outfit=hunting?(base->type==CORE_BLD_HUNTER_CAMP?1:2):(base->type==CORE_BLD_GARRISON?4:3);
+        if(s->summary.ruleset && !a->outfit){a->chasing=0;continue;}
         float sight=4.0f,range=hunting?(base->type==CORE_BLD_HUNTER_CAMP?3.0f:4.0f):1.0f;
         if(a->attack_serial&&a->attack_elapsed<4.8f) {
             a->attack_elapsed+=minutes;
@@ -340,11 +359,11 @@ static void guards_step(GameSession *s,float minutes) {
             }
             continue;
         }
-        GameEnemy *enemy=hunting?NULL:nearest_enemy(s,a->position,sight,0,NULL);
+        GameEnemy *enemy=hunting?NULL:nearest_enemy(s,a->position,s->summary.ruleset?1e9f:sight,0,NULL);
         CoreAnimalView *animal=enemy?NULL:hunting?hunt_target(s,v,base,a->position,sight):nearest_animal(s,a->position,sight,NULL);
         GamePoint goal=enemy?enemy->actor.position:animal?(GamePoint){animal->x_milli/1000.0f,animal->y_milli/1000.0f}:(GamePoint){v->target_x+.5f,v->target_y+.5f};
         int kind=enemy?TARGET_ENEMY:animal?TARGET_ANIMAL:TARGET_NONE,id=enemy?enemy->actor.id:animal?animal->id:0;
-        if(!kind) {a->chasing=0;continue;}
+        if(!kind || (!hunting && s->dispatch_delay>0)) {a->chasing=0;continue;}
         a->chasing=1;
         a->facing=game_walk_facing(goal.x-a->position.x,goal.y-a->position.y,a->facing);
         if(game_distance(a->position,goal)<=range) {
@@ -451,6 +470,7 @@ static int plan_attack_alternative(GameSession *s,GameEnemy *e,int mode) {
     /* 가장 가까운 면이 막혔다면 다른 면, 그 다음 실제로 접근 가능한 시설을 공략합니다. */
     int previous=e->target_kind==TARGET_BUILDING?e->target_id:0;
     CoreBuildingView *target=game_building(s,previous);
+    if(target && building_distance(e->actor.position,target)<=fmaxf(1,(float)e->def.range)) {e->target_kind=TARGET_BUILDING;e->target_id=target->id;e->retarget=30;return 2;}
     if(target && plan_building_side(s,e,target,mode))return 1;
     float minimum=-1;int previous_id=0;
     for(int attempt=0;attempt<s->building_count;attempt++) {
@@ -464,6 +484,9 @@ static int plan_attack_alternative(GameSession *s,GameEnemy *e,int mode) {
         }
         if(!candidate)break;
         minimum=best;previous_id=candidate->id;
+        if(building_distance(e->actor.position,candidate)<=fmaxf(1,(float)e->def.range)) {
+            e->target_kind=TARGET_BUILDING;e->target_id=candidate->id;e->retarget=30;return 2;
+        }
         if(plan_building_side(s,e,candidate,mode)) {
             e->target_kind=TARGET_BUILDING;e->target_id=candidate->id;e->retarget=30;return 1;
         }
@@ -489,7 +512,7 @@ static void hostile_area(GameSession *s,GamePoint p,float radius,int damage,int 
 static void attack_impact(GameSession *s,GameEnemy *e) {
     int damage=e->def.damage,kind=e->attack_kind,id=e->attack_target;
     if(e->info.faction==0 && e->def.type!=3)
-        for(int i=0;i<s->enemy_count;i++) if(s->enemies[i].hp>0 && s->enemies[i].def.type==3 && game_distance(e->actor.position,s->enemies[i].actor.position)<=5) {damage=(damage*110+50)/100;break;}
+        for(int i=0;i<s->enemy_count;i++) if(s->enemies[i].hp>0 && !s->enemies[i].pending_spawn && s->enemies[i].def.type==3 && game_distance(e->actor.position,s->enemies[i].actor.position)<=5) {damage=(damage*110+50)/100;break;}
     CoreBuildingView *b=kind==TARGET_BUILDING?game_building(s,id):NULL;
     if(b && (b->kind_flags&(CORE_EXP_WALL|CORE_EXP_GATE))) {
         if(e->info.ability==2)damage*=2;
@@ -516,6 +539,13 @@ static void enemy_step(GameSession *s, GameEnemy *e, float minutes) {
     GamePoint goal = e->actor.position;
     float distance = 1e9f;
     int barrier = 0, arrived;
+    if(e->pending_spawn) {
+        if(s->raid.phase==CORE_RAID_RETREAT) {
+            (void)core_report_enemy_escaped(s->world,s->raid_id,e->actor.id);e->hp=0;return;
+        }
+        e->retarget-=minutes;if(e->retarget>0)return;
+        e->pending_spawn=0;e->retarget=0;
+    }
     e->actor.cooldown=fmaxf(0,e->actor.cooldown)-minutes;
     if(s->summary.ruleset && s->raid.phase==CORE_RAID_RETREAT) {
         if(!e->retreat_started) {
@@ -529,7 +559,7 @@ static void enemy_step(GameSession *s, GameEnemy *e, float minutes) {
     if(s->summary.ruleset && !e->fleeing && e->special_clock>=120) {
         if(e->info.ability==4) {int32_t id=0;if(core_expansion_summon(s->world,e->actor.id,&id)!=CORE_OK)e->special_clock=118;}
         if(e->info.ability==5) {
-            for(int i=0;i<s->enemy_count;i++) {GameEnemy *other=&s->enemies[i];if(other!=e && other->hp>0 && other->hp<other->def.hp && game_distance(e->actor.position,other->actor.position)<=5){other->hp+=15;if(other->hp>other->def.hp)other->hp=other->def.hp;break;}}
+            for(int i=0;i<s->enemy_count;i++) {GameEnemy *other=&s->enemies[i];if(other!=e && other->hp>0 && !other->pending_spawn && other->hp<other->def.hp && game_distance(e->actor.position,other->actor.position)<=5){other->hp+=15;if(other->hp>other->def.hp)other->hp=other->def.hp;break;}}
         }
         if(e->special_clock>=120)e->special_clock-=120;
     }
@@ -590,7 +620,11 @@ static void enemy_step(GameSession *s, GameEnemy *e, float minutes) {
         if(e->fleeing && e->retarget>0)return;
         int mode=e->info.ability==3?2:e->fleeing?3:1;
         if(game_actor_plan(s,&e->actor,(int)goal.x,(int)goal.y,mode)<=0) {
-            if(!e->fleeing){if(!plan_attack_alternative(s,e,mode))return;}
+            if(!e->fleeing){
+                int alternative=plan_attack_alternative(s,e,mode);
+                if(!alternative)return;
+                if(alternative==2){CoreBuildingView *b=game_building(s,e->target_id);if(b)attack(s,e,TARGET_BUILDING,b->id,center(b));return;}
+            }
             else {
             /* 막힌 옛 경유점을 건너뛰되 위치를 바꾸지 않고 실제 우회로를 찾습니다. */
             int planned=0;
@@ -607,8 +641,17 @@ static void enemy_step(GameSession *s, GameEnemy *e, float minutes) {
             }
         }
     }
+    GamePoint before=e->actor.position;
     arrived = game_actor_walk(s, &e->actor, minutes * e->def.speed / 1000.0f / s->config.minutes_per_tick, e->info.ability==3?2:e->fleeing?3:1,
                               &barrier);
+    if(game_distance(before,e->actor.position)<.001f && !barrier && !e->fleeing) {
+        e->stalled+=minutes;
+        if(e->stalled>=60) {
+            int alternative=plan_attack_alternative(s,e,e->info.ability==3?2:1);
+            if(alternative==2){CoreBuildingView *b=game_building(s,e->target_id);if(b)attack(s,e,TARGET_BUILDING,b->id,center(b));}
+            e->stalled=0;e->actor.grid_revision=-1;
+        }
+    } else e->stalled=0;
     if (barrier) {
         if(e->fleeing){e->actor.grid_revision=-1;return;}
         CoreBuildingView *b = game_building(s, barrier);
@@ -637,8 +680,26 @@ void game_combat_step(GameSession *s, float minutes) {
         return;
     }
     for (i = 0; i < s->enemy_count; i++)
-        if (s->enemies[i].hp > 0)
-            enemy_step(s, &s->enemies[i], minutes);
+        if (s->enemies[i].hp > 0)enemy_step(s, &s->enemies[i], minutes);
+    /* 가까운 적끼리는 통행 가능한 칸 안에서 조금씩 떨어집니다. 경로를 막지는 않습니다. */
+    for(i=0;i<s->enemy_count;i++) {
+        GameEnemy *e=&s->enemies[i];if(e->hp<=0||e->pending_spawn)continue;
+        GamePoint delta={0,0};
+        for(int j=0;j<s->enemy_count;j++) {
+            GameEnemy *other=&s->enemies[j];if(j==i||other->hp<=0||other->pending_spawn)continue;
+            float dx=e->actor.position.x-other->actor.position.x,dy=e->actor.position.y-other->actor.position.y;
+            float d=sqrtf(dx*dx+dy*dy);if(d>=.55f)continue;
+            if(d<.001f){float angle=(e->actor.id*2.399963f);dx=cosf(angle);dy=sinf(angle);d=1;}
+            delta.x+=dx/d;delta.y+=dy/d;
+        }
+        float length=sqrtf(delta.x*delta.x+delta.y*delta.y);
+        if(length>.001f) {
+            float step=fminf(.06f,minutes*.025f);
+            GamePoint p={e->actor.position.x+delta.x/length*step,e->actor.position.y+delta.y/length*step};
+            int x=(int)floorf(p.x),y=(int)floorf(p.y);
+            if(x>=0&&y>=0&&x<s->summary.map_width&&y<s->summary.map_height && s->cost[y*s->summary.map_width+x]>0 && s->cost[y*s->summary.map_width+x]!=CORE_COST_WALL && s->cost[y*s->summary.map_width+x]!=CORE_COST_GATE)e->actor.position=p;
+        }
+    }
     if(s->summary.ruleset && s->raid.phase==CORE_RAID_RETREAT && s->visibility) {
         int raid_id=s->raid_id;
         for(i=0;i<s->enemy_count;i++)if(s->enemies[i].hp>0) {
@@ -651,7 +712,7 @@ void game_combat_step(GameSession *s, float minutes) {
     }
     if (s->summary.ruleset && s->visibility)
         for (i = 0; i < s->enemy_count; i++)
-            if (s->enemies[i].hp > 0) {
+            if (s->enemies[i].hp > 0 && !s->enemies[i].pending_spawn) {
                 int x = (int)s->enemies[i].actor.position.x, y = (int)s->enemies[i].actor.position.y;
                 if (x >= 0 && y >= 0 && x < s->summary.map_width && y < s->summary.map_height &&
                     s->visibility[y * s->summary.map_width + x] == 2)
@@ -662,11 +723,11 @@ void game_combat_step(GameSession *s, float minutes) {
     if(s->summary.ruleset && s->raid_id)for(int n=0;n<s->enemy_count;n++) {
         GameEnemy *e=&s->enemies[n];if(e->hp<=0)continue;
         int x=(int)e->actor.position.x,y=(int)e->actor.position.y;
-        if(!e->fleeing && (!e->inbound_count || abs(e->inbound[(e->inbound_count-1)*2]-x)+abs(e->inbound[(e->inbound_count-1)*2+1]-y)>=3)) {
+        if(!e->pending_spawn && !e->fleeing && (!e->inbound_count || abs(e->inbound[(e->inbound_count-1)*2]-x)+abs(e->inbound[(e->inbound_count-1)*2+1]-y)>=3)) {
             if(e->inbound_count==64){memmove(e->inbound+2,e->inbound+4,124*sizeof(int));e->inbound_count=63;}
             e->inbound[e->inbound_count*2]=x;e->inbound[e->inbound_count*2+1]=y;e->inbound_count++;
         }
-        CoreEnemyRuntime r={0};r.valid=1;r.hp=e->hp;r.x_milli=(int)(e->actor.position.x*1000);r.y_milli=(int)(e->actor.position.y*1000);
+        CoreEnemyRuntime r={0};r.valid=e->pending_spawn?2:1;r.hp=e->hp;r.x_milli=(int)(e->actor.position.x*1000);r.y_milli=(int)(e->actor.position.y*1000);
         r.retarget_milli=(int)(fmaxf(0,e->retarget)*1000);r.entry_x=e->entry_x;r.entry_y=e->entry_y;r.cooldown_milli=(int)(fmaxf(0,e->actor.cooldown)*1000);
         r.special_milli=(int)(e->special_clock*1000);r.attack_elapsed_milli=(int)(e->attack_elapsed*1000);
         r.attack_serial=e->attack_serial;r.attack_applied=e->attack_applied;r.attack_kind=e->attack_kind;r.attack_target=e->attack_target;

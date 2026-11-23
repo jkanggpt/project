@@ -243,7 +243,7 @@ void expansion_visibility_cache(World *w,int discover) {
     for (i = 0; i < e->cells; i++) e->visible[i] = e->static_visible[i] || e->work_visible[i];
     for (i = 0; i < w->villager_count; i++) {
         Villager *v = w->villagers[i];
-        if (!v->inside_building && !v->incoming && v->state != CORE_VS_LEAVING)
+        if (!v->incoming && v->state != CORE_VS_LEAVING)
             reveal(w, v->current_x_milli / 1000, v->current_y_milli / 1000, 4, e->visible);
     }
     if(!discover)return;

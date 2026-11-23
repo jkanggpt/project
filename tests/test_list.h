@@ -120,3 +120,6 @@ TEST_ENTRY(v121_exact_crop_and_magic_cost)
 TEST_ENTRY(v121_medical_actual_staff)
 TEST_ENTRY(v122_rules_and_save)
 TEST_ENTRY(v122_discovery_timer_and_shift)
+
+TEST_ENTRY(v122_patch2_economy_and_vision)
+TEST_ENTRY(v122_patch2_uniform_route)

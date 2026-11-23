@@ -138,3 +138,19 @@ CORE_API int32_t core_expansion_display_building(int32_t i) {
                                   52, 53, 54, 55, 56, 57, 58, 59, 14, 60, 3,  61, 62, 15, 63, 64,65};
     return i >= 0 && i < 65 ? order[i] : -1;
 }
+
+CORE_API int32_t core_expansion_tradable(const CoreWorld *w,int32_t res) {
+    return w && w->expansion && tradable(expansion_market_level(w),res);
+}
+CORE_API int32_t core_expansion_restock(int32_t level,int32_t efficiency,int32_t *base,int32_t *mult,int32_t *quantity) {
+    if(!base||!mult||!quantity)return CORE_ERR_NULL_ARG;
+    if(level<0||level>3)return CORE_ERR_INVALID_ARG;
+    int e=exp_clamp(efficiency,25,750);
+    *base=(int[]){0,30,120,390}[level];
+    /* E를 백분율로 받아 사용자 지정 선형 구간을 정수 만분율로 계산합니다. */
+    *mult=10000+(3000*exp_clamp(e-100,0,650)+325)/650-(1000*exp_clamp(100-e,0,75)+37)/75;
+    int denominator=e>=100?6500:750;
+    int numerator=e>=100?6500+3*(e-100):650+e;
+    *quantity=(int)(((int64_t)*base*numerator+denominator*5/2)/(denominator*5))*5;
+    return CORE_OK;
+}

@@ -159,7 +159,16 @@ enum CoreRaidPhase { CORE_RAID_COMPLETE, CORE_RAID_ASSAULT, CORE_RAID_RETREAT, C
 /* 현재 습격의 살아 있는 적이 최초 공격 동작에 들어갔음을 보고합니다. */
 CORE_API int32_t core_expansion_engaged(CoreWorld *world,int32_t enemy_id);
 enum CoreMission { CORE_MISSION_NONE, CORE_MISSION_SCOUT, CORE_MISSION_HUNT,
-    CORE_MISSION_PATROL, CORE_MISSION_COMBAT, CORE_MISSION_RETURN, CORE_MISSION_WALK };
+    CORE_MISSION_PATROL, CORE_MISSION_COMBAT, CORE_MISSION_RETURN, CORE_MISSION_WALK, CORE_MISSION_EQUIP, CORE_MISSION_UNEQUIP };
+/* 저장된 mission_target은 업무복을 보관한 일터 번호입니다. */
+CORE_API int32_t core_expansion_outfit(const CoreWorld *world,int32_t villager_id);
+CORE_API int32_t core_expansion_weights(int32_t type,int32_t out_percent[5]);
+CORE_API int32_t core_expansion_skill_threshold(int32_t level);
+CORE_API int32_t core_expansion_profession_efficiency(const CoreWorld *world,int32_t villager_id,int32_t field,int32_t *out_percent);
+CORE_API int32_t core_expansion_daily_requirements(const CoreWorld *world,int32_t out_milli[CORE_RES_COUNT]);
+CORE_API int32_t core_expansion_tradable(const CoreWorld *world,int32_t resource);
+/* 배율은 만분율이며 재입고량은 최종 5개 단위로 반올림합니다. */
+CORE_API int32_t core_expansion_restock(int32_t level,int32_t efficiency,int32_t *base,int32_t *mult_bp,int32_t *quantity);
 typedef struct CoreFacilityView {
     int32_t id, type_serial, radius, sight, attack, range, cooldown, assigned, present;
     int32_t labor_milli, mature_trees, logs_milli, magic_logs_milli, deposits[CORE_RES_COUNT];

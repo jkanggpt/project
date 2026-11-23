@@ -32,6 +32,7 @@ typedef struct GameEnemy {
     GamePoint attack_to;
     CoreRaiderInfo info;
     int entry_x,entry_y,inbound_count,inbound[128],retreat_index,retreat_started;
+    int pending_spawn;float stalled;
 } GameEnemy;
 typedef struct GameProjectile {
     GamePoint from, to;
