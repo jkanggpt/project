@@ -56,6 +56,7 @@ static void hud(GameApp *a) {
             if (ui_button(u, rect(740 + i * button_w, 9, button_w - 5, 36), labels[i], 1, 0, NULL))
                 game_app_open(a, panels[i]);
     }
+    int32_t daily[CORE_RES_COUNT]={0};core_expansion_daily_requirements(a->session.world,daily);
     for (int display = 0; display < CORE_RES_COUNT; display++) {
         i = core_expansion_display_resource(display);
         Texture2D icon = a->assets.resources[i];
@@ -63,11 +64,15 @@ static void hud(GameApp *a) {
         if (icon.id)
             DrawTexturePro(icon, (Rectangle){0, 0, (float)icon.width, (float)icon.height},
                            rect(x, ry, 20, 20), (Vector2){0, 0}, 0, WHITE);
-        ui_small(u, x + 24, ry + 1, UI_TEXT, "%s %d", fmt_resource_name(i), s->resources[i]);
+        const char *name=fmt_resource_name(i);
+        float label_width=MeasureTextEx(a->assets.font,name,u->font_size-3,0).x;
+        ui_small(u,x+24,ry+1,UI_TEXT,"%s",name);
+        Color amount_color=daily[i]>0 && (int64_t)s->resources[i]*1000<=daily[i]?UI_BAD:UI_TEXT;
+        ui_small(u,x+30+label_width,ry+1,amount_color,"%d",s->resources[i]);
         (void)snprintf(
             hint, sizeof(hint),
-            u8"%s\n어제 변화 %+d / 저장 한도 %d (0은 제한 없음)\n장부에서 항목별 수입·지출을 확인합니다.",
-            fmt_resource_name(i), s->resource_delta[i], s->resource_capacity[i]);
+            u8"%s\n어제 변화 %+d / 저장 한도 %d (0은 제한 없음)\n하루 필수 소비 %.2f 이하이면 재고 숫자가 빨강입니다.\n주민 식사·가축 사료·급여·유지비·겨울 난방 기준입니다.",
+            fmt_resource_name(i), s->resource_delta[i], s->resource_capacity[i],daily[i]/1000.0);
         if (CheckCollisionPointRec(GetMousePosition(), rect(x, ry, (width - 20) / 8, 25)))
             (void)snprintf(u->tooltip, sizeof(u->tooltip), "%s", hint);
     }
@@ -117,7 +122,7 @@ static void hud(GameApp *a) {
         colors[count++]=UI_BAD;
     } else if(s->threat_type){snprintf(lines[count],180,u8"위협: %s · %d일 %d시간 후",fmt_threat_name(s->threat_type),s->threat_ticks_left/144,s->threat_ticks_left%144/6);colors[count++]=UI_GOLD;}
     if(s->season==CORE_SEASON_AUTUMN||s->season==CORE_SEASON_WINTER) {
-        int days=s->season==CORE_SEASON_WINTER?13-s->day_of_season:12,need=(s->population*12*days+9)/10;
+        int days=s->season==CORE_SEASON_WINTER?13-s->day_of_season:12,need=s->population*days;
         snprintf(lines[count],180,u8"겨울 %d일분 식량 %d/%d",days,s->resources[CORE_RES_FOOD],need);colors[count++]=s->resources[CORE_RES_FOOD]<need?UI_BAD:UI_GOOD;
     }
     float status_y=141;
@@ -710,10 +715,13 @@ static void market(GameApp *a, int contracts) {
             CoreBuildingView *shop=&s->buildings[n];core_expansion_facility(s->world,shop->id,shop->type,shop->x,shop->y,shop->rotation,&trade);break;
         }
         ui_small(&a->ui,b.x+30,b.y+74,UI_TEXT,u8"거래 %d / %d개 · 기준 %d · 직원 E %.2f · 보정 %+d개",trade.trade_used,trade.trade_limit,trade.trade_base,trade.trade_efficiency/100.0,trade.trade_limit-trade.trade_base);
-        ui_small(&a->ui,b.x+30,b.y+101,trade.present?UI_MUTED:UI_BAD,u8"현장 %d명 · 다음 재입고 %d일 · %s",trade.present,trade.trade_next_day,trade.present?u8"직원 변경은 한도에 즉시 반영 · 사용량 유지":u8"현재 근무 직원 없음 · 09~18시 근무");
-        y = scroll_start(a, b, 14, 64) + 72;
-        for (int display = 1; display < 15; display++, y += 64) {
+        ui_small(&a->ui,b.x+30,b.y+101,trade.present?UI_MUTED:UI_BAD,u8"현장 %d명 · 다음 재입고 %d일 · %s",trade.present,trade.trade_next_day,trade.present?u8"직원 변경은 한도에 즉시 반영 · 사용량 유지":u8"현재 근무 직원 없음 · 08~17시 근무");
+        int goods=0;for(int resource=1;resource<15;resource++)goods+=core_expansion_tradable(s->world,resource);
+        y = scroll_start(a, b, goods, 64) + 72;
+        for (int display = 1; display < 15; display++) {
             i = core_expansion_display_resource(display);
+            if(!core_expansion_tradable(s->world,i))continue;
+            float row=y;y+=64;
             CoreTradeQuote q1, q10, qs;
             core_expansion_quote(s->world, i, 1, &q1);
             core_expansion_quote(s->world, i, 10, &q10);
@@ -722,11 +730,11 @@ static void market(GameApp *a, int contracts) {
             char label[96];
             int enabled = m.open && q1.reason != CORE_DENY_NOT_TRADABLE,
                 stock = core_expansion_market_stock(s->world, i);
-            if (y < b.y + 148 || y + 54 > b.y + b.height - 45)
+            if (row < b.y + 148 || row + 54 > b.y + b.height - 45)
                 continue;
-            ui_small(&a->ui, b.x + 30, y + 8, UI_TEXT, u8"%s · 보유 %d / 재고 %d", fmt_resource_name(i),
-                     s->summary.resources[i], stock);
-            ui_small(&a->ui, b.x + 30, y + 31, UI_MUTED, u8"매수 %.2f금/개 · %+.2f%%", q1.unit_cents / 100.0,
+            ui_small(&a->ui, b.x + 30, row + 8, UI_TEXT, u8"%s · 보유 %d", fmt_resource_name(i),s->summary.resources[i]);
+            ui_small(&a->ui,b.x+210,row+8,stock==0?UI_BAD:UI_TEXT,u8"재고 %d",stock);
+            ui_small(&a->ui, b.x + 30, row + 31, UI_MUTED, u8"매수 %.2f금/개 · %+.2f%%", q1.unit_cents / 100.0,
                      q1.rate_bp / 100.0);
             char quote_tip[512];
             snprintf(quote_tip, sizeof(quote_tip),
@@ -734,22 +742,22 @@ static void market(GameApp *a, int contracts) {
                      u8"%.2f금/개 · 일일 잔여 %d개\n주문별 실제 총액은 반올림 잔액을 포함합니다.",
                      q1.unit_cents / 100.0, q1.rate_bp / 100.0, q1.season_bp / 100.0, q1.event_bp / 100.0,
                      q1.pressure_bp / 100.0, qs.unit_cents / 100.0, q1.remaining);
-            if (CheckCollisionPointRec(GetMousePosition(), rect(b.x + 25, y, b.width - 50, 58)))
+            if (CheckCollisionPointRec(GetMousePosition(), rect(b.x + 25, row, b.width - 50, 58)))
                 snprintf(a->ui.tooltip, sizeof(a->ui.tooltip), "%s", quote_tip);
             (void)snprintf(label, sizeof(label), u8"1개 구매 %d금", q1.total_gold);
-            if (ui_button(&a->ui, rect(b.x + b.width - 610, y, 180, 38), label, enabled && !q1.reason, 0,
+            if (ui_button(&a->ui, rect(b.x + b.width - 610, row, 180, 38), label, enabled && !q1.reason, 0,
                           quote_tip)) {
                 int rc = core_trade(s->world, i, 1, &gold, &reason);
                 command(a, rc, reason);
             }
             (void)snprintf(label, sizeof(label), u8"10개 구매 %d금", q10.total_gold);
-            if (ui_button(&a->ui, rect(b.x + b.width - 420, y, 180, 38), label, enabled && !q10.reason, 0,
+            if (ui_button(&a->ui, rect(b.x + b.width - 420, row, 180, 38), label, enabled && !q10.reason, 0,
                           quote_tip)) {
                 int rc = core_trade(s->world, i, 10, &gold, &reason);
                 command(a, rc, reason);
             }
             (void)snprintf(label, sizeof(label), u8"10개 판매 %d금", qs.total_gold);
-            if (ui_button(&a->ui, rect(b.x + b.width - 230, y, 190, 38), label, enabled && !qs.reason, 0,
+            if (ui_button(&a->ui, rect(b.x + b.width - 230, row, 190, 38), label, enabled && !qs.reason, 0,
                           quote_tip)) {
                 int rc = core_trade(s->world, i, -10, &gold, &reason);
                 command(a, rc, reason);
@@ -902,9 +910,10 @@ static void assign(GameApp *a) {
         CoreBuildingView *job=building?fixed:&s->buildings[i];
         if(!v||!job||(!building&&(!job->worker_slots||job->state!=CORE_BSTATE_ACTIVE))||(building&&(v->incoming||v->state==CORE_VS_LEAVING)))continue;
         float row=y;y+=80;if(row+72<list.y||row>list.y+list.height)continue;
-        char work[120],tip[300];game_building_label(s,job->id,work,sizeof(work));
+        char work[120],tip[400];game_building_label(s,building?v->workplace_id:job->id,work,sizeof(work));
+        int32_t efficiency=100;core_expansion_efficiency(s->world,v->id,job->type,&efficiency);
         int field=job->job_field,minutes=field>=0?v->skill_minutes[field]:0;
-        snprintf(tip,sizeof(tip),u8"%s · %s · 숙련 %.1f일 · %s",v->name,work,minutes/540.0,fmt_villager_state(v->state));
+        snprintf(tip,sizeof(tip),u8"%s · 현재 일터 %s · 배치 대상 %s · E %.2f · 숙련 %.1f일 · %s",v->name,work,core_expansion_building_name(job->type),efficiency/100.0,minutes/540.0,fmt_villager_state(v->state));
         int is_tower=s->building_defs[job->type].category==CORE_CAT_TOWERS;
         if(is_tower && !building) {
             ui_box(rect(list.x,row,list.width,72),UI_BG);
@@ -919,7 +928,7 @@ static void assign(GameApp *a) {
         ui_small(&a->ui,list.x+79,row+7,UI_TEXT,u8"%s · %s",v->name,work);
         int values[5]={v->strength,v->agility,v->vitality,v->dexterity,v->intellect};
         game_stat_numbers(a,values,list.x+79,row+40,40);
-        ui_small(&a->ui,list.x+310,row+40,UI_MUTED,u8"숙련 %.1f일 · %s",minutes/540.0,fmt_villager_state(v->state));
+        ui_small(&a->ui,list.x+310,row+40,UI_MUTED,u8"E %.2f · 숙련 %.1f일 · %s",efficiency/100.0,minutes/540.0,fmt_villager_state(v->state));
     }
     ui_clip_end();
     if(maximum>0)ui_bar(rect(b.x+b.width-18,list.y,4,list.height),a->scroll/(float)maximum,UI_GOLD);

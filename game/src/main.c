@@ -82,7 +82,7 @@ static int options(int argc,char **argv,Options *o)
         } else
             return 0;
     }
-    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"population") && strcmp(o->screen,"rotations") && strcmp(o->screen,"connections") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load") && strcmp(o->screen,"uniforms") && strcmp(o->screen,"farms") && strcmp(o->screen,"raid") && strcmp(o->screen,"alerts") && strcmp(o->screen,"tower") && strcmp(o->screen,"assign") && strcmp(o->screen,"effects")) return 0;
+    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"population") && strcmp(o->screen,"rotations") && strcmp(o->screen,"connections") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load") && strcmp(o->screen,"uniforms") && strcmp(o->screen,"farms") && strcmp(o->screen,"raid") && strcmp(o->screen,"alerts") && strcmp(o->screen,"tower") && strcmp(o->screen,"assign") && strcmp(o->screen,"effects") && strcmp(o->screen,"selection") && strcmp(o->screen,"demolition") && strcmp(o->screen,"workforce") && strcmp(o->screen,"trade") && strcmp(o->screen,"skills")) return 0;
     return 1;
 }
 void game_app_notice(GameApp *a,const char *text)
@@ -278,10 +278,29 @@ static int smoke(GameApp *a,const Options *o)
 }
 static void screenshot_screen(GameApp *a,const Options *o)
 {
+    if(strcmp(o->screen,"demolition"))SetMousePosition(GetScreenWidth()-3,GetScreenHeight()-3);
     if (!strcmp(o->screen,"title")) { a->panel=PANEL_TITLE; a->in_game=0; return; }
     (void)game_session_new(&a->session,u8"바람언덕",o->seed,o->difficulty); enter_game(a);
     /* 명시적인 촬영 모드의 재현 자료이며 정상 자동플레이 평가에는 사용하지 않습니다. */
     if(!strcmp(o->screen,"effects")){a->speed=0;return;}
+    if(!strcmp(o->screen,"selection")||!strcmp(o->screen,"demolition")||!strcmp(o->screen,"workforce")||!strcmp(o->screen,"trade")||!strcmp(o->screen,"skills")) {
+        World *w=a->session.world;int trade=!strcmp(o->screen,"trade")||!strcmp(o->screen,"skills");
+        int type=trade?CORE_BLD_MARKET:CORE_BLD_FARM;Building *b=entity_add_building(w,type);
+        if(b) {
+            const ExpansionBuildingSpec *spec=expansion_spec(type);
+            b->x=w->keep_x-6;b->y=w->keep_y+2;b->w=spec->w;b->h=spec->h;b->door_x=b->x+b->w/2;b->door_y=b->y+b->h;b->state=CORE_BSTATE_ACTIVE;b->hp=w->defs.buildings[type].max_hp;
+            expansion_v122_numbers(w);expansion_rebuild(w);Villager *v=w->villagers[0];
+            (void)core_assign_worker(w,v->id,b->id);v->at_target=1;v->target=b;v->target_x=b->door_x;v->target_y=b->door_y;v->state=CORE_VS_WORKING;v->meal_day=1;
+            v->current_x_milli=b->door_x*1000+500;v->current_y_milli=b->door_y*1000+500;v->skill_minutes[spec->field]=40*540;
+            w->clock.tick=60;w->bank.amount[CORE_RES_FOOD]=1;w->bank.amount[CORE_RES_GOLD]=0;w->expansion->trade_stock[CORE_RES_FOOD]=0;
+            expansion_visibility(w);(void)game_session_refresh(&a->session);game_select(a,1,b->id);
+            if(!strcmp(o->screen,"workforce"))a->panel=PANEL_ASSIGN;
+            if(trade)a->panel=PANEL_MARKET;
+            if(!strcmp(o->screen,"skills")){a->panel=PANEL_NONE;game_select(a,2,v->id);a->skill_tab=9;a->inspector_scroll=350;}
+            if(!strcmp(o->screen,"demolition")){a->demolish=1;SetMousePosition(260,340);}
+        }
+        a->speed=0;return;
+    }
     if(!strcmp(o->screen,"raid")) {
         World *w=a->session.world;
         (void)threat_debug_raid(w,CORE_THREAT_BANDITS,CORE_DIR_EAST,5);Raid *r=&w->threat.raid;r->type=6;

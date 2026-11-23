@@ -55,7 +55,7 @@ static void life_icons(GameApp *a,float x,float y,int icon,int count,float propo
 static const char *const fields[12]={u8"농업",u8"임업",u8"광업",u8"축산",u8"어업",u8"수렵",u8"가공",u8"경비",u8"의료",u8"교역",u8"학술",u8"마법"};
 static const char *const skill_names[4]={u8"초보",u8"도제",u8"직인",u8"장인"};
 static Color skill_color(int level){return GetColor((unsigned[]){0x9CA3AFFF,0x6366F1FF,0xE11D48FF,0xFACC15FF}[level]);}
-static int skill_level(int minutes){return minutes>=75*540?3:minutes>=30*540?2:minutes>=8*540?1:0;}
+static int skill_level(int minutes){return minutes>=core_expansion_skill_threshold(3)?3:minutes>=core_expansion_skill_threshold(2)?2:minutes>=core_expansion_skill_threshold(1)?1:0;}
 float game_person_details(GameApp *a,const CoreVillagerView *v,float x,float y,float width) {
     GameUi *u=&a->ui;char label[180],job[120];game_building_label(&a->session,v->workplace_id,job,sizeof(job));
     game_portrait(a,v->appearance,area(x,y,64,64));
@@ -95,11 +95,14 @@ float game_person_details(GameApp *a,const CoreVillagerView *v,float x,float y,f
         DrawRectangleLinesEx(area(x+i%3*width/3,y+i/3*30,width/3-3,27),1,skill_color(level));
     }
     y+=127;int level=skill_level(v->skill_minutes[skill]);float days=v->skill_minutes[skill]/540.0f;
-    ui_small(u,x,y,skill_color(level),u8"%s · %s · %.1f/75일",fields[skill],skill_names[level],days);y+=26;
-    ui_bar(area(x,y,width,9),days/75.0f,skill_color(level));y+=17;
+    ui_small(u,x,y,skill_color(level),u8"%s · %s · %.1f/120일",fields[skill],skill_names[level],days);y+=26;
+    ui_bar(area(x,y,width,9),days/120.0f,skill_color(level));y+=17;
     if(level==3)ui_small(u,x,y,skill_color(level),u8"MAX · 장인");
-    else ui_small(u,x,y,UI_MUTED,u8"다음 단계까지 %.1f일",(int[]){8,30,75}[level]-days);
+    else ui_small(u,x,y,UI_MUTED,u8"다음 단계까지 %.1f일",core_expansion_skill_threshold(level+1)/540.0-days);
     y+=30;
+    int32_t efficiency=100;core_expansion_profession_efficiency(a->session.world,v->id,skill,&efficiency);
+    ui_small(u,x,y,UI_GOLD,u8"%s 능률 E %.2f",fields[skill],efficiency/100.0);y+=28;
+    if(skill==7) {int32_t ranged=100;core_expansion_efficiency(a->session.world,v->id,CORE_BLD_TOWER,&ranged);ui_small(u,x,y,UI_MUTED,u8"방어탑 능률 E %.2f",ranged/100.0);y+=26;}
     const char *const life_names[]={u8"행복도",u8"기분",u8"포만",u8"휴식",u8"안전"};
     float proportions[]={v->happiness/100.0f,(v->mood+200)/400.0f,v->hunger/100.0f,v->rest/100.0f,v->safety/100.0f};
     for(int i=0;i<5;i++) {
@@ -125,9 +128,20 @@ float game_person_details(GameApp *a,const CoreVillagerView *v,float x,float y,f
 float game_facility_details(GameApp *a,const CoreBuildingView *b,float x,float y,float width) {
     CoreFacilityView f;GameUi *u=&a->ui;
     if(core_expansion_facility(a->session.world,b->id,b->type,b->x,b->y,b->rotation,&f)!=CORE_OK)return y;
-    if(b->id)ui_small(u,x,y,UI_TEXT,u8"배치 %d/%d · 현장 %d · 누적 F %.2f",f.assigned,b->worker_slots,f.present,f.labor_milli/1000.0);
+    if(b->id)ui_small(u,x,y,UI_TEXT,u8"배치 %d/%d · 현장 %d · 일일 환산 %.2f",f.assigned,b->worker_slots,f.present,f.labor_milli/1000.0);
     else ui_small(u,x,y,UI_MUTED,u8"건설 후보 · 기준 F=1 · 근무 전");
     y+=28;
+    int32_t weights[5];
+    if(core_expansion_weights(b->type,weights)==CORE_OK) {
+        ui_small(u,x,y,UI_MUTED,u8"힘%d%% · 민첩%d%% · 체력%d%%",weights[0],weights[1],weights[2]);y+=24;
+        ui_small(u,x,y,UI_MUTED,u8"손재주%d%% · 지능%d%%",weights[3],weights[4]);y+=26;
+        int sum=0;
+        for(int i=0;i<a->session.villager_count;i++) {
+            const CoreVillagerView *worker=&a->session.villagers[i];if(!b->id || worker->workplace_id!=b->id)continue;
+            int32_t efficiency=0;core_expansion_efficiency(a->session.world,worker->id,b->type,&efficiency);sum+=efficiency;
+        }
+        ui_small(u,x,y,UI_GOLD,u8"총 능률 F %.2f (E의 합)",sum/100.0);y+=29;
+    }
     if(b->state==CORE_BSTATE_CONSTRUCTING) {
         ui_wrap(u,area(x,y,width,55),UI_GOLD,core_expansion_build_locked(a->session.world)?u8"습격 중 공사 중단 · 적 철수 완료 후 재개":u8"공사 중 · 생산 시작 전");y+=58;
     }
@@ -159,10 +173,13 @@ float game_facility_details(GameApp *a,const CoreBuildingView *b,float x,float y
         if(tower && schedule.shift!=group)continue;
         members++;
         char label[180];snprintf(label,sizeof(label),u8"%s · %s%s",v->name,v->mission==CORE_MISSION_SCOUT?u8"정찰":v->mission==CORE_MISSION_PATROL?u8"순찰":fmt_villager_state(v->state),v->id==b->combat_guard_id?u8" · 전투 담당":"");
-        if(ui_button(u,area(x,y,width,48),"",1,0,label))game_select(a,2,v->id);
+        if(ui_button(u,area(x,y,width,92),"",1,0,label))game_select(a,2,v->id);
         game_portrait(a,v->appearance,area(x+3,y+3,42,42));
         ui_small(u,x+52,y+3,UI_TEXT,"%s",v->name);
-        ui_small(u,x+52,y+25,UI_MUTED,"%s%s",v->id==b->combat_guard_id?u8"전투 담당 · ":"",fmt_villager_state(v->state));y+=55;
+        ui_small(u,x+52,y+25,UI_MUTED,"%s%s",v->id==b->combat_guard_id?u8"전투 담당 · ":"",fmt_villager_state(v->state));
+        int values[5]={v->strength,v->agility,v->vitality,v->dexterity,v->intellect};
+        game_stat_numbers(a,values,x+7,y+59,36);int32_t efficiency=0;core_expansion_efficiency(a->session.world,v->id,b->type,&efficiency);
+        ui_small(u,x+width-96,y+59,UI_GOLD,"E %.2f",efficiency/100.0);y+=99;
     }
     if(tower && !members){ui_small(u,x,y,UI_BAD,u8"미배치");y+=29;}
     if(tower && !members && ui_button(u,area(x,y,width,30),group?u8"야간 일꾼 선택":u8"주간 일꾼 선택",1,0,NULL)) {

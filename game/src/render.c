@@ -303,8 +303,7 @@ static void villager(GameApp *a, int index) {
                                 moving || (unit->indoor > 0 && unit->indoor < 1));
     Rectangle dest = box_rect(game_actor_sprite(p.x, p.y, GAME_ACTOR_HEIGHT));
     Texture2D clothes=a->assets.villagers;
-    if(unit->outfit>0 && unit->outfit<=4 && v->workplace_id &&
-        (v->job==CORE_BLD_HUNTER_CAMP || v->job==CORE_BLD_HUNTING_LODGE || v->job==CORE_BLD_BARRACKS || v->job==CORE_BLD_GARRISON) && v->state==CORE_VS_GUARD_POST) {
+    if(unit->outfit>0 && unit->outfit<=4) {
         int dir=unit->facing==FACE_LEFT?1:unit->facing;
         if(dir<0 || dir>2)dir=0;
         int attacking=unit->attack_serial && unit->attack_elapsed<4.8f;
@@ -460,8 +459,7 @@ static int draw_queue(GameApp *a) {
         a->draw_items[count++] = (GameDrawItem){(b->y + b->h) * 16.0f, DRAW_BUILDING, i, b->id};
         DrawEllipse((int)((b->x + b->w * 0.5f) * 16), (b->y + b->h) * 16 - 2, b->w * 8.0f, 3,
                     (Color){24, 21, 16, 65});
-        if (b->id == a->selected_building)
-            DrawRectangleLines(b->x * 16, b->y * 16, b->w * 16, b->h * 16, UI_GOLD);
+
     }
     for (i = 0; i < s->villager_count; i++) {
         CoreVillagerView *v = &s->villagers[i];
@@ -478,7 +476,7 @@ static int draw_queue(GameApp *a) {
             DrawEllipseLines((int)p.x, (int)p.y, 7, 3, UI_GOLD);
     }
     for (i = 0; i < s->enemy_count; i++)
-        if (s->enemies[i].hp > 0) {
+        if (s->enemies[i].hp > 0 && !s->enemies[i].pending_spawn) {
             Vector2 p = pixel(s->enemies[i].actor.position);
             if (s->visibility && s->visibility[(int)(p.y / 16) * w + (int)(p.x / 16)] < 2)
                 continue;
@@ -710,12 +708,12 @@ static void overlay(GameApp *a) {
     CorePlacementView preview;
     GameSession *s = &a->session;
     int mouse_on_map=world_mouse(a,&x,&y);
+    CoreBuildingView *outline=game_building(s,a->selected_building);
+    if(outline)DrawRectangleLinesEx((Rectangle){outline->x*16.0f,outline->y*16.0f,outline->w*16.0f,outline->h*16.0f},.7f,UI_GOLD);
     if(a->demolish && mouse_on_map) {
         Rectangle tile={x*16.0f,y*16.0f,16,16};
         DrawRectangleRec(tile,(Color){230,40,46,100});
-        DrawRectangleLinesEx(tile,1.8f,(Color){255,75,75,255});
-        DrawLineEx((Vector2){tile.x+3,tile.y+3},(Vector2){tile.x+13,tile.y+13},1.3f,WHITE);
-        DrawLineEx((Vector2){tile.x+13,tile.y+3},(Vector2){tile.x+3,tile.y+13},1.3f,WHITE);
+        DrawRectangleLinesEx(tile,.7f,(Color){255,75,75,255});
     }
     CoreBuildingView *selected=game_building(s,a->selected_building);
     int candidate=a->build_type>=0 && mouse_on_map;

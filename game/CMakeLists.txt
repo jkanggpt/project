@@ -64,6 +64,12 @@ if(CASTLE_BUILD_GAME)
   install(DIRECTORY data assets DESTINATION . PATTERN "*.import" EXCLUDE PATTERN ".gdignore" EXCLUDE)
   install(FILES ${PROJECT_SOURCE_DIR}/CREDITS.md ${PROJECT_SOURCE_DIR}/README.md DESTINATION .)
   install(FILES ${PROJECT_SOURCE_DIR}/PROGRESS.md DESTINATION .)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/V1_2_2_PATCH2.md DESTINATION docs)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch2_selection_1440.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch2_demolition_1024.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch2_workforce_1024.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch2_trade_1024.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch2_skills_1024.png DESTINATION docs/screenshots)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/V1_2_2_PATCH1.md ${PROJECT_SOURCE_DIR}/docs/v122_patch1_checks.csv DESTINATION docs)
   install(FILES ${PROJECT_SOURCE_DIR}/art/V122_PATCH1_PROMPTS.json DESTINATION art)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch1_game_1440.png

@@ -82,7 +82,16 @@ int main(int argc,char **argv) {
     argc=arguments.count;argv=arguments.values;
     SetTraceLogLevel(LOG_WARNING);
     const char *out="game/assets/expansion";
-    if(argc>1 && !strcmp(argv[1],"--check")) {
+    if(argc>1 && !strcmp(argv[1],"--manor")) {
+        Image manor=read_image("art/v122_patch2","colony_manor.png");
+        if(manor.data) {
+            ImageAlphaCrop(&manor,.1f);int maximum=manor.width>manor.height?manor.width:manor.height;
+            float scale=380.0f/maximum;ImageResizeNN(&manor,(int)(manor.width*scale+.5f),(int)(manor.height*scale+.5f));
+            Image canvas=GenImageColor(384,384,BLANK);
+            ImageDraw(&canvas,manor,(Rectangle){0,0,(float)manor.width,(float)manor.height},(Rectangle){(384-manor.width)/2.0f,382.0f-manor.height,(float)manor.width,(float)manor.height},WHITE);
+            write_image(out,"manor_0.png",canvas);UnloadImage(canvas);UnloadImage(manor);
+        }
+    } else if(argc>1 && !strcmp(argv[1],"--check")) {
         if(argc>2)out=argv[2];
         check(out,"portraits.png",8,6,64);check(out,"combat_fx.png",6,8,128);check(out,"factions.png",3,2,128);
     } else {
