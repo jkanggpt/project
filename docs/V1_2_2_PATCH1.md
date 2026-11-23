@@ -40,3 +40,13 @@
 - 실제 렌더러로1440×900과1024×720에서 농장·주민 목록·주야간 배치/상세·습격 경보·여러 사건/겨울 안내·8종4방향 이펙트를 촬영했습니다. 프로필48셀/이펙트48셀/문장6셀의 크기·빈 셀·2픽셀 경계를 검사했습니다. 생성 원화의 행 간격도 감지해 냉기와 마법 등 이웃 행이 섞이지 않도록 확인했습니다.
 
 최종 로그는 `tests_msvc_release.log`, `mingw_release.log`, `balance_final/completed.json`이며 Windows Release 검사입니다. Linux sanitizers나 사람의 장시간 수동 플레이를 수행했다고 주장하지 않습니다.
+
+### 설치본
+
+코드·원화·회귀 검사는 로컬 커밋 `39bc21c`에 보관했습니다. 새 설치 폴더는 `artifacts/MagicCastle-v1.2.2-patch1`이며 이전 배포본은 그대로 보존합니다. 원본/설치본 리소스·정의1032파일의 누락/해시 차이0, 실행 파일 SHA256은 양쪽 모두 `8396b2fa9f30aa734d4df5a7ae4fbddc46c001ede7fbb9eef17530d4da8aaf63`입니다.
+
+설치본20일 자동플레이는 인구8·도착399·화살42·처치3·저장21회, 저장/로드 해시 `2423482652195171016` 일치로 통과했습니다. 자동 저장은 `artifacts/v122_patch1/installed_saves`에 분리해 기존 사용자 저장을 사용하지 않았습니다.
+
+배포 ZIP은 `artifacts/MagicCastle-v1.2.2-patch1-Windows.zip`입니다. 압축을 풀고 `MagicCastle-v1.2.2-patch1/castle_game.exe`를 실행하며 assets와 data 폴더를 함께 둡니다. 새 이미지/프로필과 기존 v10 저장을 그대로 사용하는 Windows 실행판입니다.
+
+ZIP 내1126파일의 압축 해제 스트림을 설치본과 비교해 해시 차이0을 확인했습니다. 최종 SHA256은 ZIP 옆 `.sha256` 파일에 기록합니다.
