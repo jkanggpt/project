@@ -63,7 +63,7 @@ static const char *const EFFECT_TEXTS[CORE_EFFECT_COUNT][3] = {
     {u8"앓는 시간", "-", "%"},           {u8"집 한 채의 난방 목재", "-", ""}, {u8"습격 때 건물 피해", "-", "%"}};
 
 static const char *const BUILDING_NAMES[CORE_BLD_COUNT] = {
-    u8"영주관", u8"주택", u8"농장",   u8"채집 오두막", u8"벌목장", u8"채석장", u8"마정석 광산", u8"창고",
+    u8"영주관", u8"주택", u8"농장",   u8"채집장", u8"벌목장", u8"채석장", u8"마정석 광산", u8"창고",
     u8"시장",   u8"병영", u8"감시탑", u8"성벽",        u8"성문",   u8"치료소", u8"마탑",        u8"도로"};
 
 static const char *const PLACE_RESULTS[CORE_PLACE_COUNT] = {

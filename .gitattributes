@@ -1,2 +1,5 @@
 # 이관 검사용 실제 저장 파일은 운영체제별 개행 변환 없이 보존합니다.
 tests/fixtures/*.sav binary
+
+# 아트 매니페스트와 메타데이터의 해시는 운영체제에 관계없이 같습니다.
+game/assets/expansion/fishing_passenger_offsets_*.json text eol=lf

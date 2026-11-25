@@ -134,6 +134,16 @@
         "art/v122/cropland.png"
       ],
       "prompt": "Create a clean transparent-background pixel-art sprite strip for this existing medieval fantasy farming game, matching the provided reference's detailed earthy mature pixel style, not cute. Six equal square cells in ONE horizontal row, evenly spaced with generous transparent gutters. Each cell is a small isolated golden wheat harvest bundle/field tuft, 45-degree top-down. Left to right the same wheat patch progressively harvested at cumulative 10%,25%,45%,70%,90%,100%: first almost full standing wheat with one cut bundle, then increasing stubble and bundled sheaves until last only neatly cut straw stubble and two bound wheat sheaves. No ground tile rectangle, no text/numbers/borders/UI, no background. These are small subtle harvest progress overlays, consistently anchored at the same lower center. Crisp hand-pixel edges, brown/gold/olive palette from the reference, no glow."
+    },
+    {
+      "key": "animal_attacks_additional",
+      "ref": [
+        "game/assets/expansion/animal_kind2_walk.png",
+        "game/assets/expansion/animal_kind4_walk.png",
+        "game/assets/expansion/animal_kind15_walk.png",
+        "game/assets/expansion/animal_kind22_walk.png"
+      ],
+      "prompt": "Production pixel-art sprite sheet for the existing medieval management game, using the FOUR provided animal strips as exact species-design/style references. Preserve each reference animal's proportions, fur/feather/scales, colors, outline thickness and detailed small pixel clusters. Transparent background. Exactly FOUR ROWS and FOUR COLUMNS, 16 isolated sprites total, equal cells and generous transparent gutters. All animals face RIGHT, slight 45-degree elevated side view matching references. These are ATTACK actions only: each row is a four-frame loop [ready/tensed, wind-up, impact/lunge, recovery]. Row 1 the same shaggy CREAM mountain goat with brown curved horns and dark hooves, lowering horns and headbutting to the right. Row 2 the same rust-orange red FOX with white chest and white tail tip, a low pouncing bite to the right. Row 3 the same olive GREEN SNAKE with pale underbelly, coils compress then its head snaps forward right to bite, showing the same slender shape. Row 4 the same black/white OSTRICH with pale pink long neck/legs, balances then kicks one leg forward right, then recovers. Keep each row's body scale consistent and feet/ground baseline aligned, with full tails/horns/legs visible and margins. Clear natural physical attack silhouettes; no weapons, no effects, no blood, no hit reactions, no death sprites, no extra states, no text or grid lines. Match the references, not cute/chibi and not photographic."
     }
   ],
   "excluded_by_user": [

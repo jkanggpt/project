@@ -18,6 +18,24 @@ int expansion_livestock_slot(int kind) {
     return -1;
 }
 static int livestock(int kind) { return expansion_livestock_slot(kind); }
+/* 실제 소비와 자원 경고가 같은 연령·초지·겨울 계산을 사용합니다. */
+int expansion_animal_feed(const World *w, const CoreAnimalView *a, const Building *b) {
+    int k = livestock(a->kind);
+    const ExpansionState *e = w->expansion;
+    if (k < 0 || !e || !b || b->state != CORE_BSTATE_ACTIVE)
+        return 0;
+    int feed = FEED[k] / (a->age < MATURE[k] ? 2 : 1), grass = 0;
+    if (b->type == CORE_BLD_PASTURE && (k == 0 || k == 2 || k >= 4) && exp_season(w) != 3) {
+        for (int y = b->y - 3; y < b->y + b->h + 3; y++)
+            for (int x = b->x - 3; x < b->x + b->w + 3; x++)
+                if (grid_in_bounds(&w->grid, x, y) && expansion_center_distance(b, x, y) <= 3 &&
+                    e->tiles[grid_index(&w->grid, x, y)].biome == CORE_BIOME_GRASS)
+                    grass++;
+        if (grass >= 12)
+            feed = k == 6 ? (feed * 850 + 999) / 1000 : (feed + 1) / 2;
+    }
+    return feed;
+}
 CORE_API int32_t core_expansion_livestock_info(int32_t kind, int32_t type, CoreLivestockInfo *out) {
     if (!out)
         return CORE_ERR_NULL_ARG;
@@ -128,16 +146,7 @@ void expansion_animal_daily(World *w) {
             a->alive = 0;
             continue;
         }
-        int feed = FEED[k] / (a->age < MATURE[k] ? 2 : 1), grass = 0;
-        if (b->type == CORE_BLD_PASTURE && (k == 0 || k == 2 || k >= 4) && exp_season(w) != 3) {
-            for (int y = b->y - 3; y < b->y + b->h + 3; y++)
-                for (int x = b->x - 3; x < b->x + b->w + 3; x++)
-                    if (grid_in_bounds(&w->grid, x, y) && expansion_center_distance(b, x, y) <= 3 &&
-                        e->tiles[grid_index(&w->grid, x, y)].biome == CORE_BIOME_GRASS)
-                        grass++;
-            if (grass >= 12)
-                feed = k == 6 ? (feed * 850 + 999) / 1000 : (feed + 1) / 2;
-        }
+        int feed = expansion_animal_feed(w, a, b);
         int paid = exp_clamp(expansion_bank_have(w, CORE_RES_FOOD), 0, feed);
         (void)expansion_bank_add(w, CORE_RES_FOOD, -paid, CORE_LEDGER_CONSUMPTION);
         b->feed_milli += paid;

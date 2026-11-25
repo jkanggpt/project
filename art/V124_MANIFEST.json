@@ -419,8 +419,8 @@
     },
     {
       "path": "game/assets/expansion/animal_kind2_attack.png",
-      "bytes": 63438,
-      "sha256": "eb204dd6081163c00cd581af0c78af0cd5771b8e62a3b05de50f41b48be22cfd",
+      "bytes": 44980,
+      "sha256": "94b0e015f690d7adfbb4ce6363e32c756998601a488853e4c2dc4a1517d5e80f",
       "width": 384,
       "height": 96
     },
@@ -440,8 +440,8 @@
     },
     {
       "path": "game/assets/expansion/animal_kind4_attack.png",
-      "bytes": 47518,
-      "sha256": "baba57bd26d0f34513aa0d4d9d065416e62ee4f05f2242e528811b4b41135ce0",
+      "bytes": 35504,
+      "sha256": "eb837d7ac015994dbb56888ffe6c4524dc32e4e894babadcb722c63217e4ab3d",
       "width": 384,
       "height": 96
     },
@@ -517,8 +517,8 @@
     },
     {
       "path": "game/assets/expansion/animal_kind15_attack.png",
-      "bytes": 26101,
-      "sha256": "10a4a841cf9053943305db58cf0877dd36911338023c9dd1f069740a4ccdd90c",
+      "bytes": 23030,
+      "sha256": "70cd55302bcc5a7b638bfc5c1e05ffb3a7e2288e7fc8510b861a0e587db8f8f7",
       "width": 384,
       "height": 96
     },
@@ -608,8 +608,8 @@
     },
     {
       "path": "game/assets/expansion/animal_kind22_attack.png",
-      "bytes": 46056,
-      "sha256": "333caae17d6f6cc702a45b7ccc232b61beb454c953dff50f939cc11989495d73",
+      "bytes": 42170,
+      "sha256": "8d6fccf97ab1adcdab47de0c6ad8575b945292fa6fa42a32c53fbd660685bf38",
       "width": 384,
       "height": 96
     },
@@ -930,8 +930,8 @@
     },
     {
       "path": "game/assets/expansion/animal_attack_v124.png",
-      "bytes": 825404,
-      "sha256": "feb1d067b20598ab5f051ab8ba765ef30caddb6a17398c9ada35cd5d07c06e1d",
+      "bytes": 787997,
+      "sha256": "d5aa9f8bc81287c852a014d2ce2b1bafca7ea74400dca69a3f7c7890c0c4e73a",
       "width": 384,
       "height": 3360
     },

@@ -71,7 +71,8 @@ if(CASTLE_BUILD_GAME)
     ${PROJECT_SOURCE_DIR}/docs/v124_barter_source.csv ${PROJECT_SOURCE_DIR}/docs/v124_animal_data.json
     ${PROJECT_SOURCE_DIR}/docs/v124_art_applied.csv ${PROJECT_SOURCE_DIR}/docs/v124_species_samples.csv
     ${PROJECT_SOURCE_DIR}/docs/v124_forecast_samples.csv ${PROJECT_SOURCE_DIR}/docs/v124_merchant_samples.csv
-    ${PROJECT_SOURCE_DIR}/docs/v124_recipe_frequency.csv
+    ${PROJECT_SOURCE_DIR}/docs/v124_recipe_frequency.csv ${PROJECT_SOURCE_DIR}/docs/v124_balance_baseline.csv
+    ${PROJECT_SOURCE_DIR}/docs/v124_balance_analysis.json ${PROJECT_SOURCE_DIR}/docs/v124_habitat_observations.json
     ${PROJECT_SOURCE_DIR}/docs/v124_balance_results.csv ${PROJECT_SOURCE_DIR}/docs/v124_map_statistics.csv
     ${PROJECT_SOURCE_DIR}/docs/v124_performance_results.csv DESTINATION docs)
   install(FILES ${PROJECT_SOURCE_DIR}/art/V124_PROMPTS.json ${PROJECT_SOURCE_DIR}/art/V124_MANIFEST.json DESTINATION art)

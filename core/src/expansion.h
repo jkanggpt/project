@@ -77,6 +77,7 @@ int expansion_forecast_jitter(Rng *rng, int band);
 int expansion_is_medical(int type);
 int expansion_is_phantom(int kind);
 int expansion_livestock_slot(int kind);
+int expansion_animal_feed(const World *world,const CoreAnimalView *animal,const Building *owner);
 int expansion_lighthouse_bonus(const World *world, const Building *building);
 void expansion_harvest_release(World *world);
 int64_t expansion_harvest_deferred(const Building *building);

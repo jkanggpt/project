@@ -242,7 +242,7 @@ CORE_API int32_t core_expansion_daily_requirements(const CoreWorld *w,int32_t ou
     }
     for(int i=0;i<w->expansion->animal_count;i++) {
         const CoreAnimalView *a=&w->expansion->animals[i];if(!a->alive||!a->owner)continue;
-        out[CORE_RES_FOOD]+=a->kind==7?600:a->kind==9?450:a->kind==8?350:a->kind==10?150:0;
+        out[CORE_RES_FOOD]+=expansion_animal_feed(w,a,entity_find_building(w,a->owner));
     }
     for(int i=0;i<w->building_count;i++) {
         const Building *b=w->buildings[i];if(b->state!=CORE_BSTATE_ACTIVE)continue;

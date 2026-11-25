@@ -235,6 +235,7 @@ static void v124_animals(const char *in, const char *out) {
     Image walks = GenImageColor(384, 3360, BLANK), attacks = GenImageColor(384, 3360, BLANK),
           swims = GenImageColor(384, 3360, BLANK), babies = GenImageColor(384, 3360, BLANK),
           idle = GenImageColor(576, 576, BLANK);
+    Image added_attack=read_png(in,"animal_attacks_additional.png");
     const char *new_names[5] = {"zebra.png", "capybara.png", "goat.png", "alpaca.png", "turkey.png"},
                *pets[7] = {"cow", "sheep", "pig", "chicken", "goat", "alpaca", "turkey"};
     for (int kind = 0; kind < CORE_EXP_ANIMALS; kind++) {
@@ -265,7 +266,8 @@ static void v124_animals(const char *in, const char *out) {
             }
             UnloadImage(source);
         }
-        /* 전용 공격 프레임이 없는 신규 반격종은 같은 외형의 이동 프레임을 재사용합니다. */
+        if(kind==2||kind==4||kind==15||kind==22){int row=kind==2?0:kind==4?1:kind==15?2:3;UnloadImage(attack);attack=v124_row(added_attack,row,0,4,4,4,96);}
+        /* 사용하지 않는 공격 칸은 비워 두고 실제 공격종만 등록합니다. */
         if (info.attack && GetImageAlphaBorder(attack, .1f).width < 1) {
             UnloadImage(attack);
             attack = ImageCopy(walk);
@@ -313,6 +315,7 @@ static void v124_animals(const char *in, const char *out) {
     UnloadImage(attacks);
     UnloadImage(swims);
     UnloadImage(babies);
+    UnloadImage(added_attack);
     UnloadImage(old_walk);
     UnloadImage(old_attack);
     UnloadImage(old_swim);

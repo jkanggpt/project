@@ -450,9 +450,9 @@ static void building(GameApp *a, int index) {
     if (farm_row(b->type) >= 0 && b->type != CORE_BLD_GARDEN &&
         a->session.summary.season == CORE_SEASON_AUTUMN) {
         CoreHarvestView h;
-        if (core_expansion_harvest(a->session.world, b->id, &h) == CORE_OK && h.release_day >= 25 &&
-            h.release_day <= 30 && h.total_milli > 0) {
-            int frame = h.release_day - 25;
+        if (core_expansion_harvest(a->session.world, b->id, &h) == CORE_OK && h.year==a->session.summary.year &&
+            (h.release_day-1)%48>=24 && (h.release_day-1)%48<=29 && h.total_milli > 0) {
+            int frame = (h.release_day-1)%48-24;
             sprite(a->assets.harvest_phases, (Rectangle){frame * 128.0f, 0, 128, 128},
                    (Rectangle){dest.x + dest.width * .35f, dest.y + dest.height * .3f, dest.width * .4f,
                                dest.height * .4f},
