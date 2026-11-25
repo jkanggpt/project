@@ -1,0 +1,56 @@
+{
+  "runs": 144,
+  "errors": 0,
+  "save_skipped": 0,
+  "hash_matches": 144,
+  "difficulties": [
+    {
+      "difficulty": 0,
+      "runs": 48,
+      "survived": 44,
+      "losses": 4,
+      "village": 48,
+      "town": 2,
+      "city": 0,
+      "protected": 48
+    },
+    {
+      "difficulty": 1,
+      "runs": 48,
+      "survived": 36,
+      "losses": 12,
+      "village": 46,
+      "town": 2,
+      "city": 0,
+      "protected": 47
+    },
+    {
+      "difficulty": 2,
+      "runs": 48,
+      "survived": 1,
+      "losses": 47,
+      "village": 18,
+      "town": 0,
+      "city": 0,
+      "protected": 26
+    }
+  ],
+  "rows": 23619,
+  "wild_max": 275,
+  "habitat_overcapacity": 2,
+  "negative_food_or_gold": 0,
+  "livestock_max": 0,
+  "block_reasons": {
+    "lacks_population": 93,
+    "lacks_happiness": 123,
+    "lacks_valid_road": 19,
+    "lacks_protected_area": 60,
+    "lacks_protected_pop_pct": 73,
+    "lacks_research": 0,
+    "lacks_gold": 31,
+    "lacks_mana": 0,
+    "lacks_gold_bars": 0,
+    "lacks_building": 132,
+    "lacks_food": 13
+  }
+}

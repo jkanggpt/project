@@ -24,7 +24,9 @@ Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 보호구역 안에서는 주민의 안전 욕구가 회복되고, 위험 시 걸어갈 수 있는 가까운 보호구역으로 대피합니다. 성문 철거에도 도로 연결 검사를 적용합니다.
 개척지에는 5~8일과 10~13일에 각각 2명이 조건 없이 한 번씩 이주합니다. 두 번째 합류 이후 3일마다 1명씩 영구 인구 8명까지 보충합니다.
 
-![v1.2.3 건설 카드](docs/screenshots/v123_cards_1440.png)
+![v1.2.4 의원](docs/screenshots/v124clinic_1440.png)
+
+![v1.2.4 고급 어선과 그물](docs/screenshots/v124largeboat_1024.png)
 
 ![주민48외형](docs/screenshots/v122_villagers.png)
 ![성벽과 성문 연결·동물30종](docs/screenshots/v121_connections.png)
@@ -134,7 +136,7 @@ ctest --preset linux-debug -j8
 ./build/windows-msvc/bin/Release/castle_cli.exe
 ./build/windows-msvc/bin/Release/castle_cli.exe --soak 400 --seeds 20
 
-# 전체 원화 재패킹은 기본 확장판 → v1.1.1 → v1.2.1 → v1.2.2 → 후속 보완 → v1.2.3 순서
+# 전체 원화 재패킹은 기본 확장판 → v1.1.1 → v1.2.1 → v1.2.2 → 후속 보완 → v1.2.3 → v1.2.4 순서
 ./build/windows-msvc/bin/Release/castle_expansion_art.exe art/expansion game/assets/expansion
 ./build/windows-msvc/bin/Release/castle_v111_art.exe art/v111 game/assets/expansion
 ./build/windows-msvc/bin/Release/castle_v111_art.exe --check game/assets/expansion
@@ -146,6 +148,8 @@ ctest --preset linux-debug -j8
 ./build/windows-msvc/bin/Release/castle_ui_art.exe --check game/assets/expansion
 ./build/windows-msvc/bin/Release/castle_v123_art.exe
 ./build/windows-msvc/bin/Release/castle_v123_art.exe --check game/assets/expansion
+./build/windows-msvc/bin/Release/castle_v124_art.exe art/v124 game/assets/expansion
+./build/windows-msvc/bin/Release/castle_v124_art.exe --check game/assets/expansion docs/v124_art_source.csv
 
 # 새160 지도1000시드와 동일 시드 구192 광종별 총량 비교
 ./build/windows-msvc/bin/Release/castle_v123_worlds.exe 1000
@@ -155,7 +159,7 @@ ctest --preset linux-debug -j8
 `tools/screenshots.cmake`, `tools/smoke_test.cmake`로도 실행할 수 있습니다.
 각 실행 파일은 `--help`를 제공합니다.
 
-현재 버전의 전체 검사·실제 v9/v10 이관·1000시드 지도·144판 장기 평가·성능 결과는 [v1.2.3 검증 기록](docs/V1_2_3_QA.md)에 기록합니다. 이전 버전의 수치는 해당 버전 QA 문서에 보존합니다.
+현재 버전의 전체277검사·실제 v9/v10/v11 이관·1000시드 지도·144판 장기 평가·성능 결과는 [v1.2.4 검증 기록](docs/V1_2_4_QA.md)에 기록합니다. 성장 목표와 반복 성능 목표의 미달도 함께 공개합니다. 이전 버전의 수치는 해당 버전 QA 문서에 보존합니다.
 
 ## 구조
 
