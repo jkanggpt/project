@@ -18,6 +18,12 @@ typedef struct ExpansionBot {
     GamePathfinder finder;
 } ExpansionBot;
 
+/* 코어와 같은 중심 격자 간 최단 맨해튼 거리입니다. */
+static int center_distance(const CoreBuildingView *a,const CoreBuildingView *b) {
+    int al=a->x+(a->w-1)/2,ar=a->x+a->w/2,at=a->y+(a->h-1)/2,ab=a->y+a->h/2;
+    int bl=b->x+(b->w-1)/2,br=b->x+b->w/2,bt=b->y+(b->h-1)/2,bb=b->y+b->h/2;
+    int dx=al>br?al-br:bl>ar?bl-ar:0,dy=at>bb?at-bb:bt>ab?bt-ab:0;return dx+dy;
+}
 static int trade_level(int type) {
     return type==CORE_BLD_STALL?1:type==CORE_BLD_MARKET?2:type==CORE_BLD_TRADING_POST?3:0;
 }
@@ -178,13 +184,14 @@ static int build(ExpansionBot *bot, int type) {
                             continue;
                         for (j = 0; j < bot->buildings_count; j++) {
                             const CoreBuildingView *well = &bot->buildings[j];
-                            if (well->type == CORE_BLD_WELL && well->state != CORE_BSTATE_RUINED &&
-                                abs(well->x - home->x) + abs(well->y - home->y) <= 8) {
+                            if ((well->type == CORE_BLD_WELL||well->type==CORE_BLD_WATER_TOWER) && well->state != CORE_BSTATE_RUINED &&
+                                center_distance(well,home) <= (well->type==CORE_BLD_WATER_TOWER?14:8)) {
                                 supplied = 1;
                                 break;
                             }
                         }
-                        if (!supplied && abs(home->x - x) + abs(home->y - y) <= 8)
+                        CoreBuildingView candidate={0};candidate.x=x;candidate.y=y;candidate.w=candidate.h=1;
+                        if (!supplied && center_distance(home,&candidate) <= 8)
                             score += 2000 + home->residents * 200;
                     }
                 }
@@ -291,8 +298,8 @@ static int needs_well(const ExpansionBot *bot) {
             continue;
         for (j = 0; j < bot->buildings_count; j++) {
             const CoreBuildingView *well = &bot->buildings[j];
-            if (well->type == CORE_BLD_WELL && well->state != CORE_BSTATE_RUINED &&
-                abs(well->x - home->x) + abs(well->y - home->y) <= 8) {
+            if ((well->type == CORE_BLD_WELL||well->type==CORE_BLD_WATER_TOWER) && well->state != CORE_BSTATE_RUINED &&
+                center_distance(well,home) <= (well->type==CORE_BLD_WATER_TOWER?14:8)) {
                 supplied = 1;
                 break;
             }
@@ -303,7 +310,7 @@ static int needs_well(const ExpansionBot *bot) {
     return bot->summary.water_served < bot->summary.permanent_population;
 }
 static void staffing(ExpansionBot *bot) {
-    int priorities[32], n = 0, i, j;
+    int priorities[48], n = 0, i, j;
     priorities[n++] = CORE_BLD_LOGGING_SITE;
     priorities[n++] = CORE_BLD_OUTPOST;
     if (bot->summary.resources[CORE_RES_LOGS] < 40 && bot->summary.population >= 6)
@@ -325,6 +332,8 @@ static void staffing(ExpansionBot *bot) {
     priorities[n++] = CORE_BLD_LUMBER;
     priorities[n++] = CORE_BLD_HEALER;
     priorities[n++] = CORE_BLD_BATHHOUSE;
+    if (bot->summary.resources[CORE_RES_CLAY] < 30)
+        priorities[n++] = CORE_BLD_CLAY_PIT;
     priorities[n++] = CORE_BLD_MINE;
     priorities[n++] = CORE_BLD_SMELTER;
     priorities[n++] = CORE_BLD_KILN;
@@ -382,7 +391,37 @@ static void trade_quantity(CoreWorld *w,int resource,int units) {
 }
 void sim_expansion_bot_trade(CoreWorld *world) {
     CoreSummaryView s;
-    if(core_get_summary(world,&s)!=CORE_OK || !s.ruleset || !s.market_open || s.market_limit<=s.market_used)return;
+    if (core_get_summary(world, &s) != CORE_OK || !s.ruleset)
+        return;
+    CoreWanderingMerchantView merchant = {0};
+    core_expansion_merchant_view(world, &merchant);
+    if (merchant.state == CORE_MERCHANT_TRADING)
+        for (int slot = 0; slot < merchant.offer_count; slot++) {
+            CoreBarterRecipe recipe;
+            if (core_expansion_barter_recipe(merchant.recipe_ids[slot], &recipe) != CORE_OK)
+                continue;
+            for (int use = 0; use < merchant.remaining[slot]; use++) {
+                core_get_summary(world, &s);
+                int reserve = recipe.pay_resource == CORE_RES_FOOD    ? s.population * 6
+                              : recipe.pay_resource == CORE_RES_LOGS  ? 25
+                              : recipe.pay_resource == CORE_RES_HERBS ? 8
+                                                                      : 10;
+                int useful = recipe.get_resource == CORE_RES_MANA ||
+                             s.resources[recipe.get_resource] <
+                                 (recipe.get_resource == CORE_RES_FOOD ? s.population * 8 : 30);
+                if (!useful || recipe.benefit_bp <= 0 ||
+                    s.resources[recipe.pay_resource] < recipe.pay_count + reserve)
+                    break;
+                int32_t why = 0;
+                if (core_expansion_merchant_trade(world, merchant.visit_id, recipe.id,
+                                                  merchant.last_nonce + 1, &why) != CORE_OK)
+                    break;
+                merchant.last_nonce++;
+            }
+        }
+    core_get_summary(world, &s);
+    if (!s.market_open || s.market_limit <= s.market_used)
+        return;
     if(s.resources[CORE_RES_HERBS]>25)trade_quantity(world,CORE_RES_HERBS,-10);
     else if(s.resources[CORE_RES_FOOD]>s.population*10+100)trade_quantity(world,CORE_RES_FOOD,-10);
     (void)core_get_summary(world,&s);
@@ -474,7 +513,7 @@ int sim_expansion_bot_daily(CoreWorld *world) {
     else if (!count_type(&bot, CORE_BLD_OUTPOST))
         (void)build(&bot, CORE_BLD_OUTPOST);
     else if (bot.summary.housing_capacity <
-             (bot.summary.rank ? bot.summary.population + (bot.summary.protected_area >= 25 ? 2 : 0) : 8)) {
+             (bot.summary.rank ? bot.summary.population + (bot.summary.protected_area >= 25 ? 4 : 0) : 8)) {
         int housing = bot.summary.rank >= 3 && afford(&bot, CORE_BLD_MANSION)   ? CORE_BLD_MANSION
                       : bot.summary.rank >= 2 && afford(&bot, CORE_BLD_HOUSE)   ? CORE_BLD_HOUSE
                       : bot.summary.rank >= 1 && afford(&bot, CORE_BLD_COTTAGE) ? CORE_BLD_COTTAGE
@@ -499,11 +538,11 @@ int sim_expansion_bot_daily(CoreWorld *world) {
         (void)build(&bot, CORE_BLD_GRANARY);
     } else if (bot.summary.rank >= 1) {
         const int essentials[] = {
-            CORE_BLD_GRANARY,  CORE_BLD_SAWMILL, CORE_BLD_QUARRY,     CORE_BLD_CROPLAND,
-            CORE_BLD_OUTPOST,  CORE_BLD_STALL,   CORE_BLD_LUMBER,     CORE_BLD_KILN,
-            CORE_BLD_MINE,     CORE_BLD_SMELTER, CORE_BLD_MARKET,     CORE_BLD_LIBRARY,
-            CORE_BLD_BARRACKS, CORE_BLD_TOWER,   CORE_BLD_MAGE_TOWER, CORE_BLD_CROSSBOW_TOWER,
-            CORE_BLD_HEALER, CORE_BLD_BATHHOUSE, CORE_BLD_WAREHOUSE};
+            CORE_BLD_GRANARY,        CORE_BLD_SAWMILL,  CORE_BLD_QUARRY,    CORE_BLD_CLAY_PIT,
+            CORE_BLD_CROPLAND,       CORE_BLD_OUTPOST,  CORE_BLD_STALL,     CORE_BLD_LUMBER,
+            CORE_BLD_KILN,           CORE_BLD_MINE,     CORE_BLD_SMELTER,   CORE_BLD_MARKET,
+            CORE_BLD_LIBRARY,        CORE_BLD_BARRACKS, CORE_BLD_TOWER,     CORE_BLD_MAGE_TOWER,
+            CORE_BLD_CROSSBOW_TOWER, CORE_BLD_HEALER,   CORE_BLD_BATHHOUSE, CORE_BLD_WAREHOUSE};
         for (i = 0; i < (int)(sizeof(essentials) / sizeof(essentials[0])); i++)
             if (!count_type(&bot, essentials[i]) && afford(&bot, essentials[i])) {
                 (void)build(&bot, essentials[i]);
@@ -536,7 +575,7 @@ int sim_expansion_bot_daily(CoreWorld *world) {
             tax = 2;
         (void)core_expansion_set_tax(world, tax);
     }
-    if (bot.summary.rank >= 3 && bot.summary.research_active < 0)
+    if (bot.summary.rank >= 1 && bot.summary.research_active < 0 && count_type(&bot, CORE_BLD_LIBRARY))
         for (i = 0; i < 24; i++) {
             CoreResearchView view;
             int32_t reason = 0;

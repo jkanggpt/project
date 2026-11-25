@@ -34,28 +34,35 @@ static void hud(GameApp *a) {
     if (ui_button(u, rect(10, 9, 76, 36), u8"메뉴", 1, 0, u8"Esc: 일시정지 메뉴"))
         game_app_open(a, PANEL_PAUSE);
     ui_text(u, 100, 16, UI_GOLD, u8"%s · %s", s->castle_name, core_expansion_rank_name(s->rank));
-    ui_small(u, 100, 48, UI_MUTED, u8"%d년 %s %d일  %02d:%02d  (시드 %d)", s->year,
+    if(width<1100)DrawTextEx(a->assets.font,TextFormat(u8"%d년 %s %d일  %02d:%02d",s->year,fmt_season_name(s->season),s->day_of_season,s->minute_of_day/60,s->minute_of_day%60),(Vector2){100,45},14,0,UI_MUTED);
+    else ui_small(u, 100, width < 1100 ? 44.0f : 48.0f, UI_MUTED, u8"%d년 %s %d일  %02d:%02d  (시드 %d)", s->year,
              fmt_season_name(s->season), s->day_of_season, s->minute_of_day / 60, s->minute_of_day % 60,
              s->seed);
-    if (ui_button(u, rect(540, 9, 46, 36), a->speed ? "||" : ">", 1, !a->speed,
+    if (ui_button(u, rect(width < 1100 ? width - 200 : 540, 4, 42, 30), a->speed ? "||" : ">", 1, !a->speed,
                   u8"스페이스: 일시정지 / 계속"))
         a->speed = a->speed ? 0 : 1;
     for (i = 1; i <= 3; i++) {
         (void)snprintf(text, sizeof(text), "%dx", i);
-        if (ui_button(u, rect(590 + (i - 1) * 47.0f, 9, 42, 36), text, 1, a->speed == i, u8"숫자 1~3: 배속"))
+        if (ui_button(u, rect((width < 1100 ? width - 152 : 590) + (i - 1) * 47.0f, 4, 42, 30), text, 1,
+                      a->speed == i, u8"숫자 1~3: 배속"))
             a->speed = i;
     }
     {
         static const char *const labels[] = {u8"승급", u8"연구", u8"거래", u8"고용", u8"주민", u8"장부"};
         static const GamePanel panels[] = {PANEL_RANK,     PANEL_RESEARCH,  PANEL_MARKET,
                                            PANEL_MERCHANT, PANEL_VILLAGERS, PANEL_LEDGER};
-        float button_w = (width - 750) / 6;
+        float menu_x = width < 1100 ? width - 365 : 740;
+        float button_w = (width - menu_x - 8) / 6;
         if (button_w > 90)
             button_w = 90;
         for (i = 0; i < 6; i++)
-            if (ui_button(u, rect(740 + i * button_w, 9, button_w - 5, 36), labels[i], 1, 0, NULL))
+            if (ui_button(u, rect(menu_x + i * button_w, width < 1100 ? 43.0f : 9.0f, button_w - 5, 36),
+                          labels[i], 1, 0, NULL))
                 game_app_open(a, panels[i]);
     }
+    float hud_font = u->font_size;
+    if (width < 1100)
+        u->font_size = 14;
     int32_t daily[CORE_RES_COUNT]={0};core_expansion_daily_requirements(a->session.world,daily);
     for (int display = 0; display < CORE_RES_COUNT; display++) {
         i = core_expansion_display_resource(display);
@@ -111,6 +118,7 @@ static void hud(GameApp *a) {
                      status.reasons & 64 ? u8"행복도" : "");
         }
     }
+    u->font_size = hud_font;
     char lines[6][180];Color colors[6];int count=0;CoreEventLayers layers={0};
     core_expansion_events(a->session.world,&layers);
     if(s->nature_event){snprintf(lines[count],180,u8"%s · %d일 남음",fmt_nature_name(s->nature_event),s->nature_days_left);colors[count++]=UI_GOLD;}
@@ -140,75 +148,135 @@ static void build_bar(GameApp *a) {
                                         u8"의료·위생", u8"도로",   u8"농업", u8"축산",      u8"임업",
                                         u8"광업",      u8"어업",   u8"가공", u8"문화·교육", u8"마법",
                                         u8"수렵",      u8"방어탑", u8"군사"};
+    static const Color colors[6] = {{133, 127, 121, 255}, {117, 164, 95, 255}, {63, 157, 175, 255},
+                                    {89, 116, 212, 255},  {161, 75, 199, 255}, {229, 184, 66, 255}};
     GameUi *u = &a->ui;
-    float y = GetScreenHeight() - 190.0f, width = (float)GetScreenWidth(), cw = (width - 130) / 8,
-          bw = (width - 20) / 8;
-    int i, count = 0;
-    char cost[300], tip[600];
-    ui_box(rect(0, y, width, 190), UI_BG);
-    for (i = 0; i < 16; i++)
-        if (ui_button(u, rect(10 + i % 8 * cw, y + 6 + i / 8 * 34, cw - 4, 30), names[groups[i]], 1,
-                      a->category == groups[i], NULL))
-            a->category = groups[i];
-    if (ui_button(u, rect(width - 114, y + 8, 104, 32), u8"철거 X", 1, a->demolish,
-                  u8"도로 연결이 끊기는 철거는 거절합니다.")) {
+    float y = GetScreenHeight() - 248.0f, width = (float)GetScreenWidth(), tab = (width - 126) / 8;
+    ui_box(rect(0, y, width, 248), UI_BG);
+    for (int i = 0; i < 16; i++) {
+        Rectangle r = rect(8 + i % 8 * tab, y + 5 + i / 8 * 29, tab - 4, 26);
+        if (ui_button(u,r,names[groups[i]],1,a->category==groups[i],NULL)) {
+            a->category=groups[i];a->build_scroll=0;
+        }
+    }
+    if (ui_button(u, rect(width - 112, y + 5, 104, 26), u8"철거 X", 1, a->demolish,
+                  u8"도로 연결을 보존하는 철거")) {
         a->demolish = !a->demolish;
         a->build_type = -1;
     }
     CoreBuildingView *selected = game_building(&a->session, a->selected_building);
-    int rotate_type = a->build_type >= 0 ? a->build_type : selected ? selected->type : -1;
-    CoreExpansionBuildingInfo rotate_info = {0};
-    if (rotate_type >= 0)
-        (void)core_expansion_building_info(rotate_type, &rotate_info);
-    int can_rotate = rotate_type >= 0 && rotate_type != CORE_BLD_KEEP &&
-                     !(rotate_info.flags & (CORE_EXP_WALL | CORE_EXP_ROAD));
-    if (ui_button(u, rect(width - 114, y + 44, 104, 28), can_rotate ? u8"회전 R" : u8"방향 고정", can_rotate, 0,
-                  can_rotate ? u8"선택한 건물 또는 건설 미리보기를 회전합니다."
-                             : u8"영주관은 정면 고정이며 성벽·도로는 주변 칸에 자동 연결됩니다.")) {
+    int rotate = a->build_type >= 0 ? a->build_type : selected ? selected->type : -1;
+    CoreExpansionBuildingInfo info = {0};
+    if (rotate >= 0)
+        core_expansion_building_info(rotate, &info);
+    int can_rotate =
+        rotate >= 0 && rotate != CORE_BLD_KEEP && !(info.flags & (CORE_EXP_WALL | CORE_EXP_ROAD));
+    if (ui_button(u, rect(width - 112, y + 34, 104, 26), u8"회전 R", can_rotate, 0, NULL)) {
         if (a->build_type >= 0)
             a->rotation = (a->rotation + 1) % 4;
-        else if (a->selected_building) {
-            CoreBuildingView *b = game_building(&a->session, a->selected_building);
+        else if (selected) {
             int32_t reason = 0;
-            if (b) {
-                int rc = core_rotate_building(a->session.world, b->id, (b->rotation + 1) % 4, &reason);
-                game_app_result(a, rc, reason, 1);
+            game_app_result(
+                a,
+                core_rotate_building(a->session.world, selected->id, (selected->rotation + 1) % 4, &reason),
+                reason, 1);
+        }
+    }
+    int list[CORE_BLD_COUNT], count = 0;
+    for (int order = 0; order < CORE_BLD_COUNT - 1; order++) {
+        int type = core_expansion_display_building(order);
+        if (type > 0 && a->session.building_defs[type].category == a->category)
+            list[count++] = type;
+    }
+    int columns = (int)((width - 16 + 8) / 168);
+    if (columns < 1)
+        columns = 1;
+    float card = fminf(192, (width - 16 - (columns - 1) * 8) / columns);
+    int max = count - columns;
+    if (max < 0)
+        max = 0;
+    if (a->build_scroll > max)
+        a->build_scroll = max;
+    float old_font = u->font_size;
+    u->font_size = 15;
+    for (int column = 0; column < columns && a->build_scroll + column < count; column++) {
+        int type = list[a->build_scroll + column];
+        CoreBuildingDefView *d = &a->session.building_defs[type];
+        core_expansion_building_info(type, &info);
+        int group = d->required_rank, missing = 0;
+        char cost[700], tip[1800];
+        cost_text(d, cost, sizeof(cost));
+        for (int r = 0; r < CORE_RES_COUNT; r++)
+            missing |= a->session.summary.resources[r] < d->cost[r];
+        int unlocked = a->session.summary.rank >= d->required_rank,
+            locked = core_expansion_build_locked(a->session.world);
+        snprintf(tip, sizeof(tip),
+                 u8"%s 해금%s\n%s · %d×%d칸\n%s\n직원 %d · 공사 %d시간 · 유지 %d금/일\n비용: %s\n%s",
+                 core_expansion_rank_name(d->required_rank), unlocked ? u8" · 충족" : u8" · 등급 부족",
+                 info.name, d->w, d->h, info.description, d->worker_slots, info.build_hours, d->upkeep, cost,
+                 locked    ? u8"습격 중 건설 불가"
+                 : missing ? u8"건설 재료 부족"
+                           : u8"배치 시 지형·도로·시야를 다시 검사합니다.");
+        Rectangle r = rect(8 + column * (card + 8), y + 66, card, 148);
+        Color fill = colors[group < 0 ? 0 : group];
+        DrawRectangleRounded(r, .08f, 4, Fade(fill,.18f));
+
+
+        Rectangle source={0};Texture2D texture=game_building_preview(a,type,&source);
+        float scale = fminf((r.width - 22) / source.width, 67 / source.height);
+        DrawTexturePro(texture, source,
+                       rect(r.x + (r.width - source.width * scale) / 2, r.y + 5, source.width * scale,
+                            source.height * scale),
+                       (Vector2){0, 0}, 0, WHITE);
+        ui_wrap(u, rect(r.x + 7, r.y + 74, r.width - 14, 23), UI_TEXT, info.name);
+        float cx = r.x + 8, cy = r.y + 92;
+        for (int order = 0; order < CORE_RES_COUNT; order++) {
+            int resource = core_expansion_display_resource(order);
+            if (!d->cost[resource])
+                continue;
+            char amount[24];
+            snprintf(amount, sizeof(amount), "%d", d->cost[resource]);
+            float need = 20 + MeasureTextEx(a->assets.font, amount, 12, 0).x + 8;
+            if (cx + need > r.x + r.width - 5) {
+                cx = r.x + 8;
+                cy += 18;
+            }
+            Texture2D icon = a->assets.resources[resource];
+            DrawTexturePro(icon, rect(0, 0, (float)icon.width, (float)icon.height), rect(cx, cy, 16, 16),
+                           (Vector2){0, 0}, 0, WHITE);
+            DrawTextEx(a->assets.font, amount, (Vector2){cx + 19, cy + 2}, 12, 0,
+                       a->session.summary.resources[resource] < d->cost[resource] ? UI_BAD : UI_TEXT);
+            cx += need;
+        }
+        if (!unlocked)
+            DrawRectangleRounded(r, .08f, 4, (Color){19, 25, 35, 115});
+        DrawRectangleLinesEx(r,a->build_type==type?3.0f:1.5f,fill);
+
+        if (CheckCollisionPointRec(GetMousePosition(), r)) {
+            snprintf(u->tooltip, sizeof(u->tooltip), "%s", tip);
+            u->tooltip_bad = !unlocked;
+            if (!u->input_blocked && !u->consumed && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+                u->consumed = 1;
+                if (unlocked && !missing && !locked) {
+                    a->build_type = type;
+                    a->demolish = 0;
+                } else
+                    game_app_notice(a, locked    ? u8"습격 중 건설 불가"
+                                       : missing ? u8"건설 자원 부족"
+                                                 : u8"해금 등급 부족");
             }
         }
     }
-    for (int display = 0; display < CORE_BLD_COUNT - 1; display++) {
-        i = core_expansion_display_building(display);
-        CoreBuildingDefView *d = &a->session.building_defs[i];
-        CoreExpansionBuildingInfo info;
-        if (d->category != a->category)
-            continue;
-        (void)core_expansion_building_info(i, &info);
-        cost_text(d, cost, sizeof(cost));
-        (void)snprintf(tip, sizeof(tip), u8"%s · %d×%d칸\n%s\n일꾼 %d · 유지비 %d금/일 · %s 해금\n%s",
-                       info.name, d->w, d->h, cost, d->worker_slots, d->upkeep,
-                       core_expansion_rank_name(d->required_rank), info.description);
-        if (ui_button(u, rect(10 + count % 8 * bw, y + 80 + count / 8 * 38, bw - 5, 34), info.name,
-                      d->available, a->build_type == i, tip)) {
-            a->build_type = i;
-            a->demolish = 0;
-        }
-        count++;
-    }
-    if (a->build_type >= 0) {
-        CoreBuildingDefView *d = &a->session.building_defs[a->build_type];
-        Vector2 p = GetScreenToWorld2D(GetMousePosition(), a->camera);
-        CorePlacementView preview;
-        int bworld = (a->rotation & 1) ? d->h : d->w, bhworld = (a->rotation & 1) ? d->w : d->h;
-        cost_text(d, cost, sizeof(cost));
-        (void)core_can_place_rotated(a->session.world, a->build_type,
-                                     (int)floorf(p.x / 16) - (bworld - 1) / 2,
-                                     (int)floorf(p.y / 16) - (bhworld - 1) / 2, a->rotation, &preview);
-        ui_small(u, 12, y + 153, preview.result == CORE_PLACE_OK ? UI_GOOD : UI_BAD,
-                 u8"%s · %d×%d · 회전 %d° · %s", core_expansion_building_name(a->build_type), bworld, bhworld,
-                 a->rotation * 90, fmt_place_result(preview.result));
-    } else
-        ui_small(u, 12, y + 153, UI_MUTED,
-                 u8"WASD 이동 · 휠 확대 · R 회전 · 스페이스 일시정지 · V 주민 · F1 도움말");
+    u->font_size = old_font;
+    if (ui_button(u, rect(width - 84, y + 218, 34, 25), "<", a->build_scroll > 0, 0, NULL))
+        a->build_scroll--;
+    if (ui_button(u, rect(width - 44, y + 218, 34, 25), ">", a->build_scroll < max, 0, NULL))
+        a->build_scroll++;
+    if (a->build_type >= 0)
+        ui_small(u, 12, y + 224, UI_GOLD, u8"%s · R 회전 · 좌클릭 배치 · 우클릭 취소",
+                 core_expansion_building_name(a->build_type));
+    else
+        ui_small(u, 12, y + 224, UI_MUTED, u8"WASD 이동 · 휠 확대 · V 주민 · F1 도움말");
 }
 static void inspector(GameApp *a) {
     float x = GetScreenWidth() - 340.0f, y = 145, width = 326;
@@ -217,8 +285,8 @@ static void inspector(GameApp *a) {
     CoreBuildingView *b = game_building(s, a->selected_building);
     CoreVillagerView *v = game_villager(s, a->selected_villager);
     int blocked = u->input_blocked;
-    Rectangle viewport = rect(x - 6, 135, 346, GetScreenHeight() - 330.0f);
-    ui_box(rect(x - 6, 135, 346, GetScreenHeight() - 330.0f), UI_PANEL);
+    Rectangle viewport = rect(x - 6, 135, 346, GetScreenHeight() - 388.0f);
+    ui_box(rect(x - 6, 135, 346, GetScreenHeight() - 388.0f), UI_PANEL);
     if (CheckCollisionPointRec(GetMousePosition(), viewport)) {
         a->inspector_scroll -= (int)(GetMouseWheelMove() * 50);
         if (a->inspector_scroll < 0)
@@ -235,11 +303,13 @@ static void inspector(GameApp *a) {
         candidate.state=CORE_BSTATE_ACTIVE;candidate.worker_slots=info.workers;candidate.job_field=info.job_field;
         ui_text(u,x+8,y,UI_GOLD,u8"%s · 건설 후보",info.name);y+=40;
         y=game_facility_details(a,&candidate,x+8,y,width-24);
-    } else if(game_unit_details(a,x+8,&y,width-24)) {
+    } else if (game_v123_merchant_details(a, x + 8, &y, width - 24)) {
+    } else if (game_unit_details(a, x + 8, &y, width - 24)) {
     } else if (b) {
         ui_text(u, x + 8, y, UI_GOLD, "%s #%d", core_expansion_building_name(b->type), b->type_serial);
         y += 40;
         ui_small(u,x+8,y,UI_TEXT,u8"체력 %d/%d · 거주 %d/%d",b->hp,b->max_hp,b->residents,b->resident_slots);y+=30;
+        y = game_v123_building_details(a, b, x + 8, y, width - 24);
         y=game_facility_details(a,b,x+8,y,width-24);
         {
             CoreExpansionBuildingInfo info;
@@ -331,6 +401,14 @@ static void inspector(GameApp *a) {
             ui_button(u, rect(x + 8, y, width - 24, 36), u8"철거 (비용 절반 환불)", 1, 0, NULL))
             command(a, core_demolish(s->world, b->id), 0);
     } else if (v) {
+        if (a->profile_home) {
+            if (ui_button(u, rect(x + 8, y, width - 24, 32), u8"거주 건물로 돌아가기", 1, 0, NULL)) {
+                int home = a->profile_home;
+                a->profile_home = 0;
+                game_select(a, 1, home);
+            }
+            y += 42;
+        }
         y=game_person_details(a,v,x+8,y,width-24);
         if (ui_button(u, rect(x + 8, y, width - 24, 36), u8"일터 직접 선택", 1, 0, NULL))
             game_app_open(a, PANEL_ASSIGN);
@@ -340,6 +418,25 @@ static void inspector(GameApp *a) {
         y += 44;
         if (ui_button(u, rect(x + 8, y, width - 24, 36), u8"자동 배치에 맡기기", 1, 0, NULL))
             command(a, core_release_worker(s->world, v->id), 0);
+        y += 44;
+        CoreExileView check;
+        core_expansion_can_expel(s->world, v->id, &check);
+        const char *why = check.reason == CORE_EXILE_FLOOR8
+                              ? u8"영구 주민은 떠날 예정인 인원을 제외해도 8명 이상이어야 합니다."
+                          : check.reason == CORE_EXILE_NO_PATH ? u8"지도 경계까지 걸어갈 경로가 없습니다."
+                          : check.reason ? u8"이미 떠나는 주민이거나 추방할 수 없습니다."
+                                         : u8"일터와 주거를 해제하고 실제로 영지를 떠납니다.";
+        if(CheckCollisionPointRec(GetMousePosition(),rect(x+8,y,width-24,36)))snprintf(u->tooltip,sizeof(u->tooltip),"%s",why);
+        if (ui_color_button(u, rect(x + 8, y, width - 24, 36), u8"추방", !check.reason, 0, UI_BAD)) {
+            a->confirm_action = 5;
+            a->confirm_entity = v->id;
+            snprintf(
+                a->confirm_text, sizeof(a->confirm_text),
+                u8"%s 주민을 추방하시겠습니까? 승인 후 일터와 주거가 해제되며 영지 경계까지 걸어서 떠납니다.",
+                v->name);
+            game_app_open(a, PANEL_CONFIRM);
+        }
+        DrawRectangleLinesEx(rect(x + 8, y, width - 24, 36), 1, UI_BAD);
     } else {
         ui_text(u, x + 8, y, UI_GOLD, u8"성채 안내");
         y += 40;
@@ -490,7 +587,14 @@ static void pause_menu(GameApp *a) {
 static void slots(GameApp *a, int saving) {
     Rectangle b = modal(a, saving ? u8"저장하기" : u8"불러오기", 1000, 610);
     int legacy=!saving && a->load_legacy;
-    if(!saving && ui_button(&a->ui,rect(b.x+28,b.y+55,340,30),legacy?u8"v10 저장 보기":u8"기존 v9 저장 가져오기",1,legacy,u8"원본을 보존하고 빈 v10 슬롯에 이관합니다."))a->load_legacy=!a->load_legacy;
+    if (!saving)
+        for (int version = 0; version < 3; version++)
+            if (ui_button(&a->ui, rect(b.x + 28 + version * 260.0f, b.y + 55, 250, 30),
+                          version == 0   ? u8"현재 v11"
+                          : version == 1 ? u8"v9 원본 가져오기"
+                                         : u8"v10 원본 가져오기",
+                          1, a->load_legacy == version, u8"원본을 보존하고 빈 v11 슬롯에 이관합니다."))
+                a->load_legacy = version;
     float y = b.y + 102;
     int slot;
     for (slot = saving ? 1 : 0; slot <= 3; slot++) {
@@ -996,6 +1100,11 @@ static void confirm(GameApp *a) {
         if (action == 1) {
             a->in_game = 0;
             a->panel = PANEL_TITLE;
+        } else if (action == 5) {
+            int rc = core_expansion_expel(a->session.world, a->confirm_entity);
+            game_app_result(a, rc, 0, 0);
+            game_app_close(a);
+            game_session_refresh(&a->session);
         } else if (action == 2)
             a->quit = 1;
         else if (action == 3)
@@ -1099,7 +1208,7 @@ void game_render_interface(GameApp *a) {
         GameSession *s = &a->session;
         static const char *const biomes[] = {u8"초원", u8"숲",   u8"타이가", u8"산악", u8"습지",
                                              u8"설원", u8"사막", u8"호수",   u8"늪",   u8"사바나"};
-        if (screen.y > 132 && screen.y < GetScreenHeight() - 190 && x >= 0 && y >= 0 &&
+        if (screen.y > 132 && screen.y < GetScreenHeight() - 248 && screen.x<GetScreenWidth()-350 && x >= 0 && y >= 0 &&
             x < s->summary.map_width && y < s->summary.map_height && s->exp_tiles) {
             CoreExpansionTileView *tile = &s->exp_tiles[y * s->summary.map_width + x];
             if (tile->explored) {
@@ -1124,6 +1233,7 @@ void game_render_interface(GameApp *a) {
                              biomes[tile->biome]);
                 } else
                     snprintf(a->ui.tooltip, sizeof(a->ui.tooltip), "%s (%d,%d)", biomes[tile->biome], x, y);
+                if(!tile->water_id){size_t used=strlen(a->ui.tooltip);snprintf(a->ui.tooltip+used,sizeof(a->ui.tooltip)-used,u8"\n토양 점토 %.1f / 최초 %.1f · 해안 보정 %d%%\n채토장·채집장이 공유하며 자연 재생하지 않습니다.",tile->clay_milli/1000.0,tile->clay_initial_milli/1000.0,tile->clay_shore_percent);}
             }
         }
     }

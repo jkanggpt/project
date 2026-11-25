@@ -93,7 +93,7 @@ static int stone_base(const World *w,int p) {
     int weight=(int[]){6,6,6,10,5,8,7,4,5,6}[w->expansion->tiles[p].biome];
     return (8000+(int)(map_noise(w->seed,p%w->grid.width,p/w->grid.width)%10001))*weight/6;
 }
-void expansion_v122_generate(World *w) {
+void expansion_legacy_generate(World *w) {
     ExpansionState *e=w->expansion;
     /* 연결 성분별로 호수를 배치하여 물의 수와 실제 수역 수가 일치하게 합니다. */
     for(int p=0;p<e->cells;p++)if(w->grid.terrain[p]==CORE_TERRAIN_WATER) {
@@ -260,6 +260,9 @@ int expansion_leisure(World *w,Villager *v) {
     int weight_sum=20,choice=-1;
     for(int i=0;i<w->building_count;i++) {
         Building *b=w->buildings[i];int education=b->type==CORE_BLD_SCHOOL||b->type==CORE_BLD_LIBRARY||b->type==CORE_BLD_ACADEMY;
+        if (b->type == CORE_BLD_ART_MUSEUM &&
+            !((minute >= 540 && minute < 720) || (minute >= 1080 && minute < 1320)))
+            continue;
         if(!expansion_service_shift(b->type)||b->state!=CORE_BSTATE_ACTIVE||!expansion_working_count(w,b)||!expansion_qualified_present(w,b)||b->service_credit_milli<1000)continue;
         if(education?v->education_day==day:v->leisure_day==day)continue;
         int index=b->type==CORE_BLD_TAVERN?0:b->type==CORE_BLD_BATHHOUSE?1:b->type==CORE_BLD_CHURCH?3:2;
@@ -273,7 +276,12 @@ int expansion_leisure(World *w,Villager *v) {
     }
     if(choice>=0) {
         Building *b=w->buildings[choice];v->leisure_building=b->id;v->leisure_elapsed=0;
-        v->leisure_duration=b->type==CORE_BLD_TAVERN?60:b->type==CORE_BLD_BATHHOUSE?80:b->type==CORE_BLD_CHURCH?70:b->type==CORE_BLD_ACADEMY?110:100;
+        v->leisure_duration = b->type == CORE_BLD_TAVERN       ? 60
+                              : b->type == CORE_BLD_BATHHOUSE  ? 80
+                              : b->type == CORE_BLD_CHURCH     ? 70
+                              : b->type == CORE_BLD_ART_MUSEUM ? 30
+                              : b->type == CORE_BLD_ACADEMY    ? 110
+                                                               : 100;
         vil_set_intent(v,CORE_VS_IDLE,b,b->door_x,b->door_y,0);return 1;
     }
     /* 단일 인접 칸의 경로이므로 보호구역 바깥을 가로지르는 산책이 없습니다. */
@@ -305,6 +313,18 @@ int expansion_schedule(const World *w,const Villager *v,CoreWorkSchedule *out) {
             int slot=0;for(int i=0;i<b->worker_count;i++)if(b->workers[i]==v)slot=i;
             out->start=(slot&1)?780:420;out->end=(slot&1)?1320:960;
         }
+    }
+    if (type == CORE_BLD_ART_MUSEUM) {
+        out->start = 540;
+        out->end = 720;
+        out->second_start = 1080;
+        out->second_end = 1320;
+    }
+    if (type == CORE_BLD_OBSERVATORY) {
+        out->start = 480;
+        out->end = 1020;
+        out->second_start = 1140;
+        out->second_end = 1320;
     }
     if(expansion_military(type)){out->start=480;out->end=1080;}
     if(expansion_tower(type)) {
@@ -435,7 +455,7 @@ CORE_API int32_t core_expansion_facility(const CoreWorld *w,int32_t id,int32_t t
     if(b->type==CORE_BLD_KEEP){out->attack=(int[]){6,9,13,18,26,35}[w->rank];out->range=4+w->rank;out->cooldown=25;}
     out->assigned=b->worker_count;out->present=expansion_working_count(w,b);out->labor_milli=id?expansion_labor_milli(w,b):1000;
     out->combat_guard_id=b->combat_guard_id;out->stopped_reason=id?b->blocked_reason:0;
-    out->nominal_milli=b->type==CORE_BLD_QUARRY?8000:b->type==CORE_BLD_MINE?24000:b->type==CORE_BLD_MANA_MINE?50000:s->output[CORE_RES_LOGS];
+    out->nominal_milli=b->type==CORE_BLD_CLAY_PIT?8000:b->type==CORE_BLD_QUARRY?8000:b->type==CORE_BLD_MINE?24000:b->type==CORE_BLD_MANA_MINE?50000:s->output[CORE_RES_LOGS];
     out->annual_yield=s->annual_yield;
     int nominal_fuel=0;
     (void)expansion_recipe_plan(w,b,1000,1000,0,out->nominal_input,out->nominal_output,&nominal_fuel);
@@ -454,7 +474,7 @@ CORE_API int32_t core_expansion_facility(const CoreWorld *w,int32_t id,int32_t t
         if(t->tree_kind && t->tree_age>=core_expansion_tree_mature_age(t->tree_kind) && t->tree_logs_milli>0) {
             out->mature_trees++;if(t->tree_kind==4)out->magic_logs_milli+=t->tree_logs_milli;else out->logs_milli+=t->tree_logs_milli;
         }
-        out->deposits[CORE_RES_STONE]+=t->stone_milli;
+        out->deposits[CORE_RES_STONE]+=t->stone_milli;out->deposits[CORE_RES_CLAY]+=t->clay_milli;
         if(t->ore_kind>=0&&t->ore_kind<CORE_RES_COUNT)out->deposits[t->ore_kind]+=t->ore_milli;
     }
     return CORE_OK;

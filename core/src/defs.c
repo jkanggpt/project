@@ -1,3 +1,4 @@
+#include "expansion.h"
 /*
  * defs.c — 정의 파일 읽기 (설명은 defs.h)
  *
@@ -180,6 +181,7 @@ int defs_init_builtin(Defs *defs)
     int32_t i;
     memset(defs, 0, sizeof(*defs));
     memcpy(defs->buildings, BUILTIN_BUILDINGS, sizeof(defs->buildings));
+    expansion_fill_new_definitions(defs);
     memcpy(defs->enemies, BUILTIN_ENEMIES, sizeof(BUILTIN_ENEMIES));
     memcpy(defs->ranks, BUILTIN_RANKS, sizeof(defs->ranks));
     for (i = 0; i < BUILTIN_RESEARCH_COUNT; i++) {

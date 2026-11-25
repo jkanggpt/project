@@ -82,3 +82,41 @@ GameSpriteFrame game_villager_frame(int id, int facing, float distance, int movi
     return (GameSpriteFrame){direction * 4 + game_walk_frame(distance, moving), game_villager_art(id),
                              facing == FACE_LEFT};
 }
+
+/* 광맥 재고는 그대로 두고 표시만 성기게 합니다. 작은 광맥도 4×4 구역마다 대표 한 곳을 남깁니다. */
+static uint32_t rock_noise(int x, int y) {
+    uint32_t n = (uint32_t)x * 0x9e3779b9u ^ (uint32_t)y * 0x85ebca6bu;
+    n ^= n >> 16;
+    n *= 0x7feb352du;
+    n ^= n >> 15;
+    return n;
+}
+static int rock_kind(const CoreExpansionTileView *tile) {
+    return tile->ore_milli > 0 ? tile->ore_kind : CORE_RES_STONE;
+}
+int game_rock_marker(const CoreExpansionTileView *tiles, const uint8_t *roads, const uint8_t *blocked,
+                     int width, int height, int x, int y) {
+    if (!tiles || x < 0 || y < 0 || x >= width || y >= height)
+        return 0;
+    int p = y * width + x;
+    const CoreExpansionTileView *tile = &tiles[p];
+    if (!tile->rock_variant || (!tile->stone_milli && !tile->ore_milli) || (roads && roads[p]) ||
+        (blocked && blocked[p]))
+        return 0;
+    uint32_t score = rock_noise(x, y);
+    if (score % 5 == 0)
+        return 1;
+    int kind = rock_kind(tile);
+    for (int yy = y / 4 * 4; yy < y / 4 * 4 + 4 && yy < height; yy++)
+        for (int xx = x / 4 * 4; xx < x / 4 * 4 + 4 && xx < width; xx++) {
+            int q = yy * width + xx;
+            const CoreExpansionTileView *other = &tiles[q];
+            if (!other->rock_variant || (!other->stone_milli && !other->ore_milli) || (roads && roads[q]) ||
+                (blocked && blocked[q]) || rock_kind(other) != kind)
+                continue;
+            uint32_t candidate = rock_noise(xx, yy);
+            if (candidate < score || (candidate == score && q < p))
+                return 0;
+        }
+    return 1;
+}

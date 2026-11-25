@@ -10,6 +10,7 @@
 
 #include "castle_core.h"
 
+int test_legacy_world(const CoreNewGameParams *params, CoreWorld **out);
 void test_fail(const char *file, int line, const char *expression);
 void test_fail_values(const char *file, int line, const char *expression, long long left, long long right);
 int test_failed(void);

@@ -112,6 +112,12 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
     a->status_icons = texture(a, dir, "expansion/status_icons.png");
     a->life_icons=texture(a,dir,"expansion/life_icons.png");
     a->rocks=texture(a,dir,"expansion/rocks.png");
+    a->merchant = texture(a, dir, "expansion/merchant.png");
+    a->observatory_motion=atlas_texture(a,dir,"expansion/observatory_motion.png",a->observatory_sources,4,16);
+    a->soil_markers=texture(a,dir,"expansion/soil_markers.png");a->merchant_portrait=texture(a,dir,"expansion/merchant_portrait.png");
+    a->fishing_boats = texture(a, dir, "expansion/fishing_boats.png");
+    a->bridge_parts = texture(a, dir, "expansion/bridge_parts.png");
+    a->ore_soil = texture(a, dir, "expansion/ore_soil.png");
     static const char *const uniform_names[4]={"camp","lodge","barracks","garrison"};
     for(i=0;i<4;i++){snprintf(name,sizeof(name),"expansion/uniform_%s.png",uniform_names[i]);a->uniforms[i]=texture(a,dir,name);}
     a->animals = texture(a, dir, "expansion/animals_v122.png");
@@ -176,6 +182,10 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
     return a->missing == 0;
 }
 void game_assets_free(GameAssets *a) {
+    UnloadTexture(a->merchant);UnloadTexture(a->observatory_motion);UnloadTexture(a->soil_markers);UnloadTexture(a->merchant_portrait);
+    UnloadTexture(a->fishing_boats);
+    UnloadTexture(a->bridge_parts);
+    UnloadTexture(a->ore_soil);
     if(a->portraits.id)UnloadTexture(a->portraits);
     if(a->combat_fx.id)UnloadTexture(a->combat_fx);
     if(a->factions.id)UnloadTexture(a->factions);

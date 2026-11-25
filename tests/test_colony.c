@@ -77,7 +77,7 @@ void test_defs_errors_keep_defaults(void)
         }
     }
     /* 실패한 파일은 하나도 적용되지 않았어야 합니다 (rate = 50 이 들어가면 안 됨) */
-    CHECK(memcmp(defs->defs.buildings, BUILTIN_BUILDINGS, sizeof(BUILTIN_BUILDINGS)) == 0);
+    CHECK(memcmp(defs->defs.buildings, BUILTIN_BUILDINGS, 16 * sizeof(BuildingDef)) == 0);
     CHECK_EQ(core_defs_load_file(defs, CORE_DATA_BUILDINGS, "no_such_file.def", NULL), CORE_ERR_FILE_OPEN);
     /* 새 월드를 만들면 경고 이벤트로 알립니다 */
     memset(&params, 0, sizeof(params));

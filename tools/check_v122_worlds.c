@@ -51,7 +51,7 @@ int main(int argc,char **argv) {
         strcpy(p.castle_name,u8"v122 지도 검사");p.seed=seed;p.ruleset=1;p.difficulty=0;
         if(core_create(&p,NULL,&w)!=CORE_OK){errors++;continue;}
         const ExpansionState *e=w->expansion;
-        bad+=e->water_count<5||e->water_count>8;
+        bad += e->water_count < 18 || e->water_count > 22;
         for(int i=0;i<e->water_count;i++)large+=e->water_area[i]>=250&&e->water_area[i]<=550;
         large_worlds+=large>0;
         for(int i=0;i<e->cells;i++) {

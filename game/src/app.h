@@ -22,7 +22,7 @@ typedef struct GameApp {
     GamePanel panel_stack[8]; int panel_depth;
     int in_game,speed,saved_speed,build_type,category,demolish,selected_building,selected_villager;
     int drag_x,drag_y,dragging,scroll,sort_column,sort_reverse,difficulty,quit,automated,stress,rotation;
-    int inspector_scroll;
+    int inspector_scroll, build_scroll, profile_home, confirm_entity;
     int assign_shift,raid_scroll,status_height,notice_bottom;
     int build_preview_x,build_preview_y;
     int load_legacy;
@@ -47,6 +47,7 @@ void game_app_legacy_slot_path(GameApp *app,int slot,int backup,char path[GAME_P
 int game_app_latest(GameApp *app);
 void game_app_slot_path(GameApp *app,int slot,int backup,char path[GAME_PATH_BYTES]);
 void game_render_world(GameApp *app);
+Texture2D game_building_preview(const GameApp *app,int type,Rectangle *source);
 void game_render_villager_preview(GameApp *app);
 void game_render_uniform_preview(GameApp *app);
 void game_render_farm_preview(GameApp *app);
@@ -63,6 +64,9 @@ float game_person_details(GameApp *app,const CoreVillagerView *villager,float x,
 float game_facility_details(GameApp *app,const CoreBuildingView *building,float x,float y,float width);
 int game_unit_details(GameApp *app,float x,float *y,float width);
 void game_raid_alert(GameApp *app);
+int game_v123_merchant_details(GameApp *app, float x, float *y, float width);
+float game_v123_building_details(GameApp *app, const CoreBuildingView *building, float x, float y,
+                                 float width);
 void game_portrait(GameApp *app,int appearance,Rectangle box);
 void game_stat_numbers(GameApp *app,const int *values,float x,float y,float gap);
 const char *game_faction_name(int faction);

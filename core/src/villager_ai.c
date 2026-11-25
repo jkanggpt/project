@@ -562,7 +562,8 @@ int vil_arrived(World *world, Villager *villager, int32_t intent_rev)
     if(world->expansion && villager->target && villager->state!=CORE_VS_GUARD_POST && !(expansion_spec(villager->target->type)->flags&CORE_EXP_OUTDOOR))villager->inside_building=villager->target->id;
     switch (villager->state) {
     case CORE_VS_LEAVING:
-        if(world->expansion && villager->contract_end_tick>world->clock.tick)
+        if (world->expansion && !villager->departure_approved &&
+            villager->contract_end_tick > world->clock.tick)
             villager->intent_flags|=CORE_INTENT_HOLD;
         else
             population_remove_departed(world, villager);
@@ -581,6 +582,23 @@ int vil_unreachable(World *world, Villager *villager, int32_t intent_rev)
     if (world->expansion) {
         villager->hub_revision = -1;
         villager->hub_id = 0;
+    }
+    if (world->expansion && villager->state == CORE_VS_LEAVING) {
+        int x, y;
+        if (expansion_person_exit(world, villager, &x, &y))
+            vil_set_intent(villager, CORE_VS_LEAVING, NULL, x, y, 0);
+        villager->at_target = 0;
+        villager->intent_rev++;
+        return CORE_OK;
+    }
+    if (world->expansion && villager->mission == CORE_MISSION_RETURN && villager->workplace) {
+        Building *b = villager->workplace;
+        if(b->type==CORE_BLD_HUNTER_CAMP||b->type==CORE_BLD_HUNTING_LODGE) {
+            if(villager->hunt_retreat_reason!=3)expansion_notice(world,165,villager->id,b->id,u8"수렵시설 접근 불가 · 비상 대피");
+            villager->hunt_retreat_reason=3;int x,y;b=expansion_refuge(world,villager,&x,&y);vil_set_intent(villager,CORE_VS_GUARD_POST,b,b?b->door_x:x,b?b->door_y:y,0);
+        } else vil_set_intent(villager, CORE_VS_GUARD_POST, b, b->door_x, b->door_y, 0);
+        villager->intent_rev++;
+        return CORE_OK;
     }
     fall_back(world, villager);
     return CORE_OK;

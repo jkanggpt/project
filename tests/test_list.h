@@ -123,3 +123,13 @@ TEST_ENTRY(v122_discovery_timer_and_shift)
 
 TEST_ENTRY(v122_patch2_economy_and_vision)
 TEST_ENTRY(v122_patch2_uniform_route)
+
+TEST_ENTRY(v123_world_and_clay)
+TEST_ENTRY(v123_barter_atomic)
+TEST_ENTRY(v123_exile_floor)
+TEST_ENTRY(v123_forecast_rng)
+TEST_ENTRY(v123_bridge_and_boats)
+TEST_ENTRY(v123_merchant_visit_and_save)
+TEST_ENTRY(v123_water_and_medicine)
+TEST_ENTRY(v123_real_v10_preserved)
+TEST_ENTRY(v123_hunter_retaliation)

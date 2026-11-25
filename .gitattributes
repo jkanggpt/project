@@ -1,2 +1,2 @@
 # 이관 검사용 실제 저장 파일은 운영체제별 개행 변환 없이 보존합니다.
-tests/fixtures/*.sav -text
+tests/fixtures/*.sav binary

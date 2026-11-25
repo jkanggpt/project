@@ -162,15 +162,30 @@ static void terrain(GameApp *a) {
                     static const int dx[8]={0,1,0,-1,1,1,-1,-1},dy[8]={-1,0,1,0,-1,1,1,-1};
                     int mask=0;
                     for(int k=0;k<8;k++) {int xx=x+dx[k],yy=y+dy[k];if(xx>=0&&yy>=0&&xx<w&&yy<h&&(s->roads[yy*w+xx]||s->cost[yy*w+xx]==CORE_COST_GATE))mask|=1<<k;}
-                    sprite(a->assets.road_tiles,(Rectangle){(mask%16)*64.0f,((s->roads[i]-1)*16+mask/16)*64.0f,64,64},dest,WHITE);
-                    if(s->roads[i]==3) for(int k=0;k<4;k++) {
-                        int xx=x+dx[k],yy=y+dy[k];
-                        if(xx<0||yy<0||xx>=w||yy>=h||s->terrain[yy*w+xx]!=CORE_TERRAIN_WATER||s->roads[yy*w+xx]==3)continue;
-                        Vector2 p0={x*16.0f+(k==1?15:1),y*16.0f+(k==2?15:1)},p1=p0;
-                        if(k==0||k==2)p1.x+=14;else p1.y+=14;
-                        DrawLineEx(p0,p1,1.5f,(Color){101,66,38,255});
-                        DrawCircleV(p0,1,(Color){211,166,92,255});DrawCircleV(p1,1,(Color){211,166,92,255});
-                    }
+                    if (s->roads[i] == 3) {
+                        int row = s->terrain[i] == CORE_TERRAIN_WATER ? 0 : 1;
+                        sprite(a->assets.bridge_parts, (Rectangle){variant * 128.0f, row * 128.0f, 128, 128},
+                               dest, WHITE);
+                        int rail = core_expansion_bridge_mask(s->world, x, y);
+                        for (int d = 0; d < 4; d++)
+                            if (rail & (1 << d))
+                                if (d == 0 || d == 3)
+                                    sprite(a->assets.bridge_parts, (Rectangle){d * 128.0f, 384, 128, 128},
+                                           (Rectangle){dest.x, dest.y - 5, 16, 21}, WHITE);
+                        if (s->terrain[i] == CORE_TERRAIN_WATER)
+                            for (int d = 0; d < 4; d++) {
+                                int xx = x + dx[d], yy = y + dy[d];
+                                if (xx >= 0 && yy >= 0 && xx < w && yy < h &&
+                                    s->terrain[yy * w + xx] != CORE_TERRAIN_WATER && s->cost[yy * w + xx] &&
+                                    !(rail & (1 << d)))
+                                    sprite(a->assets.bridge_parts, (Rectangle){d * 128.0f, 256, 128, 128},
+                                           dest, WHITE);
+                            }
+                    } else
+                        sprite(a->assets.road_tiles,
+                               (Rectangle){(mask % 16) * 64.0f, ((s->roads[i] - 1) * 16 + mask / 16) * 64.0f,
+                                           64, 64},
+                               dest, WHITE);
                     continue;
                 }
                 if (s->exp_tiles) {
@@ -199,6 +214,9 @@ static void terrain(GameApp *a) {
                 } else
                     sprite(a->assets.terrain, (Rectangle){variant * 64.0f, s->terrain[i] * 64.0f, 64, 64},
                            dest, tint);
+                if(s->exp_tiles&&s->terrain[i]!=CORE_TERRAIN_WATER&&tile_noise(x,y)%43==0) {
+                    CoreExpansionTileView *soil=&s->exp_tiles[i];if(soil->clay_initial_milli>0&&soil->clay_milli>0){int col=soil->clay_shore_percent>100||soil->biome==CORE_BIOME_SWAMP?3:soil->biome==CORE_BIOME_WETLAND?2:soil->biome==CORE_BIOME_FOREST?1:0;float alpha=.42f*soil->clay_milli/soil->clay_initial_milli;sprite(a->assets.soil_markers,(Rectangle){col*128.0f,0,128,128},dest,Fade(WHITE,alpha));}
+                }
                 if (s->summary.season == CORE_SEASON_WINTER && s->terrain[i] != CORE_TERRAIN_WATER)
                     sprite(a->assets.snow, (Rectangle){variant * 64.0f, 0, 64, 64}, dest,
                            (Color){255, 255, 255, 225});
@@ -209,7 +227,13 @@ static Rectangle box_rect(GameSpriteBox b) { return (Rectangle){b.x, b.y, b.w, b
 static int farm_row(int type) {
     return type==CORE_BLD_CROPLAND?0:type==CORE_BLD_FARM?1:type==CORE_BLD_IRRIGATED_FARM?2:type==CORE_BLD_ORCHARD?3:type==CORE_BLD_GARDEN?4:-1;
 }
+static int observation_frame(const GameApp *a,const CoreBuildingView *b) {
+    if(b->type!=CORE_BLD_OBSERVATORY||b->state!=CORE_BSTATE_ACTIVE||!b->working_now)return -1;
+    CoreForecastView f;if(core_expansion_forecast(a->session.world,b->id,&f)!=CORE_OK||f.reason)return -1;
+    return b->rotation*16+(a->session.summary.is_night?8:0)+(int)(a->session.visual_time*2)%8;
+}
 static Rectangle building_rect(const GameApp *a,const CoreBuildingView *b, Texture2D t) {
+    int frame=observation_frame(a,b);if(frame>=0){Rectangle source=a->assets.observatory_sources[(frame/16)*16+(frame%16)];return box_rect(game_expansion_building_sprite(b,(int)source.width,(int)source.height));}
     if(farm_row(b->type)>=0)return (Rectangle){b->x*16.0f,b->y*16.0f,b->w*16.0f,b->h*16.0f};
     if(b->type==CORE_BLD_GREENHOUSE) {
         Rectangle source=a->assets.greenhouse_sources[a->session.summary.season*4+b->rotation];
@@ -218,6 +242,7 @@ static Rectangle building_rect(const GameApp *a,const CoreBuildingView *b, Textu
     return box_rect(game_expansion_building_sprite(b, farm_row(b->type)>=0?256:t.width, farm_row(b->type)>=0?256:t.height));
 }
 static Texture2D building_texture(const GameApp *a, const CoreBuildingView *b) {
+    if(observation_frame(a,b)>=0)return a->assets.observatory_motion;
     if (b->kind_flags & CORE_EXP_GATE) return a->assets.gates;
     if (b->type==CORE_BLD_GREENHOUSE) return a->assets.greenhouse_turns;
     if (farm_row(b->type)>=0) return a->assets.farms;
@@ -226,6 +251,7 @@ static Texture2D building_texture(const GameApp *a, const CoreBuildingView *b) {
     return b->kind_flags & CORE_EXP_WALL ? a->assets.wall_links : a->assets.turns[b->type][b->rotation];
 }
 static Rectangle building_source(const GameApp *a, const CoreBuildingView *b, Texture2D t) {
+    int frame=observation_frame(a,b);if(frame>=0)return a->assets.observatory_sources[frame];
     if(b->type==CORE_BLD_GREENHOUSE)
         return a->assets.greenhouse_sources[a->session.summary.season*4+b->rotation];
     if(b->kind_flags&CORE_EXP_GATE) {
@@ -249,6 +275,21 @@ static Rectangle building_source(const GameApp *a, const CoreBuildingView *b, Te
     }
     return (Rectangle){0, 0, (float)t.width, (float)t.height};
 }
+Texture2D game_building_preview(const GameApp *a,int type,Rectangle *source) {
+    CoreExpansionBuildingInfo info;
+    if(core_expansion_building_info(type,&info)!=CORE_OK){*source=(Rectangle){0};return (Texture2D){0};}
+    CoreBuildingView b={0};b.type=type;b.w=info.w;b.h=info.h;b.kind_flags=info.flags;
+    b.state=CORE_BSTATE_ACTIVE;b.completed_day=a->session.summary.day-24;
+    if(info.flags&CORE_EXP_ROAD) {
+        if(type==CORE_BLD_BRIDGE){*source=(Rectangle){0,0,128,128};return a->assets.bridge_parts;}
+        *source=(Rectangle){0,type==CORE_BLD_STONE_ROAD?1024.0f:0,64,64};return a->assets.road_tiles;
+    }
+    if(info.flags&CORE_EXP_WALL) {
+        int style=type==CORE_BLD_PALISADE?0:type==CORE_BLD_BARRIER?1:type==CORE_BLD_IRON_WALL?3:2;
+        *source=(Rectangle){10*128.0f,style*128.0f,128,128};return a->assets.wall_links;
+    }
+    Texture2D texture=building_texture(a,&b);*source=building_source(a,&b,texture);return texture;
+}
 static void building(GameApp *a, int index) {
     CoreBuildingView *b = &a->session.buildings[index];
     Texture2D t = building_texture(a, b);
@@ -262,6 +303,11 @@ static void building(GameApp *a, int index) {
     if (b->state == CORE_BSTATE_CONSTRUCTING)
         tint = (Color){185, 168, 126, 170};
     sprite(t, building_source(a, b, t), dest, tint);
+    if (b->type == CORE_BLD_CLAY_PIT && b->working_now && b->state == CORE_BSTATE_ACTIVE) {
+        int frame = (int)(a->session.visual_time * 8) % 4;
+        sprite(a->assets.ore_soil, (Rectangle){frame * 128.0f, 256, 128, 128},
+               (Rectangle){dest.x + dest.width * .25f, dest.y + dest.height * .5f, 20, 16}, WHITE);
+    }
     if (b->state == CORE_BSTATE_CONSTRUCTING ||
         (b->type == CORE_BLD_KEEP && a->session.summary.promotion_state)) {
         Texture2D scaffold = a->assets.construction;
@@ -345,8 +391,7 @@ static int prop_type(const GameApp *a, int x, int y) {
         return -1;
     if (s->roads[i] || a->decor_blocked[i])
         return -1;
-    if(s->exp_tiles && type!=CORE_TERRAIN_WATER && s->exp_tiles[i].rock_variant>0 &&
-       (s->exp_tiles[i].stone_milli>0 || s->exp_tiles[i].ore_milli>0))return 21;
+    if(s->exp_tiles && type!=CORE_TERRAIN_WATER && game_rock_marker(s->exp_tiles,s->roads,a->decor_blocked,s->summary.map_width,s->summary.map_height,x,y))return 21;
     if (s->exp_tiles && s->exp_tiles[i].tree_kind && s->exp_tiles[i].tree_logs_milli > 0)
         return 20;
     if (s->exp_tiles && type == CORE_TERRAIN_FOREST)
@@ -361,7 +406,7 @@ static int prop_type(const GameApp *a, int x, int y) {
         return variant % 2;
     }
     if (type == CORE_TERRAIN_ROCK)
-        return variant % 4 == 0 ? -1 : 4 + variant % 2;
+        return s->exp_tiles?(variant%4==0?4+variant%2:-1):variant % 4 == 0 ? -1 : 4 + variant % 2;
     if (type == CORE_TERRAIN_MANA)
         return 6 + variant % 2;
     if (type == CORE_TERRAIN_GRASS && tile_noise(x, y) % 49 == 0)
@@ -377,8 +422,12 @@ static void prop(GameApp *a, int cell_index) {
         CoreExpansionTileView *t=&s->exp_tiles[cell_index];int row=0;
         if(t->ore_milli>0)row=t->ore_kind==CORE_RES_COAL?1:t->ore_kind==CORE_RES_IRON_ORE?2:t->ore_kind==CORE_RES_GOLD_ORE?3:t->ore_kind==CORE_RES_MANA?4:0;
         size=20.0f+(float)(tile_noise(x,y)%4);
-        sprite(a->assets.rocks,(Rectangle){(t->rock_variant-1)*128.0f,row*128.0f,128,128},
-               (Rectangle){cx-size/2,feet-size,size,size},WHITE);return;
+        Texture2D texture = row >= 3 ? a->assets.ore_soil : a->assets.rocks;
+        Rectangle source = row >= 3
+                               ? (Rectangle){(tile_noise(x, y) % 4) * 128.0f, (row - 3) * 128.0f, 128, 128}
+                               : (Rectangle){(t->rock_variant - 1) * 128.0f, row * 128.0f, 128, 128};
+        sprite(texture, source, (Rectangle){cx - size / 2, feet - size, size, size}, WHITE);
+        return;
     }
     if (type == 20) {
         CoreExpansionTileView *t = &s->exp_tiles[cell_index];
@@ -401,7 +450,8 @@ static void prop(GameApp *a, int cell_index) {
 static int draw_queue(GameApp *a) {
     GameSession *s = &a->session;
     int count = 0, i, x, y, w = s->summary.map_width, h = s->summary.map_height;
-    int needed = s->cells + s->building_count + s->villager_count + s->enemy_count + s->animal_count+160;
+    int needed = s->cells + s->building_count + s->villager_count + s->enemy_count + s->animal_count + 160 +
+                 s->boat_count + s->cells + 1;
     Vector2 top = GetScreenToWorld2D((Vector2){0, 0}, a->camera),
             bottom =
                 GetScreenToWorld2D((Vector2){(float)GetScreenWidth(), (float)GetScreenHeight()}, a->camera);
@@ -465,6 +515,11 @@ static int draw_queue(GameApp *a) {
         CoreVillagerView *v = &s->villagers[i];
         GameActor *unit = game_actor(s, v->id);
         Vector2 p;
+        CoreResidentStatus status = {0};
+        if (s->summary.ruleset)
+            core_expansion_resident_status(s->world, v->id, &status);
+        if (status.boat_port_id)
+            continue;
         if (!unit || unit->indoor >= 1 || (!s->summary.ruleset && v->state == CORE_VS_FLEE && v->at_target))
             continue;
         p = pixel(unit->position);
@@ -495,6 +550,22 @@ static int draw_queue(GameApp *a) {
         a->draw_items[count++] =
             (GameDrawItem){s->animal_actors[i].position.y * 16, DRAW_ANIMAL, i, animal->id};
     }
+    for (i = 0; i < s->boat_count; i++) {
+        CoreBoatView *boat = &s->boats[i];
+        int cell = boat->y_milli / 1000 * w + boat->x_milli / 1000;
+        if (cell >= 0 && cell < s->cells && (!s->visibility || s->visibility[cell] >= 2))
+            a->draw_items[count++] = (GameDrawItem){boat->y_milli * .016f, DRAW_BOAT, i, i};
+    }
+    if (s->wandering.state != CORE_MERCHANT_DORMANT) {
+        int cell = s->wandering.y_milli / 1000 * w + s->wandering.x_milli / 1000;
+        if (cell >= 0 && cell < s->cells && (!s->visibility || s->visibility[cell] >= 2))
+            a->draw_items[count++] = (GameDrawItem){s->wandering.y_milli * .016f, DRAW_MERCHANT, 0, 0};
+    }
+    for (y = y0; y < y1; y++)
+        for (x = x0; x < x1; x++)
+            if (s->roads[y * w + x] == 3 && (!s->visibility || s->visibility[y * w + x]))
+                a->draw_items[count++] =
+                    (GameDrawItem){(y + 1) * 16.0f + .5f, DRAW_BRIDGE_RAIL, y * w + x, y * w + x};
     for(i=0;i<160;i++) {
         GameHitFx *fx=&s->hit_fx[i];float elapsed=s->visual_time-fx->started;
         if(fx->active && elapsed>=0 && elapsed<.5f)
@@ -503,12 +574,74 @@ static int draw_queue(GameApp *a) {
     qsort(a->draw_items, (size_t)count, sizeof(*a->draw_items), game_draw_compare);
     return count;
 }
+static void merchant_sprite(GameApp *a) {
+    GameSession *s = &a->session;
+    CoreWanderingMerchantView *m = &s->wandering, *old = &s->wandering_previous;
+    float fraction = fminf(1, s->tick_minutes / 10), x = m->x_milli / 1000.0f, y = m->y_milli / 1000.0f;
+    int moving = m->state == CORE_MERCHANT_ENTERING || m->state == CORE_MERCHANT_LEAVING,
+        dx = m->x_milli - old->x_milli, dy = m->y_milli - old->y_milli;
+    if (old->visit_id == m->visit_id && old->state != CORE_MERCHANT_DORMANT) {
+        x = (old->x_milli + (m->x_milli - old->x_milli) * fraction) / 1000.0f;
+        y = (old->y_milli + (m->y_milli - old->y_milli) * fraction) / 1000.0f;
+    }
+    int row = abs(dx) > abs(dy) ? (dx > 0 ? 3 : 1)
+              : dy < 0          ? 2
+                                : 0,
+        frame = moving ? (int)(s->visual_time * 7) % 4 : 4 + (int)(s->visual_time * 2) % 2;
+    sprite(a->assets.merchant, (Rectangle){frame * 96.0f, row * 96.0f, 96, 96},
+           (Rectangle){x * 16 - 12, y * 16 - 24, 24, 24}, WHITE);
+}
+static void boat_sprite(GameApp *a, int index) {
+    GameSession *s = &a->session;
+    CoreBoatView *b = &s->boats[index];
+    float x = b->x_milli * .016f, y = b->y_milli * .016f;
+    for (int i = 0; i < s->boat_previous_count; i++) {
+        CoreBoatView *old = &s->boats_previous[i];
+        if (old->port_id == b->port_id && old->slot == b->slot) {
+            float f = fminf(1, s->tick_minutes / 10);
+            x = (old->x_milli + (b->x_milli - old->x_milli) * f) * .016f;
+            y = (old->y_milli + (b->y_milli - old->y_milli) * f) * .016f;
+            break;
+        }
+    }
+    int row = (int[]){2, 3, 0, 1}[b->facing], frame = b->blocked ? 0 : (int)(s->visual_time * 6) % 4;
+    Rectangle source = {frame * 128.0f, row * 128.0f, 128, 128}, dest = {x - 18, y - 23, 36, 30};
+    sprite(a->assets.fishing_boats, source, dest, WHITE);
+    for (int i = 0; i < b->crew_count; i++) {
+        CoreVillagerView *v = game_villager(s, b->crew[i]);
+        if (!v)
+            continue;
+        int facing = (int[]){FACE_UP, FACE_RIGHT, FACE_DOWN, FACE_LEFT}[b->facing];
+        GameSpriteFrame f = game_villager_frame(v->appearance + 1, facing, 0, 0);
+        float sx = x + (b->facing & 1 ? i * 8 - 4 : i * 4 - 2), sy = y + (b->facing & 1 ? i * 2 : i * 5 - 3);
+        sprite(a->assets.villagers, (Rectangle){f.column * 96.0f, f.row * 96.0f, f.flip ? -96.0f : 96.0f, 61},
+               (Rectangle){sx - 8, sy - 17, 16, 13}, WHITE);
+    }
+    sprite(a->assets.fishing_boats, (Rectangle){source.x, source.y + 96, 128, 32},
+           (Rectangle){dest.x, dest.y + 22.5f, dest.width, 7.5f}, WHITE);
+}
 static void hit_effect(GameApp *a,int index);
 static void objects(GameApp *a) {
     int i, count = draw_queue(a);
     for (i = 0; i < count; i++) {
         GameDrawItem *item = &a->draw_items[i];
         switch (item->kind) {
+        case DRAW_MERCHANT:
+            merchant_sprite(a);
+            break;
+        case DRAW_BOAT:
+            boat_sprite(a, item->index);
+            break;
+        case DRAW_BRIDGE_RAIL: {
+            int x = item->index % a->session.summary.map_width,
+                y = item->index / a->session.summary.map_width,
+                mask = core_expansion_bridge_mask(a->session.world, x, y);
+            for (int d = 1; d <= 2; d++)
+                if (mask & (1 << d))
+                    sprite(a->assets.bridge_parts, (Rectangle){d * 128.0f, 384, 128, 128},
+                           (Rectangle){x * 16.0f, y * 16.0f - 5, 16, 21}, WHITE);
+            break;
+        }
         case DRAW_PROP:
             prop(a, item->index);
             break;
@@ -700,7 +833,7 @@ static int world_mouse(GameApp *a, int *x, int *y) {
     *y = (int)floorf(world.y / 16);
     /* 위치로 이동하는 알림을 누를 때 뒤쪽 건물을 동시에 조작하지 않습니다. */
     if(CheckCollisionPointRec(mouse,(Rectangle){12,141,390,fmaxf(0,a->notice_bottom-141.0f)}))return 0;
-    return a->panel == PANEL_NONE && mouse.y > 135 && mouse.y < GetScreenHeight() - 195 &&
+    return a->panel == PANEL_NONE && mouse.y > 135 && mouse.y < GetScreenHeight() - 253 &&
            mouse.x < GetScreenWidth() - 350;
 }
 static void overlay(GameApp *a) {
@@ -889,6 +1022,12 @@ void game_render_world(GameApp *a) {
     livestock_proxies(a);
     corpses(a);
     fog(a);
+    if (a->session.wandering.state != CORE_MERCHANT_DORMANT) {
+        CoreWanderingMerchantView *m = &a->session.wandering;
+        int cell = m->y_milli / 1000 * a->session.summary.map_width + m->x_milli / 1000;
+        if (cell >= 0 && cell < a->session.cells && a->session.visibility && a->session.visibility[cell] < 2)
+            merchant_sprite(a);
+    }
     for (i = 0; i < a->session.villager_count; i++) {
         CoreVillagerView *v = &a->session.villagers[i];
         GameActor *unit = game_actor(&a->session, v->id);
@@ -1004,7 +1143,7 @@ void game_world_input(GameApp *a, float delta) {
                 a->camera.target.x += amount;
             if (GetMouseY() < 122)
                 a->camera.target.y -= amount;
-            if (GetMouseY() > GetScreenHeight() - 153)
+            if (GetMouseY() > GetScreenHeight() - 248)
                 a->camera.target.y += amount;
         }
         if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
@@ -1066,6 +1205,13 @@ void game_world_input(GameApp *a, float delta) {
         } else {
             Vector2 mouse=GetScreenToWorld2D(GetMousePosition(),a->camera);
             float best=1000000;game_select(a,id?1:0,id);
+            CoreWanderingMerchantView *m = &s->wandering;
+            if (m->state != CORE_MERCHANT_DORMANT &&
+                CheckCollisionPointRec(
+                    mouse, (Rectangle){m->x_milli * .016f - 12, m->y_milli * .016f - 24, 24, 24})) {
+                best = 0;
+                game_select(a, 5, m->visit_id);
+            }
             for(int i=0;i<s->actor_count;i++) {
                 GameActor *actor=&s->actors[i];CoreVillagerView *v=game_villager(s,actor->id);
                 if(!v||v->inside_building)continue;

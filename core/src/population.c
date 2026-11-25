@@ -151,6 +151,10 @@ void population_begin_leaving(World *world, Villager *villager)
         return;
     entity_unlink_worker(villager);
     entity_unlink_resident(villager);
+    if (world->expansion) {
+        villager->departure_reason = CORE_DEPART_VOLUNTARY;
+        villager->departure_tick = world->clock.tick;
+    }
     villager->hold_ticks = 0;
     vil_edge_tile(world, villager->loc_x, villager->loc_y, &ex, &ey);
     vil_set_intent(villager, CORE_VS_LEAVING, NULL, ex, ey, 0);
@@ -170,7 +174,7 @@ void population_remove_departed(World *world, Villager *villager)
         expansion_candidate_price(world,c);
     }
     if (world->expansion && !villager->contract_end_tick) {
-        if (!expansion_departure_allowed(world, villager, 0)) {
+        if (!villager->departure_approved && !expansion_departure_allowed(world, villager, 0)) {
             vil_set_intent(villager, CORE_VS_IDLE, NULL, world->keep_x, world->keep_y + 3, 0);
             villager->low_mood_ticks = 0;
             world->expansion->dirty = 1;

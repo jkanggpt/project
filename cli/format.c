@@ -502,6 +502,9 @@ static void format_progress(const CoreEventView *event, char *out, size_t size)
     case CORE_EVT_TUTORIAL_STEP:
         snprintf(out, size, u8"목표 달성: %s (%d/%d)", fmt_tutorial_name(event->a), (int)event->b, (int)event->c);
         break;
+    case CORE_EVT_EXPANSION_NOTICE:
+        (void)snprintf(out, size, "%s", event->text);
+        break;
     case CORE_EVT_TUTORIAL_DONE:
         snprintf(out, size, u8"처음 목표를 모두 이루었습니다! 보상: 금화 +%d, 마정석 +%d", (int)event->a, (int)event->b);
         break;
@@ -568,9 +571,10 @@ static const EventFormatter EVENT_FORMATTERS[] = {
     format_progress,       /* CORE_EVT_DEFEAT */
     format_progress,       /* CORE_EVT_TUTORIAL_STEP */
     format_progress,       /* CORE_EVT_TUTORIAL_DONE */
+    format_progress,       /* CORE_EVT_EXPANSION_NOTICE */
 };
 #define EVENT_FORMATTER_COUNT ((int32_t)(sizeof(EVENT_FORMATTERS) / sizeof(EVENT_FORMATTERS[0])))
-_Static_assert(sizeof(EVENT_FORMATTERS) / sizeof(EVENT_FORMATTERS[0]) == CORE_EVT_TUTORIAL_DONE + 1,
+_Static_assert(sizeof(EVENT_FORMATTERS) / sizeof(EVENT_FORMATTERS[0]) == CORE_EVT_EXPANSION_NOTICE + 1,
                "every event type needs a formatter");
 
 void fmt_event(const CoreEventView *event, char *out, size_t size)

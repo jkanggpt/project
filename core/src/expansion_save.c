@@ -120,13 +120,33 @@ static const Field CANDIDATE[] = {F(CoreCandidateView, person_id, 1), F(CoreCand
     F(CoreCandidateView, sex, 1), F(CoreCandidateView, appearance, 1)};
 #define COUNT(a) ((int)(sizeof(a) / sizeof((a)[0])))
 static const Field PROJECTILE122[]={{0,13}};
-static const Field STATE122[]={F(ExpansionState,market_staff_efficiency,1),F(ExpansionState,market_staff_day,1),F(ExpansionState,frontend_clock,2),F(ExpansionState,next_type_serial,CORE_BLD_COUNT),F(ExpansionState,last_immigration_edge,1),F(ExpansionState,market_next_restock_day,1),F(ExpansionState,phantom_second_day,6)};
+static const Field STATE122[] = {
+    F(ExpansionState, market_staff_efficiency, 1), F(ExpansionState, market_staff_day, 1),
+    F(ExpansionState, frontend_clock, 2),          F(ExpansionState, next_type_serial, 66),
+    F(ExpansionState, last_immigration_edge, 1),   F(ExpansionState, market_next_restock_day, 1),
+    F(ExpansionState, phantom_second_day, 6)};
 static const Field TILE122[]={F(CoreExpansionTileView,stone_milli,1),F(CoreExpansionTileView,rock_variant,1)};
 static const Field BUILDING122[]={F(Building,research_work_milli,1),F(Building,combat_until_tick,1),F(Building,frontend_tower,2),F(Building,type_serial,1),F(Building,logging_cursor,1),F(Building,combat_guard_id,1),F(Building,damage_kind,1),F(Building,damage_source,1),F(Building,damage_tick,1)};
 static const Field ANIMAL122[]={F(CoreAnimalView,attacker_kind,1),F(CoreAnimalView,attacker_id,1),F(CoreAnimalView,retaliation_until,1),F(CoreAnimalView,phantom_slot,1)};
 static const Field PERSON122[]={F(Villager,mood_source_kind,1),F(Villager,mood_source_type,1),F(Villager,mood_recent,96),F(Villager,mood_recent_cursor,1),F(Villager,shift_sleep_day,1),F(Villager,mood_event_source,1),F(Villager,frontend_actor,20),F(Villager,xp_pending,60),F(Villager,shift_kind,1),F(Villager,shift_changed_day,1),F(Villager,shift_adapt_days,1),F(Villager,duty_minutes,1),F(Villager,duty_day,1),F(Villager,mission,1),F(Villager,mission_target,1),F(Villager,mission_waypoint,1),F(Villager,mission_next_tick,1),F(Villager,leisure_building,1),F(Villager,leisure_elapsed,1),F(Villager,leisure_duration,1),F(Villager,leisure_day,1),F(Villager,education_day,1),F(Villager,walk_origin_x,1),F(Villager,walk_origin_y,1),F(Villager,walk_reward_day,1),F(Villager,mood_ticks,32),F(Villager,mood_counts,32),F(Villager,mood_day,1),F(Villager,mood_event_tick,1),F(Villager,mood_event_amount,1),F(Villager,thirst_stage,1),F(Villager,hunger_stage,1),F(Villager,damage_kind,1),F(Villager,damage_source,1)};
 static const Field RAID122[]={F(Raid,id,1),F(Raid,type,1),F(Raid,direction,1),F(Raid,spawn_x,1),F(Raid,spawn_y,1),F(Raid,started_tick,1),F(Raid,enemy_count,1),F(Raid,killed,1),F(Raid,escaped,1),F(Raid,stolen,1),F(Raid,fallen,1),F(Raid,phase,1),F(Raid,assault_end_tick,1),F(Raid,initial_count,1),F(Raid,first_discovered,1),F(Raid,initial_types,28)};
 static const Field ENEMY122[]={F(Enemy,id,1),F(Enemy,type,1),F(Enemy,state,1),F(Enemy,summoner_id,1),F(Enemy,looted,1),F(Enemy,runtime,(int)(sizeof(CoreEnemyRuntime)/sizeof(int32_t)))};
+static const Field STATE123[] = {
+    F(ExpansionState, clay_initialized, 1),
+    F(ExpansionState, ore_budget_milli, 15),
+    F(ExpansionState, ore_old_tiles, 15),
+    F(ExpansionState, wandering, (int)(sizeof(CoreWanderingMerchantView) / sizeof(int32_t))),
+    F(ExpansionState, boat_count, 1),
+    F(ExpansionState, next_type_serial, CORE_BLD_COUNT)};
+static const Field TILE123[] = {F(CoreExpansionTileView, clay_milli, 1),
+                                F(CoreExpansionTileView, clay_initial_milli, 1),
+                                F(CoreExpansionTileView, clay_shore_percent, 1)};
+static const Field PERSON123[] = {F(Villager, departure_reason, 1), F(Villager, departure_approved, 1),
+                                  F(Villager, departure_tick, 1), F(Villager, boat_port_id, 1),
+                                  F(Villager, hunt_retreat_reason, 1)};
+static const Field BUILDING123[] = {F(Building, forecast_day, 1), F(Building, forecast_horizon, 1),
+                                    F(Building, forecast_count, 1), F(Building, forecast_entries, 96)};
+static const Field BOAT123[] = {{0, (int)(sizeof(CoreBoatView) / sizeof(int32_t))}};
 static int32_t get_int(const void *object, size_t offset) {
     int32_t value;
     memcpy(&value, (const char *)object + offset, sizeof(value));
@@ -162,6 +182,14 @@ int expansion_save(FILE *f, const World *w) {
     write_fields(f, e, STATE, COUNT(STATE));
     fputc('\n', f);
     fputs("v122state=10",f);write_fields(f,e,STATE122,COUNT(STATE122));fputc('\n',f);
+    fputs("v123state=11", f);
+    write_fields(f, e, STATE123, COUNT(STATE123));
+    fputc(10, f);
+    for (i = 0; i < e->boat_count; i++) {
+        fprintf(f, "v123boat=%d", i);
+        write_fields(f, &e->boats[i], BOAT123, COUNT(BOAT123));
+        fputc(10, f);
+    }
     for(i=0;i<e->frontend_clock[1];i++){fprintf(f,"v122projectile=%d",i);write_fields(f,e->frontend_projectiles[i],PROJECTILE122,COUNT(PROJECTILE122));fputc('\n',f);}
     fputs("v122raid=1",f);write_fields(f,&w->threat.raid,RAID122,COUNT(RAID122));fputc('\n',f);
     for(i=0;i<w->threat.raid.enemy_count;i++) {
@@ -172,18 +200,27 @@ int expansion_save(FILE *f, const World *w) {
         write_fields(f, &e->tiles[i], TILE, COUNT(TILE));
         fputc('\n', f);
         fprintf(f,"v122tile=%d",i);write_fields(f,&e->tiles[i],TILE122,COUNT(TILE122));fputc('\n',f);
+        fprintf(f, "v123tile=%d", i);
+        write_fields(f, &e->tiles[i], TILE123, COUNT(TILE123));
+        fputc(10, f);
     }
     for (i = 0; i < w->building_count; i++) {
         fprintf(f, "building=%d", w->buildings[i]->id);
         write_fields(f, w->buildings[i], BUILDING, COUNT(BUILDING));
         fputc('\n', f);
         fprintf(f,"v122building=%d",w->buildings[i]->id);write_fields(f,w->buildings[i],BUILDING122,COUNT(BUILDING122));fputc('\n',f);
+        fprintf(f, "v123building=%d", w->buildings[i]->id);
+        write_fields(f, w->buildings[i], BUILDING123, COUNT(BUILDING123));
+        fputc(10, f);
     }
     for (i = 0; i < w->villager_count; i++) {
         fprintf(f, "villager=%d", w->villagers[i]->id);
         write_fields(f, w->villagers[i], VILLAGER, COUNT(VILLAGER));
         fputc('\n', f);
         fprintf(f,"v122person=%d",w->villagers[i]->id);write_fields(f,w->villagers[i],PERSON122,COUNT(PERSON122));fputc('\n',f);
+        fprintf(f, "v123person=%d", w->villagers[i]->id);
+        write_fields(f, w->villagers[i], PERSON123, COUNT(PERSON123));
+        fputc(10, f);
     }
     for (i = 0; i < e->animal_count; i++) {
         fprintf(f, "animal=%d", i);
@@ -249,8 +286,58 @@ int expansion_load_line(World *w, const char *key, char *value) {
     }
     if (!e->load_mask)
         return CORE_ERR_FORMAT;
+    if (strcmp(key, "v123state") == 0) {
+        if (index != 11 || e->loaded_version != 10 || !read_fields(&cursor, e, STATE123, COUNT(STATE123)) ||
+            *cursor || e->boat_count < 0 || e->boat_count > CORE_EXP_MAX_BOATS)
+            return CORE_ERR_FORMAT;
+        e->loaded_version = 11;
+        return CORE_OK;
+    }
+    if (strncmp(key, "v123", 4) == 0) {
+        if (e->loaded_version != 11)
+            return CORE_ERR_FORMAT;
+        void *object = NULL;
+        const Field *fields = NULL;
+        int count = 0;
+        if (strcmp(key, "v123tile") == 0 && index >= 0 && index < e->cells &&
+            !e->tiles[index].clay_shore_percent) {
+            object = &e->tiles[index];
+            fields = TILE123;
+            count = COUNT(TILE123);
+            e->loaded_v123_tiles++;
+        }
+        if (strcmp(key, "v123person") == 0) {
+            Villager *v = entity_find_villager(w, index);
+            if (v && !v->v123_loaded) {
+                v->v123_loaded = 1;
+                object = v;
+                fields = PERSON123;
+                count = COUNT(PERSON123);
+                e->loaded_v123_people++;
+            }
+        }
+        if (strcmp(key, "v123building") == 0) {
+            Building *b = entity_find_building(w, index);
+            if (b && !b->v123_loaded) {
+                b->v123_loaded = 1;
+                object = b;
+                fields = BUILDING123;
+                count = COUNT(BUILDING123);
+                e->loaded_v123_buildings++;
+            }
+        }
+        if (strcmp(key, "v123boat") == 0 && index == e->loaded_v123_boats && index < e->boat_count) {
+            object = &e->boats[index];
+            fields = BOAT123;
+            count = COUNT(BOAT123);
+            e->loaded_v123_boats++;
+        }
+        return object && read_fields(&cursor, object, fields, count) && !*cursor ? CORE_OK : CORE_ERR_FORMAT;
+    }
     if(strcmp(key,"v122state")==0) {
-        if(index!=10||e->loaded_version==10||!read_fields(&cursor,e,STATE122,COUNT(STATE122))||*cursor)return CORE_ERR_FORMAT;
+        if (index != 10 || e->loaded_version >= 10 || !read_fields(&cursor, e, STATE122, COUNT(STATE122)) ||
+            *cursor)
+            return CORE_ERR_FORMAT;
         if(e->frontend_clock[0]<0||e->frontend_clock[0]>10000||e->frontend_clock[1]<0||e->frontend_clock[1]>512)return CORE_ERR_FORMAT;
         e->loaded_version=10;return CORE_OK;
     }
@@ -330,7 +417,14 @@ int expansion_finish_load(World *w) {
         e->loaded_candidates != e->candidate_count || e->loaded_archive != e->archive_count ||
         e->loaded_buildings != w->building_count || e->loaded_villagers != w->villager_count)
         return CORE_ERR_FORMAT;
+    if (w->generation_version >= 11 &&
+        (e->loaded_version != 11 || e->clay_initialized != 1 || e->loaded_v123_tiles != e->cells ||
+         e->loaded_v123_people != w->villager_count || e->loaded_v123_buildings != w->building_count ||
+         e->loaded_v123_boats != e->boat_count))
+        return CORE_ERR_FORMAT;
     expansion_v122_migrate(w);
+    if (expansion_v123_migrate(w) != CORE_OK)
+        return CORE_ERR_FORMAT;
     if (expansion_validate(w))
         return CORE_ERR_FORMAT;
     w->bank.individual_limits = 1;
@@ -347,6 +441,15 @@ uint64_t expansion_hash(const World *w, uint64_t hash) {
     hash = hash_int(hash, 1);
     hash = hash_fields(hash, e, STATE, COUNT(STATE));
     hash = hash_fields(hash,e,STATE122,COUNT(STATE122));
+    hash = hash_fields(hash, e, STATE123, COUNT(STATE123));
+    for (i = 0; i < e->cells; i++)
+        hash = hash_fields(hash, &e->tiles[i], TILE123, COUNT(TILE123));
+    for (i = 0; i < w->villager_count; i++)
+        hash = hash_fields(hash, w->villagers[i], PERSON123, COUNT(PERSON123));
+    for (i = 0; i < w->building_count; i++)
+        hash = hash_fields(hash, w->buildings[i], BUILDING123, COUNT(BUILDING123));
+    for (i = 0; i < e->boat_count; i++)
+        hash = hash_fields(hash, &e->boats[i], BOAT123, COUNT(BOAT123));
     for(i=0;i<e->frontend_clock[1];i++)hash=hash_fields(hash,e->frontend_projectiles[i],PROJECTILE122,COUNT(PROJECTILE122));
     hash = hash_fields(hash,&w->threat.raid,RAID122,COUNT(RAID122));
     for(i=0;i<w->threat.raid.enemy_count;i++)hash=hash_fields(hash,&w->threat.raid.enemies[i],ENEMY122,COUNT(ENEMY122));
@@ -380,6 +483,72 @@ int expansion_validate(const World *w) {
     if (!e || e->cells != w->grid.width * w->grid.height || !e->tiles || w->rank < 0 || w->rank > 5 ||
         w->clock.tick < 0 || !world_keep(w))
         return 1;
+    bad += e->boat_count < 0 || e->boat_count > CORE_EXP_MAX_BOATS || e->clay_initialized < 0 ||
+           e->clay_initialized > 1;
+    for (i = 0; i < e->cells; i++) {
+        const CoreExpansionTileView *t = &e->tiles[i];
+        bad += t->clay_milli < 0 || t->clay_initial_milli < 0 || t->clay_milli > t->clay_initial_milli ||
+               t->clay_initial_milli > 952000 ||
+               (e->clay_initialized && t->clay_shore_percent != 100 && t->clay_shore_percent != 120 &&
+                t->clay_shore_percent != 140);
+    }
+    const CoreWanderingMerchantView *m = &e->wandering;
+    bad += m->state < 0 || m->state > CORE_MERCHANT_REPATH || m->offer_count < 0 || m->offer_count > 6 ||
+           m->rank < 0 || m->rank > 5 || m->visit_id < 0 || m->last_nonce < 0;
+    for (i = 0; i < 6; i++)
+        bad += m->remaining[i] < 0 || m->remaining[i] > 3 || m->recipe_ids[i] < 0 ||
+               m->recipe_ids[i] > core_expansion_barter_count();
+    if (m->offer_count) {
+        int mana = 0;
+        bad += m->rank < 1 || m->offer_count != (int[]){0, 3, 4, 5, 5, 6}[exp_clamp(m->rank, 0, 5)];
+        for (i = 0; i < m->offer_count && i < 6; i++) {
+            CoreBarterRecipe recipe;
+            if (core_expansion_barter_recipe(m->recipe_ids[i], &recipe) != CORE_OK) {
+                bad++;
+                continue;
+            }
+            mana += recipe.get_resource == CORE_RES_MANA;
+            bad += recipe.rank > m->rank || m->remaining[i] > recipe.max_uses;
+            for (j = i + 1; j < m->offer_count && j < 6; j++)
+                bad += m->recipe_ids[i] == m->recipe_ids[j];
+        }
+        bad += mana != (int[]){0, 1, 1, 2, 2, 3}[exp_clamp(m->rank, 0, 5)];
+    }
+    bad += m->next_target_tick < 0 || m->arrived_tick < 0 || m->expires_tick < 0 || m->retry_tick < 0 ||
+           m->barter_mana < 0;
+    if (m->state != CORE_MERCHANT_DORMANT)
+        bad += m->x_milli < 0 || m->y_milli < 0 || m->x_milli >= w->grid.width * 1000 ||
+               m->y_milli >= w->grid.height * 1000 || !grid_in_bounds(&w->grid, m->target_x, m->target_y) ||
+               m->visit_id < 1 || m->offer_count < 1;
+    if (m->state == CORE_MERCHANT_TRADING)
+        bad += m->expires_tick != m->arrived_tick + 432;
+    for (i = 0; i < w->villager_count; i++) {
+        const Villager *v = w->villagers[i];
+        bad += v->departure_reason < 0 || v->departure_reason > CORE_DEPART_EXPEL ||
+               v->departure_approved < 0 || v->departure_approved > 1 || v->departure_tick < 0;
+    }
+    for (i = 0; i < w->building_count; i++) {
+        const Building *b = w->buildings[i];
+        bad += b->forecast_horizon < 0 || b->forecast_horizon > 48 || b->forecast_count < 0 ||
+               b->forecast_count > CORE_EXP_FORECAST_MAX;
+    }
+    for (i = 0; i < e->boat_count && i < CORE_EXP_MAX_BOATS; i++) {
+        const CoreBoatView *b = &e->boats[i];
+        bad += b->crew_count < 0 || b->crew_count > 2 || b->slot < 0 || b->slot > 1 || b->state < 0 ||
+               b->state > 4;
+        if (b->crew_count > 0) {
+            bad += b->x_milli < 0 || b->y_milli < 0 || b->x_milli >= w->grid.width * 1000 ||
+                   b->y_milli >= w->grid.height * 1000 || b->facing < 0 || b->facing > 3 || b->water_id < 1;
+            for (int k = 0; k < b->crew_count && k < 2; k++) {
+                const Villager *v = entity_find_villager(w, b->crew[k]);
+                bad += !v || (v && v->boat_port_id != b->port_id);
+                for (int ii = 0; ii <= i; ii++)
+                    for (int kk = 0; kk < e->boats[ii].crew_count && kk < 2; kk++)
+                        if (ii != i || kk != k)
+                            bad += b->crew[k] == e->boats[ii].crew[kk];
+            }
+        }
+    }
     bad += e->plague_days<0 || e->plague_days>6 || e->plague_cooldown<0 || e->plague_cooldown>12 ||
         e->economic_days<0 || e->economic_days>6 || e->economic_cooldown<0 || e->economic_cooldown>3 ||
         (e->economic_event!=0 && e->economic_event!=CORE_NATURE_MINE_COLLAPSE && e->economic_event!=CORE_NATURE_TRADE_BOOM) ||

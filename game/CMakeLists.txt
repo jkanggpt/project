@@ -45,7 +45,7 @@ if(CASTLE_BUILD_GAME)
       endif()
     endif()
   endif()
-  add_executable(castle_game src/main.c src/ui.c src/panels.c src/render.c src/assets.c src/v122_ui.c)
+  add_executable(castle_game src/main.c src/ui.c src/panels.c src/render.c src/assets.c src/v122_ui.c src/v123_ui.c)
   set(CASTLE_GAME_OUTPUT_DIR "" CACHE PATH "실행 중인 게임과 분리할 선택적 검증 출력 폴더")
   if(CASTLE_GAME_OUTPUT_DIR)
     set_target_properties(castle_game PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CASTLE_GAME_OUTPUT_DIR}")
@@ -64,6 +64,17 @@ if(CASTLE_BUILD_GAME)
   install(DIRECTORY data assets DESTINATION . PATTERN "*.import" EXCLUDE PATTERN ".gdignore" EXCLUDE)
   install(FILES ${PROJECT_SOURCE_DIR}/CREDITS.md ${PROJECT_SOURCE_DIR}/README.md DESTINATION .)
   install(FILES ${PROJECT_SOURCE_DIR}/PROGRESS.md DESTINATION .)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/V1_2_3_SPEC.html ${PROJECT_SOURCE_DIR}/docs/V1_2_3_SPEC.md
+    ${PROJECT_SOURCE_DIR}/docs/V1_2_3_IMPLEMENTATION.md ${PROJECT_SOURCE_DIR}/docs/V1_2_3_QA.md
+    ${PROJECT_SOURCE_DIR}/docs/v123_barter_recipes.csv ${PROJECT_SOURCE_DIR}/docs/v123_balance_results.csv
+    ${PROJECT_SOURCE_DIR}/docs/v123_map_statistics.csv ${PROJECT_SOURCE_DIR}/docs/v123_map_summary.json
+    ${PROJECT_SOURCE_DIR}/docs/v123_performance_results.csv DESTINATION docs)
+  install(FILES ${PROJECT_SOURCE_DIR}/art/V123_PROMPTS.json ${PROJECT_SOURCE_DIR}/art/V123_MANIFEST.json DESTINATION art)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/v123_cards_1440.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v123_cards_800.png ${PROJECT_SOURCE_DIR}/docs/screenshots/v123_cards_1024.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v123_gates_1024.png ${PROJECT_SOURCE_DIR}/docs/screenshots/v123merchant_1440.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v123boats_1440.png ${PROJECT_SOURCE_DIR}/docs/screenshots/v123home_1440.png
+    ${PROJECT_SOURCE_DIR}/docs/screenshots/v123forecast_1440.png ${PROJECT_SOURCE_DIR}/docs/screenshots/v123buildings_1440.png DESTINATION docs/screenshots)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/V1_2_2_PATCH2.md DESTINATION docs)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch2_selection_1440.png
     ${PROJECT_SOURCE_DIR}/docs/screenshots/v122_patch2_demolition_1024.png

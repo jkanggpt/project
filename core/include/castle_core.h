@@ -35,9 +35,9 @@ extern "C" {
 #endif
 
 /* 외부 호출자의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
-#define CORE_ABI_VERSION 12
+#define CORE_ABI_VERSION 13
 /* 지금 세이브 파일 형식의 버전 (첫 줄 "MAGICCASTLE_SAVE <버전>") */
-#define CORE_SAVE_VERSION 10
+#define CORE_SAVE_VERSION 11
 
 /* 성채·주민 이름 버퍼 크기 (UTF-8 바이트, 끝의 '\0' 포함) */
 #define CORE_NAME_BYTES 48
@@ -107,22 +107,22 @@ typedef enum CoreDifficulty {
 
 /* 건물 종류. 도로(ROAD)는 건물이 아니라 지도의 한 층이지만, 짓는 방법이 같아서 같은 번호 체계를 씁니다. */
 typedef enum CoreBuildingType {
-    CORE_BLD_KEEP = 0,       /* 성채 (처음부터 있음, 저장소, 무너지면 패배) */
-    CORE_BLD_HOUSE = 1,      /* 주택 */
-    CORE_BLD_FARM = 2,       /* 농장 */
-    CORE_BLD_GATHERER = 3,   /* 채집 오두막 */
-    CORE_BLD_LUMBER = 4,     /* 벌목장 */
-    CORE_BLD_QUARRY = 5,     /* 채석장 */
-    CORE_BLD_MANA_MINE = 6,  /* 마정석 광산 */
-    CORE_BLD_WAREHOUSE = 7,  /* 창고 */
-    CORE_BLD_MARKET = 8,     /* 시장 */
-    CORE_BLD_BARRACKS = 9,   /* 병영 */
-    CORE_BLD_TOWER = 10,     /* 감시탑 */
-    CORE_BLD_WALL = 11,      /* 성벽 */
-    CORE_BLD_GATE = 12,      /* 성문 */
-    CORE_BLD_HEALER = 13,    /* 치료소 */
-    CORE_BLD_MAGE_TOWER = 14,/* 마탑 */
-    CORE_BLD_ROAD = 15,      /* 도로 */
+    CORE_BLD_KEEP = 0,        /* 성채 (처음부터 있음, 저장소, 무너지면 패배) */
+    CORE_BLD_HOUSE = 1,       /* 주택 */
+    CORE_BLD_FARM = 2,        /* 농장 */
+    CORE_BLD_GATHERER = 3,    /* 채집 오두막 */
+    CORE_BLD_LUMBER = 4,      /* 벌목장 */
+    CORE_BLD_QUARRY = 5,      /* 채석장 */
+    CORE_BLD_MANA_MINE = 6,   /* 마정석 광산 */
+    CORE_BLD_WAREHOUSE = 7,   /* 창고 */
+    CORE_BLD_MARKET = 8,      /* 시장 */
+    CORE_BLD_BARRACKS = 9,    /* 병영 */
+    CORE_BLD_TOWER = 10,      /* 감시탑 */
+    CORE_BLD_WALL = 11,       /* 성벽 */
+    CORE_BLD_GATE = 12,       /* 성문 */
+    CORE_BLD_HEALER = 13,     /* 치료소 */
+    CORE_BLD_MAGE_TOWER = 14, /* 마탑 */
+    CORE_BLD_ROAD = 15,       /* 도로 */
     CORE_BLD_SHACK = 16,
     CORE_BLD_COTTAGE = 17,
     CORE_BLD_MANSION = 18,
@@ -173,7 +173,11 @@ typedef enum CoreBuildingType {
     CORE_BLD_STONE_ROAD = 63,
     CORE_BLD_BRIDGE = 64,
     CORE_BLD_GARRISON = 65, /* 군영: 기존 저장 번호 뒤에 추가 */
-    CORE_BLD_COUNT = 66
+    CORE_BLD_CLAY_PIT = 66,
+    CORE_BLD_WATER_TOWER = 67,
+    CORE_BLD_OBSERVATORY = 68,
+    CORE_BLD_ART_MUSEUM = 69,
+    CORE_BLD_COUNT = 70
 } CoreBuildingType;
 
 typedef enum CoreBuildingState {
@@ -330,7 +334,7 @@ typedef enum CoreEventType {
     CORE_EVT_WAGES_UNPAID = 16,      /* a = 임금을 못 받은 사람 수 */
     CORE_EVT_STORY = 17,             /* a = 주민 id, b = CoreStory, c = 값, text = 이름 */
     CORE_EVT_STARVING = 18,          /* a = 배고픔이 0 인 주민 수 */
-    CORE_EVT_DEF_WARNING = 19,       /* a = 정의 파일 번호(CoreDataFile), b = 줄 번호 (기본값을 씀) */
+    CORE_EVT_DEF_WARNING = 19, /* a = 정의 파일 번호(CoreDataFile), b = 줄 번호 (기본값을 씀) */
     CORE_EVT_WEATHER_CHANGED = 20,   /* a = 날씨(CoreWeather) */
     CORE_EVT_NATURE_FORECAST = 21,   /* a = 내일 시작할 자연 사건(CoreNatureEvent) */
     CORE_EVT_NATURE_STARTED = 22,    /* a = 사건, b = 이어지는 날 수 */
@@ -339,25 +343,27 @@ typedef enum CoreEventType {
     CORE_EVT_BUILDING_RUINED = 25,   /* a = 건물 id, b = 종류, c = x, d = y */
     CORE_EVT_BUILDING_REPAIRED = 26, /* a = 건물 id, b = 종류, c = x, d = y */
     CORE_EVT_VILLAGER_SICK = 27,     /* a = 주민 id, text = 이름 */
-    CORE_EVT_VILLAGER_CURED = 28,    /* a = 주민 id, b = 1 이면 치료소에서, 0 이면 저절로, text = 이름 */
-    CORE_EVT_MERCHANT_ARRIVED = 29,  /* a = 머무는 날 수, b = 거래 제안 수 */
+    CORE_EVT_VILLAGER_CURED = 28, /* a = 주민 id, b = 1 이면 치료소에서, 0 이면 저절로, text = 이름 */
+    CORE_EVT_MERCHANT_ARRIVED = 29, /* a = 머무는 날 수, b = 거래 제안 수 */
     CORE_EVT_MERCHANT_LEFT = 30,
-    CORE_EVT_WINTER_WARNING = 31,    /* a = 겨울에 필요한 식량, b = 필요한 목재 (가을에, 모자랄 때) */
-    CORE_EVT_HOUSES_COLD = 32,       /* a = 지난밤 난방을 못 한 집 수 */
-    CORE_EVT_THREAT_SCHEDULED = 33,  /* a = 위협 종류(CoreThreatType), b = 방향(CoreDirection), c = 도착까지 틱, d = 세기(적 수) */
-    CORE_EVT_RAID_STARTED = 34,      /* a = 습격 id, b = 위협 종류, c = 적 수, d = 방향 */
-    CORE_EVT_RAID_ENDED = 35,        /* a = 쓰러뜨린 적, b = 전체 적, c = 빼앗긴 금화, d = 쓰러진 주민 */
-    CORE_EVT_ENEMY_KILLED = 36,      /* a = 적 id, b = 적 종류, c = 떨어뜨린 마정석 */
-    CORE_EVT_LOOT_STOLEN = 37,       /* a = 자원, b = 양, c = 건물 id */
-    CORE_EVT_THREAT_NEAR = 38,       /* a = 위협 종류, b = 방향 (도착 반나절 전, 경보) */
-    CORE_EVT_RESEARCH_STARTED = 39,  /* a = 연구 번호 */
-    CORE_EVT_RESEARCH_DONE = 40,     /* a = 연구 번호, b = 끝낸 연구 수 */
-    CORE_EVT_RANK_READY = 41,        /* a = 오를 수 있게 된 등급 (조건을 처음 채웠을 때 한 번) */
-    CORE_EVT_RANK_UP = 42,           /* a = 새 등급 (CoreRank) */
-    CORE_EVT_VICTORY = 43,           /* a = 날짜 (왕성이 됨. 계속할 수 있음) */
-    CORE_EVT_DEFEAT = 44,            /* a = 원인 (CoreLoseReason), b = 날짜 */
-    CORE_EVT_TUTORIAL_STEP = 45,     /* a = 목표 (CoreTutorialStep), b = 끝낸 목표 수, c = 전체 */
-    CORE_EVT_TUTORIAL_DONE = 46      /* a = 보상 금화, b = 보상 마정석 */
+    CORE_EVT_WINTER_WARNING = 31, /* a = 겨울에 필요한 식량, b = 필요한 목재 (가을에, 모자랄 때) */
+    CORE_EVT_HOUSES_COLD = 32, /* a = 지난밤 난방을 못 한 집 수 */
+    CORE_EVT_THREAT_SCHEDULED =
+        33, /* a = 위협 종류(CoreThreatType), b = 방향(CoreDirection), c = 도착까지 틱, d = 세기(적 수) */
+    CORE_EVT_RAID_STARTED = 34, /* a = 습격 id, b = 위협 종류, c = 적 수, d = 방향 */
+    CORE_EVT_RAID_ENDED = 35, /* a = 쓰러뜨린 적, b = 전체 적, c = 빼앗긴 금화, d = 쓰러진 주민 */
+    CORE_EVT_ENEMY_KILLED = 36,     /* a = 적 id, b = 적 종류, c = 떨어뜨린 마정석 */
+    CORE_EVT_LOOT_STOLEN = 37,      /* a = 자원, b = 양, c = 건물 id */
+    CORE_EVT_THREAT_NEAR = 38,      /* a = 위협 종류, b = 방향 (도착 반나절 전, 경보) */
+    CORE_EVT_RESEARCH_STARTED = 39, /* a = 연구 번호 */
+    CORE_EVT_RESEARCH_DONE = 40,    /* a = 연구 번호, b = 끝낸 연구 수 */
+    CORE_EVT_RANK_READY = 41, /* a = 오를 수 있게 된 등급 (조건을 처음 채웠을 때 한 번) */
+    CORE_EVT_RANK_UP = 42,    /* a = 새 등급 (CoreRank) */
+    CORE_EVT_VICTORY = 43,    /* a = 날짜 (왕성이 됨. 계속할 수 있음) */
+    CORE_EVT_DEFEAT = 44,     /* a = 원인 (CoreLoseReason), b = 날짜 */
+    CORE_EVT_TUTORIAL_STEP = 45,    /* a = 목표 (CoreTutorialStep), b = 끝낸 목표 수, c = 전체 */
+    CORE_EVT_EXPANSION_NOTICE = 47, /* a=알림 종류, b/c=관련 번호, text=설명 */
+    CORE_EVT_TUTORIAL_DONE = 46     /* a = 보상 금화, b = 보상 마정석 */
 } CoreEventType;
 
 typedef enum CoreWarning {
@@ -1026,6 +1032,7 @@ CORE_API int32_t core_copy_cost_grid(const CoreWorld *world, uint8_t *out, int32
 /* 도로 격자 복사 (1 = 도로) */
 CORE_API int32_t core_copy_roads(const CoreWorld *world, uint8_t *out, int32_t capacity);
 /* 모든 주민/건물 뷰 복사. capacity 가 모자라면 CORE_ERR_BUFFER_TOO_SMALL 과 함께 *out_count 에 필요한 개수 */
+CORE_API int32_t core_get_villager(const CoreWorld *world, int32_t villager_id, CoreVillagerView *out);
 CORE_API int32_t core_copy_villagers(const CoreWorld *world, CoreVillagerView *out, int32_t capacity,
                                      int32_t *out_count);
 CORE_API int32_t core_copy_buildings(const CoreWorld *world, CoreBuildingView *out, int32_t capacity,

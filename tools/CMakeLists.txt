@@ -1,6 +1,9 @@
 # Python 없이 같은 시뮬레이터를 직접 호출하는 C 밸런스 도구입니다.
 add_executable(castle_balance balance.c)
 add_executable(castle_expansion_balance expansion_balance.c)
+add_executable(castle_v123_worlds check_v123_worlds.c)
+target_include_directories(castle_v123_worlds PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
+target_link_libraries(castle_v123_worlds PRIVATE castle_frontend castle_warnings)
 add_executable(castle_v122_worlds check_v122_worlds.c)
 target_include_directories(castle_v122_worlds PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 target_link_libraries(castle_v122_worlds PRIVATE castle_frontend castle_warnings)
@@ -23,6 +26,11 @@ target_include_directories(castle_balance PRIVATE ${PROJECT_SOURCE_DIR}/core/src
 target_link_libraries(castle_balance PRIVATE castle_cli_support castle_frontend castle_warnings)
 
 if(TARGET raylib)
+  add_executable(castle_v123_art pack_v123_art.c)
+  target_link_libraries(castle_v123_art PRIVATE castle_frontend raylib castle_warnings)
+  if(CASTLE_BUILD_TESTS)
+    add_test(NAME v123_art_assets COMMAND castle_v123_art --check "${PROJECT_SOURCE_DIR}/game/assets/expansion")
+  endif()
   add_executable(castle_ui_art pack_ui_art.c)
   target_link_libraries(castle_ui_art PRIVATE castle_frontend raylib castle_warnings)
   if(CASTLE_BUILD_TESTS)

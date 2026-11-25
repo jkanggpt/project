@@ -13,7 +13,7 @@ static World *expanded(void) {
     p.seed = 7;
     p.difficulty = 1;
     p.ruleset = 1;
-    if (core_create(&p, NULL, &w) != CORE_OK) {
+    if (test_legacy_world(&p, &w) != CORE_OK) {
         test_fail(__FILE__, __LINE__, "expanded world creation");
         return NULL;
     }
@@ -333,7 +333,7 @@ void test_expansion_allocation_failures(void) {
         World *w = NULL;
         int rc;
         mem_test_fail_after(limit);
-        rc = core_create(&p, NULL, &w);
+        rc = test_legacy_world(&p, &w);
         mem_test_fail_after(-1);
         if (rc == CORE_OK) {
             core_destroy(w);

@@ -39,6 +39,7 @@ void ui_begin(GameUi *ui, GameAssets *assets, float size, float volume) {
     ui->assets = assets;
     ui->font_size = size;
     ui->volume = volume;
+    ui->tooltip_bad = 0;
     ui->tooltip[0] = '\0';
     ui->input_blocked = 0;
     ui->consumed = 0;
@@ -108,22 +109,22 @@ void ui_box(Rectangle area, Color color) {
     DrawRectangleRec(area, color);
     DrawRectangleLinesEx(area, 1, UI_EDGE);
 }
-int ui_button(GameUi *ui, Rectangle area, const char *text, int enabled, int selected, const char *tooltip) {
+static int button(GameUi *ui, Rectangle area, const char *text, int enabled, int selected, const char *tooltip,const Color *custom) {
     int hover = CheckCollisionPointRec(GetMousePosition(), area), pressed = 0;
-    Color fill = selected ? (Color){96, 73, 63, 255} : UI_PANEL;
+    Color fill = custom?*custom:selected ? (Color){96, 73, 63, 255} : UI_PANEL;
     Vector2 measure = MeasureTextEx(ui->assets->font, text, ui->font_size, 0);
     if (hover && enabled)
-        fill = (Color){80, 66, 86, 255};
+        fill = custom?ColorBrightness(*custom,.08f):(Color){80, 66, 86, 255};
     if (!enabled)
         fill = (Color){31, 30, 39, 245};
     ui_box(area, fill);
     if (selected)
-        DrawRectangleLinesEx(area, 2, UI_GOLD);
+        DrawRectangleLinesEx(area, 2, custom?UI_BG:UI_GOLD);
     ui_clip_begin((int)area.x + 2, (int)area.y, (int)area.width - 4, (int)area.height);
     DrawTextEx(ui->assets->font, text,
                (Vector2){area.x + fmaxf(6, (area.width - measure.x) * 0.5f),
                          area.y + (area.height - ui->font_size) * 0.5f},
-               ui->font_size, 0, enabled ? UI_TEXT : UI_MUTED);
+               ui->font_size, 0, enabled ? (custom?UI_BG:UI_TEXT) : UI_MUTED);
     ui_clip_end();
     if (hover && tooltip)
         (void)snprintf(ui->tooltip, sizeof(ui->tooltip), "%s", tooltip);
@@ -134,6 +135,8 @@ int ui_button(GameUi *ui, Rectangle area, const char *text, int enabled, int sel
     }
     return pressed;
 }
+int ui_button(GameUi *ui,Rectangle area,const char *text,int enabled,int selected,const char *tip){return button(ui,area,text,enabled,selected,tip,NULL);}
+int ui_color_button(GameUi *ui,Rectangle area,const char *text,int enabled,int selected,Color color){return button(ui,area,text,enabled,selected,NULL,&color);}
 void ui_bar(Rectangle area, float fraction, Color color) {
     DrawRectangleRec(area, (Color){25, 22, 31, 255});
     fraction = fmaxf(0, fminf(1, fraction));
@@ -197,18 +200,49 @@ void ui_slider(GameUi *ui, Rectangle area, float *value) {
     DrawCircleV((Vector2){area.x + area.width * (*value), area.y + area.height * 0.5f}, 8, UI_TEXT);
 }
 void ui_tooltip(GameUi *ui) {
-    Rectangle area;
-    float width;
     if (!ui->tooltip[0])
         return;
-    width = MeasureTextEx(ui->assets->font, ui->tooltip, ui->font_size, 0).x + 24;
-    if (width > 520)
-        width = 520;
-    area = (Rectangle){fminf((float)GetMouseX() + 12, GetScreenWidth() - width - 12), (float)GetMouseY() + 22,
-                       width, 110};
-    if (area.y + area.height > GetScreenHeight())
-        area.y = GetMouseY() - area.height - 12;
+    unsigned hash = 2166136261u;
+    for (const unsigned char *p = (const unsigned char *)ui->tooltip; *p; p++)
+        hash = (hash ^ *p) * 16777619u;
+    if (hash != ui->tooltip_hash) {
+        ui->tooltip_hash = hash;
+        ui->tooltip_scroll = 0;
+    }
+    float width = fminf(520, GetScreenWidth() - 24.0f), content = ui_wrap_height(ui, width - 24, ui->tooltip),
+          height = fminf(content + 24, GetScreenHeight() - 24.0f);
+    Rectangle area = {fmaxf(8, fminf(GetMouseX() + 12.0f, GetScreenWidth() - width - 8)), GetMouseY() + 22.0f,
+                      width, height};
+    if (area.y + height > GetScreenHeight() - 8)
+        area.y = GetMouseY() - height - 12;
+    if (area.y < 8)
+        area.y = 8;
+    float max = fmaxf(0, content + 24 - height);
+    if (max > 0) {
+        ui->tooltip_scroll -= GetMouseWheelMove() * 40;
+        ui->tooltip_scroll = fmaxf(0, fminf(max, ui->tooltip_scroll));
+    }
     ui_box(area, (Color){20, 18, 27, 250});
-    ui_wrap(ui, (Rectangle){area.x + 12, area.y + 10, area.width - 24, area.height - 20}, UI_TEXT,
-            ui->tooltip);
+    ui_clip_begin((int)area.x, (int)area.y, (int)area.width, (int)area.height);
+    ui_wrap(
+        ui,
+        (Rectangle){area.x + 12, area.y + 10 - ui->tooltip_scroll, width - 24, content + ui->font_size + 8},
+        UI_TEXT, ui->tooltip);
+    if (ui->tooltip_bad) {
+        char first[128];
+        size_t n = strcspn(ui->tooltip, "\n");
+        if (n >= sizeof(first))
+            n = sizeof(first) - 1;
+        memcpy(first, ui->tooltip, n);
+        first[n] = 0;
+        DrawRectangle((int)area.x + 10, (int)(area.y + 8 - ui->tooltip_scroll), (int)width - 20,
+                      (int)ui->font_size + 4, (Color){20, 18, 27, 255});
+        ui_text(ui, area.x + 12, area.y + 10 - ui->tooltip_scroll, UI_BAD, "%s", first);
+    }
+    if (max > 0) {
+        DrawRectangle((int)(area.x + area.width - 5),
+                      (int)(area.y + height * ui->tooltip_scroll / (max + height)), 3,
+                      (int)(height * height / (max + height)), UI_GOLD);
+    }
+    ui_clip_end();
 }

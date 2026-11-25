@@ -455,10 +455,17 @@ static void dispersed_raid_and_global_dispatch(const char *data) {
     }
     (void)platform_remove_file("native_spawn_queue.sav");(void)platform_remove_file("native_spawn_queue.sav.bak");game_session_free(s);free(s);
 }
+static void rock_density(void) {
+    CoreNewGameParams p={0};World *w=NULL;strcpy(p.castle_name,u8"바위 표시 검사");p.ruleset=1;p.seed=42;EXPECT(core_create(&p,NULL,&w)==CORE_OK);if(!w)return;
+    int before=0,after=0,seen[15]={0};uint64_t a,b;core_state_hash(w,&a);
+    for(int y=0;y<w->grid.height;y++)for(int x=0;x<w->grid.width;x++){int q=grid_index(&w->grid,x,y);const CoreExpansionTileView *tile=&w->expansion->tiles[q];if(w->grid.terrain[q]==CORE_TERRAIN_WATER)continue;before+=tile->rock_variant>0&&(tile->stone_milli>0||tile->ore_milli>0);if(game_rock_marker(w->expansion->tiles,w->grid.road,NULL,w->grid.width,w->grid.height,x,y)){after++;seen[tile->ore_milli>0?tile->ore_kind:CORE_RES_STONE]++;}}
+    core_state_hash(w,&b);EXPECT(a==b);EXPECT(after>0&&after*2<before);EXPECT(seen[CORE_RES_GOLD_ORE]>0&&seen[CORE_RES_MANA]>0);printf("ROCK_MARKERS: seed=42 before=%d after=%d reduction=%.1f%% resources_preserved=%d\n",before,after,100.0*(before-after)/before,a==b);core_destroy(w);
+}
 int main(int argc, char **argv) {
     if (argc != 2)
         return 2;
     paths();
+    rock_density();
     settings();
     sprite_layout();
     walking_direction();

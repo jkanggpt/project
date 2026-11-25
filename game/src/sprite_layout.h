@@ -2,6 +2,7 @@
 #ifndef CASTLE_SPRITE_LAYOUT_H
 #define CASTLE_SPRITE_LAYOUT_H
 #include <castle_core.h>
+#include <castle_expansion.h>
 
 #define GAME_TILE_SIZE 16.0f
 #define GAME_ACTOR_HEIGHT 24.0f
@@ -14,7 +15,17 @@ typedef struct GameSpriteFrame {
 typedef struct GameSpriteBox {
     float x, y, w, h;
 } GameSpriteBox;
-typedef enum GameDrawKind { DRAW_PROP, DRAW_BUILDING, DRAW_VILLAGER, DRAW_ENEMY, DRAW_ANIMAL, DRAW_HIT_FX } GameDrawKind;
+typedef enum GameDrawKind {
+    DRAW_PROP,
+    DRAW_BUILDING,
+    DRAW_VILLAGER,
+    DRAW_ENEMY,
+    DRAW_ANIMAL,
+    DRAW_HIT_FX,
+    DRAW_BOAT,
+    DRAW_MERCHANT,
+    DRAW_BRIDGE_RAIL
+} GameDrawKind;
 typedef struct GameDrawItem {
     float depth;
     int kind, index, key;
@@ -23,6 +34,7 @@ typedef struct GameDrawItem {
 GameSpriteBox game_building_sprite(int type, int x, int y, int w, int h, int image_w, int image_h);
 GameSpriteBox game_actor_sprite(float feet_x, float feet_y, float height);
 GameSpriteBox game_expansion_building_sprite(const CoreBuildingView *building, int image_w, int image_h);
+int game_rock_marker(const CoreExpansionTileView *tiles,const uint8_t *roads,const uint8_t *blocked,int width,int height,int x,int y);
 int game_wall_mask(const uint8_t *cost, int width, int height, int x, int y);
 int game_draw_compare(const void *left, const void *right);
 int game_villager_art(int id);

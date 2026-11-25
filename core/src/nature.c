@@ -312,47 +312,7 @@ static void warn_winter(World *world) {
 
 void nature_daily(World *world) {
     if (world->expansion) {
-        Nature *n = &world->nature;
-        ExpansionState *e = world->expansion;
-        int season = exp_season(world);
-        n->forecast = n->forecast_days = 0;
-        if (n->event != CORE_NATURE_NONE && --n->event_days <= 0) {
-            events_push_count(&world->events, CORE_EVT_NATURE_ENDED,n->event);
-            n->event = CORE_NATURE_NONE; n->event_days = 0; n->calm_days = 0;
-        } else if (n->event == CORE_NATURE_NONE) n->calm_days++;
-        if (!n->event && n->calm_days >= 3 && rng_chance_permille(&world->rng,35)) {
-            int choices[4] = {CORE_NATURE_STORM}, count = 1;
-            if (season < 2) { choices[count++] = CORE_NATURE_DROUGHT; choices[count++] = CORE_NATURE_BUMPER; }
-            if (season == 3) choices[count++] = CORE_NATURE_COLD_SNAP;
-            n->event = choices[rng_range(&world->rng,0,count-1)];
-            n->event_days = n->event == CORE_NATURE_STORM ? rng_range(&world->rng,1,3) :
-                n->event == CORE_NATURE_DROUGHT ? rng_range(&world->rng,3,6) : rng_range(&world->rng,2,5);
-            events_push_pair(&world->events,CORE_EVT_NATURE_STARTED,n->event,n->event_days);
-        }
-        if (e->plague_days && --e->plague_days == 0) {
-            e->plague_cooldown = 12; events_push_count(&world->events,CORE_EVT_NATURE_ENDED,CORE_NATURE_PLAGUE);
-        } else if (!e->plague_days && e->plague_cooldown > 0) e->plague_cooldown--;
-        if (!e->plague_days && !e->plague_cooldown && rng_chance_permille(&world->rng,8)) {
-            e->plague_days = rng_range(&world->rng,3,6); plague_start(world);
-            events_push_pair(&world->events,CORE_EVT_NATURE_STARTED,CORE_NATURE_PLAGUE,e->plague_days);
-        }
-        if (e->plague_days) {
-            int sick = 0;
-            for (int i = 0; i < world->villager_count; i++) sick += world->villagers[i]->sick_ticks > 0;
-            for (int i = 0; i < sick && world->villager_count; i++)
-                if (rng_chance_permille(&world->rng,450))
-                    (void)nature_make_sick(world,world->villagers[rng_range(&world->rng,0,world->villager_count-1)]);
-        }
-        if (e->economic_days && --e->economic_days == 0) {
-            events_push_count(&world->events,CORE_EVT_NATURE_ENDED,e->economic_event);
-            e->economic_event = CORE_NATURE_NONE; e->economic_cooldown = 3;
-        } else if (!e->economic_days && e->economic_cooldown > 0) e->economic_cooldown--;
-        if (!e->economic_days && !e->economic_cooldown && rng_chance_permille(&world->rng,10)) {
-            e->economic_event = rng_range(&world->rng,0,1) ? CORE_NATURE_MINE_COLLAPSE : CORE_NATURE_TRADE_BOOM;
-            e->economic_days = e->economic_event == CORE_NATURE_MINE_COLLAPSE ? rng_range(&world->rng,1,3) : rng_range(&world->rng,3,6);
-            events_push_pair(&world->events,CORE_EVT_NATURE_STARTED,e->economic_event,e->economic_days);
-        }
-        if (n->event && n->event != CORE_NATURE_BUMPER) e->disaster_day = exp_day(world);
+        expansion_advance_events(world);
         roll_weather(world);
         return;
     }

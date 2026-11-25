@@ -107,8 +107,10 @@ static int place_keep(World *world)
     return CORE_OK;
 }
 
-int world_create(const CoreNewGameParams *params, const Defs *defs, World **out)
-{
+int world_create(const CoreNewGameParams *params, const Defs *defs, World **out) {
+    return world_create_generation(params, defs, 11, out);
+}
+int world_create_generation(const CoreNewGameParams *params, const Defs *defs, int generation, World **out) {
     World *world;
     int rc;
     int32_t i;
@@ -130,9 +132,12 @@ int world_create(const CoreNewGameParams *params, const Defs *defs, World **out)
     /* 지도 생성과 게임 진행이 같은 난수 스트림을 쓰도록 시드로 초기화합니다 */
     rng_seed(&world->rng, (uint64_t)(uint32_t)params->seed, 0x4D43u);
     eco_bank_init(&world->bank, params->difficulty);
-    world->ruleset=params->ruleset;
+    world->ruleset = params->ruleset;
+    world->generation_version = generation;
     rc=world->ruleset?expansion_allocate(world):CORE_OK;
-    if(rc==CORE_OK)rc = grid_alloc(&world->grid, world->ruleset?192:GRID_DEFAULT_SIZE, world->ruleset?192:GRID_DEFAULT_SIZE);
+    if (rc == CORE_OK)
+        rc = grid_alloc(&world->grid, world->ruleset ? (generation >= 11 ? 160 : 192) : GRID_DEFAULT_SIZE,
+                        world->ruleset ? (generation >= 11 ? 160 : 192) : GRID_DEFAULT_SIZE);
     if(rc==CORE_OK && world->ruleset)rc=expansion_resize(world);
     if (rc == CORE_OK) {
         world->keep_x = world->grid.width / 2;

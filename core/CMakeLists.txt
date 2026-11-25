@@ -13,6 +13,11 @@ set(CASTLE_CORE_SOURCES
   src/expansion_people.c
   src/expansion_v121.c
   src/expansion_v122.c
+  src/expansion_v123_world.c
+  src/expansion_v123_rules.c
+  src/expansion_v123_trade.c
+  src/expansion_v123_services.c
+  src/expansion_v123_boats.c
     src/expansion_raids.c
   src/expansion_wellbeing.c
   src/expansion_ecology.c

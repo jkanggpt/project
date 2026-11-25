@@ -141,38 +141,14 @@ static void mining(World *w, Building *b, int factor) {
 }
 
 static int fish_request(const World *w, const Building *b, int *water) {
-    int *counts = w->grid.scratch_queue, water_count = w->expansion->water_count, x, y, id, chosen = 0,
-        best = 0, desire;
-    int port = b->type == CORE_BLD_PORT, radius = port ? 1 : 5;
+    int chosen = expansion_adjacent_water_id(w, b), desire;
     *water = 0;
-    if (!water_count || !b->operating)
-        return 0;
-
-    memset(counts, 0, (size_t)water_count * sizeof(*counts));
-    for (y = b->y - radius; y < b->y + b->h + radius; y++)
-        for (x = b->x - radius; x < b->x + b->w + radius; x++) {
-            int dx = x < b->x ? b->x - x : x >= b->x + b->w ? x - (b->x + b->w - 1) : 0;
-            int dy = y < b->y ? b->y - y : y >= b->y + b->h ? y - (b->y + b->h - 1) : 0;
-            if (!grid_in_bounds(&w->grid, x, y) ||
-                (port ? dx + dy != 1 : expansion_center_distance(b, x, y) > 5))
-                continue;
-            id = w->expansion->tiles[grid_index(&w->grid, x, y)].water_id;
-            if (id)
-                counts[id - 1]++;
-        }
-    for (id = 1; id <= water_count; id++)
-        if (counts[id - 1]) {
-            int score = port ? w->expansion->water_area[id - 1] : counts[id - 1];
-            if (score > best) {
-                best = score;
-                chosen = id;
-            }
-        }
-    if (!chosen)
+    if (!chosen || !b->operating)
         return 0;
     *water = chosen;
-    desire = port ? exp_clamp(750 + w->expansion->water_area[chosen - 1] * 1000 / 400, 750, 1400)
-                  : exp_clamp(best * 1000 / 12, 250, 1000);
+    desire = b->type == CORE_BLD_PORT
+                 ? exp_clamp(750 + w->expansion->water_area[chosen - 1] * 1000 / 400, 750, 1400)
+                 : 1000;
     return (int)((int64_t)3000 * b->daily_work_milli * desire / (540000LL * 1000));
 }
 static void fishing(World *w) {
@@ -382,6 +358,8 @@ void expansion_daily(World *w) {
         if (factor > 0) {
             if (b->type == CORE_BLD_LOGGING_SITE || b->type == CORE_BLD_LUMBER)
                 logging(w, b, factor);
+            else if (b->type == CORE_BLD_CLAY_PIT)
+                (void)expansion_clay_take(w, b, 4, (int)((int64_t)8000 * factor / 1000));
             else if (s->field == 2)
                 mining(w, b, factor);
             else if (b->type == CORE_BLD_GATHERER) {
@@ -393,7 +371,14 @@ void expansion_daily(World *w) {
                         herbs=biome==CORE_BIOME_SWAMP?30:35+(biome==CORE_BIOME_WETLAND?5:0),
                         res=roll<food?CORE_RES_FOOD:roll<food+herbs?CORE_RES_HERBS:CORE_RES_CLAY;
                     b->hunts_milli -= 1000;
-                    (void)expansion_bank_add(w, res, 1000, CORE_LEDGER_PRODUCTION);
+                    if (res == CORE_RES_CLAY) {
+                        if (!expansion_clay_take(w, b, 3, 1000)) {
+                            res =
+                                rng_range(&w->rng, 1, food + herbs) <= food ? CORE_RES_FOOD : CORE_RES_HERBS;
+                            (void)expansion_bank_add(w, res, 1000, CORE_LEDGER_PRODUCTION);
+                        }
+                    } else
+                        (void)expansion_bank_add(w, res, 1000, CORE_LEDGER_PRODUCTION);
                 }
             } else if (s->field == 5) {
                 /* 수렵 보상은 실제 화살 명중·처치에서만 발생합니다. */
@@ -402,6 +387,7 @@ void expansion_daily(World *w) {
         }
     }
     fishing(w);
+    expansion_v123_services_daily(w);
     for (i = 0; i < w->building_count; i++) {
         w->buildings[i]->research_work_milli=0;
         w->buildings[i]->daily_work_milli = 0;

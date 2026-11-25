@@ -42,6 +42,7 @@ typedef struct RunStats {
 
 struct CoreWorld {
     int32_t ruleset;
+    int32_t generation_version;
     struct ExpansionState *expansion;
     char castle_name[CORE_NAME_BYTES]; /* UTF-8 */
     int32_t difficulty;                /* CoreDifficulty */
@@ -95,6 +96,7 @@ void world_destroy(World *world);
 
 /* 새 게임: 인자 검사 → 할당 → 지형 생성 → 성채와 첫 주민. 실패하면 *out 은 NULL 이고 메모리는 모두 해제됩니다 */
 int world_create(const CoreNewGameParams *params, const Defs *defs, World **out);
+int world_create_generation(const CoreNewGameParams *params, const Defs *defs, int generation, World **out);
 
 /* 이 월드의 건물 정의 (종류가 잘못되면 NULL) */
 const BuildingDef *world_building_def(const World *world, int32_t type);

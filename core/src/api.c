@@ -456,6 +456,15 @@ static void villager_to_view(const World *world, const Villager *v, CoreVillager
     if(world->expansion)expansion_read_villager(world,v,out);
 }
 
+CORE_API int32_t core_get_villager(const CoreWorld *world, int32_t id, CoreVillagerView *out) {
+    if (!world || !out)
+        return CORE_ERR_NULL_ARG;
+    const Villager *v = entity_find_villager(world, id);
+    if (!v)
+        return CORE_ERR_NOT_FOUND;
+    villager_to_view(world, v, out);
+    return CORE_OK;
+}
 CORE_API int32_t core_copy_villagers(const CoreWorld *world, CoreVillagerView *out, int32_t capacity,
                                      int32_t *out_count)
 {

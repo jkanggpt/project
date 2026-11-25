@@ -1,13 +1,9 @@
 # 마법성채 키우기
 
-현재 버전은 **v1.2.2 patch2**입니다. [변경 명세](docs/V1_2_2_SPEC.md)와 학생의 추가 요청을 적용합니다.
-2026-11-23 [patch2 수정 기록](docs/V1_2_2_PATCH2.md): 분산 습격·전역 시야 군사 출동·실내 환복과 개인 시야, 일일 식량1·재입고/숙련도 조정, 능률 표시, 석조 개척지 영주관과 모든 건물 선택 테두리를 적용했습니다.
-2026-11-23 [이전 후속 보완판](docs/V1_2_2_PATCH1.md)은 발견/첫 공격부터48시간 습격·시야 밖 철수 종료, 칸에 맞춘 농장, 주민 프로필/숫자스탯, 최초 근무조 선택, 세력별 경보와 방향별 이미지 이펙트를 포함합니다.
-변경 규칙은 [적용 기록](docs/V1_2_2_IMPLEMENTATION.md), 실제 검사 결과와 미달 목표는 [검증 기록](docs/V1_2_2_QA.md)에 있습니다.
-행복도와 사건 기분을 분리하고, 일반 이주·인구 하한·저장 허브·10개 생물군계·수역 온도·30종 동물·거래 시세를 적용했습니다.
-시작 건물은 회전하지 않는 4×4 영주관이며 등급별 그림 6개와 하루 승급 공사를 사용합니다.
-도로는 바닥 테두리를 남기며8방향으로 연결됩니다. 건물 높이는 점유 칸을 지키며 원본 비율에 맞춥니다. 수목20개 잘림을 교정했고 온수·냉수 물가 연결과 동물 수영·공격·피격·사망을 표시합니다.
-합류 전과 이탈 중 주민은 어두운 공간에서도 보이지만 시야를 밝히지 않습니다.
+현재 버전은 **v1.2.3**입니다. [상세 명세](docs/V1_2_3_SPEC.md), [적용 기록](docs/V1_2_3_IMPLEMENTATION.md), [검증 결과와 한계](docs/V1_2_3_QA.md)를 참고하세요.
+2026-11-25: 새160×160 지도·분산 생물군계·호수20개·유한 점토, 채토장/급수탑/천문대/미술관, 실제 이동하는 물물교환 상인과 어선, 주거/추방·수렵·급수·의료·연결 교량을 적용했습니다.
+건설 카드는 해금 등급별 반투명 배경과 색 테두리, 최신 지도용 건물 그림을 사용합니다. 광맥 총량은 유지하고 지상 바위 표시를 줄였습니다.
+저장v11/ABI13이며 기존v9/v10 원본을 보존한 채 새 슬롯으로 가져옵니다. 기존192 지도는 그대로 유지합니다.
 
 개척지를 촌락·마을·도시·성채·왕성으로 성장시키는 2D 중세 판타지 경영 게임입니다.
 **게임 규칙·화면·입력·이동·전투·메뉴·저장을 C로 구현**하며 그래픽·창·소리는 raylib 5.5를 사용합니다.
@@ -18,7 +14,7 @@ Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 주민은 1×1칸 판정에 약 1.5칸 높이이며, 높은 건물과 수관은 뒤의 칸과 주민을 가립니다.
 점유 칸과 그림 높이·앞뒤 정렬 설명, 원본과 C 패킹 방법은 [art/README.md](art/README.md)입니다.
 
-통합 확장: 192×192 지도, 15자원, 건설65종과 시작 영주관, 연구 24종을 제공합니다.
+통합 확장: 새160×160 지도, 15자원, 건설69종과 시작 영주관, 연구 24종을 제공합니다.
 일반 건물은 정면·후면·양옆 그림으로 회전합니다. 경작지·농장·관개농장은 계절별 밀밭, 과수원은 울타리와 과일나무, 온실은 유리 지붕을 표시합니다. 성벽과 영주관은 회전하지 않습니다.
 주민은 지붕이 있는 건물 안으로 들어갑니다. 무인 시설의 빨간 느낌표, 주민 욕구와 건물 작업 아이콘이 말풍선으로 표시됩니다.
 규칙과 문서 충돌의 해석은 [확장 구현 기록](docs/expansion/IMPLEMENTATION.md), 장기 검사 결과는 [확장 QA](docs/expansion/QA_RESULTS.md)에 기록합니다.
@@ -27,7 +23,7 @@ Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 보호구역 안에서는 주민의 안전 욕구가 회복되고, 위험 시 걸어갈 수 있는 가까운 보호구역으로 대피합니다. 성문 철거에도 도로 연결 검사를 적용합니다.
 개척지에는 5~8일과 10~13일에 각각 2명이 조건 없이 한 번씩 이주합니다. 두 번째 합류 이후 3일마다 1명씩 영구 인구 8명까지 보충합니다.
 
-![v1.2.2 보완판 게임 화면](docs/screenshots/v122_patch2_selection_1440.png)
+![v1.2.3 건설 카드](docs/screenshots/v123_cards_1440.png)
 
 ![주민48외형](docs/screenshots/v122_villagers.png)
 ![성벽과 성문 연결·동물30종](docs/screenshots/v121_connections.png)
@@ -35,7 +31,7 @@ Godot, .NET, C#, Python 설치는 필요하지 않습니다.
 
 ## Windows 빌드와 실행
 
-배포 ZIP을 받은 경우 압축을 풀고 `MagicCastle-v1.2.2-patch2/castle_game.exe`를 실행하면 됩니다. `assets/`와 `data/` 폴더도 함께 두세요.
+배포 ZIP을 받은 경우 압축을 풀고 `MagicCastle-v1.2.3/castle_game.exe`를 실행하면 됩니다. `assets/`와 `data/` 폴더도 함께 두세요.
 아래 도구 설치는 직접 소스를 빌드할 때 필요합니다.
 
 준비물: CMake 3.21 이상과 Visual Studio 2022 C/C++ 개발 도구 또는 MinGW-w64 + Ninja.
@@ -105,12 +101,12 @@ ctest --preset linux-debug -j8
 
 ## 저장과 배포
 
-- Windows: `%APPDATA%/MagicCastle/saves_v10/`, 설정은 상위 폴더의 `settings.cfg`.
+- Windows: `%APPDATA%/MagicCastle/saves_v11/`, 설정은 상위 폴더의 `settings.cfg`.
 - Linux: `$XDG_DATA_HOME/magic-castle/` 또는 `~/.local/share/magic-castle/`.
-- 불러오기 화면의 v9 가져오기는 원본을 보존하고 빈 v10 수동 슬롯으로 변환합니다.
-- 자동 저장과 슬롯 1~3, 원자적 저장과 `.bak` 복구. 현재 세이브 v10·API ABI12.
+- 불러오기 화면에서 v9/v10 원본을 선택해 빈 v11 수동 슬롯으로 가져옵니다.
+- 자동 저장과 슬롯 1~3, 원자적 저장과 `.bak` 복구. 현재 세이브 v11·API ABI13.
 - 습격 중에는 저장·수리를 막으며 자동 저장을 습격 종료 뒤로 미룹니다.
-- 자동 검사는 실행 파일 옆 `saves_v10_automated/` 또는 지정한 `--save-dir`를 사용합니다.
+- 자동 검사는 실행 파일 옆 `saves_v11_automated/` 또는 지정한 `--save-dir`를 사용합니다.
 - v8 이하 저장은 호환되지 않습니다. 이전 저장 폴더의 파일은 지우거나 덮어쓰지 않으며 새 게임을 시작해야 합니다.
 - 실행 파일·`data/`·`assets/`·라이선스를 함께 배포합니다. 별도 코어 DLL은 필요하지 않습니다.
 
@@ -137,7 +133,7 @@ ctest --preset linux-debug -j8
 ./build/windows-msvc/bin/Release/castle_cli.exe
 ./build/windows-msvc/bin/Release/castle_cli.exe --soak 400 --seeds 20
 
-# 전체 원화 재패킹은 기본 확장판 → v1.1.1 → v1.2.1 → v1.2.2 순서
+# 전체 원화 재패킹은 기본 확장판 → v1.1.1 → v1.2.1 → v1.2.2 → 후속 보완 → v1.2.3 순서
 ./build/windows-msvc/bin/Release/castle_expansion_art.exe art/expansion game/assets/expansion
 ./build/windows-msvc/bin/Release/castle_v111_art.exe art/v111 game/assets/expansion
 ./build/windows-msvc/bin/Release/castle_v111_art.exe --check game/assets/expansion
@@ -147,13 +143,18 @@ ctest --preset linux-debug -j8
 ./build/windows-msvc/bin/Release/castle_v122_art.exe --check game/assets/expansion
 ./build/windows-msvc/bin/Release/castle_ui_art.exe
 ./build/windows-msvc/bin/Release/castle_ui_art.exe --check game/assets/expansion
+./build/windows-msvc/bin/Release/castle_v123_art.exe
+./build/windows-msvc/bin/Release/castle_v123_art.exe --check game/assets/expansion
+
+# 새160 지도1000시드와 동일 시드 구192 광종별 총량 비교
+./build/windows-msvc/bin/Release/castle_v123_worlds.exe 1000
 ```
 
 `castle_game --screenshot <파일.png> --screen title|game|villagers|uniforms|farms|rotations|connections|population|research|rank|market|load --no-audio`로 화면을 촬영합니다. `tools/screenshots_v122.ps1`은 두 해상도의 검사용 화면을 만듭니다.
 `tools/screenshots.cmake`, `tools/smoke_test.cmake`로도 실행할 수 있습니다.
 각 실행 파일은 `--help`를 제공합니다.
 
-현재 버전의 전체 검사·실제 v9 이관·100시드 지도·장기 평가·성능 결과는 [v1.2.2 검증 기록](docs/V1_2_2_QA.md)에 기록합니다. 이전 버전의 수치는 해당 버전 QA 문서에 보존합니다.
+현재 버전의 전체 검사·실제 v9/v10 이관·1000시드 지도·144판 장기 평가·성능 결과는 [v1.2.3 검증 기록](docs/V1_2_3_QA.md)에 기록합니다. 이전 버전의 수치는 해당 버전 QA 문서에 보존합니다.
 
 ## 구조
 

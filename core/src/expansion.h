@@ -47,6 +47,10 @@ typedef struct ExpansionState {
     int32_t market_staff_efficiency, market_staff_day;
     int32_t phantom_second_day[6], loaded_version;
     int32_t frontend_clock[2], frontend_projectiles[512][13];
+    int32_t clay_initialized, ore_budget_milli[CORE_RES_COUNT], ore_old_tiles[CORE_RES_COUNT];
+    CoreWanderingMerchantView wandering;
+    CoreBoatView boats[CORE_EXP_MAX_BOATS];
+    int32_t boat_count, loaded_v123_tiles, loaded_v123_people, loaded_v123_buildings, loaded_v123_boats;
 } ExpansionState;
 
 static inline int exp_day(const World *w) { return w->clock.tick / 144 + 1; }
@@ -61,8 +65,29 @@ static inline int exp_dist(int x, int y, int xx, int yy) {
     return (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
 }
 
+uint32_t expansion_map_hash(int seed, int x, int y);
+int expansion_v123_biomes(World *world);
+void expansion_v123_generate(World *world);
+void expansion_legacy_generate(World *world);
+int expansion_v123_migrate(World *world);
+void expansion_clay_initialize(World *world);
+int expansion_clay_take(World *world, const Building *building, int radius, int requested);
+int expansion_adjacent_water_id(const World *world, const Building *building);
+int expansion_water_capacity(int type);
+int expansion_water_radius(int type);
+int expansion_heal_herbs_required(const World *world, const Villager *patient, const Building *clinic);
+void expansion_merchant_tick(World *world);
+void expansion_boats_tick(World *world);
+int expansion_boat_hold(World *world, Villager *villager);
+void expansion_v123_services_daily(World *world);
+void expansion_forecast_refresh(World *world, Building *building);
+void expansion_advance_events(World *world);
+void expansion_event_rng(const World *world, int day, int stream, Rng *out);
+int expansion_person_exit(World *world, const Villager *villager, int *x, int *y);
+int expansion_hunter_threat(World *world, Villager *villager, int animal_id);
 const ExpansionBuildingSpec *expansion_spec(int type);
 void expansion_fill_definitions(Defs *defs, int expanded);
+void expansion_fill_new_definitions(Defs *defs);
 int expansion_allocate(World *world);
 int expansion_resize(World *world);
 void expansion_free(World *world);

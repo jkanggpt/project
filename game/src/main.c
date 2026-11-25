@@ -68,10 +68,10 @@ static int options(int argc,char **argv,Options *o)
             if (!number(argv[++i], 360, 420, &o->wildlife) || (o->wildlife != 360 && o->wildlife != 420))
                 return 0;
         } else if (!strcmp(arg, "--width")) {
-            if (!number(argv[++i], 1024, 3840, &o->width))
+            if (!number(argv[++i], 800, 3840, &o->width))
                 return 0;
         } else if (!strcmp(arg, "--height")) {
-            if (!number(argv[++i], 720, 2160, &o->height))
+            if (!number(argv[++i], 576, 2160, &o->height))
                 return 0;
         } else if (!strcmp(arg, "--difficulty")) {
             const char *d=argv[++i];
@@ -82,7 +82,15 @@ static int options(int argc,char **argv,Options *o)
         } else
             return 0;
     }
-    if (strcmp(o->screen,"title") && strcmp(o->screen,"game") && strcmp(o->screen,"villagers") && strcmp(o->screen,"population") && strcmp(o->screen,"rotations") && strcmp(o->screen,"connections") && strcmp(o->screen,"research") && strcmp(o->screen,"rank") && strcmp(o->screen,"market") && strcmp(o->screen,"load") && strcmp(o->screen,"uniforms") && strcmp(o->screen,"farms") && strcmp(o->screen,"raid") && strcmp(o->screen,"alerts") && strcmp(o->screen,"tower") && strcmp(o->screen,"assign") && strcmp(o->screen,"effects") && strcmp(o->screen,"selection") && strcmp(o->screen,"demolition") && strcmp(o->screen,"workforce") && strcmp(o->screen,"trade") && strcmp(o->screen,"skills")) return 0;
+    if (strncmp(o->screen, "v123", 4) && strcmp(o->screen, "title") && strcmp(o->screen, "game") &&
+        strcmp(o->screen, "villagers") && strcmp(o->screen, "population") && strcmp(o->screen, "rotations") &&
+        strcmp(o->screen, "connections") && strcmp(o->screen, "research") && strcmp(o->screen, "rank") &&
+        strcmp(o->screen, "market") && strcmp(o->screen, "load") && strcmp(o->screen, "uniforms") &&
+        strcmp(o->screen, "farms") && strcmp(o->screen, "raid") && strcmp(o->screen, "alerts") &&
+        strcmp(o->screen, "tower") && strcmp(o->screen, "assign") && strcmp(o->screen, "effects") &&
+        strcmp(o->screen, "selection") && strcmp(o->screen, "demolition") && strcmp(o->screen, "workforce") &&
+        strcmp(o->screen, "trade") && strcmp(o->screen, "skills"))
+        return 0;
     return 1;
 }
 void game_app_notice(GameApp *a,const char *text)
@@ -156,19 +164,34 @@ void game_app_legacy_slot_path(GameApp *a,int slot,int backup,char path[GAME_PAT
     char directory[GAME_PATH_BYTES],name[48];
     if(slot==0)snprintf(name,sizeof(name),"autosave.sav%s",backup?".bak":"");
     else snprintf(name,sizeof(name),"slot%d.sav%s",slot,backup?".bak":"");
-    if(!game_join_path(directory,sizeof(directory),a->user_dir,"saves_v9") ||
-       !game_join_path(path,GAME_PATH_BYTES,directory,name))path[0]=0;
+    if (!game_join_path(directory, sizeof(directory), a->user_dir,
+                        a->load_legacy == 2 ? "saves_v10" : "saves_v9") ||
+        !game_join_path(path, GAME_PATH_BYTES, directory, name))
+        path[0] = 0;
 }
 int game_app_import_v9(GameApp *a,int slot,int backup) {
     char source[GAME_PATH_BYTES],destination[GAME_PATH_BYTES];int target=0,line=0;
     for(int i=1;i<=3;i++){game_app_slot_path(a,i,0,destination);if(!platform_file_exists(destination)){target=i;break;}}
-    if(!target){snprintf(a->message,sizeof(a->message),u8"기존 저장을 보존하려면 v10의 빈 수동 저장 슬롯이 필요합니다.");return 0;}
+    if (!target) {
+        snprintf(a->message, sizeof(a->message),
+                 u8"기존 저장을 보존하려면 v11의 빈 수동 저장 슬롯이 필요합니다.");
+        return 0;
+    }
     game_app_legacy_slot_path(a,slot,backup,source);
     int rc=game_session_load(&a->session,source,&line);
-    if(rc!=CORE_OK){snprintf(a->message,sizeof(a->message),u8"v9 가져오기 실패: %s (%d번째 줄)",fmt_result_message(rc),line);return 0;}
+    if (rc != CORE_OK) {
+        snprintf(a->message, sizeof(a->message), u8"이전 버전 가져오기 실패: %s (%d번째 줄)",
+                 fmt_result_message(rc), line);
+        return 0;
+    }
     enter_game(a);rc=game_app_save(a,target);
-    if(rc==CORE_OK){a->load_legacy=0;game_app_notice(a,u8"v9 원본을 보존하고 빈 슬롯에 v10으로 저장했습니다.");return 1;}
-    game_app_notice(a,u8"v9를 불러왔지만 새 저장에 실패했습니다. 원본은 보존되어 있습니다.");return 0;
+    if (rc == CORE_OK) {
+        a->load_legacy = 0;
+        game_app_notice(a, u8"이전 원본을 보존하고 빈 슬롯에 v11으로 저장했습니다.");
+        return 1;
+    }
+    game_app_notice(a, u8"이전 버전을 불러왔지만 새 저장에 실패했습니다. 원본은 보존되어 있습니다.");
+    return 0;
 }
 int game_app_load(GameApp *a,int slot,int backup)
 {
@@ -276,11 +299,133 @@ static int smoke(GameApp *a,const Options *o)
         o->days,a->session.summary.population,a->session.summary.rank,a->session.summary.research_done,arrivals,shots,kills,a->save_count,(unsigned long long)after);
     return 0;
 }
+static Building *screenshot_facility(World *w, int type, int x, int y) {
+    const ExpansionBuildingSpec *spec = expansion_spec(type);
+    Building *b = entity_add_building(w, type);
+    if (!b)
+        return NULL;
+    b->x = x;
+    b->y = y;
+    b->w = spec->w;
+    b->h = spec->h;
+    b->hp = spec->hp;
+    b->state = CORE_BSTATE_ACTIVE;
+    b->door_x = x + spec->w / 2;
+    b->door_y = y + spec->h;
+    b->auto_assign = 0;
+    for (int yy = y - 1; yy <= y + b->h; yy++)
+        for (int xx = x - 1; xx <= x + b->w; xx++) {
+            int p = grid_index(&w->grid, xx, yy);
+            w->grid.terrain[p] = CORE_TERRAIN_GRASS;
+            w->expansion->tiles[p].tree_kind = 0;
+            w->expansion->tiles[p].tree_logs_milli = 0;
+            w->expansion->tiles[p].rock_variant = 0;
+            w->expansion->tiles[p].explored = 1;
+        }
+    return b;
+}
+static void screenshot_v123(GameApp *a, const Options *o) {
+    World *w = a->session.world;
+    w->clock.tick = 54;
+    w->rank = 5;
+    for (int r = 0; r < CORE_RES_COUNT; r++)
+        w->bank.amount[r] = r==CORE_RES_GOLD?2000:r==CORE_RES_MANA?40:80;
+    if (!strcmp(o->screen, "v123merchant")) {
+        w->rank = 2;
+        w->expansion->wandering.next_target_tick = w->clock.tick + 1;
+        for (int tick = 0; tick < 400; tick++) {
+            expansion_merchant_tick(w);
+            if (w->expansion->wandering.state == CORE_MERCHANT_TRADING)
+                break;
+            w->clock.tick++;
+        }
+        game_session_refresh(&a->session);
+        game_select(a, 5, w->expansion->wandering.visit_id);
+    } else {
+        int type = !strcmp(o->screen, "v123boats")      ? CORE_BLD_PORT
+                   : !strcmp(o->screen, "v123home")     ? CORE_BLD_HOUSE
+                   : !strcmp(o->screen, "v123forecast") ? CORE_BLD_OBSERVATORY
+                                                        : CORE_BLD_CLAY_PIT;
+        Building *b = screenshot_facility(w, type, w->keep_x - 5, w->keep_y + 5);
+        if (!b)
+            return;
+        if (type == CORE_BLD_PORT) {
+            for (int y = b->y - 2; y < b->y + 12; y++)
+                for (int x = b->x + b->w; x < b->x + b->w + 14; x++) {
+                    int p = grid_index(&w->grid, x, y);
+                    w->grid.terrain[p] = CORE_TERRAIN_WATER;w->expansion->tiles[p].biome=CORE_BIOME_LAKE;
+                    w->expansion->tiles[p].tree_kind = 0;
+                    w->expansion->tiles[p].tree_logs_milli = 0;
+                    w->expansion->tiles[p].rock_variant = 0;
+                    w->expansion->tiles[p].explored = 1;
+                }
+            expansion_water_bodies(w);
+        }
+        expansion_rebuild(w);
+        for (int i = 0; i < 4; i++) {
+            Villager *v = w->villagers[i];
+            v->needs.hunger = v->needs.rest = 100;
+            v->health = 100;
+            v->happiness = 95;
+            v->meal_day = exp_day(w);
+            v->current_x_milli = b->door_x * 1000 + 500;
+            v->current_y_milli = b->door_y * 1000 + 500;
+            if (type == CORE_BLD_HOUSE) {
+                entity_unlink_resident(v);
+                entity_link_resident(b, v, 4);
+            } else if (i < expansion_spec(type)->workers) {
+                entity_unlink_worker(v);
+                entity_link_worker(b, v, 4);
+                v->target = b;
+                v->at_target = 1;
+                v->state = CORE_VS_WORKING;
+                v->inside_building = b->id;
+                if (type == CORE_BLD_OBSERVATORY)
+                    v->stats.intellect = 8;
+            }
+        }
+        if (type == CORE_BLD_PORT) {
+            expansion_boats_tick(w);
+            for (int t = 0; t < 8; t++) {
+                w->clock.tick++;
+                expansion_boats_tick(w);
+            }
+        }
+        if (type == CORE_BLD_OBSERVATORY)
+            expansion_forecast_refresh(w, b);
+        expansion_v122_numbers(w);
+        expansion_visibility(w);
+        game_session_refresh(&a->session);
+        game_select(a, 1, b->id);
+        if (!strcmp(o->screen, "v123buildings")) {
+            const int types[3] = {CORE_BLD_WATER_TOWER, CORE_BLD_OBSERVATORY, CORE_BLD_ART_MUSEUM};
+            for (int i = 0; i < 3; i++)
+                screenshot_facility(w, types[i], w->keep_x + (i % 2) * 7 - 6, w->keep_y - (i / 2) * 7 - 8);
+            expansion_rebuild(w);
+            game_session_refresh(&a->session);
+            a->category = CORE_CAT_MINING;
+        }
+        a->camera.target = (Vector2){(b->x + b->w / 2.0f) * 16, (b->y + b->h / 2.0f) * 16};
+    }
+    if (!strcmp(o->screen, "v123buildings")) {
+        a->camera.zoom = 1.25f;
+        a->camera.target = (Vector2){w->keep_x * 16.0f, (w->keep_y - 2) * 16.0f};
+    }
+    a->speed = 0;
+    if(!strcmp(o->screen,"v123cards_high"))a->build_scroll=3;
+    if(!strcmp(o->screen,"v123gates")){a->category=CORE_CAT_DEFENSE;a->build_scroll=4;}
+    a->session.wandering_previous = a->session.wandering;
+    a->session.boat_previous_count = 0;
+}
 static void screenshot_screen(GameApp *a,const Options *o)
 {
     if(strcmp(o->screen,"demolition"))SetMousePosition(GetScreenWidth()-3,GetScreenHeight()-3);
     if (!strcmp(o->screen,"title")) { a->panel=PANEL_TITLE; a->in_game=0; return; }
     (void)game_session_new(&a->session,u8"바람언덕",o->seed,o->difficulty); enter_game(a);
+    if (!strncmp(o->screen, "v123", 4)) {
+        screenshot_v123(a, o);
+        return;
+    }
     /* 명시적인 촬영 모드의 재현 자료이며 정상 자동플레이 평가에는 사용하지 않습니다. */
     if(!strcmp(o->screen,"effects")){a->speed=0;return;}
     if(!strcmp(o->screen,"selection")||!strcmp(o->screen,"demolition")||!strcmp(o->screen,"workforce")||!strcmp(o->screen,"trade")||!strcmp(o->screen,"skills")) {
@@ -397,7 +542,7 @@ static int run(int argc,char **argv)
         if (strlen(o.save_dir)>=sizeof(a->save_dir)) { free(a); return 2; }
         strcpy(a->save_dir,o.save_dir);
     } else if (!game_join_path(a->save_dir, sizeof(a->save_dir), a->automated ? exe : a->user_dir,
-                               a->automated ? "saves_v10_automated" : "saves_v10")) {
+                               a->automated ? "saves_v11_automated" : "saves_v11")) {
         free(a);
         return 1;
     }
@@ -412,7 +557,7 @@ static int run(int argc,char **argv)
     SetTraceLogLevel(LOG_WARNING);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | (o.probe ? 0 : FLAG_VSYNC_HINT));
     InitWindow(o.width, o.height, u8"마법성채 키우기 — C");
-    SetWindowMinSize(1024, 720);
+    SetWindowMinSize(800, 576);
     SetExitKey(KEY_NULL);
     SetTargetFPS(o.probe ? 0 : 60);
     if (!IsWindowReady() || !game_assets_load(&a->assets,o.assets?o.assets:assets,!o.no_audio)) {

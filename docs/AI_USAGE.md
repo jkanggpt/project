@@ -1,5 +1,31 @@
 # 생성형 AI 사용 기록 (AI_USAGE)
 
+## v1.2.3 통합 업데이트 (2026-11-24~25)
+
+도구는 Codex와 내장 image_gen입니다. 하위 에이전트 없이 작업했으며 사용자 후속 요구(어업 기존복장, 청/적 상인, 등급별 카드, 바위 표시 감소)를 우선했습니다. 생성·대규모 수정 파일은 다음과 같습니다.
+
+| 파일/범위 | 내용 |
+|---|---|
+| `CMakeLists.txt`, `core/CMakeLists.txt`, `game/CMakeLists.txt`, `tests/CMakeLists.txt`, `tools/CMakeLists.txt` | 버전·새 모듈·UI/아트/지도 검사와 설치 목록 |
+| `core/include/castle_core.h`, `castle_expansion.h` | ABI13·공개 시설/상인/어선/추방/예보 조회·명령 |
+| `core/src/expansion_v123_world.c`, `expansion_v123_rules.c`, `expansion_v123_trade.c`, `expansion_v123_boats.c`, `expansion_v123_services.c` |160 생성/유한 점토·공통 생활·실제 상인/교환·어선·날짜별 사건/복제 예보/문화 |
+| `core/src/api.c`, `defs.c`, `entity.c`, `entity.h`, `events.c`, `expansion.h`, `expansion_animals.c`, `expansion_catalog.c`, `expansion_commands.c`, `expansion_ecology.c`, `expansion_economy.c`, `expansion_people.c`, `expansion_prices.c`, `expansion_save.c`, `expansion_v121.c`, `expansion_v122.c`, `expansion_world.c`, `nature.c`, `population.c`, `save.c`, `villager_ai.c`, `world.c`, `world.h` | 새 규칙 통합·시설/급수/수렵·구지도 생성 유지·저장11 필드와 이관/해시 |
+| `cli/expansion_bot.c`, `cli/format.c` | 정상 비용 봇의 집 중심 급수·점토/연구·상인, 한국어 공지 이벤트47 |
+| `game/src/app.h`, `assets.c`, `assets.h`, `main.c`, `panels.c`, `render.c`, `session.c`, `session.h`, `sprite_layout.c`, `sprite_layout.h`, `ui.c`, `ui.h`, `v122_ui.c`, `v123_ui.c` | 실제 아트/수면 이동·하선 동기화·가구/상인/예보/추방 UI·원본9/10 가져오기·카드 최신 아틀라스/등급색·툴팁/반응형·바위 샘플링 |
+| `tests/test_v123.c`, `test_native.c`, `test_list.h`, `test_util.h`, `test_colony.c`, `test_expansion.c`, `test_save.c`, `test_v111.c`, `test_v122.c` | 새 기능/저장/수렵/표시 회귀, 구192 fixture 분리 |
+| `.gitattributes` | 저장 fixture를 바이너리로 표시하여 원본 바이트를 보존하고 텍스트 diff/병합을 막음 |
+| `tests/fixtures/expansion_v10.sav` | 기존 배포판이 실제 생성한 v10 이관 검사용 저장의 바이트 복사, 원본 불변 |
+| `tools/check_v123_worlds.c`, `check_v122_worlds.c`, `pack_v123_art.c` |1000지도·구광맥 예산 검산, 신규 아틀라스 패킹/검사 |
+| `art/v123/*.png`, `art/V123_PROMPTS.json`, `art/V123_MANIFEST.json` |image_gen 원화13장·참조/전문 또는 요약·치수/SHA256 |
+| `game/assets/expansion/`의 새23 PNG |4시설 방향별16장, merchant/merchant_portrait/fishing_boats/bridge_parts/observatory_motion/ore_soil/soil_markers7장. C 패킹 파생 결과이며 매니페스트에 개별 파일 명시 |
+| `game/assets/expansion/LICENSE.txt`, `CREDITS.md`, `art/README.md` |CC0 헌정과 출처/패킹 안내 |
+| `docs/V1_2_3_SPEC.html`, `V1_2_3_SPEC.md` | 사용자 문서 원본 복사·읽기용 텍스트 추출. 명세 작성자는 사용자이며 AI가 새로 작성한 원문이 아님 |
+| `docs/V1_2_3_IMPLEMENTATION.md`, `V1_2_3_QA.md`, `v123_barter_recipes.csv`, `v123_balance_results.csv`, `v123_map_statistics.csv`, `v123_map_summary.json`, `v123_performance_results.csv` | 구현 해석·실측과 미달/미검증 구분·원본 결과 집계 |
+| `docs/screenshots/v123*.png`9장 | 실제 게임 렌더러의 명시적 UI 진단 장면. 정상 성장 화면과 구별 |
+| `README.md`, `PROGRESS.md`, `docs/SPEC.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `AI_USAGE.md` | 현재 버전·결정·검증·배포 및 AI 사용 기록 |
+
+기존 사용자 미추적 AGENTS.md·game/src의 두 헤더·tools.zip은 수정/추가 커밋하지 않았습니다. 이미지 원본을 Python으로 편집하지 않았으며 패킹/셀 정렬은 C 도구를 사용합니다. 검증의 성장·반복 성능 일부 목표 미달과 Linux ASan/수동 플레이 미실시는 QA에 남깁니다.
+
 수업 규정에 따라 생성형 AI 가 만들었거나 크게 고친 파일을 모두 적습니다.
 도구: **Claude Code** (Anthropic), GitHub 저장소에 연결된 클라우드 세션. 사람(학생)은 명세(`docs/SPEC.md`)를 주고, 결과를 Windows 에서 플레이 테스트하고 PR 을 검토·병합합니다.
 

@@ -163,6 +163,11 @@ void expansion_water_bodies(World *w) {
 int expansion_new_world(World *w) {
     ExpansionState *e = w->expansion;
     int i, x, y, rc;
+    if (w->generation_version >= 11) {
+        int status = expansion_v123_biomes(w);
+        if (status != CORE_OK)
+            return status;
+    }
     static const int starts[CORE_RES_COUNT] = {160, 5, 125, 0, 12, 5, 65, 0, 0, 0, 0, 0, 0, 0, 0};
     for (i = 0; i < e->cells; i++) {
         CoreExpansionTileView *t = &e->tiles[i];
@@ -171,7 +176,8 @@ int expansion_new_world(World *w) {
         x = i % w->grid.width;
         y = i / w->grid.width;
         n = terrain_noise(x, y, w->seed);
-        t->biome = biome_at(x, y, w->seed);
+        if (w->generation_version < 11)
+            t->biome = biome_at(x, y, w->seed);
         t->ore_kind = -1;
         near = exp_dist(x, y, w->keep_x, w->keep_y);
         if (near < 10 && t->biome == 7)
@@ -242,7 +248,13 @@ int expansion_new_world(World *w) {
         e->tiles[i].ore_kind = -1;
         w->grid.terrain[i] = CORE_TERRAIN_GRASS;
     }
-    expansion_v122_generate(w);
+    if (w->generation_version < 11)
+        expansion_legacy_generate(w);
+    else
+        expansion_v123_generate(w);
+    if (e->error)
+        return e->error;
+
     expansion_capacity(w);
     expansion_rebuild(w);
     expansion_ecology_init(w);
@@ -376,7 +388,12 @@ void expansion_tick(World *w) {
     }
     expansion_v122_numbers(w);
     if (!core_expansion_build_locked(w)) expansion_promotion_tick(w);
+    expansion_merchant_tick(w);
+    expansion_boats_tick(w);
     expansion_people_tick(w);
+    if (minute % 60 == 0)
+        for (int index = 0; index < w->building_count; index++)
+            expansion_forecast_refresh(w, w->buildings[index]);
     expansion_animals_tick(w);
     expansion_collect_harvest(w);
     if (minute == 0) {

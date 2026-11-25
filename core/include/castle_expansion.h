@@ -29,6 +29,7 @@ typedef struct CoreExpansionTileView {
     int32_t biome, tree_kind, tree_age, tree_logs_milli, tree_used_milli, regrow_milli;
     int32_t ore_kind, ore_milli, water_id, explored;
     int32_t stone_milli, rock_variant;
+    int32_t clay_milli, clay_initial_milli, clay_shore_percent;
 } CoreExpansionTileView;
 typedef struct CoreAnimalView {
     int32_t id, kind, x_milli, y_milli, hp, age, owner, breed_day, starve_days, alive;
@@ -195,5 +196,75 @@ enum CoreRuntimeKind { CORE_RUNTIME_ACTOR=1, CORE_RUNTIME_TOWER=2, CORE_RUNTIME_
 enum { CORE_RUNTIME_ACTOR_INTS=20, CORE_RUNTIME_TOWER_INTS=2, CORE_RUNTIME_CLOCK_INTS=2, CORE_RUNTIME_PROJECTILE_INTS=13, CORE_RUNTIME_PROJECTILES=512 };
 CORE_API int32_t core_expansion_copy_runtime(const CoreWorld *world,int32_t kind,int32_t id,int32_t *values,int32_t count);
 CORE_API int32_t core_expansion_report_runtime(CoreWorld *world,int32_t kind,int32_t id,const int32_t *values,int32_t count);
+
+/* v1.2.3의 추가 상태는 기존 주민·시장과 독립된 평면 질의입니다. */
+#define CORE_EXP_MAX_BOATS 256
+#define CORE_EXP_FORECAST_MAX 24
+enum CoreMerchantState {
+    CORE_MERCHANT_DORMANT,
+    CORE_MERCHANT_ENTERING,
+    CORE_MERCHANT_TRADING,
+    CORE_MERCHANT_LEAVING,
+    CORE_MERCHANT_REPATH
+};
+enum CoreDepartureReason { CORE_DEPART_NONE, CORE_DEPART_VOLUNTARY, CORE_DEPART_CONTRACT, CORE_DEPART_EXPEL };
+enum CoreExileReason {
+    CORE_EXILE_OK,
+    CORE_EXILE_FLOOR8,
+    CORE_EXILE_NOT_FOUND,
+    CORE_EXILE_ALREADY_LEAVING,
+    CORE_EXILE_NO_PATH,
+    CORE_EXILE_INVALID
+};
+typedef struct CoreWanderingMerchantView {
+    int32_t state, visit_id, rank, offer_count, x_milli, y_milli, entry_x, entry_y, wait_x, wait_y;
+    int32_t target_x, target_y, revision, arrived_tick, expires_tick, next_target_tick, retry_tick;
+    int32_t last_nonce, last_offer, arrivals, barter_mana, delayed, recipe_ids[6], remaining[6];
+} CoreWanderingMerchantView;
+typedef struct CoreBarterRecipe {
+    int32_t id, rank, pay_resource, pay_count, get_resource, get_count, max_uses, weight, benefit_bp;
+    char code[8];
+} CoreBarterRecipe;
+typedef struct CoreExileView {
+    int32_t reason, permanent, pending, approved, departure_reason, approved_tick;
+} CoreExileView;
+typedef struct CoreResidentStatus {
+    int32_t departure_reason, departure_approved, departure_tick, boat_port_id, hunt_retreat_reason;
+} CoreResidentStatus;
+typedef struct CoreBoatView {
+    int32_t port_id, slot, state, water_id, x_milli, y_milli, home_x, home_y, next_x, next_y;
+    int32_t crew[2], crew_count, facing, waypoint, repath_tick, returning, blocked;
+} CoreBoatView;
+typedef struct CoreForecastEntry {
+    int32_t type, start_day, end_day, confidence;
+} CoreForecastEntry;
+typedef struct CoreForecastView {
+    int32_t horizon, last_day, stale, count, reason;
+    CoreForecastEntry entries[CORE_EXP_FORECAST_MAX];
+} CoreForecastView;
+CORE_API int32_t core_expansion_ui_color_group(int32_t type);
+CORE_API int32_t core_expansion_adjacent_water(const CoreWorld *world, int32_t type, int32_t x, int32_t y,
+                                               int32_t rotation);
+CORE_API int32_t core_expansion_bridge_mask(const CoreWorld *world, int32_t x, int32_t y);
+CORE_API int32_t core_expansion_merchant_view(const CoreWorld *world, CoreWanderingMerchantView *out);
+CORE_API int32_t core_expansion_barter_recipe(int32_t id, CoreBarterRecipe *out);
+CORE_API int32_t core_expansion_barter_count(void);
+CORE_API int32_t core_expansion_merchant_trade(CoreWorld *world, int32_t visit_id, int32_t recipe_id,
+                                               int32_t nonce, int32_t *reason);
+CORE_API int32_t core_expansion_merchant_position(CoreWorld *world, int32_t x_milli, int32_t y_milli,
+                                                  int32_t arrived);
+CORE_API int32_t core_expansion_can_expel(const CoreWorld *world, int32_t id, CoreExileView *out);
+CORE_API int32_t core_expansion_expel(CoreWorld *world, int32_t id);
+CORE_API int32_t core_expansion_resident_status(const CoreWorld *world, int32_t id, CoreResidentStatus *out);
+CORE_API int32_t core_expansion_house_residents(const CoreWorld *world, int32_t building_id,
+                                                CoreVillagerView *out, int32_t capacity, int32_t *count);
+CORE_API int32_t core_expansion_water_provider(const CoreWorld *world, int32_t building_id, int32_t *radius,
+                                               int32_t *capacity, int32_t *served);
+CORE_API int32_t core_expansion_healing_herbs(const CoreWorld *world, int32_t villager_id, int32_t clinic_id);
+CORE_API int32_t core_expansion_forecast(const CoreWorld *world, int32_t building_id, CoreForecastView *out);
+CORE_API int32_t core_expansion_copy_boats(const CoreWorld *world, CoreBoatView *out, int32_t capacity,
+                                           int32_t *count);
+CORE_API int32_t core_expansion_clay_tile(const CoreWorld *world, int32_t x, int32_t y, int32_t *current,
+                                          int32_t *initial, int32_t *shore_percent);
 
 #endif

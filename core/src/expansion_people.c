@@ -123,6 +123,8 @@ int expansion_qualified(const World *w, const Building *b) {
     case CORE_BLD_HOSPITAL: return b->worker_count >= 2 && highest >= 6 && sum >= 10;
     case CORE_BLD_SCHOOL: return highest >= 5 && sum >= 7;
     case CORE_BLD_ACADEMY: return highest >= 7 && sum >= 15;
+    case CORE_BLD_OBSERVATORY:
+        return highest >= 5;
     default: return b->worker_count > 0 || !expansion_spec(b->type)->workers;
     }
 }
@@ -136,6 +138,8 @@ int expansion_qualified_present(const World *w,const Building *b) {
     case CORE_BLD_HOSPITAL:return count>=2 && highest>=6 && sum>=10;
     case CORE_BLD_SCHOOL:return highest>=5 && sum>=7;
     case CORE_BLD_ACADEMY:return highest>=7 && sum>=15;
+    case CORE_BLD_OBSERVATORY:
+        return highest >= 5;
     default:return count>0 || !expansion_spec(b->type)->workers;
     }
 }
@@ -208,15 +212,19 @@ void expansion_water_supply(World *w) {
         Villager *v = w->villagers[i];
         Building *best = NULL;
         const Building *home = v->home ? v->home : world_keep(w);
-        int distance = 9;
+        int distance = INT32_MAX;
         v->water_building = 0;
         if (!home || v->state == CORE_VS_LEAVING)
             continue;
         for (j = 0; j < w->building_count; j++) {
             Building *b = w->buildings[j];
             int d = expansion_centers_distance(home, b);
-            if (b->type == CORE_BLD_WELL && b->state == CORE_BSTATE_ACTIVE && b->water_served < 18 &&
-                d < distance) {
+            if (expansion_water_capacity(b->type) && b->state == CORE_BSTATE_ACTIVE &&
+                b->water_served < expansion_water_capacity(b->type) && d <= expansion_water_radius(b->type) &&
+                (d < distance ||
+                 (d == distance &&
+                  (!best || (b->type == CORE_BLD_WATER_TOWER && best->type != CORE_BLD_WATER_TOWER) ||
+                   (b->type == best->type && b->id < best->id))))) {
                 distance = d;
                 best = b;
             }
@@ -237,9 +245,10 @@ int expansion_available_housing(World *w) {
     int i, j, total = 0;
     int *remaining = w->expansion->queue;
     for (j = 0; j < w->building_count; j++)
-        remaining[j] = w->buildings[j]->type == CORE_BLD_WELL && w->buildings[j]->state == CORE_BSTATE_ACTIVE
-                           ? 18 - w->buildings[j]->water_served
-                           : 0;
+        remaining[j] =
+            expansion_water_capacity(w->buildings[j]->type) && w->buildings[j]->state == CORE_BSTATE_ACTIVE
+                ? expansion_water_capacity(w->buildings[j]->type) - w->buildings[j]->water_served
+                : 0;
     for (i = 0; i < w->building_count; i++) {
         Building *home = w->buildings[i];
         int slots = w->defs.buildings[home->type].resident_slots - home->resident_count;
@@ -247,7 +256,8 @@ int expansion_available_housing(World *w) {
             continue;
         for (j = 0; j < w->building_count && slots > 0; j++) {
             Building *well = w->buildings[j];
-            if (remaining[j] > 0 && expansion_centers_distance(home, well) <= 8) {
+            if (remaining[j] > 0 &&
+                expansion_centers_distance(home, well) <= expansion_water_radius(well->type)) {
                 int supplied = slots < remaining[j] ? slots : remaining[j];
                 total += supplied;
                 slots -= supplied;
@@ -408,6 +418,13 @@ static int service_efficiency(const World *w,const Building *b) {
 }
 void expansion_leisure_reward(World *w,Villager *v, Building *b, int day) {
     int x = service_efficiency(w,b), type = b->type;
+    if (type == CORE_BLD_ART_MUSEUM) {
+        b->service_credit_milli -= 1000;
+        b->visits_today++;
+        expansion_mood_event(w, v, 28, 12, b->id, 288, 1);
+        v->leisure_days[2] = day + 2;
+        return;
+    }
     b->service_credit_milli -= 1000;
     b->visits_today++;
     if (type == CORE_BLD_SCHOOL || type == CORE_BLD_LIBRARY || type == CORE_BLD_ACADEMY) {
@@ -438,13 +455,16 @@ void expansion_people_tick(World *w) {
         CoreWorkSchedule schedule;expansion_schedule(w,v,&schedule);
         if (v->health >= 30)
             v->critical = 0;
+        if (expansion_boat_hold(w, v))
+            continue;
         if (v->state == CORE_VS_LEAVING) {
-            if (!v->contract_end_tick && !expansion_departure_allowed(w, v, 1)) {
+            if (!v->departure_approved && !v->contract_end_tick && !expansion_departure_allowed(w, v, 1)) {
                 v->low_mood_ticks = 0;
                 to_building(w, v, CORE_VS_IDLE, v->home, keep);
                 w->expansion->dirty = 1;
             } else {
-                if (v->at_target && (!v->contract_end_tick || w->clock.tick >= v->contract_end_tick))
+                if (v->at_target &&
+                    (v->departure_approved || !v->contract_end_tick || w->clock.tick >= v->contract_end_tick))
                     population_remove_departed(w, v);
                 continue;
             }
@@ -473,6 +493,8 @@ void expansion_people_tick(World *w) {
                 entity_unlink_worker(v);
                 entity_unlink_resident(v);
                 v->inside_building = 0;
+                v->departure_reason = CORE_DEPART_CONTRACT;
+                v->departure_tick = w->clock.tick;
                 vil_set_intent(v, CORE_VS_LEAVING, NULL, x, y, 0);
             }
             continue;
@@ -490,6 +512,21 @@ void expansion_people_tick(World *w) {
             v->needs.safety += exp_clamp(desired - v->needs.safety, -4, safe ? 8 : 3);
             v->needs.hunger = exp_clamp(v->needs.hunger - 3, 0, 100);
             v->needs.rest = exp_clamp(v->needs.rest - 2, 0, 100);
+        }
+        if (job && (job->type == CORE_BLD_HUNTER_CAMP || job->type == CORE_BLD_HUNTING_LODGE) &&
+            (v->health <= 35 || v->mission == CORE_MISSION_RETURN)) {
+            if (v->health >= 70 && v->at_target && (v->target == job || v->hunt_retreat_reason>=3)) {
+                v->mission = CORE_MISSION_NONE;v->hunt_retreat_reason = 0;
+            } else {
+                v->hold_ticks=0;v->mission=CORE_MISSION_RETURN;Building *base=job;
+                if(job->state!=CORE_BSTATE_ACTIVE || v->hunt_retreat_reason>=3) {
+                    if(v->hunt_retreat_reason!=3)expansion_notice(w,165,v->id,job->id,u8"수렵시설 접근 불가 · 비상 대피");
+                    v->hunt_retreat_reason=3;int x,y;base=expansion_refuge(w,v,&x,&y);
+                    if(base)to_building(w,v,CORE_VS_GUARD_POST,base,keep);else intent(v,CORE_VS_GUARD_POST,NULL,x,y);
+                } else to_building(w,v,CORE_VS_GUARD_POST,job,keep);
+                if(v->at_target){v->inside_building=base?base->id:0;v->health=exp_clamp(v->health+1,0,100);}
+                continue;
+            }
         }
         if (uniform_tick(w,v,job,schedule.on_duty))continue;
         if (w->expansion->alarm || v->hold_ticks > 0) {
@@ -546,7 +583,8 @@ void expansion_people_tick(World *w) {
             }
             if (clinic) {
                 to_building(w, v, CORE_VS_SEEK_HEALING, clinic, keep);
-                if (v->at_target && expansion_bank_have(w, CORE_RES_HERBS) >= 1000) {
+                if (v->at_target && expansion_bank_have(w, CORE_RES_HERBS) >=
+                                        expansion_heal_herbs_required(w, v, clinic) * 1000) {
                     int staff = expansion_working_count(w, clinic), efficiency = 0;
                     for (int k = 0; k < clinic->worker_count; k++)
                         if (expansion_working_present(w, clinic, clinic->workers[k]))
@@ -556,7 +594,9 @@ void expansion_people_tick(World *w) {
                     int duration = clinic->type == CORE_BLD_HEALER ? 270000 : staff >= 3 ? 67500 : 108000;
                     if(v->healing_progress_milli>duration)v->healing_progress_milli=duration;
                     if (v->healing_progress_milli >= duration && clinic->service_credit_milli >= 1000) {
-                        (void)expansion_bank_add(w, CORE_RES_HERBS, -1000, CORE_LEDGER_HEALING);
+                        (void)expansion_bank_add(w, CORE_RES_HERBS,
+                                                 -expansion_heal_herbs_required(w, v, clinic) * 1000,
+                                                 CORE_LEDGER_HEALING);
                         clinic->service_credit_milli -= 1000;
                         clinic->visits_today++;
                         v->healing_progress_milli = 0;
@@ -730,7 +770,9 @@ void expansion_people_daily(World *w) {
     }
     for (i = w->villager_count - 1; i >= 0; i--) {
         Villager *v = w->villagers[i];
-        v->hygiene = exp_clamp(v->hygiene - 5, 0, 100);
+        const Building *provider = entity_find_building(w, v->water_building);
+        v->hygiene =
+            exp_clamp(v->hygiene - 5 + (provider && provider->type == CORE_BLD_WATER_TOWER ? 6 : 0), 0, 100);
         v->water = exp_clamp(v->water - 20, 0, 100);
         if (!v->contract_end_tick) {
             int wage = v->workplace ? w->defs.buildings[v->workplace->type].wage : 0;

@@ -15,7 +15,9 @@ add_executable(castle_tests
   test_v111.c
   test_v121.c
   test_v122.c
+  test_v123.c
 )
+target_compile_definitions(castle_tests PRIVATE CASTLE_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 target_link_libraries(castle_tests PRIVATE castle_core_testing castle_warnings)
 
 add_executable(castle_native_tests test_native.c)

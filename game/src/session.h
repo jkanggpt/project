@@ -18,7 +18,7 @@ typedef struct GameActor {
     int facing;
     float indoor;
     int indoor_building;
-    int chasing;
+    int chasing,boat_port;
     GamePoint chase_goal;
     float attack_elapsed;
     int attack_serial,attack_applied,attack_kind,attack_target,outfit;
@@ -73,6 +73,9 @@ typedef struct GameSession {
     CoreAnimalView animals[CORE_EXP_MAX_ANIMALS];
     GameAnimalActor animal_actors[CORE_EXP_MAX_ANIMALS];
     int animal_count, ruleset, exp_tick;
+    CoreWanderingMerchantView wandering, wandering_previous;
+    CoreBoatView boats[CORE_EXP_MAX_BOATS], boats_previous[CORE_EXP_MAX_BOATS];
+    int boat_count, boat_previous_count;
     int cells, grid_revision;
     GameActor *actors;
     int actor_count, actor_capacity;

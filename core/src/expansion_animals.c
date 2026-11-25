@@ -316,7 +316,8 @@ void expansion_animals_tick(World *w) {
             (exp_day(w) > 10 || exp_dist(x, y, w->keep_x, w->keep_y) >= 12)) {
             Villager *v = w->villagers[nearest];
             int d = exp_dist(x, y, v->current_x_milli / 1000, v->current_y_milli / 1000);
-            if (d <= 3 && (!v->workplace || v->workplace->type != CORE_BLD_BARRACKS))
+            if (d <= 3 && !expansion_hunter_threat(w, v, a->id) &&
+                (!v->workplace || !expansion_military(v->workplace->type)))
                 v->hold_ticks = 12;
             if (d <= info->attack_range && !a->attack_cooldown_milli && !a->attack_remaining_milli) {
                 a->attack_cooldown_milli = info->attack_minutes * 1000;

@@ -93,6 +93,8 @@ struct Villager {
     int32_t xp_pending[12][5]; /* 분야별 6시간 미정산 능력치 분자와 소수 잔여 */
     int32_t frontend_actor[20];
     int32_t shift_sleep_day,mood_event_source;
+    int32_t departure_reason, departure_approved, departure_tick, boat_port_id, hunt_retreat_reason,
+        v123_loaded;
 };
 
 struct Building {
@@ -125,6 +127,8 @@ struct Building {
     int32_t damage_kind,damage_source,damage_tick;
     int32_t frontend_tower[2];
     int32_t combat_until_tick;
+
+    int32_t forecast_day, forecast_horizon, forecast_count, forecast_entries[24][4], v123_loaded;
 
     Villager **workers;    /* 일꾼 (id 순으로 정렬) */
     int32_t worker_count;

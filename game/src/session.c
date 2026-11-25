@@ -28,6 +28,9 @@ static void clear_world(GameSession *s) {
     s->exp_tiles = NULL;
     s->visibility = NULL;
     s->animal_count = 0;
+    s->boat_count = s->boat_previous_count = 0;
+    s->wandering = (CoreWanderingMerchantView){0};
+    s->wandering_previous = s->wandering;
     memset(s->animal_actors, 0, sizeof(s->animal_actors));
     s->world = NULL;
     s->actors = NULL;
@@ -330,6 +333,11 @@ int game_session_refresh(GameSession *s) {
         rc = core_expansion_copy_visibility(s->world, s->visibility, cells);
         if (rc != CORE_OK)
             return rc;
+        s->wandering_previous = s->wandering;
+        core_expansion_merchant_view(s->world, &s->wandering);
+        s->boat_previous_count = s->boat_count;
+        memcpy(s->boats_previous, s->boats, (size_t)s->boat_count * sizeof(*s->boats));
+        core_expansion_copy_boats(s->world, s->boats, CORE_EXP_MAX_BOATS, &s->boat_count);
         rc = core_expansion_copy_animals(s->world, s->animals, CORE_EXP_MAX_ANIMALS, &s->animal_count);
         if (rc != CORE_OK)
             return rc;
@@ -420,6 +428,20 @@ static void walk_villagers(GameSession *s, float minutes) {
         if (!a)
             continue;
         if (s->summary.ruleset) {
+            CoreResidentStatus status = {0};
+            core_expansion_resident_status(s->world, v->id, &status);
+            if (status.boat_port_id) {
+                a->boat_port=status.boat_port_id;
+                a->position = (GamePoint){v->current_x_milli / 1000.0f, v->current_y_milli / 1000.0f};
+                a->chasing = 0;
+                a->indoor = 0;
+                continue;
+            }
+            if(a->boat_port){a->position=(GamePoint){v->current_x_milli/1000.0f,v->current_y_milli/1000.0f};a->indoor=v->inside_building?1.0f:0;a->indoor_building=v->inside_building;a->revision=-1;a->boat_port=0;}
+            if (a->position.x != v->current_x_milli / 1000.0f && v->inside_building && v->at_target) {
+                a->position = (GamePoint){v->current_x_milli / 1000.0f, v->current_y_milli / 1000.0f};
+                a->revision = -1;
+            }
             a->outfit=core_expansion_outfit(s->world,v->id);
             float before = a->indoor;
             if (v->inside_building) {

@@ -112,8 +112,19 @@ float game_person_details(GameApp *a,const CoreVillagerView *v,float x,float y,f
     }
     ui_small(u,x,y,UI_TEXT,"HP %d/%d",v->health*v->combat_max_hp/100,v->combat_max_hp);y+=25;
     ui_bar(area(x,y,width,12),v->health/100.0f,UI_GOOD);y+=25;
-    static const char *const causes[28]={u8"식사",u8"물 마시기",u8"갈증 발생",u8"식수 부족",u8"배고픔 시작",u8"허기 지속",u8"충분한 수면",u8"근무 성취",u8"장시간 근무",u8"안전 산책",u8"교육 방문",u8"보호구역 안전",u8"일상 피로",u8"위험 목격",u8"근무조 적응",u8"습격 불안",u8"근접 위협",u8"피격",u8"중상",u8"사망 목격",u8"습격 종료",u8"문화 방문",u8"식수 중단",u8"통근 피로",u8"습격 목격",u8"대피",u8"수면 방해",u8"공동체 사망 충격"};
-    if(v->mood_cause>=32&&v->mood_cause<60)ui_small(u,x,y,UI_MUTED,u8"%s %+d · %d일 %02d:%02d",causes[v->mood_cause-32],v->mood_event_amount,v->mood_event_tick/144+1,(v->mood_event_tick%144)*10/60,(v->mood_event_tick%6)*10);
+    static const char *const causes[29] = {
+        u8"식사",        u8"물 마시기", u8"갈증 발생",   u8"식수 부족",
+        u8"배고픔 시작", u8"허기 지속", u8"충분한 수면", u8"근무 성취",
+        u8"장시간 근무", u8"안전 산책", u8"교육 방문",   u8"보호구역 안전",
+        u8"일상 피로",   u8"위험 목격", u8"근무조 적응", u8"습격 불안",
+        u8"근접 위협",   u8"피격",      u8"중상",        u8"사망 목격",
+        u8"습격 종료",   u8"문화 방문", u8"식수 중단",   u8"통근 피로",
+        u8"습격 목격",   u8"대피",      u8"수면 방해",   u8"공동체 사망 충격",
+        u8"미술관 관람"};
+    if (v->mood_cause >= 32 && v->mood_cause < 61)
+        ui_small(u, x, y, UI_MUTED, u8"%s %+d · %d일 %02d:%02d", causes[v->mood_cause - 32],
+                 v->mood_event_amount, v->mood_event_tick / 144 + 1, (v->mood_event_tick % 144) * 10 / 60,
+                 (v->mood_event_tick % 6) * 10);
     else ui_small(u,x,y,UI_MUTED,u8"기분 변화: 생활·문화·부상 사건");
     y+=30;
     if(v->mood_event_source) {
@@ -149,7 +160,7 @@ float game_facility_details(GameApp *a,const CoreBuildingView *b,float x,float y
     if(f.range){ui_small(u,x,y,SKYBLUE,u8"공격 %d · 사거리 %d · 주기 %d분",f.attack,f.range,f.cooldown);y+=27;}
     if(b->job_field==1) {ui_wrap(u,area(x,y,width,66),UI_TEXT,TextFormat(u8"성목 %d그루\n일반 원목 %.1f · 마력수 원목 %.1f",f.mature_trees,f.logs_milli/1000.0,f.magic_logs_milli/1000.0));y+=70;}
     if(b->job_field==2)for(int i=0;i<CORE_RES_COUNT;i++) {
-        int resource=core_expansion_display_resource(i);if(!f.deposits[resource])continue;
+        int resource=core_expansion_display_resource(i);if(!f.deposits[resource]||(b->type==CORE_BLD_CLAY_PIT&&resource!=CORE_RES_CLAY))continue;
         ui_small(u,x,y,UI_TEXT,u8"%s 재고 %.1f",fmt_resource_name(resource),f.deposits[resource]/1000.0);y+=25;
     }
     if(f.annual_yield){ui_small(u,x,y,UI_TEXT,u8"연간 기준 수확 %d · 실제 작기 노동 반영",f.annual_yield);y+=28;}

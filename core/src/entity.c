@@ -6,6 +6,7 @@
 
 #include <string.h>
 
+#include "expansion.h"
 #include "mem.h"
 #include "world.h"
 
@@ -194,6 +195,18 @@ void entity_remove_villager(World *world, Villager *villager)
     int32_t i;
     entity_unlink_worker(villager);
     entity_unlink_resident(villager);
+    if (world->expansion)
+        for (int boat = 0; boat < world->expansion->boat_count; boat++) {
+            CoreBoatView *b = &world->expansion->boats[boat];
+            for (int crew = b->crew_count - 1; crew >= 0; crew--)
+                if (b->crew[crew] == villager->id) {
+                    for (int k = crew + 1; k < b->crew_count; k++)
+                        b->crew[k - 1] = b->crew[k];
+                    b->crew[--b->crew_count] = 0;
+                    if (!b->crew_count)
+                        b->state = 0;
+                }
+        }
     villager->target = NULL;
     for (i = 0; i < world->villager_count; i++) {
         if (world->villagers[i] == villager) {

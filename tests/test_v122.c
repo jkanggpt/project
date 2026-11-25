@@ -7,7 +7,9 @@
 void test_v122_discovery_timer_and_shift(void) {
     CoreNewGameParams p={0};World *w=NULL,*copy=NULL;int32_t line=0;
     strcpy(p.castle_name,u8"발견 시점과 최초 근무조");p.seed=42;p.ruleset=1;
-    CHECK_EQ(core_create(&p,NULL,&w),CORE_OK);if(!w)return;
+    CHECK_EQ(test_legacy_world(&p, &w), CORE_OK);
+    if (!w)
+        return;
     CHECK_EQ(threat_debug_raid(w,CORE_THREAT_BANDITS,CORE_DIR_EAST,2),CORE_OK);
     expansion_raids_tick(w);Raid *r=&w->threat.raid;
     CHECK_EQ(r->phase,CORE_RAID_APPROACH);CHECK_EQ(r->assault_end_tick,0);
@@ -50,8 +52,11 @@ void test_v122_discovery_timer_and_shift(void) {
 void test_v122_rules_and_save(void) {
     CoreNewGameParams p={0};World *w=NULL,*loaded=NULL;int32_t line=0;
     strcpy(p.castle_name,u8"v122 저장 시험");p.seed=7;p.difficulty=1;p.ruleset=1;
-    CHECK_EQ(core_create(&p,NULL,&w),CORE_OK);if(!w)return;
-    CHECK_EQ(CORE_BLD_COUNT,66);CHECK_EQ(CORE_SAVE_VERSION,10);
+    CHECK_EQ(test_legacy_world(&p, &w), CORE_OK);
+    if (!w)
+        return;
+    CHECK_EQ(CORE_BLD_COUNT, 70);
+    CHECK_EQ(CORE_SAVE_VERSION, 11);
     CHECK_EQ(core_expansion_tree_mature_age(3),48000);
     CHECK_EQ(expansion_spec(CORE_BLD_COTTAGE)->w,2);CHECK_EQ(expansion_spec(CORE_BLD_COTTAGE)->h,3);
     CHECK_EQ(expansion_spec(CORE_BLD_BARRACKS)->rank,1);CHECK_EQ(expansion_spec(CORE_BLD_GARRISON)->workers,6);
@@ -132,7 +137,9 @@ void test_v122_patch2_economy_and_vision(void) {
     CHECK_EQ(core_expansion_weights(CORE_BLD_BARRACKS,weights),CORE_OK);CHECK_EQ(weights[0],35);CHECK_EQ(weights[4],0);
     core_expansion_weights(CORE_BLD_TOWER,weights);CHECK_EQ(weights[1],40);CHECK_EQ(weights[3],40);
     CoreNewGameParams p={0};World *w=NULL;strcpy(p.castle_name,u8"교역 식량 실내 시야");p.seed=42;p.ruleset=1;
-    CHECK_EQ(core_create(&p,NULL,&w),CORE_OK);if(!w)return;
+    CHECK_EQ(test_legacy_world(&p, &w), CORE_OK);
+    if (!w)
+        return;
     CHECK_EQ(w->expansion->market_next_restock_day,5);
     w->clock.tick=4*144+36;expansion_candidates(w);CHECK_EQ(w->expansion->trade_stock[CORE_RES_FOOD],30);
     Building *shop=entity_add_building(w,CORE_BLD_MARKET);CHECK(shop!=NULL);if(!shop){core_destroy(w);return;}
@@ -160,7 +167,12 @@ void test_v122_patch2_economy_and_vision(void) {
 void test_v122_patch2_uniform_route(void) {
     for(int kind=0;kind<4;kind++) {
         CoreNewGameParams p={0};World *w=NULL,*loaded=NULL;int32_t line=0;
-        strcpy(p.castle_name,u8"일터 환복 동선");p.seed=42;p.ruleset=1;CHECK_EQ(core_create(&p,NULL,&w),CORE_OK);if(!w)return;
+        strcpy(p.castle_name, u8"일터 환복 동선");
+        p.seed = 42;
+        p.ruleset = 1;
+        CHECK_EQ(test_legacy_world(&p, &w), CORE_OK);
+        if (!w)
+            return;
         int type=(int[]){CORE_BLD_HUNTER_CAMP,CORE_BLD_HUNTING_LODGE,CORE_BLD_BARRACKS,CORE_BLD_GARRISON}[kind];
         Building *b=entity_add_building(w,type);CHECK(b!=NULL);if(!b){core_destroy(w);return;}
         b->state=CORE_BSTATE_ACTIVE;b->x=80;b->y=80;b->w=expansion_spec(type)->w;b->h=expansion_spec(type)->h;b->door_x=81;b->door_y=80+b->h;b->hp=w->defs.buildings[type].max_hp;

@@ -13,7 +13,7 @@ static World *make_world(void) {
     p.seed = 42;
     p.difficulty = 1;
     p.ruleset = 1;
-    if (core_create(&p, NULL, &w) != CORE_OK)
+    if (test_legacy_world(&p, &w) != CORE_OK)
         test_fail(__FILE__, __LINE__, "v111 world");
     return w;
 }

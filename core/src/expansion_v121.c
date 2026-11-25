@@ -20,6 +20,8 @@ int expansion_working_present(const World *w, const Building *b, const Villager 
         return 0;
     CoreWorkSchedule schedule;if(!expansion_schedule(w,v,&schedule))return 0;
     if(v->mission==CORE_MISSION_SCOUT||v->mission==CORE_MISSION_HUNT||v->mission==CORE_MISSION_PATROL||v->mission==CORE_MISSION_COMBAT)return 1;
+    if (v->boat_port_id == b->id && b->type == CORE_BLD_PORT)
+        return 1;
     if(v->target!=b||!v->at_target)return 0;
     int x = v->current_x_milli / 1000, y = v->current_y_milli / 1000;
     return v->inside_building == b->id || (x == b->door_x && y == b->door_y) ||
@@ -73,6 +75,8 @@ int expansion_service_base(const Building *b, int workers) {
     case CORE_BLD_TAVERN: return 8;
     case CORE_BLD_BATHHOUSE: return 12;
     case CORE_BLD_THEATRE: return 15;
+    case CORE_BLD_ART_MUSEUM:
+        return workers >= 2 ? 30 : workers ? 15 : 0;
     case CORE_BLD_CHURCH: return 12;
     case CORE_BLD_SCHOOL: return 8;
     case CORE_BLD_LIBRARY: return 6;
@@ -83,7 +87,7 @@ int expansion_service_base(const Building *b, int workers) {
 int expansion_service_shift(int type) {
     return type == CORE_BLD_TAVERN || type == CORE_BLD_BATHHOUSE || type == CORE_BLD_THEATRE ||
            type == CORE_BLD_CHURCH || type == CORE_BLD_SCHOOL || type == CORE_BLD_LIBRARY ||
-           type == CORE_BLD_ACADEMY;
+           type == CORE_BLD_ACADEMY || type == CORE_BLD_ART_MUSEUM;
 }
 int expansion_begin_work(World *w, Villager *v, Building *b) {
     if (v->work_day != exp_day(w)) {
@@ -92,6 +96,8 @@ int expansion_begin_work(World *w, Villager *v, Building *b) {
     }
     int minutes = exp_clamp(540 - v->work_day_minutes, 0, 10);
     int effective = expansion_work_percent(w, v, b->type) * minutes * 10;
+    if (b->type == CORE_BLD_OBSERVATORY && v->stats.intellect < 5)
+        effective = 0;
     int n = w->defs.buildings[b->type].worker_slots;
     if (!minutes || !n)
         return 0;
@@ -100,6 +106,8 @@ int expansion_begin_work(World *w, Villager *v, Building *b) {
     if(previous_minutes/180<v->work_day_minutes/180 && v->work_day_minutes<=360)expansion_mood_event(w,v,7,1,b->id,1,2);
     b->actual_work_milli += minutes * 1000;
     b->daily_work_milli += effective;
+    if (b->type == CORE_BLD_OBSERVATORY)
+        b->research_work_milli += effective;
     if (expansion_spec(b->type)->field == 0) {
         int event = expansion_agriculture_event(w, b->type);
         int credit = (int)((int64_t)effective * event / 1000);
@@ -131,8 +139,12 @@ int expansion_begin_work(World *w, Villager *v, Building *b) {
         if ((b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) && expansion_has_research(w, 18))
             numerator = numerator * 125 / 100;
         numerator += b->service_carry;
-        b->service_credit_milli += (int)(numerator / 1360800);
-        b->service_carry = (int)(numerator % 1360800);
+        int denominator = b->type == CORE_BLD_ART_MUSEUM ? 1058400 : 1360800;
+        b->service_credit_milli += (int)(numerator / denominator);
+        if (b->type == CORE_BLD_ART_MUSEUM)
+            b->service_credit_milli =
+                exp_clamp(b->service_credit_milli, 0, exp_clamp(45000 - b->visits_today * 1000, 0, 45000));
+        b->service_carry = (int)(numerator % denominator);
     }
     int level = b->type == CORE_BLD_STALL ? 1 : b->type == CORE_BLD_MARKET ? 2
                                               : b->type == CORE_BLD_TRADING_POST ? 3 : 0;

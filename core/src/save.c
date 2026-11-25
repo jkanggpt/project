@@ -1180,7 +1180,7 @@ static int check_header(const char *line)
     if (!parse_i32(line + magic_length + 1, 0, INT32_MAX, &version)) {
         return CORE_ERR_FORMAT;
     }
-    return version == SAVE_VERSION || version == 9 ? CORE_OK : CORE_ERR_VERSION;
+    return version == SAVE_VERSION || version == 10 || version == 9 ? CORE_OK : CORE_ERR_VERSION;
 }
 
 int32_t save_peek_version(const char *path)
@@ -1216,6 +1216,7 @@ static int read_world(LineReader *reader, LoadState *state)
     if (rc != CORE_OK) {
         return rc;
     }
+    (void)parse_i32(reader->buffer + strlen(SAVE_MAGIC) + 1, 0, INT32_MAX, &state->world->generation_version);
     while ((rc = read_line(reader)) == 1) {
         char *line = reader->buffer;
         char *equals;

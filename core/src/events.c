@@ -305,6 +305,7 @@ void events_to_view(const Event *event, CoreEventView *out)
         out->c = event->as.raid.c;
         out->d = event->as.raid.d;
         break;
+    case CORE_EVT_EXPANSION_NOTICE:
     case CORE_EVT_RESEARCH_STARTED:
     case CORE_EVT_RESEARCH_DONE:
     case CORE_EVT_RANK_READY:

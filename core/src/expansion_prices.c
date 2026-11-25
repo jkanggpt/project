@@ -132,11 +132,11 @@ CORE_API int32_t core_expansion_display_resource(int32_t i) {
     return i >= 0 && i < 15 ? order[i] : -1;
 }
 CORE_API int32_t core_expansion_display_building(int32_t i) {
-    static const int order[65] = {16, 17, 1,  18, 19, 20, 2,  21, 22, 23, 24, 25, 26, 27, 4,  28,
-                                  5,  29, 6,  30, 31, 32, 33, 11, 34, 35, 36, 12, 37, 38, 39, 10,
-                                  40, 41, 42, 9,  43, 8,  44, 45, 7,  46, 47, 48, 49, 50, 13, 51,
-                                  52, 53, 54, 55, 56, 57, 58, 59, 14, 60, 3,  61, 62, 15, 63, 64,65};
-    return i >= 0 && i < 65 ? order[i] : -1;
+    static const int order[69] = {16, 17, 1,  18, 19, 20, 2,  21, 22, 23, 24, 25, 26, 27, 4,  28, 66, 5,
+                                  29, 6,  30, 31, 32, 33, 11, 34, 35, 36, 12, 37, 38, 39, 10, 40, 41, 42,
+                                  9,  43, 8,  44, 45, 7,  46, 47, 48, 49, 50, 13, 51, 52, 67, 53, 54, 55,
+                                  56, 57, 69, 58, 59, 14, 60, 68, 3,  61, 62, 15, 63, 64, 65};
+    return i >= 0 && i < CORE_BLD_COUNT - 1 ? order[i] : -1;
 }
 
 CORE_API int32_t core_expansion_tradable(const CoreWorld *w,int32_t res) {

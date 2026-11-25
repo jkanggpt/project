@@ -197,7 +197,7 @@ void expansion_rebuild(World *w) {
     for (i = 0; i < w->building_count; i++) {
         const Building *b = w->buildings[i];
         if(b->state != CORE_BSTATE_ACTIVE) continue;
-        int radius = (expansion_spec(b->type)->flags & CORE_EXP_WALL) ? 0 : 1;
+        int radius = expansion_tower(b->type) ? 2 : (expansion_spec(b->type)->flags & CORE_EXP_WALL) ? 0 : 1;
         for(y=b->y-radius;y<b->y+b->h+radius;y++) for(x=b->x-radius;x<b->x+b->w+radius;x++) {
             int distance=(x<b->x?b->x-x:x>=b->x+b->w?x-b->x-b->w+1:0)+(y<b->y?b->y-y:y>=b->y+b->h?y-b->y-b->h+1:0);
             if(grid_in_bounds(g,x,y) && distance<=radius)e->static_visible[grid_index(g,x,y)]=1;
@@ -306,8 +306,7 @@ void expansion_place_check(const World *w, int type, int x, int y, int rotation,
                 out->result = CORE_PLACE_OCCUPIED;
                 return;
             }
-            if (type == CORE_BLD_BRIDGE ? w->grid.terrain[p] != CORE_TERRAIN_WATER
-                                        : w->grid.terrain[p] == CORE_TERRAIN_WATER) {
+            if (type != CORE_BLD_BRIDGE && w->grid.terrain[p] == CORE_TERRAIN_WATER) {
                 out->result = CORE_PLACE_BAD_TERRAIN;
                 return;
             }
@@ -329,7 +328,33 @@ void expansion_place_check(const World *w, int type, int x, int y, int rotation,
                 return;
             }
         }
-    if (type == CORE_BLD_PORT || type == CORE_BLD_IRRIGATED_FARM) {
+    if (type == CORE_BLD_PORT || type == CORE_BLD_FISHING_SPOT) {
+        Building candidate = {0};
+        candidate.x = x;
+        candidate.y = y;
+        candidate.w = out->w;
+        candidate.h = out->h;
+        int water = expansion_adjacent_water_id(w, &candidate), launch = type != CORE_BLD_PORT;
+        for (int ay = y - 1; ay <= y + out->h; ay++)
+            for (int ax = x - 1; ax <= x + out->w; ax++)
+                if (grid_in_bounds(&w->grid, ax, ay)) {
+                    int dd = (ax < x             ? x - ax
+                              : ax >= x + out->w ? ax - x - out->w + 1
+                                                 : 0) +
+                             (ay < y             ? y - ay
+                              : ay >= y + out->h ? ay - y - out->h + 1
+                                                 : 0);
+                    int p = grid_index(&w->grid, ax, ay);
+                    if (dd == 1 && w->grid.terrain[p] == CORE_TERRAIN_WATER &&
+                        w->expansion->tiles[p].water_id == water && !w->grid.road[p] && !w->grid.occupant[p])
+                        launch = 1;
+                }
+        if (!water || !launch) {
+            out->result = CORE_PLACE_NEEDS_WATER;
+            return;
+        }
+    }
+    if (type == CORE_BLD_IRRIGATED_FARM) {
         int water = 0, radius = type == CORE_BLD_PORT ? 1 : 2;
         for (yy = y - radius; yy < y + out->h + radius; yy++)
             for (xx = x - radius; xx < x + out->w + radius; xx++) {
