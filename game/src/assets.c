@@ -1,28 +1,73 @@
 /* assets.c — 메모리 로더를 써서 한글 경로에서도 리소스를 읽습니다. */
 #include "assets.h"
-#include <castle_expansion.h>
 #include "rlgl.h"
+#include <castle_expansion.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 /* 외부 녹음 없이 정해진 잡음으로 비와 낮은 천둥을 합성합니다. */
 static Sound weather_sound(int thunder) {
-    unsigned count=thunder?88200:44100;float *samples=malloc(count*sizeof(float));
-    Sound result={0};if(!samples)return result;
-    unsigned random=1234567;float low=0;
-    for(unsigned i=0;i<count;i++) {
-        random=random*1664525u+1013904223u;
-        float noise=(float)(random>>8)/8388608.0f-1, t=i/44100.0f;
-        low=low*.985f+noise*.015f;
-        float envelope=thunder?fminf(1,t*35)*expf(-t*2):.2f;
-        samples[i]=thunder?(low*6+sinf(t*83)*.06f)*envelope:noise*envelope;
+    unsigned count = thunder ? 88200 : 44100;
+    float *samples = malloc(count * sizeof(float));
+    Sound result = {0};
+    if (!samples)
+        return result;
+    unsigned random = 1234567;
+    float low = 0;
+    for (unsigned i = 0; i < count; i++) {
+        random = random * 1664525u + 1013904223u;
+        float noise = (float)(random >> 8) / 8388608.0f - 1, t = i / 44100.0f;
+        low = low * .985f + noise * .015f;
+        float envelope = thunder ? fminf(1, t * 35) * expf(-t * 2) : .2f;
+        samples[i] = thunder ? (low * 6 + sinf(t * 83) * .06f) * envelope : noise * envelope;
     }
-    result=LoadSoundFromWave((Wave){count,44100,32,1,samples});free(samples);return result;
+    result = LoadSoundFromWave((Wave){count, 44100, 32, 1, samples});
+    free(samples);
+    return result;
 }
 
-static Texture2D atlas_texture(GameAssets *a, const char *dir, const char *name,Rectangle *regions,int columns,int rows) {
+static void keep_alpha(GameAssets *a, Image image, Texture2D texture) {
+    if (!texture.id)
+        return;
+    if (a->alpha_count >= 512) {
+        a->missing++;
+        return;
+    }
+    size_t count = (size_t)image.width * image.height;
+    unsigned char *bits = calloc((count + 7) / 8, 1);
+    Color *colors = LoadImageColors(image);
+    if (!bits || !colors) {
+        free(bits);
+        if (colors)
+            UnloadImageColors(colors);
+        a->missing++;
+        return;
+    }
+    for (size_t i = 0; i < count; i++)
+        if (colors[i].a >= 32)
+            bits[i / 8] |= (unsigned char)(1u << (i % 8));
+    UnloadImageColors(colors);
+    a->alpha[a->alpha_count++] = (GameAlphaMask){texture.id, image.width, image.height, bits};
+}
+int game_texture_hit(const GameAssets *a, Texture2D texture, Rectangle source, float u, float v) {
+    if (!texture.id || u < 0 || u >= 1 || v < 0 || v >= 1)
+        return 0;
+    int x = (int)(source.x + (source.width < 0 ? 1 - u : u) * fabsf(source.width)),
+        y = (int)(source.y + v * fabsf(source.height));
+    for (int i = 0; i < a->alpha_count; i++)
+        if (a->alpha[i].texture_id == texture.id) {
+            const GameAlphaMask *m = &a->alpha[i];
+            if (x < 0 || y < 0 || x >= m->width || y >= m->height)
+                return 0;
+            size_t p = (size_t)y * m->width + x;
+            return (m->bits[p / 8] >> (p % 8)) & 1;
+        }
+    return 0;
+}
+static Texture2D atlas_texture(GameAssets *a, const char *dir, const char *name, Rectangle *regions,
+                               int columns, int rows) {
     char path[GAME_PATH_BYTES];
     int n = 0;
     unsigned char *bytes;
@@ -38,23 +83,31 @@ static Texture2D atlas_texture(GameAssets *a, const char *dir, const char *name,
         free(bytes);
     }
     if (image.data) {
-        if(regions)for(int r=0;r<rows;r++)for(int c=0;c<columns;c++) {
-            Rectangle cell={c*(image.width/(float)columns),r*(image.height/(float)rows),image.width/(float)columns,image.height/(float)rows};
-            Image frame=ImageFromImage(image,cell);
-            Rectangle border=GetImageAlphaBorder(frame,.1f);
-            if(border.width<1 || border.height<1){a->missing++;border=(Rectangle){0,0,cell.width,cell.height};}
-            regions[r*columns+c]=(Rectangle){cell.x+border.x,cell.y+border.y,border.width,border.height};
-            UnloadImage(frame);
-        }
+        if (regions)
+            for (int r = 0; r < rows; r++)
+                for (int c = 0; c < columns; c++) {
+                    Rectangle cell = {c * (image.width / (float)columns), r * (image.height / (float)rows),
+                                      image.width / (float)columns, image.height / (float)rows};
+                    Image frame = ImageFromImage(image, cell);
+                    Rectangle border = GetImageAlphaBorder(frame, .1f);
+                    if (border.width < 1 || border.height < 1) {
+                        a->missing++;
+                        border = (Rectangle){0, 0, cell.width, cell.height};
+                    }
+                    regions[r * columns + c] =
+                        (Rectangle){cell.x + border.x, cell.y + border.y, border.width, border.height};
+                    UnloadImage(frame);
+                }
         result = LoadTextureFromImage(image);
+        keep_alpha(a, image, result);
         UnloadImage(image);
         SetTextureFilter(result, TEXTURE_FILTER_POINT);
     } else
         a->missing++;
     return result;
 }
-static Texture2D texture(GameAssets *a,const char *dir,const char *name) {
-    return atlas_texture(a,dir,name,NULL,0,0);
+static Texture2D texture(GameAssets *a, const char *dir, const char *name) {
+    return atlas_texture(a, dir, name, NULL, 0, 0);
 }
 int game_assets_load(GameAssets *a, const char *dir, int audio) {
     static const char *const sounds[SND_COUNT] = {"audio-interface/Audio/click_002.ogg",
@@ -110,34 +163,61 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
         a->missing++;
     }
     a->status_icons = texture(a, dir, "expansion/status_icons.png");
-    a->life_icons=texture(a,dir,"expansion/life_icons.png");
-    a->rocks=texture(a,dir,"expansion/rocks.png");
+    a->life_icons = texture(a, dir, "expansion/life_icons.png");
+    a->rocks = texture(a, dir, "expansion/rocks.png");
     a->merchant = texture(a, dir, "expansion/merchant.png");
-    a->observatory_motion=atlas_texture(a,dir,"expansion/observatory_motion.png",a->observatory_sources,4,16);
-    a->soil_markers=texture(a,dir,"expansion/soil_markers.png");a->merchant_portrait=texture(a,dir,"expansion/merchant_portrait.png");
+    a->observatory_motion =
+        atlas_texture(a, dir, "expansion/observatory_motion.png", a->observatory_sources, 4, 16);
+    a->soil_markers = texture(a, dir, "expansion/soil_markers.png");
+    a->merchant_portrait = texture(a, dir, "expansion/merchant_portrait.png");
     a->fishing_boats = texture(a, dir, "expansion/fishing_boats.png");
     a->bridge_parts = texture(a, dir, "expansion/bridge_parts.png");
     a->ore_soil = texture(a, dir, "expansion/ore_soil.png");
-    static const char *const uniform_names[4]={"camp","lodge","barracks","garrison"};
-    for(i=0;i<4;i++){snprintf(name,sizeof(name),"expansion/uniform_%s.png",uniform_names[i]);a->uniforms[i]=texture(a,dir,name);}
-    a->animals = texture(a, dir, "expansion/animals_v122.png");
-    a->animal_walk=texture(a,dir,"expansion/animal_walk_v122.png");
-    a->wall_links=texture(a,dir,"expansion/wall_links.png");
+    static const char *const uniform_names[4] = {"camp", "lodge", "barracks", "garrison"};
+    for (i = 0; i < 4; i++) {
+        snprintf(name, sizeof(name), "expansion/uniform_%s.png", uniform_names[i]);
+        a->uniforms[i] = texture(a, dir, name);
+    }
+    a->animals = texture(a, dir, "expansion/animals_v124.png");
+    a->animal_walk = texture(a, dir, "expansion/animal_walk_v124.png");
+    a->wall_links = texture(a, dir, "expansion/wall_links.png");
     a->biomes = texture(a, dir, "expansion/biomes.png");
-    a->gates=texture(a,dir,"expansion/gates_v121.png");
-    a->farms=atlas_texture(a,dir,"expansion/farms_v122.png",a->farm_sources,4,21);
-    a->portraits=texture(a,dir,"expansion/portraits.png");
-    a->combat_fx=texture(a,dir,"expansion/combat_fx.png");
-    a->factions=texture(a,dir,"expansion/factions.png");
-    a->greenhouse_turns=atlas_texture(a,dir,"expansion/greenhouse_turns.png",a->greenhouse_sources,4,4);
-    a->raider_attack=texture(a,dir,"expansion/raider_attack_v122.png");
-    a->animal_babies=texture(a,dir,"expansion/animal_babies.png");
+    a->gates = texture(a, dir, "expansion/gates_v121.png");
+    a->farms = atlas_texture(a, dir, "expansion/farms_v124.png", a->farm_sources, 4, 21);
+    a->portraits = texture(a, dir, "expansion/portraits.png");
+    a->combat_fx = texture(a, dir, "expansion/combat_fx.png");
+    a->factions = texture(a, dir, "expansion/factions.png");
+    a->greenhouse_turns =
+        atlas_texture(a, dir, "expansion/greenhouse_turns.png", a->greenhouse_sources, 4, 4);
+    a->raider_attack = texture(a, dir, "expansion/raider_attack_v122.png");
+    a->animal_babies = texture(a, dir, "expansion/animal_babies_v124.png");
+    a->irrigated_previews = texture(a, dir, "expansion/irrigated_previews.png");
+    a->harvest_phases = texture(a, dir, "expansion/field_harvest_phases.png");
+    a->territory_icon = texture(a, dir, "expansion/icon_territory.png");
+    a->clinic_icon = texture(a, dir, "expansion/icon_clinic.png");
+    a->fishing_icons = texture(a, dir, "expansion/icon_fishing_states.png");
+    for (int r = 0; r < 4; r++) {
+        Texture2D *targets[6] = {&a->windmill_blades[r], &a->windmill_previews[r], &a->irrigated_wheel[r],
+                                 &a->lighthouse_lamp[r], &a->lighthouse_glow[r],   &a->boat_wake[r]};
+        const char *keys[6] = {"windmill_blades", "windmill_preview", "irrigated_wheel",
+                               "lighthouse_lamp", "lighthouse_glow",  "boat_wake"};
+        for (int k = 0; k < 6; k++) {
+            snprintf(name, sizeof(name), "expansion/%s_%d.png", keys[k], r);
+            *targets[k] = texture(a, dir, name);
+        }
+        for (int kind = 0; kind < 2; kind++) {
+            snprintf(name, sizeof(name), "expansion/fishing_%s_boat_%d.png", kind ? "large" : "small", r);
+            a->boats[kind][r] = texture(a, dir, name);
+            snprintf(name, sizeof(name), "expansion/%s_net_%d.png", kind ? "large" : "small", r);
+            a->nets[kind][r] = texture(a, dir, name);
+        }
+    }
     a->trees = texture(a, dir, "expansion/trees_v121.png");
     a->biome_edges = texture(a, dir, "expansion/biome_edges.png");
     a->shores = texture(a, dir, "expansion/shores.png");
-    a->road_tiles = texture(a, dir, "expansion/road_connections.png");
-    a->animal_swim = texture(a, dir, "expansion/animal_swim.png");
-    a->animal_attack = texture(a, dir, "expansion/animal_attack_v122.png");
+    a->road_tiles = texture(a, dir, "expansion/road_connections_v124.png");
+    a->animal_swim = texture(a, dir, "expansion/animal_swim_v124.png");
+    a->animal_attack = texture(a, dir, "expansion/animal_attack_v124.png");
     for (i = 0; i < 6; i++) {
         snprintf(name, sizeof(name), "expansion/manor_%d.png", i);
         a->manors[i] = texture(a, dir, name);
@@ -161,7 +241,10 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
         a->audio_ready = IsAudioDeviceReady();
         if (a->audio_ready)
             for (i = 0; i < SND_COUNT; i++) {
-                if(i==SND_RAIN || i==SND_THUNDER){a->sounds[i]=weather_sound(i==SND_THUNDER);continue;}
+                if (i == SND_RAIN || i == SND_THUNDER) {
+                    a->sounds[i] = weather_sound(i == SND_THUNDER);
+                    continue;
+                }
                 Wave wave = {0};
                 (void)snprintf(name, sizeof(name), "third_party/kenney/%s", sounds[i]);
                 if (!game_join_path(path, sizeof(path), dir, name))
@@ -182,21 +265,56 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
     return a->missing == 0;
 }
 void game_assets_free(GameAssets *a) {
-    UnloadTexture(a->merchant);UnloadTexture(a->observatory_motion);UnloadTexture(a->soil_markers);UnloadTexture(a->merchant_portrait);
+    UnloadTexture(a->irrigated_previews);
+    for (int m = 0; m < a->alpha_count; m++)
+        free(a->alpha[m].bits);
+    a->alpha_count = 0;
+    UnloadTexture(a->harvest_phases);
+    UnloadTexture(a->territory_icon);
+    UnloadTexture(a->clinic_icon);
+    UnloadTexture(a->fishing_icons);
+    for (int r = 0; r < 4; r++) {
+        UnloadTexture(a->windmill_blades[r]);
+        UnloadTexture(a->windmill_previews[r]);
+        UnloadTexture(a->irrigated_wheel[r]);
+        UnloadTexture(a->lighthouse_lamp[r]);
+        UnloadTexture(a->lighthouse_glow[r]);
+        UnloadTexture(a->boat_wake[r]);
+        for (int k = 0; k < 2; k++) {
+            UnloadTexture(a->boats[k][r]);
+            UnloadTexture(a->nets[k][r]);
+        }
+    }
+    UnloadTexture(a->merchant);
+    UnloadTexture(a->observatory_motion);
+    UnloadTexture(a->soil_markers);
+    UnloadTexture(a->merchant_portrait);
     UnloadTexture(a->fishing_boats);
     UnloadTexture(a->bridge_parts);
     UnloadTexture(a->ore_soil);
-    if(a->portraits.id)UnloadTexture(a->portraits);
-    if(a->combat_fx.id)UnloadTexture(a->combat_fx);
-    if(a->factions.id)UnloadTexture(a->factions);
-    if(a->life_icons.id)UnloadTexture(a->life_icons);
-    if(a->rocks.id)UnloadTexture(a->rocks);
-    for(int k=0;k<4;k++)if(a->uniforms[k].id)UnloadTexture(a->uniforms[k]);
-    if(a->gates.id)UnloadTexture(a->gates);
-    if(a->farms.id)UnloadTexture(a->farms);
-    if(a->greenhouse_turns.id)UnloadTexture(a->greenhouse_turns);
-    if(a->raider_attack.id)UnloadTexture(a->raider_attack);
-    if(a->animal_babies.id)UnloadTexture(a->animal_babies);
+    if (a->portraits.id)
+        UnloadTexture(a->portraits);
+    if (a->combat_fx.id)
+        UnloadTexture(a->combat_fx);
+    if (a->factions.id)
+        UnloadTexture(a->factions);
+    if (a->life_icons.id)
+        UnloadTexture(a->life_icons);
+    if (a->rocks.id)
+        UnloadTexture(a->rocks);
+    for (int k = 0; k < 4; k++)
+        if (a->uniforms[k].id)
+            UnloadTexture(a->uniforms[k]);
+    if (a->gates.id)
+        UnloadTexture(a->gates);
+    if (a->farms.id)
+        UnloadTexture(a->farms);
+    if (a->greenhouse_turns.id)
+        UnloadTexture(a->greenhouse_turns);
+    if (a->raider_attack.id)
+        UnloadTexture(a->raider_attack);
+    if (a->animal_babies.id)
+        UnloadTexture(a->animal_babies);
     int i;
     if (a->trees.id)
         UnloadTexture(a->trees);
@@ -239,8 +357,10 @@ void game_assets_free(GameAssets *a) {
         UnloadTexture(a->status_icons);
     if (a->animals.id)
         UnloadTexture(a->animals);
-    if(a->animal_walk.id)UnloadTexture(a->animal_walk);
-    if(a->wall_links.id)UnloadTexture(a->wall_links);
+    if (a->animal_walk.id)
+        UnloadTexture(a->animal_walk);
+    if (a->wall_links.id)
+        UnloadTexture(a->wall_links);
     if (a->biomes.id)
         UnloadTexture(a->biomes);
     for (i = 0; i < CORE_RES_COUNT; i++)

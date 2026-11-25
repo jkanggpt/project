@@ -34,12 +34,13 @@ static void observe(GameSession *s, int category, int id, int hp, int max, int s
         if(category==0){CoreVillagerView *v=game_villager(s,id);if(v && v->mood_source_kind==2)game_hit_fx_direction(s,wildlife_origin(s,v->mood_event_source,p),p,3);}
         e->hurt_started = s->visual_time;
         e->hurt_until = s->visual_time + 0.18f;
-        e->bar_until = s->visual_time + 2.5f;
+        e->bar_until = s->visual_time + 3.0f;
     }
     if (attack && attack != e->attack_tick) {
         e->attack_started = s->visual_time;
         e->attack_tick = attack;
     }
+    if (!e->seen && hp < max) e->bar_until = s->visual_time + 3.0f;
     e->hp = hp;
     e->max_hp = max;
     e->skin = skin;

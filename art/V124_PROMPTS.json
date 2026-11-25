@@ -1,0 +1,178 @@
+{
+  "version": "1.2.4",
+  "tool": "builtin image_gen",
+  "jobs": [
+    {
+      "key": "clinic",
+      "ref": [
+        "C:/Users/82105/Desktop/고프로젝트/project_mywork/game/assets/expansion/hospital_0.png"
+      ],
+      "prompt": "Use case: stylized-concept. Production sprite sheet for the existing medieval pixel-art management game. Reference image is STYLE reference only: match its warm detailed hand-pixel clusters, dark brown outlines, 45-degree elevated orthographic camera, realistic small building proportions (not cute, not photorealistic). Create a SMALL SINGLE-STOREY village medical clinic, a low wide 3 by 2 tile footprint, tan stone and timber walls, muted green clay roof, tiny herbal shelves and a modest red cross sign, front door centered. EXACT 2 columns by 2 rows, four independent whole buildings: top-left SOUTH/front, top-right EAST/right side, bottom-left NORTH/rear, bottom-right WEST/left side. Same building in all four views, roof visible from above. Every sprite centered with generous transparent gutters and full silhouette; no contact between cells. No ground tile, no scene background, no labels, no text, no watermark. Actual transparent background. Clean game-ready pixel art, coherent same scale and lighting."
+    },
+    {
+      "key": "lighthouse",
+      "ref": [
+        "C:/Users/82105/Desktop/고프로젝트/project_mywork/game/assets/expansion/hospital_0.png"
+      ],
+      "prompt": "Production transparent pixel-art sprite sheet matching the supplied game's warm tan masonry, fine brown outlines and 45-degree top-down orthographic camera. Create a modest medieval LAKESIDE LIGHTHOUSE: square 2x2 tile stone foundation, tall tapering cream stone tower, small wooden balcony, copper-bronze lantern room with glass panes and dark teal conical cap, simple door. No ships/water/terrain. Four complete views on an EXACT 2x2 grid: TL south/front door, TR east side, BL north/rear, BR west side. Keep identical height/materials/tower silhouette and lantern centered in all four views. Lamp is unlit neutral amber glass, no giant rays. Whole silhouettes with transparent gutters and no overlaps. Detailed pixel art at existing hospital style, not cute or painterly/3D. Transparent alpha, no text, no checkerboard."
+    },
+    {
+      "key": "fishing_large",
+      "ref": [
+        "C:/Users/82105/Desktop/고프로젝트/project_mywork/art/v123/fishing_boats.png"
+      ],
+      "prompt": "Create a transparent sprite sheet for a medieval 45-degree top-down pixel-art game, closely match supplied SMALL wooden boat's pixel detail and warm brown colors but make a clearly HIGHER GRADE fishing boat. Deck with low small stern cabin, higher gunwales, coiled ropes and a short furled mast; open center for two existing crew sprites (NO PEOPLE drawn). EXACT FOUR columns FOUR rows. Rows are bow pointing SOUTH/down, EAST/right, NORTH/up, WEST/left. Columns four subtly different idle/rowing wave phases of same boat, maintain identical hull dimensions within each row and aligned pivot. Cabin at STERN, two visible open deck seat spaces; no tall sail blocking crew. Whole boats fully inside cells with generous transparent gaps. No net extended in this sheet (separate overlay later). Subtle water ripple pixels only, no water rectangle. Detailed restrained game pixel art, no labels, no text, no realistic painting. Real alpha transparency."
+    },
+    {
+      "key": "gravel_roads",
+      "prompt": "Production 2D top-down pixel-art AUTOTILE atlas with transparent alpha. Existing medieval village game style, fine restrained pixels. Grey-brown GRAVEL path with irregular tiny pale stones packed in warm earth, distinguishable from white stone paving. EXACT 4 columns x 4 rows, 16 square equal-size cells, NO GUTTERS. Cell index n (row-major 0..15) is connectivity bitmask N=1,E=2,S=4,W=8. Each cell road covers central 70% square. Connected sides extend seamlessly fully to corresponding cell edge, disconnected sides leave TRANSPARENT outer 15% ground border. Index0 isolated square gravel patch; 1 N dead-end,2 E,3 N+E elbow,4 S,5 N+S straight,6 E+S elbow,7 N+E+S T,8 W,9 N+W elbow,10 E+W straight,11 N+E+W T,12 S+W elbow,13 N+S+W T,14 E+S+W T,15 four-way cross. Flat overhead road texture, no isometric diamond. Absolutely no text, labels, grid lines, shadows outside path or vegetation background. Seamless repeating texture on connected edges. Transparent margins on disconnected edges. Deliver all 16 masks."
+    },
+    {
+      "key": "paved_roads",
+      "prompt": "Production 2D top-down pixel-art AUTOTILE atlas with transparent alpha for medieval game. Pale ivory WHITE FLAGSTONE paving with subtle grey joints and warm cream shading, flat overhead, fine detailed pixels. EXACT4 columns x4 rows,16 equal square cells NO GUTTERS. Row-major index n connectivity mask N=1 E=2 S=4 W=8. Central70% square paved area; connected sides extend seamlessly completely to cell edge; unconnected sides have transparent outer15% ground border.0 isolated,1 N,2 E,3 NE elbow,4 S,5 NS straight,6 ES elbow,7 NES T,8 W,9 NW elbow,10 EW straight,11 NEW T,12 SW elbow,13 NSW T,14 ESW T,15 NESW cross. Same paving stone scale and phase on shared cell edges. No labels, letters, numbers, grid lines, isometric diamonds, grass, background, scenery, fences. Clear distinction from rough gravel, actual transparent alpha on the uncovered margins."
+    },
+    {
+      "key": "zebra",
+      "name": "zebra",
+      "id": 30,
+      "detail": "a realistic-proportioned zebra with black and white stripes, black mane and hooves, tan-grey muzzle, slender strong legs",
+      "ref": "game/assets/expansion/animal_walk_v122.png",
+      "prompt": "Use case: identity-preserve. Game sprite animation sheet matching reference medieval overhead detailed pixel-art animals. Subject: a realistic-proportioned zebra with black and white stripes, black mane and hooves, tan-grey muzzle, slender strong legs. Keep same individual, markings, fur colors, shape and size throughout, lateral profile facing RIGHT, 45-degree elevated camera, warm restrained pixel palette and dark fine outlines. EXACT 8 columns and 3 rows, 24 equal cells with generous transparent gutters. Row1: EIGHT sequential natural WALK frames, alternating foot contact/passing poses, no duplicate poses. Row2: cells1-2 two recoil HIT poses, cells3-6 four non-gory DEATH poses (stumble, falling, lying, fully still), cells7-8 two IDLE poses. Row3: eight alert/run poses of same zebra, longer strides. No blood, gore, humans, props, scenery, text, labels, grid, backdrop, checkerboard or blur. Real transparent background. Every full animal silhouette must fit within its own cell with margins, no cropping. Crisp game-ready pixel clusters, no chibi or cartoon face, not photorealistic painting."
+    },
+    {
+      "key": "capybara",
+      "name": "capybara",
+      "id": 31,
+      "detail": "a brown capybara, blunt rectangular muzzle, small rounded ears, low stocky long body, short legs, correct animal proportions",
+      "ref": "game/assets/expansion/animal_walk_v122.png",
+      "swim": true,
+      "prompt": "Use case: identity-preserve. Game sprite animation sheet matching reference medieval overhead detailed pixel-art animals. Subject: a brown capybara, blunt rectangular muzzle, small rounded ears, low stocky long body, short legs, correct animal proportions. Keep same individual, markings, fur colors, shape and size throughout, lateral profile facing RIGHT, 45-degree elevated camera, warm restrained pixel palette and dark fine outlines. EXACT 8 columns and 3 rows, 24 equal cells with generous transparent gutters. Row1: EIGHT sequential natural WALK frames, alternating foot contact/passing poses, no duplicate poses. Row2: cells1-2 two recoil HIT poses, cells3-6 four non-gory DEATH poses (stumble, falling, lying, fully still), cells7-8 two IDLE poses. Row3: EIGHT swimming frames of same capybara, partial body below water line with little ripple wake, no water rectangle. No blood, gore, humans, props, scenery, text, labels, grid, backdrop, checkerboard or blur. Real transparent background. Every full animal silhouette must fit within its own cell with margins, no cropping. Crisp game-ready pixel clusters, no chibi or cartoon face, not photorealistic painting."
+    },
+    {
+      "key": "goat",
+      "name": "domestic goat",
+      "id": 32,
+      "detail": "a short-haired domestic farm goat with cream fur, brown head markings, small narrow backward horns and neat beard; clearly different from the very shaggy mountain goat",
+      "ref": "game/assets/expansion/animal_walk_v122.png",
+      "baby": true,
+      "prompt": "Use case: identity-preserve. Game sprite animation sheet matching reference medieval overhead detailed pixel-art animals. Subject: a short-haired domestic farm goat with cream fur, brown head markings, small narrow backward horns and neat beard; clearly different from the very shaggy mountain goat. Keep same individual, markings, fur colors, shape and size throughout, lateral profile facing RIGHT, 45-degree elevated camera, warm restrained pixel palette and dark fine outlines. EXACT 8 columns and 3 rows, 24 equal cells with generous transparent gutters. Row1: EIGHT sequential natural WALK frames, alternating foot contact/passing poses, no duplicate poses. Row2: cells1-2 two recoil HIT poses, cells3-6 four non-gory DEATH poses (stumble, falling, lying, fully still), cells7-8 two IDLE poses. Row3: cells1-4 FOUR young BABY walking poses with smaller body, cells5-8 four adult IDLE poses. No blood, gore, humans, props, scenery, text, labels, grid, backdrop, checkerboard or blur. Real transparent background. Every full animal silhouette must fit within its own cell with margins, no cropping. Crisp game-ready pixel clusters, no chibi or cartoon face, not photorealistic painting."
+    },
+    {
+      "key": "alpaca",
+      "name": "alpaca",
+      "id": 33,
+      "detail": "the identical creamy white woolly alpaca in SECOND ROW of the reference, preserve rounded cream fleece clumps, long upright neck, short pointed ears, brown hooves and small dark eyes",
+      "ref": "art/expansion/animal_walk_1.png",
+      "baby": true,
+      "prompt": "Use case: identity-preserve. Game sprite animation sheet matching reference medieval overhead detailed pixel-art animals. Subject: the identical creamy white woolly alpaca in SECOND ROW of the reference, preserve rounded cream fleece clumps, long upright neck, short pointed ears, brown hooves and small dark eyes. Keep same individual, markings, fur colors, shape and size throughout, lateral profile facing RIGHT, 45-degree elevated camera, warm restrained pixel palette and dark fine outlines. EXACT 8 columns and 3 rows, 24 equal cells with generous transparent gutters. Row1: EIGHT sequential natural WALK frames, alternating foot contact/passing poses, no duplicate poses. Row2: cells1-2 two recoil HIT poses, cells3-6 four non-gory DEATH poses (stumble, falling, lying, fully still), cells7-8 two IDLE poses. Row3: cells1-4 FOUR young BABY walking poses with smaller body, cells5-8 four adult IDLE poses. No blood, gore, humans, props, scenery, text, labels, grid, backdrop, checkerboard or blur. Real transparent background. Every full animal silhouette must fit within its own cell with margins, no cropping. Crisp game-ready pixel clusters, no chibi or cartoon face, not photorealistic painting."
+    },
+    {
+      "key": "turkey",
+      "name": "turkey",
+      "id": 34,
+      "detail": "a domestic turkey with large dark bronze-brown body, broad fan tail, distinctive red bare neck and wattle, small grey beak; clearly different from chicken and pheasant",
+      "ref": "game/assets/expansion/animal_walk_v122.png",
+      "baby": true,
+      "prompt": "Use case: identity-preserve. Game sprite animation sheet matching reference medieval overhead detailed pixel-art animals. Subject: a domestic turkey with large dark bronze-brown body, broad fan tail, distinctive red bare neck and wattle, small grey beak; clearly different from chicken and pheasant. Keep same individual, markings, fur colors, shape and size throughout, lateral profile facing RIGHT, 45-degree elevated camera, warm restrained pixel palette and dark fine outlines. EXACT 8 columns and 3 rows, 24 equal cells with generous transparent gutters. Row1: EIGHT sequential natural WALK frames, alternating foot contact/passing poses, no duplicate poses. Row2: cells1-2 two recoil HIT poses, cells3-6 four non-gory DEATH poses (stumble, falling, lying, fully still), cells7-8 two IDLE poses. Row3: cells1-4 FOUR young BABY walking poses with smaller body, cells5-8 four adult IDLE poses. No blood, gore, humans, props, scenery, text, labels, grid, backdrop, checkerboard or blur. Real transparent background. Every full animal silhouette must fit within its own cell with margins, no cropping. Crisp game-ready pixel clusters, no chibi or cartoon face, not photorealistic painting."
+    },
+    {
+      "key": "windmill_base",
+      "ref": [
+        "C:/Users/82105/Desktop/고프로젝트/project_mywork/game/assets/expansion/windmill_0.png"
+      ],
+      "prompt": "Identity-preserve pixel-art game building sheet, match supplied medieval windmill exactly in warm timber/masonry/copper roof style and 45-degree elevated orthographic camera. Make FOUR complete directional views in 2x2 equal cells: TL south/front,TR east/right,BL north/back,BR west/left. REMOVE ONLY THE ROTATING SAILS from the design, leave the building tower, roofs, front door and visible fixed circular axle hub. The hub belongs on upper part of the tower and is clearly visible for separate animation overlay. No detached blades anywhere. Same tower dimensions/materials in all views. Transparent background, no ground rectangle, no text, no grid, no backdrop, generous clear alpha gutters. Restrained detailed pixel art identical to game, not cute. This is a static base to overlay moving sails, so it must be completely sail-free."
+    },
+    {
+      "key": "windmill_blades",
+      "ref": [
+        "C:/Users/82105/Desktop/고프로젝트/project_mywork/game/assets/expansion/windmill_0.png"
+      ],
+      "prompt": "Transparent pixel-art ANIMATION OVERLAY sheet, ONLY the windmill rotating sails from the reference, NO tower, NO building, no floor. Warm brown wooden frames with ivory canvas and fixed brass center hub, FOUR identical sails. Exact8 columns4 rows. Rows correspond south/front face, east/right foreshortened face, north/rear face, west/left foreshortened face of a medieval45deg topdown windmill. Eight columns are smoothly successive 11.25 degree rotations covering one 90-degree symmetry cycle (0,11.25,22.5,33.75,45,56.25,67.5,78.75 degrees). All rotors centered on EXACT same cell center with identical maximum radius and no drift; rear/side perspective should match direction. Do not resize rotor between frames. Isolated whole rotor within each cell with transparent gutters, crisp pixel art matching reference. No labels, numbers, text, fake checkerboard, tower or background. Real alpha."
+    },
+    {
+      "key": "irrigated_base",
+      "ref": [
+        "C:/Users/82105/Desktop/고프로젝트/project_mywork/art/v122/irrigated.png"
+      ],
+      "prompt": "Update the supplied pixel-art irrigated wheat farm preserving its mature detailed restrained game style, fenced tilled wheat rows, blue irrigation channels, sprinklers, 45degree overhead view, crop size and original ground proportions. EXACT4 columns4 rows: columns south/front,east/right,north/back,west/left rotation; rows spring seedlings,summer green wheat,autumn ripe golden wheat,winter stubble/snow. Add a modest attached stone-and-timber WATERWHEEL SUPPORT AND OPEN WATER CHANNEL at the edge of EACH farm (not a separate house, no barn): column1 right edge midpoint, column2 lower/front edge midpoint,column3 left edge midpoint,column4 upper/back edge midpoint. Wheel SUPPORT is a low grounded stone frame with an exposed brass axle hub; DO NOT draw the rotating wooden wheel itself (separate overlay). Attached canal continues into existing farm canal, no floating structures. Same foundation width/height proportion as original, full foot print natural, not cute/cartoony. Full sprites inside equal cells with transparent gutters, actual alpha, no labels, backdrop, grid or text."
+    },
+    {
+      "key": "irrigated_wheel",
+      "ref": [
+        "C:/Users/82105/Desktop/고프로젝트/project_mywork/game/assets/expansion/windmill_0.png"
+      ],
+      "prompt": "Transparent animated game pixel-art OVERLAY: isolated rustic WOODEN WATERWHEEL with FOUR main spokes, wooden paddles and small brass axle, wet dark brown wood, a few subtle blue droplets. No house, no tower, no other wheel support or ground. Exact8 columns4 rows. Rows are four side orientations for an overhead45degree medieval irrigation farm: south-facing farm wheel right edge (wheel plane vertical seen as moderately narrow ellipse),east-facing farm wheel lower edge (wider visible circular face),north-facing farm wheel left edge (opposite narrow face),west-facing farm wheel upper edge (opposite wider face). Columns8 smoothly rotated positions covering one90degree symmetry cycle at11.25degree increments, fixed center and fixed outer bounds perrow. Every full wheel has generous transparent gutters and matching dark outline pixel detail. Do not drift/scale/shrink between frames. No labels, no scenery, no background, real transparent alpha."
+    },
+    {
+      "key": "lighthouse_lighting",
+      "ref": [
+        "C:/Users/82105/Desktop/고프로젝트/project_mywork/art/v124/lighthouse.png"
+      ],
+      "prompt": "Create a transparent 8x8 equal-cell PIXEL-ART overlay atlas for the supplied medieval lighthouse, isolated lighting ONLY, no whole tower. Rows1-4: eight rotational phases of the lighthouse LANTERN glass/bright central flame and narrow pale golden light rays (rows respectively south,east,north,west viewing angle), fixed brass lantern center at exactcellcenter. Columns0..7 beam sweeps around full360degrees in45degree steps, keep lamp pivot fixed. Rows5-8: matching eight SUBTLE warm light reflections on water under those respective orientations, isolated soft pixel ripple reflections only, no actual water rectangle. Beam opacity translucent, not opaque white. Same warm detailed pixel-art textures as reference, cleanalpha, full effects within cells with generous transparent gutters. No tower, labels, text, checkerboard or scene background. Atlas is used as light overlays, not as game logic."
+    },
+    {
+      "key": "small_nets",
+      "ref": [
+        "C:/Users/82105/Desktop/고프로젝트/project_mywork/art/v123/fishing_boats.png"
+      ],
+      "prompt": "Production transparent pixel-art sprite OVERLAY sheet: ONLY a fishing NET and its ropes/water disturbance for the small boat in reference. Do NOT redraw the boat or people. EXACT8 columns4 rows; rows correspond bow South(down),East(right),North(up),West(left); net always extends from stern in the OPPOSITE direction of bow. Rope origin fixed at cell center for every frame and row. Columns:0 completely stowed/hidden(clear),1 net bundled appearing nearstern,2 net spreading onto water,3 net lowered below water,4 broad spread submerged net held,5 lifting dripping net,6 ropes pulling small folded wet net back towardorigin,7 fully stowed/hidden(clear). Fine brown braided net/rope with subtle blue-grey ripplepixels, NO fish or catch, full silhouettes fit in cells with generous gutters. Match reference medieval game pixel texture, not modern fishing gear. Actual transparent background, no scene/water rectangle/no grid/text. Keep same net and rope thickness through animation; use modest small handcast net fitting low skiff stern."
+    },
+    {
+      "key": "large_nets",
+      "ref": [
+        "C:/Users/82105/Desktop/고프로젝트/project_mywork/art/v124/fishing_large.png"
+      ],
+      "prompt": "Production transparent pixel-art sprite OVERLAY sheet: ONLY a fishing NET and its ropes/water disturbance for the large boat in reference. Do NOT redraw the boat or people. EXACT8 columns4 rows; rows correspond bow South(down),East(right),North(up),West(left); net always extends from stern in the OPPOSITE direction of bow. Rope origin fixed at cell center for every frame and row. Columns:0 completely stowed/hidden(clear),1 net bundled appearing nearstern,2 net spreading onto water,3 net lowered below water,4 broad spread submerged net held,5 lifting dripping net,6 ropes pulling small folded wet net back towardorigin,7 fully stowed/hidden(clear). Fine brown braided net/rope with subtle blue-grey ripplepixels, NO fish or catch, full silhouettes fit in cells with generous gutters. Match reference medieval game pixel texture, not modern fishing gear. Actual transparent background, no scene/water rectangle/no grid/text. Keep same net and rope thickness through animation; use larger sturdy square trawl fitting higher deck stern."
+    },
+    {
+      "key": "boat_wake",
+      "prompt": "Production transparent pixel-art sprite effect atlas for medieval overhead45degree game. EXACT4columns5rows. First4rows are boat WAKE only, four sequential phases each, rows correspond boat moving South,East,North,West: tiny restrained pale blue-grey water ripple/V shape and sparse foam, transparent space where hull belongs, no boat or people, no water rectangle. Row5 four small square UI ICONS matching warm dark outlines:1 mooring rope/hourglass(waiting),2 fishing net working,3 returning boat with curved arrow,4 lighthouse lantern gold glow. All20effects/icons insideequalcellswithtransparentgutters, crisp detailed game pixels, no labels/text/grid/backdrop. True alpha, no white background."
+    },
+    {
+      "key": "harvest",
+      "ref": [
+        "art/v122/cropland.png"
+      ],
+      "prompt": "Create a clean transparent-background pixel-art sprite strip for this existing medieval fantasy farming game, matching the provided reference's detailed earthy mature pixel style, not cute. Six equal square cells in ONE horizontal row, evenly spaced with generous transparent gutters. Each cell is a small isolated golden wheat harvest bundle/field tuft, 45-degree top-down. Left to right the same wheat patch progressively harvested at cumulative 10%,25%,45%,70%,90%,100%: first almost full standing wheat with one cut bundle, then increasing stubble and bundled sheaves until last only neatly cut straw stubble and two bound wheat sheaves. No ground tile rectangle, no text/numbers/borders/UI, no background. These are small subtle harvest progress overlays, consistently anchored at the same lower center. Crisp hand-pixel edges, brown/gold/olive palette from the reference, no glow."
+    }
+  ],
+  "excluded_by_user": [
+    {
+      "key": "animal_states_0",
+      "applied": false,
+      "reason": "피격·사망 전용 장면은 명세 오류라는 사용자 후속 지시"
+    },
+    {
+      "key": "animal_states_1",
+      "applied": false,
+      "reason": "피격·사망 전용 장면은 명세 오류라는 사용자 후속 지시"
+    },
+    {
+      "key": "animal_states_2",
+      "applied": false,
+      "reason": "피격·사망 전용 장면은 명세 오류라는 사용자 후속 지시"
+    },
+    {
+      "key": "animal_states_3",
+      "applied": false,
+      "reason": "피격·사망 전용 장면은 명세 오류라는 사용자 후속 지시"
+    },
+    {
+      "key": "animal_states_4",
+      "applied": false,
+      "reason": "피격·사망 전용 장면은 명세 오류라는 사용자 후속 지시"
+    },
+    {
+      "key": "animal_states_5",
+      "applied": false,
+      "reason": "피격·사망 전용 장면은 명세 오류라는 사용자 후속 지시"
+    }
+  ],
+  "user_override": {
+    "animal_frames": 4,
+    "swim_frames": 4,
+    "baby_frames": 4,
+    "hit_death_assets": false,
+    "source_selection": "신규 원화 이동·수영의 0/2/4/6 프레임을 균등 추출, 새끼는 앞4프레임. 원화의 다른 상태는 게임과 배포에서 사용하지 않음."
+  }
+}

@@ -403,6 +403,7 @@ int game_actor_walk(GameSession *s, GameActor *a, float tiles, int enemy, int *b
         if (s->summary.ruleset && enemy!=2 && s->cost[cell] == CORE_COST_GATE)
             c = 67;
         factor = (s->summary.ruleset ? 100 : CORE_COST_NORMAL) / (float)c;
+        if (s->summary.ruleset && c == 33) factor = 3.0f;
         if (distance <= tiles * factor + 0.0001f) {
             a->position = goal;
             a->next++;

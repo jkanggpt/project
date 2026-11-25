@@ -41,4 +41,6 @@ int game_villager_art(int id);
 int game_walk_facing(float dx, float dy, int previous);
 int game_walk_frame(float distance, int moving);
 GameSpriteFrame game_villager_frame(int id, int facing, float distance, int moving);
+GameSpriteBox game_building_attachment(int type,int rotation);
+GameSpriteBox game_boat_seat(int boat_kind,int direction,int seat);
 #endif

@@ -22,7 +22,7 @@ int game_v123_merchant_details(GameApp *a, float x, float *yy, float width) {
     y += 60;
     if (m.state != CORE_MERCHANT_TRADING) {
         ui_wrap(u, box(x, y, width, 90), UI_MUTED,
-                u8"영주관에 도착한 뒤 3일간 거래합니다. 다음 방문까지 12~24일입니다.");
+                u8"영주관에 도착한 뒤 3일간 거래합니다. 다음 방문까지 24~36일입니다.");
         *yy = y + 100;
         return 1;
     }
@@ -75,14 +75,7 @@ int game_v123_merchant_details(GameApp *a, float x, float *yy, float width) {
 }
 float game_v123_building_details(GameApp *a, const CoreBuildingView *b, float x, float y, float width) {
     GameUi *u = &a->ui;
-    if (b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) {
-        ui_wrap(u, box(x, y, width, 82), UI_TEXT,
-                b->type == CORE_BLD_HEALER ? u8"치료 완료 시 약초 3개. 중상/건강 35 이하는 +1, 역병 "
-                                             u8"감염자는 +1을 함께 차감합니다."
-                                           : u8"치료 완료 시 약초 5개. 중상 +1, 역병 감염 +1. 전체 재고가 "
-                                             u8"충분할 때만 치료합니다.");
-        y += 86;
-    }
+    y=game_v124_building_details(a,b,x,y,width);
     if (b->type == CORE_BLD_WELL || b->type == CORE_BLD_WATER_TOWER) {
         int32_t radius, capacity, served;
         core_expansion_water_provider(a->session.world, b->id, &radius, &capacity, &served);
@@ -105,16 +98,19 @@ float game_v123_building_details(GameApp *a, const CoreBuildingView *b, float x,
                     u8"지능 5 이상 직원이 실제 근무해야 예보합니다. 근무 외 시간에는 "
                     u8"예보가 중지됩니다.");
             y += 82;
-        } else {
+        }
+        {
             ui_small(u, x, y, UI_MUTED, u8"%d일 갱신%s · 습격 제외", f.last_day,
                      f.stale ? u8" (과거 기록)" : "");
             y += 26;
             for (int i = 0; i < f.count; i++) {
                 CoreForecastEntry *e = &f.entries[i];
                 ui_wrap(u, box(x, y, width, 60), UI_TEXT,
-                        TextFormat(u8"%s · %d~%d일 · 신뢰 %d%%", fmt_nature_name(e->type), e->start_day,
+                        TextFormat(u8"%s · 예상 %d~%d일 · 탐지율 %d%%", fmt_nature_name(e->type), e->start_day,
                                    e->end_day, e->confidence));
-                y += 64;
+                y += 52;
+                ui_small(u,x,y,e->status==2||e->status==3?UI_BAD:UI_MUTED,u8"%s%s",e->status==1?u8"발생":e->status==2?u8"기간 내 미발생(오보)":e->status==3?u8"다른 사건 발생":u8"불확실한 예보",e->revised?u8" · 수정됨":"");
+                y += 26;
             }
             if (!f.count) {
                 ui_small(u, x, y, UI_MUTED, u8"관측된 예정 사건 없음");

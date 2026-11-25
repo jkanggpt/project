@@ -45,7 +45,7 @@ if(CASTLE_BUILD_GAME)
       endif()
     endif()
   endif()
-  add_executable(castle_game src/main.c src/ui.c src/panels.c src/render.c src/assets.c src/v122_ui.c src/v123_ui.c)
+  add_executable(castle_game src/main.c src/ui.c src/panels.c src/render.c src/assets.c src/v122_ui.c src/v123_ui.c src/v124_ui.c)
   set(CASTLE_GAME_OUTPUT_DIR "" CACHE PATH "실행 중인 게임과 분리할 선택적 검증 출력 폴더")
   if(CASTLE_GAME_OUTPUT_DIR)
     set_target_properties(castle_game PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CASTLE_GAME_OUTPUT_DIR}")
@@ -56,12 +56,26 @@ if(CASTLE_BUILD_GAME)
     target_link_options(castle_game PRIVATE -static)
   endif()
   # C를 다시 컴파일하지 않아도 새 PNG와 정의 파일을 실행 폴더로 동기화합니다.
+  set(CASTLE_COPY_DIRECTORY copy_directory)
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.26")
+    set(CASTLE_COPY_DIRECTORY copy_directory_if_different)
+  endif()
   add_custom_target(castle_game_assets ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/data" "$<TARGET_FILE_DIR:castle_game>/data"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:castle_game>/assets")
+    COMMAND ${CMAKE_COMMAND} -E ${CASTLE_COPY_DIRECTORY} "${CMAKE_CURRENT_SOURCE_DIR}/data" "$<TARGET_FILE_DIR:castle_game>/data"
+    COMMAND ${CMAKE_COMMAND} -E ${CASTLE_COPY_DIRECTORY} "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:castle_game>/assets")
   add_dependencies(castle_game castle_game_assets)
   install(TARGETS castle_game RUNTIME DESTINATION .)
   install(DIRECTORY data assets DESTINATION . PATTERN "*.import" EXCLUDE PATTERN ".gdignore" EXCLUDE)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/V1_2_4_SPEC.md ${PROJECT_SOURCE_DIR}/docs/V1_2_4_IMPLEMENTATION.md
+    ${PROJECT_SOURCE_DIR}/docs/V1_2_4_QA.md ${PROJECT_SOURCE_DIR}/docs/v124_art_source.csv
+    ${PROJECT_SOURCE_DIR}/docs/v124_barter_source.csv ${PROJECT_SOURCE_DIR}/docs/v124_animal_data.json
+    ${PROJECT_SOURCE_DIR}/docs/v124_art_applied.csv ${PROJECT_SOURCE_DIR}/docs/v124_species_samples.csv
+    ${PROJECT_SOURCE_DIR}/docs/v124_forecast_samples.csv ${PROJECT_SOURCE_DIR}/docs/v124_merchant_samples.csv
+    ${PROJECT_SOURCE_DIR}/docs/v124_recipe_frequency.csv
+    ${PROJECT_SOURCE_DIR}/docs/v124_balance_results.csv ${PROJECT_SOURCE_DIR}/docs/v124_map_statistics.csv
+    ${PROJECT_SOURCE_DIR}/docs/v124_performance_results.csv DESTINATION docs)
+  install(FILES ${PROJECT_SOURCE_DIR}/art/V124_PROMPTS.json ${PROJECT_SOURCE_DIR}/art/V124_MANIFEST.json DESTINATION art)
+  install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/screenshots/ DESTINATION docs/screenshots FILES_MATCHING PATTERN "v124*.png")
   install(FILES ${PROJECT_SOURCE_DIR}/CREDITS.md ${PROJECT_SOURCE_DIR}/README.md DESTINATION .)
   install(FILES ${PROJECT_SOURCE_DIR}/PROGRESS.md DESTINATION .)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/V1_2_3_SPEC.html ${PROJECT_SOURCE_DIR}/docs/V1_2_3_SPEC.md

@@ -106,3 +106,7 @@
 런타임은 `villagers_v121.png`(12외형×3방향×4프레임), `raider_walk.png`/`raider_attack.png`(28종×3방향×4프레임), `animal_walk_v121.png`/`animal_attack_v121.png`/`animal_babies.png`/`animals_v121.png`, `trees_v121.png`, `gates_v121.png`, `farms_v121.png`, `greenhouse_turns.png`, `road_connections.png`입니다. 생성 원화의 행·열 간격은 균등하다고 가정하지 않고 투명 경계를 전역 탐색합니다. 나무는 연결 성분별로 분리합니다. 마지막 공격 복귀 프레임에는 온전한 준비 자세를 사용합니다.
 
 성문은 목책문/석조문/성문/철갑문을 해당 성벽 재료와 같은 화면 크기로 표시합니다. 밀밭·관개농장·과수원·유리 온실은 계절별 그림을 사용합니다. 도로는8이웃 연결 마스크로, 교량 난간은 실제 인접 물에 맞춰 C에서 선택합니다. 새 그림에 대해 프로젝트가 보유하는 권리는 CC0입니다.
+
+## v1.2.4
+
+새 원화는 v124/, 프롬프트는 V124_PROMPTS.json, 실제 적용 파일/치수/해시는 V124_MANIFEST.json입니다. castle_v124_art art/v124 game/assets/expansion 으로 패킹하고 --check 출력폴더 docs/v124_art_source.csv 로 검사합니다. 사용자 후속 지시대로 전용 피격/사망70행을 제외하고 동물 이동·수영·새끼는4프레임입니다. 신규 원화의 걷기/수영0·2·4·6장과 새끼 앞4장만 패킹하며 다른 상태는 적용하지 않습니다. 기존30종4걷기와 공격/수영/새끼를 그대로 재사용합니다. 풍차/수차의 본체/부품/카드 좌표와 선박 좌석은 game/src/sprite_layout.c를 공유합니다. 그물/조명8장과 선체/항적4장은 동물 프레임 변경과 별개입니다.

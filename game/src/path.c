@@ -95,6 +95,7 @@ int game_path_find(GamePathfinder *f, const uint8_t *cost, int w, int h,
             next = y * w + x; step = game_path_cost(cost[next], enemy);
             if (!enemy && cost[next] == CORE_COST_GATE && f->normal_cost == 100)
                 step = 67;
+            if (step) step = cost[next] == 33 ? 100 : step * 3;
             if (!step || f->closed[next] || f->distance[current] + step >= f->distance[next]) continue;
             f->distance[next] = f->distance[current] + step; f->parent[next] = current;
             if (f->heap_index[next] < 0) { f->heap_index[next] = f->heap_count; f->heap[f->heap_count++] = next; }

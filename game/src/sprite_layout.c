@@ -120,3 +120,25 @@ int game_rock_marker(const CoreExpansionTileView *tiles, const uint8_t *roads, c
         }
     return 1;
 }
+
+/* 같은 부착 좌표로 게임과 카드의 정지 합성 그림을 만듭니다. */
+GameSpriteBox game_building_attachment(int type,int rotation) {
+    int r=rotation&3;
+    if(type==CORE_BLD_WINDMILL) {
+        static const GameSpriteBox boxes[4]={{.05f,.01f,.9f,.6f},{.31f,.03f,.64f,.56f},{.05f,.01f,.9f,.6f},{.05f,.03f,.64f,.56f}};
+        return boxes[r];
+    }
+    if(type==CORE_BLD_IRRIGATED_FARM) {
+        static const GameSpriteBox boxes[4]={{.80f,.34f,.20f,.42f},{.35f,.65f,.30f,.34f},{0,.34f,.20f,.42f},{.35f,0,.30f,.34f}};
+        return boxes[r];
+    }
+    return (GameSpriteBox){0,0,0,0};
+}
+GameSpriteBox game_boat_seat(int kind,int direction,int seat) {
+    static const float seats[2][4][2][2]={
+        {{{.5f,.43f},{.5f,.61f}},{{.43f,.5f},{.61f,.5f}},{{.5f,.41f},{.5f,.59f}},{{.4f,.5f},{.58f,.5f}}},
+        {{{.45f,.49f},{.57f,.62f}},{{.48f,.44f},{.62f,.55f}},{{.43f,.42f},{.57f,.54f}},{{.4f,.45f},{.54f,.56f}}}
+    };
+    const float *p=seats[kind!=0][direction&3][seat!=0];
+    return (GameSpriteBox){p[0],p[1],0,0};
+}

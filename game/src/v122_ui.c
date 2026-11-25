@@ -211,10 +211,11 @@ int game_unit_details(GameApp *a,float x,float *yp,float width) {
         if(s->visibility[py*s->summary.map_width+px]<2){ui_text(&a->ui,x,y,UI_MUTED,u8"현재 시야 밖");*yp=y+40;return 1;}
         hp=animal->hp;maximum=info.hp;
         snprintf(text,sizeof(text),u8"%s #%d · %s\n성향 %s · 생물량 %d\n공격 %d · 주기 %d분 · 사거리 %d\n속도 %.2f · 수영 %.2f\n행동: %s\n전리품 식량%d / 가죽%d / 마정석%d\n지역 %d · 나이 %d일",
-          info.name,animal->id,animal->owner?u8"가축":animal->kind>=24?u8"환상종":u8"야생",info.behavior==2?u8"공격적":info.behavior==1?u8"중립":u8"온순",info.biomass,info.attack,info.attack_minutes,info.attack_range,info.speed_milli/1000.0,info.swim_milli/1000.0,animal->attack_remaining_milli?u8"공격":animal->retaliation_until>s->summary.tick?u8"반격":u8"이동",info.food,info.leather,info.mana_drop,animal->region,animal->age);
+          info.name,animal->id,animal->owner?u8"가축":core_expansion_animal_class(animal->kind)==1?u8"환상종":u8"야생",info.behavior==2?u8"공격적":info.behavior==1?u8"중립":u8"온순",info.biomass,info.attack,info.attack_minutes,info.attack_range,info.speed_milli/1000.0,info.swim_milli/1000.0,animal->attack_remaining_milli?u8"공격":animal->retaliation_until>s->summary.tick?u8"반격":u8"이동",info.food,info.leather,info.mana_drop,animal->region,animal->age);
         if(animal->owner) {
             char home[120];game_building_label(s,animal->owner,home,sizeof(home));
-            int mature=animal->kind==7?24:animal->kind==8?16:animal->kind==9?12:8;
+            CoreBuildingView *owner=game_building(s,animal->owner);CoreLivestockInfo husbandry={0};
+            core_expansion_livestock_info(animal->kind,owner?owner->type:CORE_BLD_RANCH,&husbandry);int mature=husbandry.mature_days;
             size_t n=strlen(text);snprintf(text+n,sizeof(text)-n,u8"\n소속 %s · 사료: 식량\n굶은 날 %d · %s · 성숙까지 %d일",home,animal->starve_days,animal->age>=mature?u8"성체":u8"유년",animal->age>=mature?0:mature-animal->age);
         }
     } else {

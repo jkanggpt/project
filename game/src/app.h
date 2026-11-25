@@ -23,7 +23,7 @@ typedef struct GameApp {
     int in_game,speed,saved_speed,build_type,category,demolish,selected_building,selected_villager;
     int drag_x,drag_y,dragging,scroll,sort_column,sort_reverse,difficulty,quit,automated,stress,rotation;
     int inspector_scroll, build_scroll, profile_home, confirm_entity;
-    int assign_shift,raid_scroll,status_height,notice_bottom;
+    int assign_shift,raid_scroll,status_height,notice_bottom,notice_top;
     int build_preview_x,build_preview_y;
     int load_legacy;
     int selection_kind,selection_id,skill_tab,raid_alert_id,raid_alert_speed;
@@ -31,10 +31,14 @@ typedef struct GameApp {
     char castle_name[CORE_NAME_BYTES],seed_text[32],message[512],confirm_text[512];
     char user_dir[GAME_PATH_BYTES],save_dir[GAME_PATH_BYTES],settings_path[GAME_PATH_BYTES];
     GameNotice notices[8]; int notice_count;
+    Rectangle toast_areas[4]; int toast_area_count;
     GameDrawItem *draw_items; int draw_capacity;
     unsigned char *decor_blocked; int decor_capacity;
     double accumulator;
 } GameApp;
+int game_hover_building(GameApp *app,Vector2 screen);
+float game_v124_building_details(GameApp *app,const CoreBuildingView *building,float x,float y,float width);
+void game_v124_hover(GameApp *app);
 void game_app_notice(GameApp *app,const char *text);
 void game_app_result(GameApp *app,int result,int reason,int placement);
 void game_app_open(GameApp *app,GamePanel panel);
