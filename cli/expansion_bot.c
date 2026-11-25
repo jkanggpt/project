@@ -19,36 +19,43 @@ typedef struct ExpansionBot {
 } ExpansionBot;
 
 /* 코어와 같은 중심 격자 간 최단 맨해튼 거리입니다. */
-static int center_distance(const CoreBuildingView *a,const CoreBuildingView *b) {
-    int al=a->x+(a->w-1)/2,ar=a->x+a->w/2,at=a->y+(a->h-1)/2,ab=a->y+a->h/2;
-    int bl=b->x+(b->w-1)/2,br=b->x+b->w/2,bt=b->y+(b->h-1)/2,bb=b->y+b->h/2;
-    int dx=al>br?al-br:bl>ar?bl-ar:0,dy=at>bb?at-bb:bt>ab?bt-ab:0;return dx+dy;
+static int center_distance(const CoreBuildingView *a, const CoreBuildingView *b) {
+    int al = a->x + (a->w - 1) / 2, ar = a->x + a->w / 2, at = a->y + (a->h - 1) / 2, ab = a->y + a->h / 2;
+    int bl = b->x + (b->w - 1) / 2, br = b->x + b->w / 2, bt = b->y + (b->h - 1) / 2, bb = b->y + b->h / 2;
+    int dx = al > br ? al - br : bl > ar ? bl - ar : 0, dy = at > bb ? at - bb : bt > ab ? bt - ab : 0;
+    return dx + dy;
 }
 static int trade_level(int type) {
-    return type==CORE_BLD_STALL?1:type==CORE_BLD_MARKET?2:type==CORE_BLD_TRADING_POST?3:0;
+    return type == CORE_BLD_STALL ? 1 : type == CORE_BLD_MARKET ? 2 : type == CORE_BLD_TRADING_POST ? 3 : 0;
 }
 static int logging_stock(const ExpansionBot *bot, const CoreBuildingView *b) {
     CoreExpansionBuildingInfo info;
     int total = 0;
     (void)core_expansion_building_info(b->type, &info);
-    for (int y = b->y + b->h/2 - info.radius; y <= b->y + b->h/2 + info.radius; y++)
-        for (int x = b->x + b->w/2 - info.radius; x <= b->x + b->w/2 + info.radius; x++) {
-            if (x<0 || y<0 || x>=bot->summary.map_width || y>=bot->summary.map_height ||
-                abs(x-b->x-b->w/2)+abs(y-b->y-b->h/2)>info.radius) continue;
-            const CoreExpansionTileView *t=&bot->tiles[y*bot->summary.map_width+x];
-            if(t->tree_kind>=1 && t->tree_kind<=4 &&
-               t->tree_age>=(int[]){16000,28000,48000,72000}[t->tree_kind-1]) total+=t->tree_logs_milli;
+    for (int y = b->y + b->h / 2 - info.radius; y <= b->y + b->h / 2 + info.radius; y++)
+        for (int x = b->x + b->w / 2 - info.radius; x <= b->x + b->w / 2 + info.radius; x++) {
+            if (x < 0 || y < 0 || x >= bot->summary.map_width || y >= bot->summary.map_height ||
+                abs(x - b->x - b->w / 2) + abs(y - b->y - b->h / 2) > info.radius)
+                continue;
+            const CoreExpansionTileView *t = &bot->tiles[y * bot->summary.map_width + x];
+            if (t->tree_kind >= 1 && t->tree_kind <= 4 &&
+                t->tree_age >= (int[]){16000, 28000, 48000, 72000}[t->tree_kind - 1])
+                total += t->tree_logs_milli;
         }
     return total;
 }
 static int count_type(const ExpansionBot *bot, int type) {
     int i, count = 0;
     for (i = 0; i < bot->buildings_count; i++) {
-        const CoreBuildingView *b=&bot->buildings[i];
-        if(b->state==CORE_BSTATE_RUINED)continue;
-        if(type==CORE_BLD_LOGGING_SITE && b->type==type && b->state==CORE_BSTATE_ACTIVE && logging_stock(bot,b)<4000)continue;
-        count += trade_level(type)?trade_level(bot->buildings[i].type)>=trade_level(type):
-            bot->buildings[i].type == type && bot->buildings[i].state != CORE_BSTATE_RUINED;
+        const CoreBuildingView *b = &bot->buildings[i];
+        if (b->state == CORE_BSTATE_RUINED)
+            continue;
+        if (type == CORE_BLD_LOGGING_SITE && b->type == type && b->state == CORE_BSTATE_ACTIVE &&
+            logging_stock(bot, b) < 4000)
+            continue;
+        count += trade_level(type)
+                     ? trade_level(bot->buildings[i].type) >= trade_level(type)
+                     : bot->buildings[i].type == type && bot->buildings[i].state != CORE_BSTATE_RUINED;
     }
     return count;
 }
@@ -100,23 +107,31 @@ static int build(ExpansionBot *bot, int type) {
     CorePlacementView preview;
     if (!afford(bot, type))
         return 0;
-    if(trade_level(type))for(int i=0;i<bot->buildings_count;i++) {
-        CoreBuildingView *b=&bot->buildings[i];int existing=trade_level(b->type);
-        if(!existing)continue;
-        if(existing>=trade_level(type))return 0;
-        int32_t count=0;
-        if(core_demolish(bot->world,b->id)!=CORE_OK)return 0;
-        (void)core_get_summary(bot->world,&bot->summary);
-        (void)core_copy_buildings(bot->world,bot->buildings,bot->summary.building_count+32,&count);
-        bot->buildings_count=count;
-        (void)core_copy_cost_grid(bot->world,bot->cost,bot->cells,NULL);
-        for(int j=0;j<count;j++) {
-            const CoreBuildingView *other=&bot->buildings[j];
-            if(other->kind_flags&CORE_EXP_GATE)continue;
-            for(int y=other->y;y<other->y+other->h;y++)for(int x=other->x;x<other->x+other->w;x++)bot->cost[y*bot->summary.map_width+x]=0;
+    if (trade_level(type))
+        for (int i = 0; i < bot->buildings_count; i++) {
+            CoreBuildingView *b = &bot->buildings[i];
+            int existing = trade_level(b->type);
+            if (!existing)
+                continue;
+            if (existing >= trade_level(type))
+                return 0;
+            int32_t count = 0;
+            if (core_demolish(bot->world, b->id) != CORE_OK)
+                return 0;
+            (void)core_get_summary(bot->world, &bot->summary);
+            (void)core_copy_buildings(bot->world, bot->buildings, bot->summary.building_count + 32, &count);
+            bot->buildings_count = count;
+            (void)core_copy_cost_grid(bot->world, bot->cost, bot->cells, NULL);
+            for (int j = 0; j < count; j++) {
+                const CoreBuildingView *other = &bot->buildings[j];
+                if (other->kind_flags & CORE_EXP_GATE)
+                    continue;
+                for (int y = other->y; y < other->y + other->h; y++)
+                    for (int x = other->x; x < other->x + other->w; x++)
+                        bot->cost[y * bot->summary.map_width + x] = 0;
+            }
+            break;
         }
-        break;
-    }
     (void)core_expansion_building_info(type, &info);
     for (radius = 3; radius <= 24; radius++)
         for (dy = -radius; dy <= radius; dy++)
@@ -137,10 +152,14 @@ static int build(ExpansionBot *bot, int type) {
                 if (!valid)
                     continue;
                 (void)core_can_place_rotated(bot->world, type, x, y, 0, &preview);
-                if (preview.result != CORE_PLACE_OK && preview.result != CORE_PLACE_UNREACHABLE && preview.result != CORE_PLACE_NOT_VISIBLE)
+                if (preview.result != CORE_PLACE_OK && preview.result != CORE_PLACE_UNREACHABLE &&
+                    preview.result != CORE_PLACE_NOT_VISIBLE)
                     continue;
-                if(preview.result==CORE_PLACE_NOT_VISIBLE)score-=50000;
-                if(y+info.h>=bot->summary.map_height || occupied(bot,x+info.w/2,y+info.h) || !bot->cost[(y+info.h)*bot->summary.map_width+x+info.w/2])continue;
+                if (preview.result == CORE_PLACE_NOT_VISIBLE)
+                    score -= 50000;
+                if (y + info.h >= bot->summary.map_height || occupied(bot, x + info.w / 2, y + info.h) ||
+                    !bot->cost[(y + info.h) * bot->summary.map_width + x + info.w / 2])
+                    continue;
                 if (type == CORE_BLD_LOGGING_SITE || type == CORE_BLD_LUMBER || type == CORE_BLD_QUARRY ||
                     type == CORE_BLD_MINE) {
                     for (yy = y + info.h / 2 - info.radius; yy <= y + info.h / 2 + info.radius; yy++)
@@ -184,14 +203,19 @@ static int build(ExpansionBot *bot, int type) {
                             continue;
                         for (j = 0; j < bot->buildings_count; j++) {
                             const CoreBuildingView *well = &bot->buildings[j];
-                            if ((well->type == CORE_BLD_WELL||well->type==CORE_BLD_WATER_TOWER) && well->state != CORE_BSTATE_RUINED &&
-                                center_distance(well,home) <= (well->type==CORE_BLD_WATER_TOWER?14:8)) {
+                            if ((well->type == CORE_BLD_WELL || well->type == CORE_BLD_WATER_TOWER) &&
+                                well->state != CORE_BSTATE_RUINED &&
+                                center_distance(well, home) <=
+                                    (well->type == CORE_BLD_WATER_TOWER ? 14 : 8)) {
                                 supplied = 1;
                                 break;
                             }
                         }
-                        CoreBuildingView candidate={0};candidate.x=x;candidate.y=y;candidate.w=candidate.h=1;
-                        if (!supplied && center_distance(home,&candidate) <= 8)
+                        CoreBuildingView candidate = {0};
+                        candidate.x = x;
+                        candidate.y = y;
+                        candidate.w = candidate.h = 1;
+                        if (!supplied && center_distance(home, &candidate) <= 8)
                             score += 2000 + home->residents * 200;
                     }
                 }
@@ -206,14 +230,16 @@ static int build(ExpansionBot *bot, int type) {
     if (best == -100000)
         return 0;
     /* 연결 도로가 앞으로 세울 건물의 점유 칸을 가로지르지 않게 우회시킵니다. */
-    for(int y=by;y<by+info.h;y++)for(int x=bx;x<bx+info.w;x++)bot->cost[y*bot->summary.map_width+x]=0;
+    for (int y = by; y < by + info.h; y++)
+        for (int x = bx; x < bx + info.w; x++)
+            bot->cost[y * bot->summary.map_width + x] = 0;
     (void)connect(bot, bx + info.w / 2, by + info.h, 6);
-    (void)core_can_place_rotated(bot->world,type,bx,by,0,&preview);
-    if(preview.result==CORE_PLACE_NOT_VISIBLE) {
-        (void)connect(bot,bx-1,by,6);
-        (void)connect(bot,bx+info.w,by,6);
-        (void)connect(bot,bx-1,by+info.h-1,6);
-        (void)connect(bot,bx+info.w,by+info.h-1,6);
+    (void)core_can_place_rotated(bot->world, type, bx, by, 0, &preview);
+    if (preview.result == CORE_PLACE_NOT_VISIBLE) {
+        (void)connect(bot, bx - 1, by, 6);
+        (void)connect(bot, bx + info.w, by, 6);
+        (void)connect(bot, bx - 1, by + info.h - 1, 6);
+        (void)connect(bot, bx + info.w, by + info.h - 1, 6);
     }
     {
         int32_t id = 0, reason = 0;
@@ -225,6 +251,14 @@ static int fortify(ExpansionBot *bot, int ring) {
     int pass, x, y, placed = 0, pending_gates = 0, reserve = ring ? 6 : 4;
     if (!bot->fort.valid[ring])
         return 0;
+    /* 첫 보호구역 이후에는 필수시설용 원목을 성벽 확장에 모두 쓰지 않습니다. */
+    if(bot->summary.protected_area>=25) {
+        CoreRankRequirementView rows[24];int n=core_expansion_rank_requirements(bot->world,rows,24);
+        for(int r=0;r<n;r++)if(rows[r].kind==2 && !rows[r].satisfied)for(int k=0;k<rows[r].type_count;k++) {
+            int type=rows[r].types[k];CoreExpansionBuildingInfo info;
+            if(!count_type(bot,type) && core_expansion_building_info(type,&info)==CORE_OK && info.cost[CORE_RES_LOGS]>reserve)reserve=info.cost[CORE_RES_LOGS];
+        }
+    }
     for (pass = 0; pass < 2 && placed < 10; pass++) {
         for (y = bounds[1]; y <= bounds[3] && placed < 10; y++)
             for (x = bounds[0]; x <= bounds[2] && placed < 10; x++) {
@@ -254,7 +288,7 @@ static int fortify(ExpansionBot *bot, int ring) {
                 (void)core_get_summary(bot->world, &live);
                 CoreBuildingDefView def;
                 type = gate ? CORE_BLD_PALISADE_GATE : CORE_BLD_PALISADE;
-                (void)core_get_building_def(bot->world,type,&def);
+                (void)core_get_building_def(bot->world, type, &def);
                 if (live.resources[CORE_RES_LOGS] < def.cost[CORE_RES_LOGS] + reserve) {
                     pending_gates |= gate;
                     continue;
@@ -271,10 +305,12 @@ static int fortify(ExpansionBot *bot, int ring) {
                 if (preview.result == CORE_PLACE_OK) {
                     if (core_place_rotated(bot->world, type, x, y, rot, &id, &reason) == CORE_OK)
                         placed++;
-                } else if (preview.result == CORE_PLACE_UNREACHABLE || preview.result == CORE_PLACE_NOT_VISIBLE) {
+                } else if (preview.result == CORE_PLACE_UNREACHABLE ||
+                           preview.result == CORE_PLACE_NOT_VISIBLE) {
                     int xx = x == bounds[0] ? x + 1 : x == bounds[2] ? x - 1 : x;
                     int yy = y == bounds[1] ? y + 1 : y == bounds[3] ? y - 1 : y;
-                    if (preview.result == CORE_PLACE_NOT_VISIBLE || !bot->tiles[y * bot->summary.map_width + x].explored) {
+                    if (preview.result == CORE_PLACE_NOT_VISIBLE ||
+                        !bot->tiles[y * bot->summary.map_width + x].explored) {
                         /* 일반 도로를 연장해 다음 시야 갱신에서 경계를 발견합니다. */
                         (void)connect(bot, x, y, def.cost[CORE_RES_LOGS]);
                     } else
@@ -298,8 +334,9 @@ static int needs_well(const ExpansionBot *bot) {
             continue;
         for (j = 0; j < bot->buildings_count; j++) {
             const CoreBuildingView *well = &bot->buildings[j];
-            if ((well->type == CORE_BLD_WELL||well->type==CORE_BLD_WATER_TOWER) && well->state != CORE_BSTATE_RUINED &&
-                center_distance(well,home) <= (well->type==CORE_BLD_WATER_TOWER?14:8)) {
+            if ((well->type == CORE_BLD_WELL || well->type == CORE_BLD_WATER_TOWER) &&
+                well->state != CORE_BSTATE_RUINED &&
+                center_distance(well, home) <= (well->type == CORE_BLD_WATER_TOWER ? 14 : 8)) {
                 supplied = 1;
                 break;
             }
@@ -316,7 +353,9 @@ static void staffing(ExpansionBot *bot) {
     if (bot->summary.resources[CORE_RES_LOGS] < 40 && bot->summary.population >= 6)
         priorities[n++] = CORE_BLD_LOGGING_SITE;
     if (bot->summary.population >= 7 || bot->summary.resources[CORE_RES_FOOD] > 120)
-        priorities[n++] = count_type(bot,CORE_BLD_TRADING_POST)?CORE_BLD_TRADING_POST:count_type(bot,CORE_BLD_MARKET)?CORE_BLD_MARKET:CORE_BLD_STALL;
+        priorities[n++] = count_type(bot, CORE_BLD_TRADING_POST) ? CORE_BLD_TRADING_POST
+                          : count_type(bot, CORE_BLD_MARKET)     ? CORE_BLD_MARKET
+                                                                 : CORE_BLD_STALL;
     if (bot->summary.raid_id || bot->summary.population >= 12)
         priorities[n++] = CORE_BLD_BARRACKS;
     priorities[n++] = CORE_BLD_GATHERER;
@@ -344,49 +383,76 @@ static void staffing(ExpansionBot *bot) {
     priorities[n++] = CORE_BLD_BARRACKS;
     int *desired = (int *)calloc((size_t)bot->villagers_count, sizeof(int));
     int *assigned = (int *)calloc((size_t)bot->buildings_count, sizeof(int));
-    if(!desired || !assigned){free(desired);free(assigned);return;}
-    for(i=0;i<bot->buildings_count;i++) {
-        CoreBuildingView *b=&bot->buildings[i];
-        if(b->worker_slots)(void)core_set_auto_assign(bot->world,b->id,0);
+    if (!desired || !assigned) {
+        free(desired);
+        free(assigned);
+        return;
+    }
+    for (i = 0; i < bot->buildings_count; i++) {
+        CoreBuildingView *b = &bot->buildings[i];
+        if (b->worker_slots)
+            (void)core_set_auto_assign(bot->world, b->id, 0);
         /* 전투 중 담당자를 매일 해제하여 교대·공격을 초기화하지 않습니다. */
-        for(j=0;j<bot->villagers_count;j++)if(bot->villagers[j].workplace_id==b->id &&
-            (bot->villagers[j].id==b->combat_guard_id || (bot->summary.raid_id &&
-             (b->type==CORE_BLD_BARRACKS || b->type==CORE_BLD_GARRISON)))) {
-            desired[j]=b->id;assigned[i]++;
-        }
+        for (j = 0; j < bot->villagers_count; j++)
+            if (bot->villagers[j].workplace_id == b->id &&
+                (bot->villagers[j].id == b->combat_guard_id ||
+                 (bot->summary.raid_id && (b->type == CORE_BLD_BARRACKS || b->type == CORE_BLD_GARRISON)))) {
+                desired[j] = b->id;
+                assigned[i]++;
+            }
     }
     /* 목표 배치를 먼저 정하고 바뀐 사람만 이동시켜 실제 근무·야간 적응을 유지합니다. */
-    for(int pass=0;pass<5;pass++)for(i=0;i<n;i++)for(j=0;j<bot->buildings_count;j++) {
-        CoreBuildingView *b=&bot->buildings[j];
-        if(b->type!=priorities[i] || b->state!=CORE_BSTATE_ACTIVE ||
-           b->worker_slots<=pass || assigned[j]>=b->worker_slots)continue;
-        if(b->type==CORE_BLD_LOGGING_SITE && logging_stock(bot,b)<1000)continue;
-        if(pass>0 && b->type!=CORE_BLD_GARDEN && b->type!=CORE_BLD_CROPLAND &&
-           b->type!=CORE_BLD_FARM && b->type!=CORE_BLD_LOGGING_SITE)continue;
-        int best=-1,score=-1;
-        for(int k=0;k<bot->villagers_count;k++) {
-            CoreVillagerView *v=&bot->villagers[k];int32_t value=0;
-            if(desired[k] || v->incoming || v->state==CORE_VS_LEAVING ||
-               (b->type==CORE_BLD_HEALER && v->intellect<4))continue;
-            if(core_expansion_efficiency(bot->world,v->id,b->type,&value)!=CORE_OK)continue;
-            /* 작은 효율 차이 때문에 매일 서로의 일자리를 바꾸지 않습니다. */
-            if(v->workplace_id==b->id)value+=15;
-            if(value>score){best=k;score=value;}
-        }
-        if(best>=0){desired[best]=b->id;assigned[j]++;}
-    }
-    for(i=0;i<bot->villagers_count;i++)if(desired[i]!=bot->villagers[i].workplace_id && bot->villagers[i].workplace_id)
-        (void)core_unassign_worker(bot->world,bot->villagers[i].id);
-    for(i=0;i<bot->villagers_count;i++)if(desired[i] && desired[i]!=bot->villagers[i].workplace_id)
-        (void)core_assign_worker(bot->world,bot->villagers[i].id,desired[i]);
-    free(desired);free(assigned);
+    for (int pass = 0; pass < 5; pass++)
+        for (i = 0; i < n; i++)
+            for (j = 0; j < bot->buildings_count; j++) {
+                CoreBuildingView *b = &bot->buildings[j];
+                if (b->type != priorities[i] || b->state != CORE_BSTATE_ACTIVE || b->worker_slots <= pass ||
+                    assigned[j] >= b->worker_slots)
+                    continue;
+                if (b->type == CORE_BLD_LOGGING_SITE && logging_stock(bot, b) < 1000)
+                    continue;
+                if (pass > 0 && b->type != CORE_BLD_GARDEN && b->type != CORE_BLD_CROPLAND &&
+                    b->type != CORE_BLD_FARM && b->type != CORE_BLD_LOGGING_SITE)
+                    continue;
+                int best = -1, score = -1;
+                for (int k = 0; k < bot->villagers_count; k++) {
+                    CoreVillagerView *v = &bot->villagers[k];
+                    int32_t value = 0;
+                    if (desired[k] || v->incoming || v->state == CORE_VS_LEAVING ||
+                        (b->type == CORE_BLD_HEALER && v->intellect < 4))
+                        continue;
+                    if (core_expansion_efficiency(bot->world, v->id, b->type, &value) != CORE_OK)
+                        continue;
+                    /* 작은 효율 차이 때문에 매일 서로의 일자리를 바꾸지 않습니다. */
+                    if (v->workplace_id == b->id)
+                        value += 15;
+                    if (value > score) {
+                        best = k;
+                        score = value;
+                    }
+                }
+                if (best >= 0) {
+                    desired[best] = b->id;
+                    assigned[j]++;
+                }
+            }
+    for (i = 0; i < bot->villagers_count; i++)
+        if (desired[i] != bot->villagers[i].workplace_id && bot->villagers[i].workplace_id)
+            (void)core_unassign_worker(bot->world, bot->villagers[i].id);
+    for (i = 0; i < bot->villagers_count; i++)
+        if (desired[i] && desired[i] != bot->villagers[i].workplace_id)
+            (void)core_assign_worker(bot->world, bot->villagers[i].id, desired[i]);
+    free(desired);
+    free(assigned);
 }
-static void trade_quantity(CoreWorld *w,int resource,int units) {
-    int direction=units<0?-1:1;
-    for(int n=abs(units);n>0;n--) {
-        CoreTradeQuote q;int32_t gold=0,reason=0;
-        if(core_expansion_quote(w,resource,n*direction,&q)==CORE_OK && !q.reason &&
-           core_trade(w,resource,n*direction,&gold,&reason)==CORE_OK)return;
+static void trade_quantity(CoreWorld *w, int resource, int units) {
+    int direction = units < 0 ? -1 : 1;
+    for (int n = abs(units); n > 0; n--) {
+        CoreTradeQuote q;
+        int32_t gold = 0, reason = 0;
+        if (core_expansion_quote(w, resource, n * direction, &q) == CORE_OK && !q.reason &&
+            core_trade(w, resource, n * direction, &gold, &reason) == CORE_OK)
+            return;
     }
 }
 void sim_expansion_bot_trade(CoreWorld *world) {
@@ -422,19 +488,40 @@ void sim_expansion_bot_trade(CoreWorld *world) {
     core_get_summary(world, &s);
     if (!s.market_open || s.market_limit <= s.market_used)
         return;
-    if(s.resources[CORE_RES_HERBS]>25)trade_quantity(world,CORE_RES_HERBS,-10);
-    else if(s.resources[CORE_RES_FOOD]>s.population*10+100)trade_quantity(world,CORE_RES_FOOD,-10);
-    (void)core_get_summary(world,&s);
-    if(s.resources[CORE_RES_FOOD]<s.population*3)trade_quantity(world,CORE_RES_FOOD,20);
-    (void)core_get_summary(world,&s);
-    if(s.resources[CORE_RES_LOGS]<20 && s.resources[CORE_RES_GOLD]>30)trade_quantity(world,CORE_RES_LOGS,10);
-    (void)core_get_summary(world,&s);
-    if(s.resources[CORE_RES_FOOD]<s.population*6)trade_quantity(world,CORE_RES_FOOD,10);
-    const int resources[]={CORE_RES_WOOD,CORE_RES_STONE,CORE_RES_CLAY,CORE_RES_IRON_ORE,CORE_RES_COAL,CORE_RES_IRON,CORE_RES_LEATHER};
-    for(int i=0;i<7;i++) {
-        (void)core_get_summary(world,&s);
-        if(s.resources[resources[i]]<10 && s.resources[CORE_RES_GOLD]>90)trade_quantity(world,resources[i],5);
+    if (s.resources[CORE_RES_HERBS] > 25)
+        trade_quantity(world, CORE_RES_HERBS, -10);
+    else if (s.resources[CORE_RES_FOOD] > s.population * 10 + 100)
+        trade_quantity(world, CORE_RES_FOOD, -10);
+    (void)core_get_summary(world, &s);
+    if (s.resources[CORE_RES_FOOD] < s.population * 3)
+        trade_quantity(world, CORE_RES_FOOD, 20);
+    (void)core_get_summary(world, &s);
+    if (s.resources[CORE_RES_LOGS] < 20 && s.resources[CORE_RES_GOLD] > 30)
+        trade_quantity(world, CORE_RES_LOGS, 10);
+    (void)core_get_summary(world, &s);
+    if (s.resources[CORE_RES_FOOD] < s.population * 6)
+        trade_quantity(world, CORE_RES_FOOD, 10);
+    const int resources[] = {CORE_RES_WOOD, CORE_RES_STONE, CORE_RES_CLAY,   CORE_RES_IRON_ORE,
+                             CORE_RES_COAL, CORE_RES_IRON,  CORE_RES_LEATHER};
+    for (int i = 0; i < 7; i++) {
+        (void)core_get_summary(world, &s);
+        if (s.resources[resources[i]] < 10 && s.resources[CORE_RES_GOLD] > 90)
+            trade_quantity(world, resources[i], 5);
     }
+}
+/* 승급 UI와 같은 시설 OR 행을 읽어 현재 단계에 필요한 시설을 먼저 마련합니다. */
+static int build_rank_need(ExpansionBot *bot) {
+    CoreRankRequirementView rows[24];
+    int n = core_expansion_rank_requirements(bot->world, rows, 24);
+    for (int i = 0; i < n; i++)
+        if (rows[i].kind == 2 && !rows[i].satisfied)
+            for (int k = 0; k < rows[i].type_count; k++) {
+                int type = rows[i].types[k];
+                if (count_type(bot, type) || !afford(bot, type))
+                    continue;
+                return build(bot, type);
+            }
+    return 0;
 }
 int sim_expansion_bot_daily(CoreWorld *world) {
     ExpansionBot bot;
@@ -460,15 +547,17 @@ int sim_expansion_bot_daily(CoreWorld *world) {
     (void)core_copy_buildings(world, bot.buildings, bot.summary.building_count + 32, &count);
     bot.buildings_count = count;
     /* 습격 뒤 남은 폐허는 새 시설을 중복 건설하기 전에 정상 수리비로 복구합니다. */
-    if(!bot.summary.raid_id) {
-        for(i=0;i<count;i++) {
-            CoreBuildingView *b=&bot.buildings[i];int32_t why=0;
-            if(b->state==CORE_BSTATE_RUINED && b->type!=CORE_BLD_KEEP && !(b->kind_flags&(CORE_EXP_WALL|CORE_EXP_GATE)))
-                (void)core_repair(world,b->id,&why);
+    if (!bot.summary.raid_id) {
+        for (i = 0; i < count; i++) {
+            CoreBuildingView *b = &bot.buildings[i];
+            int32_t why = 0;
+            if (b->state == CORE_BSTATE_RUINED && b->type != CORE_BLD_KEEP &&
+                !(b->kind_flags & (CORE_EXP_WALL | CORE_EXP_GATE)))
+                (void)core_repair(world, b->id, &why);
         }
-        (void)core_get_summary(world,&bot.summary);
-        (void)core_copy_buildings(world,bot.buildings,bot.summary.building_count+32,&count);
-        bot.buildings_count=count;
+        (void)core_get_summary(world, &bot.summary);
+        (void)core_copy_buildings(world, bot.buildings, bot.summary.building_count + 32, &count);
+        bot.buildings_count = count;
     }
     (void)core_copy_villagers(world, bot.villagers, bot.summary.population + 8, &count);
     bot.villagers_count = count;
@@ -498,8 +587,8 @@ int sim_expansion_bot_daily(CoreWorld *world) {
             if (home->resident_slots && home->state == CORE_BSTATE_ACTIVE &&
                 !bot.roads[home->door_y * bot.summary.map_width + home->door_x]) {
                 int32_t road_id = 0, road_reason = 0;
-                (void)core_place_rotated(world, CORE_BLD_ROAD, home->door_x, home->door_y, 0,
-                                         &road_id, &road_reason);
+                (void)core_place_rotated(world, CORE_BLD_ROAD, home->door_x, home->door_y, 0, &road_id,
+                                         &road_reason);
                 (void)connect(&bot, home->door_x, home->door_y, 10);
             }
         }
@@ -522,7 +611,7 @@ int sim_expansion_bot_daily(CoreWorld *world) {
     } else if (bot.summary.housing_capacity > 0 && needs_well(&bot) && afford(&bot, CORE_BLD_WELL))
         (void)build(&bot, CORE_BLD_WELL);
     else if (bot.summary.rank >= 1 && !count_type(&bot, CORE_BLD_STALL))
-        (void)build(&bot, bot.summary.rank>=2?CORE_BLD_MARKET:CORE_BLD_STALL);
+        (void)build(&bot, bot.summary.rank >= 2 ? CORE_BLD_MARKET : CORE_BLD_STALL);
     else if (bot.summary.rank >= 1 && !count_type(&bot, CORE_BLD_GRANARY))
         (void)build(&bot, CORE_BLD_GRANARY);
     else if (bot.summary.rank == 1 && bot.summary.protected_area >= 25 &&
@@ -536,6 +625,8 @@ int sim_expansion_bot_daily(CoreWorld *world) {
     else if (bot.summary.rank >= 1 &&
              bot.summary.resource_capacity[CORE_RES_FOOD] < (bot.summary.population + 8) * 144 / 10 + 300) {
         (void)build(&bot, CORE_BLD_GRANARY);
+    } else if (bot.summary.rank >= 1 && build_rank_need(&bot)) {
+        /* 이 날은 필수 시설 하나를 건설합니다. */
     } else if (bot.summary.rank >= 1) {
         const int essentials[] = {
             CORE_BLD_GRANARY,        CORE_BLD_SAWMILL,  CORE_BLD_QUARRY,    CORE_BLD_CLAY_PIT,
@@ -555,7 +646,8 @@ int sim_expansion_bot_daily(CoreWorld *world) {
         int32_t reason = 0;
         (void)core_rank_up(world, &reason);
     }
-    if (bot.summary.housing_capacity >= (bot.summary.population<6?bot.summary.population:6) && count_type(&bot, CORE_BLD_GARDEN) >= 2) {
+    if (bot.summary.housing_capacity >= (bot.summary.population < 6 ? bot.summary.population : 6) &&
+        count_type(&bot, CORE_BLD_GARDEN) >= 2) {
         (void)fortify(&bot, 0);
         for (int ring = 1; ring < 4; ring++)
             if (bot.summary.rank >= ring && bot.summary.protected_area >= (int[]){0, 25, 120, 300}[ring])

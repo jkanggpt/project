@@ -115,16 +115,16 @@ void test_expansion_harvest_once(void) {
     field->crop_labor_milli = 2 * 540 * 24 * 1000;
     w->clock.tick = 24 * 144 + 48;
     expansion_produce(w);
-    CHECK_EQ(field->pending_harvest_milli, 360000);
+    CHECK_EQ(field->annual_harvest_total, 360000);
     CHECK_EQ(field->crop_labor_milli, 0);
     expansion_produce(w);
-    CHECK_EQ(field->pending_harvest_milli, 360000);
+    CHECK_EQ(field->annual_harvest_total, 360000);
     field->crop_year = 1;
     field->crop_labor_milli = 2 * 540 * 24 * 1000;
     field->crop_drought = 1;
     field->pending_harvest_milli = 0;
     expansion_produce(w);
-    CHECK_EQ(field->pending_harvest_milli, 360000);
+    CHECK_EQ(field->annual_harvest_total, 360000);
     core_destroy(w);
 }
 void test_expansion_rotation_and_road_guard(void) {
@@ -281,16 +281,17 @@ void test_expansion_feed_before_output(void) {
     Building *a, *b;
     int32_t rc;
     CHECK(w != NULL);
-    a = complete(w, CORE_BLD_RANCH, 80, 80, 0);
-    b = complete(w, CORE_BLD_RANCH, 84, 80, 0);
+    a = complete(w, CORE_BLD_PASTURE, 80, 80, 0);
+    b = complete(w, CORE_BLD_PASTURE, 84, 80, 0);
     w->bank.amount[CORE_RES_GOLD] = 1000;
     CHECK_EQ(core_expansion_buy_animal(w, a->id, 7), CORE_OK);
     CHECK_EQ(core_expansion_buy_animal(w, b->id, 7), CORE_OK);
     CHECK_EQ(entity_link_worker(a, w->villagers[0], 3), CORE_OK);
     CHECK_EQ(entity_link_worker(b, w->villagers[1], 3), CORE_OK);
-    a->daily_work_milli = b->daily_work_milli = w->defs.buildings[CORE_BLD_RANCH].worker_slots * 540000;
+    a->daily_work_milli = b->daily_work_milli = w->defs.buildings[CORE_BLD_PASTURE].worker_slots * 540000;
     w->expansion->animals[w->expansion->animal_count-1].age = 24;
     w->expansion->animals[w->expansion->animal_count-2].age = 24;
+    for(int p=0;p<w->expansion->cells;p++)w->expansion->tiles[p].biome=CORE_BIOME_DESERT;
     w->bank.amount[CORE_RES_FOOD] = 0;
     w->expansion->fractional[CORE_RES_FOOD] = 600;
     expansion_animal_daily(w);

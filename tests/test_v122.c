@@ -55,8 +55,8 @@ void test_v122_rules_and_save(void) {
     CHECK_EQ(test_legacy_world(&p, &w), CORE_OK);
     if (!w)
         return;
-    CHECK_EQ(CORE_BLD_COUNT, 70);
-    CHECK_EQ(CORE_SAVE_VERSION, 11);
+    CHECK_EQ(CORE_BLD_COUNT, 73);
+    CHECK_EQ(CORE_SAVE_VERSION, 12);
     CHECK_EQ(core_expansion_tree_mature_age(3),48000);
     CHECK_EQ(expansion_spec(CORE_BLD_COTTAGE)->w,2);CHECK_EQ(expansion_spec(CORE_BLD_COTTAGE)->h,3);
     CHECK_EQ(expansion_spec(CORE_BLD_BARRACKS)->rank,1);CHECK_EQ(expansion_spec(CORE_BLD_GARRISON)->workers,6);

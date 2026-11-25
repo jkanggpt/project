@@ -395,7 +395,6 @@ void expansion_tick(World *w) {
         for (int index = 0; index < w->building_count; index++)
             expansion_forecast_refresh(w, w->buildings[index]);
     expansion_animals_tick(w);
-    expansion_collect_harvest(w);
     if (minute == 0) {
         for (int region = 0; region < e->region_count; region++)
             e->region_hunt_days[region][exp_day(w) % 12] = 0;
@@ -412,6 +411,7 @@ void expansion_tick(World *w) {
     }
     if (minute == 480 && (exp_day(w) - 1) % 48 == 24)
         expansion_produce(w);
+    expansion_collect_harvest(w);
     expansion_visibility(w);
     if (minute % 60 == 0)
         expansion_goals(w);

@@ -1,33 +1,66 @@
 /* expansion_animals.c — 실제 야생 개체와 먹이·번식·수용량을 갖는 가축 */
 #include "expansion.h"
-#include "population.h"
 #include "placement.h"
+#include "population.h"
 #include <string.h>
 
-static const int MATURE[4] = {24, 12, 16, 8}, PERIOD[4] = {24, 12, 16, 8}, BABIES[4] = {1, 2, 1, 2};
-static const int LIFE[4] = {72, 30, 48, 28};
-static const int KINDS[4] = {7, 9, 8, 10}, FEED[4] = {600, 450, 350, 150}, OUTPUT[4] = {1000, 0, 450, 350},
-                 MEAT[4] = {30, 18, 12, 2}, LEATHER[4] = {6, 3, 3, 0};
-static int livestock(int kind) {
-    int i;
-    for (i = 0; i < 4; i++)
+static const int MATURE[7] = {24, 12, 16, 8, 14, 18, 10}, PERIOD[7] = {24, 12, 16, 8, 16, 20, 12},
+                 BABIES[7] = {1, 2, 1, 2, 1, 1, 2};
+static const int LIFE[7] = {72, 30, 48, 28, 45, 55, 32};
+static const int KINDS[7] = {7, 9, 8, 10, 32, 33, 34}, FEED[7] = {600, 450, 350, 150, 300, 420, 210};
+static const int OUTPUT[7] = {1000, 0, 450, 350, 500, 200, 250}, MEAT[7] = {30, 18, 12, 2, 14, 18, 7};
+static const int LEATHER[7] = {6, 3, 3, 0, 3, 5, 1}, PRICE[7] = {35, 14, 18, 5, 20, 27, 9};
+static const int ALLOWED[2][7] = {{0, 1, 1, 1, 0, 0, 1}, {1, 0, 1, 0, 1, 1, 1}};
+int expansion_livestock_slot(int kind) {
+    for (int i = 0; i < CORE_EXP_LIVESTOCK; i++)
         if (KINDS[i] == kind)
             return i;
     return -1;
 }
-CORE_API int32_t core_expansion_hit_animal(CoreWorld *w,int32_t id,int32_t damage,int32_t source_kind,int32_t source_id) {
-    if(!w)return CORE_ERR_NULL_ARG;
-    if(!w->expansion||source_kind<1||source_kind>2)return CORE_ERR_INVALID_ARG;
-    if(source_kind==1?!entity_find_building(w,source_id):!entity_find_villager(w,source_id))return CORE_ERR_NOT_FOUND;
-    for(int i=0;i<w->expansion->animal_count;i++) {
-        CoreAnimalView *a=&w->expansion->animals[i];
-        if(a->id!=id||!a->alive)continue;
-        if(a->owner)return CORE_ERR_REJECTED;
-        if(damage>0) {
-            a->attacker_kind=source_kind;a->attacker_id=source_id;a->retaliation_until=w->clock.tick+144;
-            a->retaliate_id=source_kind==2?source_id:0;a->threat_until_tick=w->clock.tick+144;
+static int livestock(int kind) { return expansion_livestock_slot(kind); }
+CORE_API int32_t core_expansion_livestock_info(int32_t kind, int32_t type, CoreLivestockInfo *out) {
+    if (!out)
+        return CORE_ERR_NULL_ARG;
+    int k = livestock(kind);
+    if (k < 0 || (type != CORE_BLD_RANCH && type != CORE_BLD_PASTURE))
+        return CORE_ERR_INVALID_ARG;
+    *out = (CoreLivestockInfo){kind,
+                               k,
+                               MATURE[k],
+                               LIFE[k],
+                               FEED[k],
+                               k == 5 ? CORE_RES_LEATHER : CORE_RES_FOOD,
+                               OUTPUT[k],
+                               PERIOD[k],
+                               BABIES[k],
+                               MEAT[k],
+                               LEATHER[k],
+                               PRICE[k],
+                               ALLOWED[type == CORE_BLD_PASTURE][k]};
+    return CORE_OK;
+}
+CORE_API int32_t core_expansion_hit_animal(CoreWorld *w, int32_t id, int32_t damage, int32_t source_kind,
+                                           int32_t source_id) {
+    if (!w)
+        return CORE_ERR_NULL_ARG;
+    if (!w->expansion || source_kind < 1 || source_kind > 2)
+        return CORE_ERR_INVALID_ARG;
+    if (source_kind == 1 ? !entity_find_building(w, source_id) : !entity_find_villager(w, source_id))
+        return CORE_ERR_NOT_FOUND;
+    for (int i = 0; i < w->expansion->animal_count; i++) {
+        CoreAnimalView *a = &w->expansion->animals[i];
+        if (a->id != id || !a->alive)
+            continue;
+        if (a->owner)
+            return CORE_ERR_REJECTED;
+        if (damage > 0) {
+            a->attacker_kind = source_kind;
+            a->attacker_id = source_id;
+            a->retaliation_until = w->clock.tick + 144;
+            a->retaliate_id = source_kind == 2 ? source_id : 0;
+            a->threat_until_tick = w->clock.tick + 144;
         }
-        return core_expansion_damage_animal(w,id,damage);
+        return core_expansion_damage_animal(w, id, damage);
     }
     return CORE_ERR_NOT_FOUND;
 }
@@ -67,29 +100,43 @@ static void slaughter(World *w, CoreAnimalView *a) {
     if (k < 0)
         return;
     a->alive = 0;
-    (void)expansion_bank_add(w, CORE_RES_FOOD, MEAT[k] * 1000 * (1000 + exp_clamp((a->age - MATURE[k]) * 1000 / (LIFE[k] - MATURE[k]), 0, 1000)) / 1000, CORE_LEDGER_PRODUCTION);
+    (void)expansion_bank_add(
+        w, CORE_RES_FOOD,
+        MEAT[k] * 1000 * (1000 + exp_clamp((a->age - MATURE[k]) * 1000 / (LIFE[k] - MATURE[k]), 0, 1000)) /
+            1000,
+        CORE_LEDGER_PRODUCTION);
     (void)expansion_bank_add(w, CORE_RES_LEATHER, LEATHER[k] * 1000, CORE_LEDGER_PRODUCTION);
 }
 void expansion_animal_daily(World *w) {
     ExpansionState *e = w->expansion;
     int initial = e->animal_count;
     uint16_t fed[CORE_EXP_MAX_ANIMALS] = {0};
-    for (int j = 0; j < w->building_count; j++) w->buildings[j]->feed_milli = 0;
+    for (int j = 0; j < w->building_count; j++)
+        w->buildings[j]->feed_milli = 0;
     /* 사료는 전날 잔고로 지불하고, 그 다음 나이를 증가시킵니다. */
     for (int i = 0; i < initial; i++) {
         CoreAnimalView *a = &e->animals[i];
-        if (!a->alive) continue;
-        if (!a->owner) { a->age++; continue; }
+        if (!a->alive)
+            continue;
+        if (!a->owner) {
+            a->age++;
+            continue;
+        }
         Building *b = entity_find_building(w, a->owner);
         int k = livestock(a->kind);
-        if (!b || b->state != CORE_BSTATE_ACTIVE || k < 0) { a->alive = 0; continue; }
+        if (!b || b->state != CORE_BSTATE_ACTIVE || k < 0) {
+            a->alive = 0;
+            continue;
+        }
         int feed = FEED[k] / (a->age < MATURE[k] ? 2 : 1), grass = 0;
-        if (b->type == CORE_BLD_PASTURE && (k == 0 || k == 2) && exp_season(w) != 3) {
+        if (b->type == CORE_BLD_PASTURE && (k == 0 || k == 2 || k >= 4) && exp_season(w) != 3) {
             for (int y = b->y - 3; y < b->y + b->h + 3; y++)
                 for (int x = b->x - 3; x < b->x + b->w + 3; x++)
-                    if (grid_in_bounds(&w->grid, x, y) && expansion_center_distance(b,x,y) <= 3 &&
-                        e->tiles[grid_index(&w->grid,x,y)].biome == CORE_BIOME_GRASS) grass++;
-            if (grass >= 12) feed /= 2;
+                    if (grid_in_bounds(&w->grid, x, y) && expansion_center_distance(b, x, y) <= 3 &&
+                        e->tiles[grid_index(&w->grid, x, y)].biome == CORE_BIOME_GRASS)
+                        grass++;
+            if (grass >= 12)
+                feed = k == 6 ? (feed * 850 + 999) / 1000 : (feed + 1) / 2;
         }
         int paid = exp_clamp(expansion_bank_have(w, CORE_RES_FOOD), 0, feed);
         (void)expansion_bank_add(w, CORE_RES_FOOD, -paid, CORE_LEDGER_CONSUMPTION);
@@ -97,42 +144,60 @@ void expansion_animal_daily(World *w) {
         fed[i] = (uint16_t)(paid * 1000 / feed);
         a->age++;
         if (paid < feed) {
-            if (++a->starve_days >= 2) a->hp -= 5;
-            if (a->hp <= 0) { a->hp = 0; a->alive = 0; }
-        } else a->starve_days = 0;
+            if (++a->starve_days >= 2)
+                a->hp -= 5;
+            if (a->hp <= 0) {
+                a->hp = 0;
+                a->alive = 0;
+            }
+        } else
+            a->starve_days = 0;
     }
     for (int i = 0; i < initial; i++) {
         CoreAnimalView *a = &e->animals[i];
-        if (!a->alive || !a->owner) continue;
+        if (!a->alive || !a->owner)
+            continue;
         Building *b = entity_find_building(w, a->owner);
-        int k = livestock(a->kind), factor = expansion_labor_milli(w,b);
-        if (k < 0) continue;
+        int k = livestock(a->kind), factor = expansion_labor_milli(w, b);
+        if (k < 0)
+            continue;
         if (a->age >= MATURE[k]) {
-            int age = exp_clamp((a->age - MATURE[k]) * 1000 / (LIFE[k] - MATURE[k]),0,1000);
+            int age = exp_clamp((a->age - MATURE[k]) * 1000 / (LIFE[k] - MATURE[k]), 0, 1000);
             int out = (int)((int64_t)OUTPUT[k] * (1000 + age * 3 / 4) * factor * fed[i] / 1000000000LL);
-            (void)expansion_bank_add(w, CORE_RES_FOOD, out, CORE_LEDGER_PRODUCTION);
+            (void)expansion_bank_add(w, k == 5 ? CORE_RES_LEATHER : CORE_RES_FOOD, out,
+                                     CORE_LEDGER_PRODUCTION);
         }
-        if (a->age >= LIFE[k]) slaughter(w,a);
+        if (a->age >= LIFE[k])
+            slaughter(w, a);
     }
     for (int j = 0; j < w->building_count; j++) {
         Building *b = w->buildings[j];
-        if (b->state != CORE_BSTATE_ACTIVE || (b->type != CORE_BLD_RANCH && b->type != CORE_BLD_PASTURE)) continue;
-        int factor = expansion_labor_milli(w,b), cap = b->type == CORE_BLD_RANCH ? 6 : 16;
-        for (int k = 0; k < 4; k++) {
+        if (b->state != CORE_BSTATE_ACTIVE || (b->type != CORE_BLD_RANCH && b->type != CORE_BLD_PASTURE))
+            continue;
+        int factor = expansion_labor_milli(w, b), cap = b->type == CORE_BLD_RANCH ? 6 : 16;
+        for (int k = 0; k < CORE_EXP_LIVESTOCK; k++) {
+            if (!ALLOWED[b->type == CORE_BLD_PASTURE][k])
+                continue;
             int adults = 0, full = 1;
             for (int i = 0; i < initial; i++)
                 if (e->animals[i].alive && e->animals[i].owner == b->id && e->animals[i].kind == KINDS[k]) {
                     adults += e->animals[i].age >= MATURE[k];
                     full &= fed[i] == 1000;
                 }
-            if (adults < 2 || !full || !factor) continue;
-            b->breeding_progress[k] = exp_clamp(b->breeding_progress[k] + exp_clamp(expansion_sqrt_milli(factor),0,2500),0,PERIOD[k] * 1000);
-            if (b->breeding_progress[k] < PERIOD[k] * 1000 || cap - occupancy(e,b->id) < BABIES[k]) continue;
+            if (adults < 2 || !full || !factor)
+                continue;
+            b->breeding_progress[k] =
+                exp_clamp(b->breeding_progress[k] + exp_clamp(expansion_sqrt_milli(factor), 0, 2500), 0,
+                          PERIOD[k] * 1000);
+            if (b->breeding_progress[k] < PERIOD[k] * 1000 || cap - occupancy(e, b->id) < BABIES[k])
+                continue;
             int free = CORE_EXP_MAX_ANIMALS - e->animal_count;
-            for (int i = 0; i < e->animal_count; i++) free += !e->animals[i].alive;
-            if (free < BABIES[k]) continue;
+            for (int i = 0; i < e->animal_count; i++)
+                free += !e->animals[i].alive;
+            if (free < BABIES[k])
+                continue;
             for (int n = 0; n < BABIES[k]; n++) {
-                CoreAnimalView *baby = new_animal(w,KINDS[k],b->id,0);
+                CoreAnimalView *baby = new_animal(w, KINDS[k], b->id, 0);
                 baby->x_milli = (b->x + b->w / 2) * 1000 + 500;
                 baby->y_milli = (b->y + b->h / 2) * 1000 + 500;
             }
@@ -159,14 +224,15 @@ CORE_API int32_t core_expansion_damage_animal(CoreWorld *w, int32_t animal_id, i
                                          CORE_LEDGER_PRODUCTION);
                 (void)expansion_bank_add(w, CORE_RES_LEATHER, EXP_ANIMALS[a->kind].leather * 1000,
                                          CORE_LEDGER_PRODUCTION);
-                (void)expansion_bank_add(w, CORE_RES_MANA, EXP_ANIMALS[a->kind].mana_drop * 1000, CORE_LEDGER_PRODUCTION);
-                if (a->kind >= 24) {
-                    static const int lo[6] = {35,24,35,45,50,30}, hi[6] = {55,40,55,65,70,50};
-                    int *timers=a->phantom_slot?w->expansion->phantom_second_day:w->expansion->phantom_next_day;
-                    timers[a->kind-24]=exp_day(w)+rng_range(&w->rng,lo[a->kind-24],hi[a->kind-24]);
+                (void)expansion_bank_add(w, CORE_RES_MANA, EXP_ANIMALS[a->kind].mana_drop * 1000,
+                                         CORE_LEDGER_PRODUCTION);
+                if (expansion_is_phantom(a->kind)) {
+                    static const int lo[6] = {35, 24, 35, 45, 50, 30}, hi[6] = {55, 40, 55, 65, 70, 50};
+                    int *timers =
+                        a->phantom_slot ? w->expansion->phantom_second_day : w->expansion->phantom_next_day;
+                    timers[a->kind - 24] =
+                        exp_day(w) + rng_range(&w->rng, lo[a->kind - 24], hi[a->kind - 24]);
                 }
-                if (a->region >= 0 && a->region < 30)
-                    w->expansion->region_hunt_days[a->region][exp_day(w) % 12]++;
             }
             expansion_ecology_recount(w);
         }
@@ -176,14 +242,23 @@ CORE_API int32_t core_expansion_damage_animal(CoreWorld *w, int32_t animal_id, i
 }
 static void animal_impact(World *w, CoreAnimalView *a) {
     a->attack_remaining_milli = 0;
-    if(a->target_id<0) {
-        Building *b=entity_find_building(w,-a->target_id);
-        if(!a->alive||!b||b->state!=CORE_BSTATE_ACTIVE||a->attacker_kind!=1||a->attacker_id!=b->id||a->retaliation_until<w->clock.tick)return;
-        int x=a->x_milli/1000,y=a->y_milli/1000;
-        int distance=(x<b->x?b->x-x:x>=b->x+b->w?x-b->x-b->w+1:0)+(y<b->y?b->y-y:y>=b->y+b->h?y-b->y-b->h+1:0);
-        if(distance<=EXP_ANIMALS[a->kind].attack_range) {
-            b->damage_kind=2;b->damage_source=a->id;b->damage_tick=w->clock.tick;
-            placement_damage(w,b,EXP_ANIMALS[a->kind].attack);
+    if (a->target_id < 0) {
+        Building *b = entity_find_building(w, -a->target_id);
+        if (!a->alive || !b || b->state != CORE_BSTATE_ACTIVE || a->attacker_kind != 1 ||
+            a->attacker_id != b->id || a->retaliation_until < w->clock.tick)
+            return;
+        int x = a->x_milli / 1000, y = a->y_milli / 1000;
+        int distance = (x < b->x           ? b->x - x
+                        : x >= b->x + b->w ? x - b->x - b->w + 1
+                                           : 0) +
+                       (y < b->y           ? b->y - y
+                        : y >= b->y + b->h ? y - b->y - b->h + 1
+                                           : 0);
+        if (distance <= EXP_ANIMALS[a->kind].attack_range) {
+            b->damage_kind = 2;
+            b->damage_source = a->id;
+            b->damage_tick = w->clock.tick;
+            placement_damage(w, b, EXP_ANIMALS[a->kind].attack);
         }
         return;
     }
@@ -194,8 +269,9 @@ static void animal_impact(World *w, CoreAnimalView *a) {
         return;
     a->threat_until_tick = w->clock.tick + 144;
     int damage = EXP_ANIMALS[a->kind].attack;
-    damage=expansion_defend_damage(v,damage);
-    v->damage_kind=2;v->damage_source=a->id;
+    damage = expansion_defend_damage(v, damage);
+    v->damage_kind = 2;
+    v->damage_source = a->id;
     v->health -= damage;
     expansion_hurt(w, v, damage, 0);
     v->needs.safety = exp_clamp(v->needs.safety - 10, 0, 100);
@@ -226,22 +302,42 @@ void expansion_animals_tick(World *w) {
         int active = 0, aggressive = info->behavior == 2 || a->retaliate_id;
         if (!a->alive || a->owner)
             continue;
-        if(a->retaliation_until<w->clock.tick){a->attacker_kind=0;a->attacker_id=0;a->retaliate_id=0;}
+        if (a->retaliation_until < w->clock.tick) {
+            a->attacker_kind = 0;
+            a->attacker_id = 0;
+            a->retaliate_id = 0;
+        }
         a->attack_cooldown_milli = exp_clamp(a->attack_cooldown_milli - 10000, 0, 60000);
         /* 순수 코어 호출자는 세부 시간을 보고하지 않으므로 다음 틱에서 미처리 타격을 마칩니다. */
         if (a->attack_remaining_milli > 0 && a->attack_tick < w->clock.tick)
             animal_impact(w, a);
-        if(a->attacker_kind==1 && info->attack) {
-            Building *b=entity_find_building(w,a->attacker_id);
-            if(!b||b->state!=CORE_BSTATE_ACTIVE){a->attacker_kind=0;a->attacker_id=0;continue;}
-            int building_distance=(x<b->x?b->x-x:x>=b->x+b->w?x-b->x-b->w+1:0)+(y<b->y?b->y-y:y>=b->y+b->h?y-b->y-b->h+1:0);
-            if(building_distance<=info->attack_range && !a->attack_cooldown_milli && !a->attack_remaining_milli) {
-                a->target_id=-b->id;a->attack_tick=w->clock.tick;a->attack_remaining_milli=2400;a->attack_cooldown_milli=info->attack_minutes*1000;
-            } else if(building_distance>info->attack_range) {
-                int xx=x+(b->door_x>x?1:b->door_x<x?-1:0),yy=y;
-                if(xx==x)yy+=b->door_y>y?1:b->door_y<y?-1:0;
-                if(grid_in_bounds(&w->grid,xx,yy)&&!w->grid.block[grid_index(&w->grid,xx,yy)]&&w->grid.cost[grid_index(&w->grid,xx,yy)]) {
-                    a->x_milli=xx*1000+500;a->y_milli=yy*1000+500;
+        if (a->attacker_kind == 1 && info->attack) {
+            Building *b = entity_find_building(w, a->attacker_id);
+            if (!b || b->state != CORE_BSTATE_ACTIVE) {
+                a->attacker_kind = 0;
+                a->attacker_id = 0;
+                continue;
+            }
+            int building_distance = (x < b->x           ? b->x - x
+                                     : x >= b->x + b->w ? x - b->x - b->w + 1
+                                                        : 0) +
+                                    (y < b->y           ? b->y - y
+                                     : y >= b->y + b->h ? y - b->y - b->h + 1
+                                                        : 0);
+            if (building_distance <= info->attack_range && !a->attack_cooldown_milli &&
+                !a->attack_remaining_milli) {
+                a->target_id = -b->id;
+                a->attack_tick = w->clock.tick;
+                a->attack_remaining_milli = 2400;
+                a->attack_cooldown_milli = info->attack_minutes * 1000;
+            } else if (building_distance > info->attack_range) {
+                int xx = x + (b->door_x > x ? 1 : b->door_x < x ? -1 : 0), yy = y;
+                if (xx == x)
+                    yy += b->door_y > y ? 1 : b->door_y < y ? -1 : 0;
+                if (grid_in_bounds(&w->grid, xx, yy) && !w->grid.block[grid_index(&w->grid, xx, yy)] &&
+                    w->grid.cost[grid_index(&w->grid, xx, yy)]) {
+                    a->x_milli = xx * 1000 + 500;
+                    a->y_milli = yy * 1000 + 500;
                 }
             }
             continue;
@@ -291,19 +387,20 @@ void expansion_animals_tick(World *w) {
             int n = grid_index(&w->grid, xx, yy), region = e->region_map[n];
             CoreHabitatView *r = &e->regions[region];
             int swimming = w->grid.terrain[n] == CORE_TERRAIN_WATER && !w->grid.road[n];
-            int capacity =
-                region == a->region || (r->count < r->count_cap && r->biomass + info->biomass <= r->capacity &&
-                                        (info->behavior != 2 || a->kind >= 24 || r->aggressive < exp_clamp((r->count_cap + 3) / 4, 2, 100)));
+            int capacity = region == a->region ||
+                           (r->count < r->count_cap && r->biomass + info->biomass <= r->capacity &&
+                            (info->behavior != 2 || expansion_is_phantom(a->kind) ||
+                             r->aggressive < exp_clamp((r->count_cap + 3) / 4, 2, 100)));
             if (!w->grid.block[n] && (w->grid.cost[n] || (swimming && info->swim_milli)) && capacity &&
                 !(info->behavior == 2 && exp_day(w) <= 10 && exp_dist(xx, yy, w->keep_x, w->keep_y) < 12)) {
                 if (region != a->region) {
                     CoreHabitatView *old = &e->regions[a->region];
                     old->count--;
                     old->biomass -= info->biomass;
-                    old->aggressive -= a->kind < 24 && info->behavior == 2;
+                    old->aggressive -= !expansion_is_phantom(a->kind) && info->behavior == 2;
                     r->count++;
                     r->biomass += info->biomass;
-                    r->aggressive += a->kind < 24 && info->behavior == 2;
+                    r->aggressive += !expansion_is_phantom(a->kind) && info->behavior == 2;
                     a->region = region;
                 }
                 x = xx;
@@ -350,7 +447,6 @@ CORE_API int32_t core_expansion_copy_animals(const CoreWorld *w, CoreAnimalView 
     return CORE_OK;
 }
 CORE_API int32_t core_expansion_buy_animal(CoreWorld *w, int32_t id, int32_t kind) {
-    static const int price[4] = {35, 14, 18, 5};
     Building *b;
     CoreAnimalView *a;
     int k = livestock(kind);
@@ -363,12 +459,12 @@ CORE_API int32_t core_expansion_buy_animal(CoreWorld *w, int32_t id, int32_t kin
         return CORE_ERR_NOT_FOUND;
     if ((b->type != CORE_BLD_RANCH && b->type != CORE_BLD_PASTURE) || b->state != CORE_BSTATE_ACTIVE ||
         occupancy(w->expansion, id) >= (b->type == CORE_BLD_RANCH ? 6 : 16) ||
-        w->bank.amount[CORE_RES_GOLD] < price[k])
+        !ALLOWED[b->type == CORE_BLD_PASTURE][k] || expansion_bank_have(w, CORE_RES_GOLD) < PRICE[k] * 1000)
         return CORE_ERR_REJECTED;
     a = new_animal(w, kind, id, 0);
     if (!a)
         return CORE_ERR_REJECTED;
-    (void)expansion_bank_add(w, CORE_RES_GOLD, -price[k] * 1000, CORE_LEDGER_TRADE);
+    (void)expansion_bank_add(w, CORE_RES_GOLD, -PRICE[k] * 1000, CORE_LEDGER_TRADE);
     a->x_milli = (b->x + b->w / 2) * 1000 + 500;
     a->y_milli = (b->y + b->h / 2) * 1000 + 500;
     return CORE_OK;

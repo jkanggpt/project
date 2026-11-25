@@ -71,6 +71,7 @@ int expansion_agriculture_event(const World *w, int type) {
 int expansion_service_base(const Building *b, int workers) {
     switch (b->type) {
     case CORE_BLD_HEALER: return workers ? 2 : 0;
+    case CORE_BLD_CLINIC: return workers >= 2 ? 4 : workers ? 3 : 0;
     case CORE_BLD_HOSPITAL: return workers >= 3 ? 8 : workers == 2 ? 5 : 0;
     case CORE_BLD_TAVERN: return 8;
     case CORE_BLD_BATHHOUSE: return 12;
@@ -108,6 +109,7 @@ int expansion_begin_work(World *w, Villager *v, Building *b) {
     b->daily_work_milli += effective;
     if (b->type == CORE_BLD_OBSERVATORY)
         b->research_work_milli += effective;
+    if (b->type == CORE_BLD_OBSERVATORY && effective > 0) expansion_forecast_refresh(w,b);
     if (expansion_spec(b->type)->field == 0) {
         int event = expansion_agriculture_event(w, b->type);
         int credit = (int)((int64_t)effective * event / 1000);
@@ -120,7 +122,7 @@ int expansion_begin_work(World *w, Villager *v, Building *b) {
         }
     }
     int service_n = expansion_working_count(w,b);
-    int medical=b->type==CORE_BLD_HEALER || b->type==CORE_BLD_HOSPITAL,highest=0,sum=0;
+    int medical=expansion_is_medical(b->type),highest=0,sum=0;
     if (medical) {
         service_n=expansion_working_count(w,b);
         for(int i=0;i<b->worker_count;i++)if(expansion_working_present(w,b,b->workers[i])) {
@@ -128,7 +130,7 @@ int expansion_begin_work(World *w, Villager *v, Building *b) {
         }
     }
     int base = expansion_service_base(b, service_n);
-    if(medical && (b->type==CORE_BLD_HEALER?highest<4:service_n<2||highest<6||sum<10))base=0;
+    if(medical && (b->type==CORE_BLD_HEALER?highest<4:b->type==CORE_BLD_CLINIC?highest<5||sum<7:service_n<2||highest<6||sum<10))base=0;
     int education=b->type==CORE_BLD_SCHOOL || b->type==CORE_BLD_LIBRARY || b->type==CORE_BLD_ACADEMY;
     int teaching=education && b->service_credit_milli<base*1000;
     if(education)for(int i=0;i<w->villager_count;i++)
@@ -136,7 +138,7 @@ int expansion_begin_work(World *w, Villager *v, Building *b) {
     if(education && !teaching)b->research_work_milli+=effective;
     if (base && service_n > 0 && (!education || teaching) && expansion_qualified_present(w, b)) {
         int64_t numerator = (int64_t)effective * base * (2520 / service_n);
-        if ((b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) && expansion_has_research(w, 18))
+        if (expansion_is_medical(b->type) && expansion_has_research(w, 18))
             numerator = numerator * 125 / 100;
         numerator += b->service_carry;
         int denominator = b->type == CORE_BLD_ART_MUSEUM ? 1058400 : 1360800;
@@ -245,7 +247,7 @@ CORE_API int32_t core_expansion_daily_requirements(const CoreWorld *w,int32_t ou
     for(int i=0;i<w->building_count;i++) {
         const Building *b=w->buildings[i];if(b->state!=CORE_BSTATE_ACTIVE)continue;
         const ExpansionBuildingSpec *spec=expansion_spec(b->type);
-        if(!((b->type==CORE_BLD_HEALER||b->type==CORE_BLD_HOSPITAL)&&!b->operating))out[CORE_RES_GOLD]+=spec->upkeep*1000;
+        if(!(expansion_is_medical(b->type)&&!b->operating))out[CORE_RES_GOLD]+=spec->upkeep*1000;
         if(exp_season(w)==3 && spec->heating_milli && (!spec->residents||b->resident_count)) {
             int need=spec->heating_milli*(expansion_has_research(w,19)?80:100)/100;
             if(expansion_event_active(w,CORE_NATURE_COLD_SNAP))need=need*130/100;

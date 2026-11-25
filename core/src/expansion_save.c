@@ -137,7 +137,7 @@ static const Field STATE123[] = {
     F(ExpansionState, ore_old_tiles, 15),
     F(ExpansionState, wandering, (int)(sizeof(CoreWanderingMerchantView) / sizeof(int32_t))),
     F(ExpansionState, boat_count, 1),
-    F(ExpansionState, next_type_serial, CORE_BLD_COUNT)};
+    F(ExpansionState, next_type_serial, 70)};
 static const Field TILE123[] = {F(CoreExpansionTileView, clay_milli, 1),
                                 F(CoreExpansionTileView, clay_initial_milli, 1),
                                 F(CoreExpansionTileView, clay_shore_percent, 1)};
@@ -146,7 +146,10 @@ static const Field PERSON123[] = {F(Villager, departure_reason, 1), F(Villager, 
                                   F(Villager, hunt_retreat_reason, 1)};
 static const Field BUILDING123[] = {F(Building, forecast_day, 1), F(Building, forecast_horizon, 1),
                                     F(Building, forecast_count, 1), F(Building, forecast_entries, 96)};
-static const Field BOAT123[] = {{0, (int)(sizeof(CoreBoatView) / sizeof(int32_t))}};
+static const Field BOAT123[] = {{0, 18}};
+static const Field STATE124[] = {F(ExpansionState, next_type_serial[70], 3)};
+static const Field BUILDING124[] = {F(Building, breeding_progress[4], 3), F(Building, harvest_deferred_lo, 1), F(Building, harvest_deferred_hi, 1), F(Building, annual_harvest_total, 1), F(Building, annual_harvest_released, 1), F(Building, annual_harvest_year, 1), F(Building, annual_harvest_day, 1), F(Building, forecast_meta, 96)};
+static const Field BOAT124[] = {F(CoreBoatView, boat_kind, 1), F(CoreBoatView, fishing_phase, 1), F(CoreBoatView, phase_milli, 1), F(CoreBoatView, cruise_ticks, 1), F(CoreBoatView, previous_x_milli, 1), F(CoreBoatView, previous_y_milli, 1)};
 static int32_t get_int(const void *object, size_t offset) {
     int32_t value;
     memcpy(&value, (const char *)object + offset, sizeof(value));
@@ -185,10 +188,12 @@ int expansion_save(FILE *f, const World *w) {
     fputs("v123state=11", f);
     write_fields(f, e, STATE123, COUNT(STATE123));
     fputc(10, f);
+    fputs("v124state=12", f); write_fields(f,e,STATE124,COUNT(STATE124)); fputc(10,f);
     for (i = 0; i < e->boat_count; i++) {
         fprintf(f, "v123boat=%d", i);
         write_fields(f, &e->boats[i], BOAT123, COUNT(BOAT123));
         fputc(10, f);
+        fprintf(f,"v124boat=%d",i); write_fields(f,&e->boats[i],BOAT124,COUNT(BOAT124)); fputc(10,f);
     }
     for(i=0;i<e->frontend_clock[1];i++){fprintf(f,"v122projectile=%d",i);write_fields(f,e->frontend_projectiles[i],PROJECTILE122,COUNT(PROJECTILE122));fputc('\n',f);}
     fputs("v122raid=1",f);write_fields(f,&w->threat.raid,RAID122,COUNT(RAID122));fputc('\n',f);
@@ -212,6 +217,7 @@ int expansion_save(FILE *f, const World *w) {
         fprintf(f, "v123building=%d", w->buildings[i]->id);
         write_fields(f, w->buildings[i], BUILDING123, COUNT(BUILDING123));
         fputc(10, f);
+        fprintf(f,"v124building=%d",w->buildings[i]->id); write_fields(f,w->buildings[i],BUILDING124,COUNT(BUILDING124)); fputc(10,f);
     }
     for (i = 0; i < w->villager_count; i++) {
         fprintf(f, "villager=%d", w->villagers[i]->id);
@@ -286,6 +292,22 @@ int expansion_load_line(World *w, const char *key, char *value) {
     }
     if (!e->load_mask)
         return CORE_ERR_FORMAT;
+    if (strcmp(key,"v124state")==0) {
+        if(w->generation_version<12 || index!=12 || e->loaded_version!=11 || e->loaded_v124 || !read_fields(&cursor,e,STATE124,COUNT(STATE124)) || *cursor) return CORE_ERR_FORMAT;
+        e->loaded_v124=1; return CORE_OK;
+    }
+    if(strncmp(key,"v124",4)==0) {
+        if(!e->loaded_v124)return CORE_ERR_FORMAT;
+        void *object=NULL; const Field *fields=NULL; int count=0;
+        if(strcmp(key,"v124building")==0) {
+            Building *b=entity_find_building(w,index);
+            if(b && !b->v124_loaded) { b->v124_loaded=1; object=b; fields=BUILDING124;count=COUNT(BUILDING124);e->loaded_v124_buildings++; }
+        }
+        if(strcmp(key,"v124boat")==0 && index==e->loaded_v124_boats && index<e->boat_count) {
+            object=&e->boats[index];fields=BOAT124;count=COUNT(BOAT124);e->loaded_v124_boats++;
+        }
+        return object && read_fields(&cursor,object,fields,count) && !*cursor?CORE_OK:CORE_ERR_FORMAT;
+    }
     if (strcmp(key, "v123state") == 0) {
         if (index != 11 || e->loaded_version != 10 || !read_fields(&cursor, e, STATE123, COUNT(STATE123)) ||
             *cursor || e->boat_count < 0 || e->boat_count > CORE_EXP_MAX_BOATS)
@@ -422,9 +444,11 @@ int expansion_finish_load(World *w) {
          e->loaded_v123_people != w->villager_count || e->loaded_v123_buildings != w->building_count ||
          e->loaded_v123_boats != e->boat_count))
         return CORE_ERR_FORMAT;
+    if (w->generation_version>=12 && (!e->loaded_v124 || e->loaded_v124_buildings!=w->building_count || e->loaded_v124_boats!=e->boat_count)) return CORE_ERR_FORMAT;
     expansion_v122_migrate(w);
     if (expansion_v123_migrate(w) != CORE_OK)
         return CORE_ERR_FORMAT;
+    expansion_v124_migrate(w);
     if (expansion_validate(w))
         return CORE_ERR_FORMAT;
     w->bank.individual_limits = 1;
@@ -442,6 +466,9 @@ uint64_t expansion_hash(const World *w, uint64_t hash) {
     hash = hash_fields(hash, e, STATE, COUNT(STATE));
     hash = hash_fields(hash,e,STATE122,COUNT(STATE122));
     hash = hash_fields(hash, e, STATE123, COUNT(STATE123));
+    hash = hash_fields(hash,e,STATE124,COUNT(STATE124));
+    for(i=0;i<w->building_count;i++)hash=hash_fields(hash,w->buildings[i],BUILDING124,COUNT(BUILDING124));
+    for(i=0;i<e->boat_count;i++)hash=hash_fields(hash,&e->boats[i],BOAT124,COUNT(BOAT124));
     for (i = 0; i < e->cells; i++)
         hash = hash_fields(hash, &e->tiles[i], TILE123, COUNT(TILE123));
     for (i = 0; i < w->villager_count; i++)
@@ -535,10 +562,10 @@ int expansion_validate(const World *w) {
     for (i = 0; i < e->boat_count && i < CORE_EXP_MAX_BOATS; i++) {
         const CoreBoatView *b = &e->boats[i];
         bad += b->crew_count < 0 || b->crew_count > 2 || b->slot < 0 || b->slot > 1 || b->state < 0 ||
-               b->state > 4;
+               b->state > 4 || b->boat_kind < 0 || b->boat_kind > 1 || b->fishing_phase < 0 || b->fishing_phase > 5 || b->phase_milli < 0 || b->phase_milli >= 2800 || b->cruise_ticks < 0 || b->cruise_ticks > 6;
         if (b->crew_count > 0) {
             bad += b->x_milli < 0 || b->y_milli < 0 || b->x_milli >= w->grid.width * 1000 ||
-                   b->y_milli >= w->grid.height * 1000 || b->facing < 0 || b->facing > 3 || b->water_id < 1;
+                   b->y_milli >= w->grid.height * 1000 || b->previous_x_milli<0 || b->previous_y_milli<0 || b->previous_x_milli>=w->grid.width*1000 || b->previous_y_milli>=w->grid.height*1000 || b->facing < 0 || b->facing > 3 || b->water_id < 1;
             for (int k = 0; k < b->crew_count && k < 2; k++) {
                 const Villager *v = entity_find_villager(w, b->crew[k]);
                 bad += !v || (v && v->boat_port_id != b->port_id);
@@ -590,7 +617,7 @@ int expansion_validate(const World *w) {
                t->tree_age > 112000 || t->tree_logs_milli < 0 || t->tree_logs_milli > 50000 ||
                t->regrow_milli < 0 || t->regrow_milli > 60000 || t->tree_used_milli < 0 ||
                t->tree_used_milli > 50000 || t->ore_kind < -1 || t->ore_kind >= 15 || t->ore_milli < 0 ||
-               t->ore_milli > 1800000 || t->explored < 0 || t->explored > 1 || w->grid.road[i] > 3;
+               t->ore_milli > 1800000 || t->explored < 0 || t->explored > 1 || w->grid.road[i] > 4;
     }
     for (i = 0; i < w->building_count; i++) {
         const Building *b = w->buildings[i];
@@ -608,7 +635,8 @@ int expansion_validate(const World *w) {
                b->mode > 1;
         bad += b->crop_work_carry<0 || b->crop_work_carry>=100000 || b->actual_work_milli<0 || b->agriculture_work_milli<0 || b->service_credit_milli<0 || b->service_credit_milli>1000000 ||
             b->service_carry<0 || b->service_carry>=1360800 || b->forestry_carry_milli<0 || b->forestry_carry_milli>=1000 || b->feed_milli<0;
-        for(j=0;j<4;j++)bad+=b->breeding_progress[j]<0 || b->breeding_progress[j]>(int[]){24,12,16,8}[j]*1000;
+        for(j=0;j<CORE_EXP_LIVESTOCK;j++)bad+=b->breeding_progress[j]<0 || b->breeding_progress[j]>(int[]){24,12,16,8,16,20,12}[j]*1000;
+        bad+=b->harvest_deferred_hi<0 || b->annual_harvest_total<0 || b->annual_harvest_released<0 || b->annual_harvest_released>b->annual_harvest_total || b->annual_harvest_year<0 || b->annual_harvest_day<0;
         for (j = i + 1; j < w->building_count; j++) {
             const Building *a = w->buildings[j];
             bad += b->id == a->id ||

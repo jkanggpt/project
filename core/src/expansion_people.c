@@ -120,6 +120,7 @@ int expansion_qualified(const World *w, const Building *b) {
     }
     switch (b->type) {
     case CORE_BLD_HEALER: return b->worker_count >= 1 && highest >= 4;
+    case CORE_BLD_CLINIC: return b->worker_count >= 1 && highest >= 5 && sum >= 7;
     case CORE_BLD_HOSPITAL: return b->worker_count >= 2 && highest >= 6 && sum >= 10;
     case CORE_BLD_SCHOOL: return highest >= 5 && sum >= 7;
     case CORE_BLD_ACADEMY: return highest >= 7 && sum >= 15;
@@ -135,6 +136,7 @@ int expansion_qualified_present(const World *w,const Building *b) {
     }
     switch(b->type) {
     case CORE_BLD_HEALER:return count>=1 && highest>=4;
+    case CORE_BLD_CLINIC:return count>=1 && highest>=5 && sum>=7;
     case CORE_BLD_HOSPITAL:return count>=2 && highest>=6 && sum>=10;
     case CORE_BLD_SCHOOL:return highest>=5 && sum>=7;
     case CORE_BLD_ACADEMY:return highest>=7 && sum>=15;
@@ -409,7 +411,7 @@ static int patient_limit(const World *w, const Building *b) {
             count++; sum += n;
             if (n > highest) highest = n;
         }
-    if (b->type == CORE_BLD_HEALER ? highest < 4 : count < 2 || highest < 6 || sum < 10) return 0;
+    if (b->type == CORE_BLD_HEALER ? highest < 4 : b->type == CORE_BLD_CLINIC ? highest < 5 || sum < 7 : count < 2 || highest < 6 || sum < 10) return 0;
     return b->visits_today + b->service_credit_milli / 1000;
 }
 static int service_efficiency(const World *w,const Building *b) {
@@ -574,7 +576,7 @@ void expansion_people_tick(World *w) {
             Building *clinic = NULL;
             for (j = 0; j < w->building_count; j++) {
                 Building *b = w->buildings[j];
-                if ((b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) && b != job &&
+                if (expansion_is_medical(b->type) && b != job &&
                     b->state == CORE_BSTATE_ACTIVE && expansion_qualified_present(w, b) &&
                     patient_limit(w, b) > b->visits_today) {
                     clinic = b;
@@ -591,7 +593,7 @@ void expansion_people_tick(World *w) {
                             efficiency += expansion_work_percent(w, clinic->workers[k], clinic->type) * 10;
                     if (staff) efficiency /= staff;
                     v->healing_progress_milli += efficiency * 10;
-                    int duration = clinic->type == CORE_BLD_HEALER ? 270000 : staff >= 3 ? 67500 : 108000;
+                    int duration = clinic->type == CORE_BLD_HEALER ? 270000 : clinic->type == CORE_BLD_CLINIC ? (staff >= 2 ? 135000 : 180000) : staff >= 3 ? 67500 : 108000;
                     if(v->healing_progress_milli>duration)v->healing_progress_milli=duration;
                     if (v->healing_progress_milli >= duration && clinic->service_credit_milli >= 1000) {
                         (void)expansion_bank_add(w, CORE_RES_HERBS,
@@ -695,7 +697,7 @@ void expansion_arrival_join(World *w, Villager *v) {
     events_push_villager(&w->events, CORE_EVT_IMMIGRANT, v->id, 0, 0, v->name);
     if (!v->contract_end_tick && e->pending_arrivals > 0 && --e->pending_arrivals == 0) {
         e->last_arrival_day = exp_day(w);
-        e->immigration_day = e->last_arrival_day + rng_range(&w->rng, 2, 3);
+        e->immigration_day = e->last_arrival_day + expansion_immigration_wait(w);
         e->arrived_today = e->pending_total;
         e->arrival_type = e->pending_type;
         if (e->pending_type == 1 && e->starter_waves == 2)
@@ -835,12 +837,7 @@ void expansion_people_daily(World *w) {
         core_expansion_immigration(w, &status);
         if (status.reasons || status.maximum <= 0)
             return;
-        int minimum=(int[]){0,2,3,3,3,4}[w->rank], maximum=(int[]){0,4,4,5,6,6}[w->rank];
-        if(maximum>status.vacant)maximum=status.vacant;
-        if(minimum>maximum)minimum=maximum;
-        int count = rng_range(&w->rng, minimum, maximum);
-        if(exp_season(w)==CORE_SEASON_WINTER)count=(count+1)/2;
-        if (count > status.vacant) count = status.vacant;
+        int count = expansion_immigration_count(w, status.vacant);
         if (immigrate(w, count, 0)) {
             e->pending_type = 3;
         }

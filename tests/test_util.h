@@ -14,6 +14,7 @@ int test_legacy_world(const CoreNewGameParams *params, CoreWorld **out);
 void test_fail(const char *file, int line, const char *expression);
 void test_fail_values(const char *file, int line, const char *expression, long long left, long long right);
 int test_failed(void);
+int test_v124_parameter(const char *name);
 /* 지금 실행 중인 테스트 이름 (임시 파일 이름을 겹치지 않게 만드는 데 씀) */
 const char *test_current_name(void);
 

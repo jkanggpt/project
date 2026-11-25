@@ -697,7 +697,7 @@ static int parse_map(LoadState *state, const char *key, char *value)
             return CORE_ERR_FORMAT;
         }
         for (x = 0; x < grid->width; x++) {
-            if (value[x]<'0' || value[x]>(state->world->expansion?'3':'1')) {
+            if (value[x]<'0' || value[x]>(state->world->expansion?'4':'1')) {
                 return CORE_ERR_FORMAT;
             }
             grid->road[grid_index(grid, x, state->road_rows_read)] = (uint8_t)(value[x]-'0');
@@ -1103,7 +1103,7 @@ static int relink(LoadState *state)
         if (links->workplace != 0) {
             Building *work = entity_find_building(world, links->workplace);
             if (work == NULL ||
-                entity_link_worker(work, villager, world_building_def(world, work->type)->worker_slots) != CORE_OK) {
+                entity_link_worker(work, villager, world->generation_version < 12 && world->expansion && work->type == CORE_BLD_BARRACKS ? 4 : world_building_def(world, work->type)->worker_slots) != CORE_OK) {
                 return CORE_ERR_FORMAT;
             }
         }
@@ -1180,7 +1180,7 @@ static int check_header(const char *line)
     if (!parse_i32(line + magic_length + 1, 0, INT32_MAX, &version)) {
         return CORE_ERR_FORMAT;
     }
-    return version == SAVE_VERSION || version == 10 || version == 9 ? CORE_OK : CORE_ERR_VERSION;
+    return version == SAVE_VERSION || version == 11 || version == 10 || version == 9 ? CORE_OK : CORE_ERR_VERSION;
 }
 
 int32_t save_peek_version(const char *path)

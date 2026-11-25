@@ -4,7 +4,7 @@
 
 static int step_cost(const World *w, int i) {
     int cost = w->grid.cost[i];
-    return cost == CORE_COST_GATE ? 67 : cost == CORE_COST_WALL ? 0 : cost;
+    return cost == CORE_COST_GATE ? 201 : cost == CORE_COST_WALL ? 0 : cost == 33 ? 100 : cost * 3;
 }
 static void heap_swap(ExpansionState *e, int a, int b) {
     int p = e->route_heap[a];
@@ -121,7 +121,7 @@ Building *expansion_hub(World *w, Villager *v, int food, Building *job) {
         (int64_t)oldcost * 100 <= (int64_t)bestcost * 105)
         best = old;
     if (best && manorcost < INT_MAX && bestcost < manorcost)
-        e->saved_travel_ticks += (manorcost - bestcost) / 100;
+        e->saved_travel_ticks += (manorcost - bestcost) / 300;
     v->hub_id = best ? best->id : 0;
     v->hub_revision = w->grid.cost_rev;
     v->hub_kind = kind;
@@ -134,7 +134,8 @@ void expansion_terrain_costs(World *w) {
     for (i = 0; i < w->expansion->cells; i++) {
         if (w->grid.block[i] || !w->grid.cost[i])
             continue;
-        w->grid.cost[i] = w->grid.road[i] == 3   ? 80
+        w->grid.cost[i] = w->grid.road[i] == 4   ? 33
+                          : w->grid.road[i] == 3 ? 80
                           : w->grid.road[i] == 2 ? 50
                           : w->grid.road[i]      ? 67
                                                  : costs[w->expansion->tiles[i].biome];

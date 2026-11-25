@@ -9,7 +9,7 @@
 #define CORE_LEGACY_RANK_COUNT 5
 #define CORE_EXP_SKILLS 12
 #define CORE_EXP_STATS 5
-#define CORE_EXP_ANIMALS 30
+#define CORE_EXP_ANIMALS 35
 #define CORE_EXP_MAX_ANIMALS 512
 #define CORE_EXP_MAX_CANDIDATES 15
 #define CORE_EXP_OUTDOOR 1
@@ -199,6 +199,8 @@ CORE_API int32_t core_expansion_report_runtime(CoreWorld *world,int32_t kind,int
 
 /* v1.2.3의 추가 상태는 기존 주민·시장과 독립된 평면 질의입니다. */
 #define CORE_EXP_MAX_BOATS 256
+#define CORE_BARTER_RECIPE_COUNT 85
+#define CORE_EXP_LIVESTOCK 7
 #define CORE_EXP_FORECAST_MAX 24
 enum CoreMerchantState {
     CORE_MERCHANT_DORMANT,
@@ -234,14 +236,38 @@ typedef struct CoreResidentStatus {
 typedef struct CoreBoatView {
     int32_t port_id, slot, state, water_id, x_milli, y_milli, home_x, home_y, next_x, next_y;
     int32_t crew[2], crew_count, facing, waypoint, repath_tick, returning, blocked;
+    int32_t boat_kind, fishing_phase, phase_milli, cruise_ticks;
+    int32_t previous_x_milli, previous_y_milli;
 } CoreBoatView;
 typedef struct CoreForecastEntry {
     int32_t type, start_day, end_day, confidence;
+    int32_t key, status, revised;
 } CoreForecastEntry;
 typedef struct CoreForecastView {
     int32_t horizon, last_day, stale, count, reason;
     CoreForecastEntry entries[CORE_EXP_FORECAST_MAX];
 } CoreForecastView;
+typedef struct CoreRankRequirementView {
+    int32_t kind, resource, current, required, satisfied, type_count, types[3], building_id;
+    char label[128];
+} CoreRankRequirementView;
+typedef struct CoreMedicalView {
+    int32_t workers, highest, intellect_sum, qualified, base_patients, herbs, treated, credit_milli;
+    int32_t required_workers, required_highest, required_sum, waiting;
+} CoreMedicalView;
+typedef struct CoreHarvestView {
+    int32_t total_milli, released_milli, year, release_day;
+    int64_t pending_milli;
+} CoreHarvestView;
+CORE_API int32_t core_expansion_medical(const CoreWorld *world, int32_t building_id, CoreMedicalView *out);
+CORE_API int32_t core_expansion_harvest(const CoreWorld *world, int32_t building_id, CoreHarvestView *out);
+typedef struct CoreLivestockInfo {
+    int32_t kind, slot, mature_days, life_days, feed_milli, output_resource, output_milli;
+    int32_t period_days, babies, meat, leather, price, allowed;
+} CoreLivestockInfo;
+CORE_API int32_t core_expansion_livestock_info(int32_t kind, int32_t building_type, CoreLivestockInfo *out);
+CORE_API int32_t core_expansion_animal_class(int32_t kind);
+CORE_API int32_t core_expansion_rank_requirements(const CoreWorld *world, CoreRankRequirementView *out, int32_t capacity);
 CORE_API int32_t core_expansion_ui_color_group(int32_t type);
 CORE_API int32_t core_expansion_adjacent_water(const CoreWorld *world, int32_t type, int32_t x, int32_t y,
                                                int32_t rotation);

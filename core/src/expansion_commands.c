@@ -197,10 +197,10 @@ void expansion_rebuild(World *w) {
     for (i = 0; i < w->building_count; i++) {
         const Building *b = w->buildings[i];
         if(b->state != CORE_BSTATE_ACTIVE) continue;
-        int radius = expansion_tower(b->type) ? 2 : (expansion_spec(b->type)->flags & CORE_EXP_WALL) ? 0 : 1;
+        int radius = b->type == CORE_BLD_LIGHTHOUSE ? (b->operating ? 12 : 0) : expansion_tower(b->type) ? 2 : (expansion_spec(b->type)->flags & CORE_EXP_WALL) ? 0 : 1;
         for(y=b->y-radius;y<b->y+b->h+radius;y++) for(x=b->x-radius;x<b->x+b->w+radius;x++) {
             int distance=(x<b->x?b->x-x:x>=b->x+b->w?x-b->x-b->w+1:0)+(y<b->y?b->y-y:y>=b->y+b->h?y-b->y-b->h+1:0);
-            if(grid_in_bounds(g,x,y) && distance<=radius)e->static_visible[grid_index(g,x,y)]=1;
+            if(grid_in_bounds(g,x,y) && (b->type==CORE_BLD_LIGHTHOUSE?expansion_center_distance(b,x,y)<=radius:distance<=radius))e->static_visible[grid_index(g,x,y)]=1;
         }
     }
     e->work_visibility_signature = 0;
@@ -321,20 +321,20 @@ void expansion_place_check(const World *w, int type, int x, int y, int rotation,
                     return;
                 }
             }
-            if ((s->flags & CORE_EXP_ROAD) && w->grid.road[p] == (type == CORE_BLD_STONE_ROAD ? 2
+            if ((s->flags & CORE_EXP_ROAD) && w->grid.road[p] == (type == CORE_BLD_PAVED_ROAD ? 4 : type == CORE_BLD_STONE_ROAD ? 2
                                                                   : type == CORE_BLD_BRIDGE   ? 3
                                                                                               : 1)) {
                 out->result = CORE_PLACE_ALREADY_THERE;
                 return;
             }
         }
-    if (type == CORE_BLD_PORT || type == CORE_BLD_FISHING_SPOT) {
+    if (type == CORE_BLD_PORT || type == CORE_BLD_FISHING_SPOT || type == CORE_BLD_LIGHTHOUSE) {
         Building candidate = {0};
         candidate.x = x;
         candidate.y = y;
         candidate.w = out->w;
         candidate.h = out->h;
-        int water = expansion_adjacent_water_id(w, &candidate), launch = type != CORE_BLD_PORT;
+        int water = expansion_adjacent_water_id(w, &candidate), launch = 0;
         for (int ay = y - 1; ay <= y + out->h; ay++)
             for (int ax = x - 1; ax <= x + out->w; ax++)
                 if (grid_in_bounds(&w->grid, ax, ay)) {
@@ -349,7 +349,7 @@ void expansion_place_check(const World *w, int type, int x, int y, int rotation,
                         w->expansion->tiles[p].water_id == water && !w->grid.road[p] && !w->grid.occupant[p])
                         launch = 1;
                 }
-        if (!water || !launch) {
+        if (!water || !launch || (type == CORE_BLD_LIGHTHOUSE && w->expansion->water_area[water-1] < 20)) {
             out->result = CORE_PLACE_NEEDS_WATER;
             return;
         }
@@ -400,7 +400,7 @@ int expansion_place(World *w, int type, int x, int y, int rotation, int *id, int
     if (p.result)
         return CORE_ERR_REJECTED;
     if (s->flags & CORE_EXP_ROAD) {
-        w->grid.road[grid_index(&w->grid, x, y)] = (uint8_t)(type == CORE_BLD_STONE_ROAD ? 2
+        w->grid.road[grid_index(&w->grid, x, y)] = (uint8_t)(type == CORE_BLD_PAVED_ROAD ? 4 : type == CORE_BLD_STONE_ROAD ? 2
                                                              : type == CORE_BLD_BRIDGE   ? 3
                                                                                          : 1);
     } else {

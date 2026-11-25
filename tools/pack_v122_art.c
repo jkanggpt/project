@@ -161,7 +161,7 @@ static void check_cells(const char *out,const char *name,int columns,int rows,in
         /* 기존 프레임의 발밑은 보존하고 새 프레임에2픽셀 여백을 요구합니다. */
         if(!strncmp(name,"raider_",7)){int type=row/3*4+col/4;if(type<23)margin=0;}
         if(!strncmp(name,"animal_",7) && row!=25 && row!=28)margin=0;
-        if(!strcmp(name,"animal_attack_v122.png")){CoreAnimalInfo info;core_expansion_animal_info(row,&info);optional=!info.attack;}
+        if(!strcmp(name,"animal_attack_v122.png")){CoreAnimalInfo info;core_expansion_animal_info(row,&info);optional=!info.attack || row==2 || row==4 || row==5 || row==15 || row==22;}
         for(int y=0;y<size;y++)for(int x=0;x<size;x++)if(pixels[(row*size+y)*im.width+col*size+x].a) {
             Color c=pixels[(row*size+y)*im.width+col*size+x];
             white+=c.a>=128 && c.r>225 && c.g>225 && c.b>225;

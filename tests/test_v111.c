@@ -301,7 +301,7 @@ void test_v111_hunting_and_debug_cap(void) {
     CHECK_EQ(core_expansion_damage_animal(w, id, 100), CORE_ERR_NOT_FOUND);
     w->expansion->region_hunt_days[region][exp_day(w) % 12] = 5;
     expansion_ecology_daily(w);
-    CHECK_EQ(w->expansion->region_pressure_until[region], exp_day(w) + 6);
+    CHECK_EQ(w->expansion->region_pressure_until[region], 0);
     int expiry = w->expansion->region_pressure_until[region];
     w->clock.tick += 6 * 144;
     expansion_ecology_daily(w);
@@ -367,7 +367,7 @@ void test_v111_ecology_water_and_roads(void) {
         swim += info.swim_milli > 0;
         livestock += info.livestock;
     }
-    CHECK_EQ(attack, 9);
+    CHECK_EQ(attack, 12);
     CHECK_EQ(swim, 5);
     CHECK_EQ(livestock, 4);
     CHECK(!EXP_ANIMALS[14].swim_milli);
@@ -466,9 +466,9 @@ void test_v111_attack_impact_and_save(void) {
     CHECK_EQ(core_expansion_advance_animal_attacks(w, 2399), CORE_OK);
     CHECK_EQ(v->health, 100);
     CHECK_EQ(core_expansion_advance_animal_attacks(w, 1), CORE_OK);
-    CHECK_EQ(v->health, 95);
+    CHECK_EQ(v->health, 93);
     CHECK_EQ(core_expansion_advance_animal_attacks(w, 2400), CORE_OK);
-    CHECK_EQ(v->health, 95);
+    CHECK_EQ(v->health, 93);
     a->attack_remaining_milli = 2400;
     core_expansion_advance_animal_attacks(w, 1200);
     CHECK_EQ(core_save(w, "v111_attack.sav"), CORE_OK);
@@ -477,9 +477,9 @@ void test_v111_attack_impact_and_save(void) {
     if (loaded) {
         CHECK_EQ(loaded->expansion->animals[0].attack_remaining_milli, 1200);
         core_expansion_advance_animal_attacks(loaded, 1199);
-        CHECK_EQ(loaded->villagers[0]->health, 95);
+        CHECK_EQ(loaded->villagers[0]->health, 93);
         core_expansion_advance_animal_attacks(loaded, 1);
-        CHECK_EQ(loaded->villagers[0]->health, 90);
+        CHECK_EQ(loaded->villagers[0]->health, 86);
         core_destroy(loaded);
     }
     core_destroy(w);

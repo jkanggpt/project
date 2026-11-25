@@ -14,6 +14,8 @@ set(CASTLE_CORE_SOURCES
   src/expansion_v121.c
   src/expansion_v122.c
   src/expansion_v123_world.c
+  src/expansion_v124.c
+  src/expansion_v124_rank.c
   src/expansion_v123_rules.c
   src/expansion_v123_trade.c
   src/expansion_v123_services.c

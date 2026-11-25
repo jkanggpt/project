@@ -67,10 +67,12 @@ static void plan_day(const World *w, int day, Plan *p, int starts[3], int ends[3
         starts[2] = p->economic;
     }
 }
+static void forecast_resolve(World *w, const int starts[3]);
 void expansion_advance_events(World *w) {
     Plan p = plan_read(w);
     int starts[3], ends[3];
     plan_day(w, exp_day(w), &p, starts, ends);
+    forecast_resolve(w, starts);
     w->nature.event = p.event;
     w->nature.event_days = p.days;
     w->nature.calm_days = p.calm;
@@ -115,33 +117,163 @@ static int forecast_factor(const World *w, const Building *b) {
             total += expansion_work_percent(w, b->workers[i], b->type) * 10;
     return total / 4;
 }
+int expansion_forecast_probability(int band, int which) {
+    static const int rates[4][3] = {{92, 2, 5}, {82, 6, 10}, {72, 10, 15}, {62, 15, 20}};
+    return band >= 0 && band < 4 && which >= 0 && which < 3 ? rates[band][which] : 0;
+}
+int expansion_forecast_jitter(Rng *r, int band) {
+    static const int weights[4][7] = {{0, 0, 15, 70, 15, 0, 0},
+                                      {0, 5, 20, 50, 20, 5, 0},
+                                      {0, 15, 20, 30, 20, 15, 0},
+                                      {10, 15, 15, 20, 15, 15, 10}};
+    int roll = rng_range(r, 0, 99);
+    for (int i = 0; i < 7; i++)
+        if ((roll -= weights[band][i]) < 0)
+            return i - 3;
+    return 0;
+}
+static int forecast_choice(Rng *rng, int stream, int day, int exclude) {
+    int choices[4], n = 0, season = ((day - 1) / 12) % 4;
+    if (stream == 0) {
+        choices[n++] = CORE_NATURE_STORM;
+        if (season < 2) {
+            choices[n++] = CORE_NATURE_DROUGHT;
+            choices[n++] = CORE_NATURE_BUMPER;
+        }
+        if (season == 3)
+            choices[n++] = CORE_NATURE_COLD_SNAP;
+    } else if (stream == 1)
+        choices[n++] = CORE_NATURE_PLAGUE;
+    else {
+        choices[n++] = CORE_NATURE_MINE_COLLAPSE;
+        choices[n++] = CORE_NATURE_TRADE_BOOM;
+    }
+    for (int i = 0; i < n; i++)
+        if (choices[i] == exclude) {
+            choices[i] = choices[--n];
+            i--;
+        }
+    return n ? choices[rng_range(rng, 0, n - 1)] : exclude;
+}
+static int forecast_key(const World *w, int day, int type) {
+    return 1 + (int)(expansion_map_hash(w->seed, day, type + 724) % 2147483646u);
+}
+static void forecast_add(Building *b, int type, int start, int end, int chance, int key, int source_type,
+                         int source_day, int status) {
+    if (b->forecast_count >= CORE_EXP_FORECAST_MAX)
+        return;
+    for (int i = 0; i < b->forecast_count; i++)
+        if (b->forecast_meta[i][0] == key ||
+            (b->forecast_entries[i][0] == type && b->forecast_entries[i][1] == start))
+            return;
+    int i = b->forecast_count++;
+    memcpy(b->forecast_entries[i], (int[]){type, start, end, chance}, 4 * sizeof(int));
+    memcpy(b->forecast_meta[i], (int[]){key, source_type, source_day, status}, 4 * sizeof(int));
+}
+static void forecast_resolve(World *w, const int starts[3]) {
+    int today = exp_day(w);
+    for (int j = 0; j < w->building_count; j++) {
+        Building *b = w->buildings[j];
+        if (b->type != CORE_BLD_OBSERVATORY)
+            continue;
+        for (int i = 0; i < b->forecast_count; i++) {
+            int *meta = b->forecast_meta[i], *entry = b->forecast_entries[i];
+            if (!(meta[3] & 7)) {
+                for (int k = 0; k < 3; k++)
+                    if (starts[k] && meta[2] == today && meta[1] == starts[k])
+                        meta[3] = (meta[3] & 8) | (entry[0] == starts[k] ? 1 : 3);
+                if (!(meta[3] & 7) && today > entry[2])
+                    meta[3] = (meta[3] & 8) | 2;
+            }
+        }
+    }
+}
 void expansion_forecast_refresh(World *w, Building *b) {
     if (b->type != CORE_BLD_OBSERVATORY)
         return;
-    int factor = forecast_factor(w, b);
-    if (!factor)
+    int factor = forecast_factor(w, b), today = exp_day(w);
+    if (!factor || b->forecast_day == today)
         return;
     int horizon = exp_clamp(12 + (12 * (factor < 3000 ? factor : 3000) + 500) / 1000, 12, 48);
-    if (b->forecast_day == exp_day(w) && b->forecast_horizon == horizon)
-        return;
-    b->forecast_day = exp_day(w);
+    int old[24][4], old_meta[24][4], old_count = b->forecast_count;
+    memcpy(old, b->forecast_entries, sizeof(old));
+    memcpy(old_meta, b->forecast_meta, sizeof(old_meta));
+    b->forecast_day = today;
     b->forecast_horizon = horizon;
     b->forecast_count = 0;
+    memset(b->forecast_entries, 0, sizeof(b->forecast_entries));
+    memset(b->forecast_meta, 0, sizeof(b->forecast_meta));
+    for (int i = 0; i < old_count; i++)
+        if (old[i][1] <= today && old[i][2] >= today - 2)
+            forecast_add(b, old[i][0], old[i][1], old[i][2], old[i][3], old_meta[i][0], old_meta[i][1],
+                         old_meta[i][2], old_meta[i][3]);
+    int actual[49][3] = {{0}}, ends[3];
     Plan p = plan_read(w);
-    for (int delta = 1; delta <= horizon; delta++) {
-        int starts[3], ends[3], day = exp_day(w) + delta;
-        plan_day(w, day, &p, starts, ends);
-        int chance = 90 - 10 * ((delta - 1) / 12);
-        for (int k = 0; k < 3; k++)
-            if (starts[k] && expansion_map_hash(w->seed, day, starts[k] + 100) % 100 < (unsigned)chance &&
-                b->forecast_count < CORE_EXP_FORECAST_MAX) {
-                int *entry = b->forecast_entries[b->forecast_count++];
-                entry[0] = starts[k];
-                entry[1] = day;
-                entry[2] = day + (k == 0 ? p.days : k == 1 ? p.plague : p.economic_days) - 1;
-                entry[3] = chance;
+    for (int d = 1; d <= horizon; d++)
+        plan_day(w, today + d, &p, actual[d], ends);
+    Rng rng;
+    expansion_event_rng(w, today, b->id + 1240, &rng);
+    for (int d = 1; d <= horizon; d++)
+        for (int stream = 0; stream < 3; stream++)
+            if (actual[d][stream]) {
+                int band = (d - 1) / 12, source = actual[d][stream];
+                if (rng_range(&rng, 0, 99) >= expansion_forecast_probability(band, 0))
+                    continue;
+                int type = source;
+                if (rng_range(&rng, 0, 99) < expansion_forecast_probability(band, 1) && stream != 1)
+                    type = forecast_choice(&rng, stream, today + d, source);
+                int center =
+                    exp_clamp(today + d + expansion_forecast_jitter(&rng, band), today + 1, today + horizon);
+                int season=((center-1)/12)%4;
+                if(((type==CORE_NATURE_DROUGHT||type==CORE_NATURE_BUMPER)&&season>=2)||(type==CORE_NATURE_COLD_SNAP&&season!=3))center=today+d;
+                int spread = band == 0 ? 1 : band == 3 ? 3 : 2;
+                int start = exp_clamp(center - spread, today + 1, today + horizon),
+                    end = exp_clamp(center + spread, today + 1, today + horizon);
+                int key = forecast_key(w, today + d, source), revised = 0;
+                for (int i = 0; i < old_count; i++)
+                    if (old_meta[i][0] == key &&
+                        (old[i][0] != type || old[i][1] != start || old[i][2] != end))
+                        revised = 8;
+                forecast_add(b, type, start, end, expansion_forecast_probability(band, 0), key, source,
+                             today + d, revised);
             }
-    }
+    for (int band = 0; band < 4 && band * 12 < horizon; band++)
+        for (int stream = 0; stream < 3; stream++) {
+            if (rng_range(&rng, 0, 99) >= expansion_forecast_probability(band, 2))
+                continue;
+            for (int attempt = 0; attempt < 64; attempt++) {
+                int d = rng_range(&rng, band * 12 + 1, exp_clamp(band * 12 + 12, 1, horizon));
+                int type = forecast_choice(&rng, stream, today + d, 0), spread = band == 0   ? 1
+                                                                                 : band == 3 ? 3
+                                                                                             : 2;
+                int start = exp_clamp(d - spread, 1, horizon), end = exp_clamp(d + spread, 1, horizon),
+                    valid = 1;
+                for (int dd = start; dd <= end; dd++)
+                    if (actual[dd][stream] == type)
+                        valid = 0;
+                int season = ((today + d - 1) / 12) % 4;
+                if ((type == CORE_NATURE_DROUGHT || type == CORE_NATURE_BUMPER) && season >= 2)
+                    valid = 0;
+                if (type == CORE_NATURE_COLD_SNAP && season != 3)
+                    valid = 0;
+                if (!valid)
+                    continue;
+                int key = forecast_key(w, today * 128 + d, stream + 1000);
+                forecast_add(b, type, today + start, today + end, expansion_forecast_probability(band, 0),
+                             key, 0, 0, 0);
+                break;
+            }
+        }
+    for (int i = 1; i < b->forecast_count; i++)
+        for (int j = i; j > 0 && b->forecast_entries[j][1] < b->forecast_entries[j - 1][1]; j--) {
+            int temp[4];
+            memcpy(temp, b->forecast_entries[j], sizeof(temp));
+            memcpy(b->forecast_entries[j], b->forecast_entries[j - 1], sizeof(temp));
+            memcpy(b->forecast_entries[j - 1], temp, sizeof(temp));
+            memcpy(temp, b->forecast_meta[j], sizeof(temp));
+            memcpy(b->forecast_meta[j], b->forecast_meta[j - 1], sizeof(temp));
+            memcpy(b->forecast_meta[j - 1], temp, sizeof(temp));
+        }
 }
 void expansion_v123_services_daily(World *w) {
     for (int i = 0; i < w->building_count; i++)
@@ -157,12 +289,12 @@ CORE_API int32_t core_expansion_forecast(const CoreWorld *w, int32_t id, CoreFor
     out->last_day = b->forecast_day;
     out->stale = b->forecast_day < exp_day(w);
     out->reason = b->state != CORE_BSTATE_ACTIVE ? 1 : !forecast_factor(w, b) ? 2 : 0;
-    if (out->reason)
-        return CORE_OK;
     out->horizon = b->forecast_horizon;
     out->count = b->forecast_count;
     for (int i = 0; i < out->count; i++)
-        out->entries[i] = (CoreForecastEntry){b->forecast_entries[i][0], b->forecast_entries[i][1],
-                                              b->forecast_entries[i][2], b->forecast_entries[i][3]};
+        out->entries[i] = (CoreForecastEntry){b->forecast_entries[i][0],        b->forecast_entries[i][1],
+                                              b->forecast_entries[i][2],        b->forecast_entries[i][3],
+                                              b->forecast_meta[i][0],           b->forecast_meta[i][3] & 7,
+                                              (b->forecast_meta[i][3] & 8) != 0};
     return CORE_OK;
 }

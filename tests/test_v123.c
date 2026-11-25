@@ -76,7 +76,7 @@ void test_v123_world_and_clay(void) {
 void test_v123_barter_atomic(void) {
     World *w = fresh(7);
     CHECK(w);
-    CHECK_EQ(core_expansion_barter_count(), 29);
+    CHECK_EQ(core_expansion_barter_count(), 85);
     for (int id = 1; id <= 29; id++) {
         CoreBarterRecipe r;
         CHECK_EQ(core_expansion_barter_recipe(id, &r), CORE_OK);
@@ -299,7 +299,7 @@ void test_v123_merchant_visit_and_save(void) {
         expansion_merchant_tick(w);
     }
     CHECK_EQ(m->state, CORE_MERCHANT_DORMANT);
-    CHECK(m->next_target_tick - arrived >= 12 * 144 && m->next_target_tick - arrived <= 24 * 144);
+    CHECK(m->next_target_tick - arrived >= 24 * 144 && m->next_target_tick - arrived <= 36 * 144);
     core_destroy(w);
     remove("v123_merchant.sav");
     remove("v123_merchant.sav.bak");
@@ -331,14 +331,14 @@ void test_v123_water_and_medicine(void) {
     v->health = 100;
     v->critical = 0;
     v->sick_ticks = 0;
-    CHECK_EQ(expansion_heal_herbs_required(w, v, healer), 3);
-    CHECK_EQ(expansion_heal_herbs_required(w, v, hospital), 5);
+    CHECK_EQ(expansion_heal_herbs_required(w, v, healer), 2);
+    CHECK_EQ(expansion_heal_herbs_required(w, v, hospital), 3);
     v->health = 35;
-    CHECK_EQ(expansion_heal_herbs_required(w, v, healer), 4);
+    CHECK_EQ(expansion_heal_herbs_required(w, v, healer), 3);
     v->sick_ticks = 10;
     w->expansion->plague_days = 2;
-    CHECK_EQ(expansion_heal_herbs_required(w, v, healer), 5);
-    CHECK_EQ(expansion_heal_herbs_required(w, v, hospital), 7);
+    CHECK_EQ(expansion_heal_herbs_required(w, v, healer), 4);
+    CHECK_EQ(expansion_heal_herbs_required(w, v, hospital), 5);
     for (int i = 0; i < w->villager_count; i++)
         w->villagers[i]->home = NULL;
     core_destroy(w);

@@ -16,6 +16,7 @@ add_executable(castle_tests
   test_v121.c
   test_v122.c
   test_v123.c
+  test_v124.c
 )
 target_compile_definitions(castle_tests PRIVATE CASTLE_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 target_link_libraries(castle_tests PRIVATE castle_core_testing castle_warnings)
@@ -52,3 +53,12 @@ if(TARGET castle_cli)
   set_tests_properties(cli_simulate cli_soak_short cli_bad_arguments PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endif()
+
+foreach(id RANGE 1 85)
+  add_test(NAME v124_recipe_${id} COMMAND castle_tests v124_recipe_${id})
+  set_tests_properties(v124_recipe_${id} PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+endforeach()
+foreach(id RANGE 0 34)
+  add_test(NAME v124_animal_${id} COMMAND castle_tests v124_animal_${id})
+  set_tests_properties(v124_animal_${id} PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+endforeach()

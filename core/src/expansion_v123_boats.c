@@ -203,6 +203,7 @@ void expansion_boats_tick(World *w) {
             port = NULL;
         if (!boat->crew_count)
             continue;
+        boat->previous_x_milli=boat->x_milli;boat->previous_y_milli=boat->y_milli;
         if (!port) {
             disembark(w, boat, NULL);
             continue;
@@ -211,7 +212,7 @@ void expansion_boats_tick(World *w) {
             Villager *v = entity_find_villager(w, boat->crew[k]);
             CoreWorkSchedule schedule;
             if (!v || v->workplace != port || v->sick_ticks || v->health < 50 ||
-                v->state == CORE_VS_LEAVING || !expansion_schedule(w, v, &schedule))
+                v->state == CORE_VS_LEAVING || w->expansion->alarm || !expansion_schedule(w, v, &schedule))
                 boat->returning = 1;
         }
         int x = boat->x_milli / 1000, y = boat->y_milli / 1000;
@@ -245,6 +246,25 @@ void expansion_boats_tick(World *w) {
             disembark(w, boat, port);
             continue;
         }
+        if (boat->returning) boat->fishing_phase=boat->phase_milli=0;
+        else if (boat->fishing_phase) {
+            boat->phase_milli+=833;
+            if (boat->phase_milli<2800) {
+                boat->fishing_phase=boat->phase_milli<400?1:boat->phase_milli<800?2:boat->phase_milli<2000?3:boat->phase_milli<2500?4:5;
+                continue;
+            }
+            boat->fishing_phase=boat->phase_milli=0;
+            boat->cruise_ticks=3+(int)(expansion_map_hash(w->seed,w->clock.tick,boat->port_id+boat->slot)%4);
+        } else if (--boat->cruise_ticks<=0) {
+            for (int d=0;d<4;d++) {
+                int face=(boat->facing+d)%4;
+                if (water_ok(w,x-DX[face],y-DY[face],boat->water_id)) {
+                    boat->facing=face; boat->fishing_phase=1; boat->phase_milli=0; break;
+                }
+            }
+            if (boat->fishing_phase) continue;
+            boat->cruise_ticks=1;
+        }
         if (!move_boat(w, boat)) {
             boat->blocked = 1;
             boat->state = 3;
@@ -268,7 +288,7 @@ void expansion_boats_tick(World *w) {
     }
     for (int i = 0; i < w->building_count; i++) {
         Building *b = w->buildings[i];
-        if (b->type != CORE_BLD_PORT || b->state != CORE_BSTATE_ACTIVE)
+        if ((b->type != CORE_BLD_PORT && b->type != CORE_BLD_FISHING_SPOT) || b->state != CORE_BSTATE_ACTIVE)
             continue;
         int water = expansion_adjacent_water_id(w, b), x, y;
         if (!water || !launch(w, b, water, &x, &y))
@@ -290,7 +310,7 @@ void expansion_boats_tick(World *w) {
         }
         if (reforming)
             continue;
-        for (int slot = 0; slot < 2; slot++) {
+        for (int slot = 0; slot < (b->type == CORE_BLD_PORT ? 2 : 1); slot++) {
             CoreBoatView *boat = NULL;
             for (int j = 0; j < e->boat_count; j++)
                 if (e->boats[j].port_id == b->id && e->boats[j].slot == slot)
@@ -322,6 +342,8 @@ void expansion_boats_tick(World *w) {
             boat->port_id = b->id;
             boat->slot = slot;
             boat->state = 1;
+            boat->boat_kind = b->type == CORE_BLD_PORT;
+            boat->cruise_ticks = 3 + (b->id + slot) % 4;
             boat->water_id = water;
             int lx = x, ly = y;
             if (slot) {
@@ -350,6 +372,7 @@ void expansion_boats_tick(World *w) {
             boat->home_y = boat->next_y = y;
             boat->x_milli = x * 1000 + 500;
             boat->y_milli = y * 1000 + 500;
+            boat->previous_x_milli=boat->x_milli;boat->previous_y_milli=boat->y_milli;
             boat->crew_count = count;
             for (int k = 0; k < count; k++) {
                 boat->crew[k] = crew[k]->id;

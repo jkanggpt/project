@@ -50,6 +50,7 @@ typedef struct ExpansionState {
     int32_t clay_initialized, ore_budget_milli[CORE_RES_COUNT], ore_old_tiles[CORE_RES_COUNT];
     CoreWanderingMerchantView wandering;
     CoreBoatView boats[CORE_EXP_MAX_BOATS];
+    int32_t loaded_v124, loaded_v124_buildings, loaded_v124_boats;
     int32_t boat_count, loaded_v123_tiles, loaded_v123_people, loaded_v123_buildings, loaded_v123_boats;
 } ExpansionState;
 
@@ -70,6 +71,19 @@ int expansion_v123_biomes(World *world);
 void expansion_v123_generate(World *world);
 void expansion_legacy_generate(World *world);
 int expansion_v123_migrate(World *world);
+void expansion_v124_migrate(World *world);
+int expansion_forecast_probability(int band, int which);
+int expansion_forecast_jitter(Rng *rng, int band);
+int expansion_is_medical(int type);
+int expansion_is_phantom(int kind);
+int expansion_livestock_slot(int kind);
+int expansion_lighthouse_bonus(const World *world, const Building *building);
+void expansion_harvest_release(World *world);
+int64_t expansion_harvest_deferred(const Building *building);
+void expansion_harvest_defer(Building *building, int64_t amount);
+int expansion_immigration_wait(World *world);
+int expansion_immigration_count(World *world, int vacant);
+void expansion_immigration_limits(int rank, int vacant, int winter, int *minimum, int *maximum);
 void expansion_clay_initialize(World *world);
 int expansion_clay_take(World *world, const Building *building, int radius, int requested);
 int expansion_adjacent_water_id(const World *world, const Building *building);

@@ -110,8 +110,7 @@ CORE_API int32_t core_expansion_immigration(const CoreWorld *w, CoreImmigrationV
         out->minimum = out->maximum = e->starter_waves < 2 ? 2 : out->permanent < 8;
         return CORE_OK;
     }
-    out->minimum = (int[]){0,2,3,3,3,4}[rank];
-    out->maximum = (int[]){0,4,4,5,6,6}[rank];
+    expansion_immigration_limits(rank,out->vacant,0,&out->minimum,&out->maximum);
     if (out->maximum > out->vacant) out->maximum = out->vacant;
     if (out->minimum > out->maximum) out->minimum = out->maximum;
     if (exp_season(w) == 3) {

@@ -119,9 +119,9 @@ int expansion_debug_town(World *w, int villagers, int enemies) {
         expansion_capacity(w);
         for (int r = 0; r < 15; r++)
             w->bank.amount[r] = r == CORE_RES_GOLD ? 100000 : eco_bank_limit(&w->bank, r);
-        static const int kinds[4] = {7, 9, 8, 10};
+        static const int kinds[5] = {7,8,32,33,34};
         for (int i=0;i<60;i++) {
-            int kind=kinds[i%4],owner=pastures[i/15]->id;
+            int kind=kinds[i%5],owner=pastures[i/15]->id;
             if(core_expansion_buy_animal(w,owner,kind)!=CORE_OK)return CORE_ERR_REJECTED;
         }
         w->nature.event=CORE_NATURE_STORM;w->nature.event_days=2;w->nature.weather=CORE_WEATHER_STORM;

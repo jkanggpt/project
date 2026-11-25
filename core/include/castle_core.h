@@ -35,9 +35,9 @@ extern "C" {
 #endif
 
 /* 외부 호출자의 CoreBridge.ExpectedAbiVersion 과 같아야 합니다. */
-#define CORE_ABI_VERSION 13
+#define CORE_ABI_VERSION 14
 /* 지금 세이브 파일 형식의 버전 (첫 줄 "MAGICCASTLE_SAVE <버전>") */
-#define CORE_SAVE_VERSION 11
+#define CORE_SAVE_VERSION 12
 
 /* 성채·주민 이름 버퍼 크기 (UTF-8 바이트, 끝의 '\0' 포함) */
 #define CORE_NAME_BYTES 48
@@ -110,7 +110,7 @@ typedef enum CoreBuildingType {
     CORE_BLD_KEEP = 0,        /* 성채 (처음부터 있음, 저장소, 무너지면 패배) */
     CORE_BLD_HOUSE = 1,       /* 주택 */
     CORE_BLD_FARM = 2,        /* 농장 */
-    CORE_BLD_GATHERER = 3,    /* 채집 오두막 */
+    CORE_BLD_GATHERER = 3,    /* 채집장 */
     CORE_BLD_LUMBER = 4,      /* 벌목장 */
     CORE_BLD_QUARRY = 5,      /* 채석장 */
     CORE_BLD_MANA_MINE = 6,   /* 마정석 광산 */
@@ -177,7 +177,10 @@ typedef enum CoreBuildingType {
     CORE_BLD_WATER_TOWER = 67,
     CORE_BLD_OBSERVATORY = 68,
     CORE_BLD_ART_MUSEUM = 69,
-    CORE_BLD_COUNT = 70
+    CORE_BLD_LIGHTHOUSE = 70,
+    CORE_BLD_CLINIC = 71,
+    CORE_BLD_PAVED_ROAD = 72,
+    CORE_BLD_COUNT = 73
 } CoreBuildingType;
 
 typedef enum CoreBuildingState {
@@ -726,7 +729,7 @@ typedef struct CoreBuildingView {
     int32_t flags;            /* 예약 */
     int32_t rotation,kind_flags,job_field,completed_day,mode,upkeep,operating,blocked_reason;
     int32_t crop_labor_milli,pending_harvest_milli;
-    int32_t labor_milli, service_credit_milli, breeding_progress[4], feed_milli, actual_work_milli;
+    int32_t labor_milli, service_credit_milli, breeding_progress[7], feed_milli, actual_work_milli;
     int32_t type_serial,combat_guard_id;
 } CoreBuildingView;
 

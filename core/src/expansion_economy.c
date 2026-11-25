@@ -59,8 +59,8 @@ static int local_bonus(const World *w, const Building *b) {
     if (expansion_spec(b->type)->field != 0) return 100;
     for (int i = 0; i < w->building_count; i++) {
         const Building *a = w->buildings[i];
-        if (a->state == CORE_BSTATE_ACTIVE && a->type == CORE_BLD_WINDMILL &&
-            expansion_centers_distance(a, b) <= 10) return 140;
+        if (a->state == CORE_BSTATE_ACTIVE && a->operating && a->type == CORE_BLD_WINDMILL &&
+            expansion_centers_distance(a, b) <= 10) return 125;
     }
     return 100;
 }
@@ -91,8 +91,8 @@ static void logging(World *w, Building *b, int factor) {
                 int kind=t->tree_kind;
                 t->regrow_milli=rng_range(&w->rng,(int[]){6,9,13,12}[kind-1],(int[]){12,16,24,24}[kind-1])*1000;
                 t->tree_age=0;w->grid.terrain[candidates[n]]=CORE_TERRAIN_GRASS;
-                if(rng_range(&w->rng,0,99)<(int[]){20,10,25,25}[kind-1])
-                    (void)expansion_bank_add(w,kind==4?CORE_RES_HERBS:CORE_RES_FOOD,kind==3?2000:1000,CORE_LEDGER_PRODUCTION);
+                if(rng_range(&w->rng,0,99)<(int[]){60,30,75,75}[kind-1])
+                    (void)expansion_bank_add(w,kind==4?CORE_RES_HERBS:CORE_RES_FOOD,kind==3?4000:2000,CORE_LEDGER_PRODUCTION);
             }
         }
         for(int k=0;k<count;k++)if(w->expansion->tiles[candidates[k]].tree_logs_milli>0)candidates[active++]=candidates[k];
@@ -149,7 +149,7 @@ static int fish_request(const World *w, const Building *b, int *water) {
     desire = b->type == CORE_BLD_PORT
                  ? exp_clamp(750 + w->expansion->water_area[chosen - 1] * 1000 / 400, 750, 1400)
                  : 1000;
-    return (int)((int64_t)3000 * b->daily_work_milli * desire / (540000LL * 1000));
+    return (int)((int64_t)3000 * b->daily_work_milli * desire * expansion_lighthouse_bonus(w,b) / (540000LL * 100000));
 }
 static void fishing(World *w) {
     int i, j;
@@ -290,8 +290,13 @@ void expansion_produce(World *w) {
             (expansion_has_research(w,0)?112:100) *
             (expansion_has_research(w,4) && b->type!=CORE_BLD_IRRIGATED_FARM?115:100) /
             (baseline*1000000) * 1000;
-        b->pending_harvest_milli += (int)amount;
-        b->harvest_expiry = exp_day(w) + 4;
+        if (b->annual_harvest_year != exp_year(w)) {
+            expansion_harvest_defer(b, b->annual_harvest_total - b->annual_harvest_released);
+            b->annual_harvest_total = amount > INT32_MAX ? INT32_MAX : (int)amount;
+            b->annual_harvest_released = 0;
+            b->annual_harvest_year = exp_year(w);
+            b->annual_harvest_day = 0;
+        }
         b->crop_labor_milli = 0;
         b->crop_work_carry = 0;
         b->crop_drought = 0;
@@ -299,19 +304,17 @@ void expansion_produce(World *w) {
     }
 }
 void expansion_collect_harvest(World *w) {
-    int i;
-    for (i = 0; i < w->building_count; i++) {
+    expansion_harvest_release(w);
+    for (int i = 0; i < w->building_count; i++) {
         Building *b = w->buildings[i];
-        if (!b->pending_harvest_milli)
-            continue;
-        if (exp_day(w) >= b->harvest_expiry) {
-            b->pending_harvest_milli = 0;
-            continue;
-        }
-        b->pending_harvest_milli -=
-            expansion_bank_add(w, CORE_RES_FOOD, b->pending_harvest_milli, CORE_LEDGER_PRODUCTION);
+        if (b->pending_harvest_milli)
+            b->pending_harvest_milli -= expansion_bank_add(w, CORE_RES_FOOD, b->pending_harvest_milli, CORE_LEDGER_PRODUCTION);
+        int64_t deferred = expansion_harvest_deferred(b);
+        int request = deferred > INT32_MAX ? INT32_MAX : (int)deferred;
+        if (request > 0) expansion_harvest_defer(b, -expansion_bank_add(w, CORE_RES_FOOD, request, CORE_LEDGER_PRODUCTION));
     }
 }
+
 int expansion_production_factor(const World *w,const Building *b) {
     const ExpansionBuildingSpec *s=expansion_spec(b->type);
     if(b->state!=CORE_BSTATE_ACTIVE || !b->operating)return 0;
@@ -335,9 +338,9 @@ void expansion_daily(World *w) {
         s = expansion_spec(b->type);
         b->blocked_reason = 0;
         b->operating = b->daily_work_milli>0 || expansion_qualified(w, b);
-        if ((b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) && !b->operating)
+        if (expansion_is_medical(b->type) && !b->operating)
             b->blocked_reason = CORE_DENY_REQUIREMENTS;
-        if (s->upkeep && !((b->type == CORE_BLD_HEALER || b->type == CORE_BLD_HOSPITAL) && !b->operating)) {
+        if (s->upkeep && !(expansion_is_medical(b->type) && !b->operating)) {
             if (w->bank.amount[CORE_RES_GOLD] >= s->upkeep)
                 (void)expansion_bank_add(w, CORE_RES_GOLD, -s->upkeep * 1000, CORE_LEDGER_WAGES);
             else {
@@ -354,6 +357,7 @@ void expansion_daily(World *w) {
             else
                 (void)expansion_fuel(w, fuel, 1);
         }
+        if (b->type==CORE_BLD_LIGHTHOUSE) w->expansion->dirty=1;
         factor=expansion_production_factor(w,b);
         if (factor > 0) {
             if (b->type == CORE_BLD_LOGGING_SITE || b->type == CORE_BLD_LUMBER)
@@ -363,22 +367,13 @@ void expansion_daily(World *w) {
             else if (s->field == 2)
                 mining(w, b, factor);
             else if (b->type == CORE_BLD_GATHERER) {
-                b->hunts_milli += 4 * factor;
+                b->hunts_milli += 5 * factor;
                 while (b->hunts_milli >= 1000) {
-                    int roll = rng_range(&w->rng, 0, 99),
-                        biome=w->expansion->tiles[grid_index(&w->grid,b->x,b->y)].biome,
-                        food=biome==CORE_BIOME_SWAMP?15:biome==CORE_BIOME_WETLAND?20:55,
-                        herbs=biome==CORE_BIOME_SWAMP?30:35+(biome==CORE_BIOME_WETLAND?5:0),
-                        res=roll<food?CORE_RES_FOOD:roll<food+herbs?CORE_RES_HERBS:CORE_RES_CLAY;
+                    int biome = w->expansion->tiles[grid_index(&w->grid, b->x, b->y)].biome;
+                    int food = biome == CORE_BIOME_SWAMP ? 35 : biome == CORE_BIOME_WETLAND ? 45 : 55;
+                    int res = rng_range(&w->rng, 0, 99) < food ? CORE_RES_FOOD : CORE_RES_HERBS;
                     b->hunts_milli -= 1000;
-                    if (res == CORE_RES_CLAY) {
-                        if (!expansion_clay_take(w, b, 3, 1000)) {
-                            res =
-                                rng_range(&w->rng, 1, food + herbs) <= food ? CORE_RES_FOOD : CORE_RES_HERBS;
-                            (void)expansion_bank_add(w, res, 1000, CORE_LEDGER_PRODUCTION);
-                        }
-                    } else
-                        (void)expansion_bank_add(w, res, 1000, CORE_LEDGER_PRODUCTION);
+                    (void)expansion_bank_add(w, res, 1000, CORE_LEDGER_PRODUCTION);
                 }
             } else if (s->field == 5) {
                 /* 수렵 보상은 실제 화살 명중·처치에서만 발생합니다. */

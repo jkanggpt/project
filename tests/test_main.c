@@ -126,6 +126,8 @@ int main(int argc, char **argv)
     int passed = 0;
 
     if (argc > 1) {
+        g_current_name=argv[1];
+        if(test_v124_parameter(argv[1]))return test_failed()?1:0;
         for (i = 0; i < TEST_COUNT; i++) {
             if (strcmp(TESTS[i].name, argv[1]) == 0) {
                 return run_one(&TESTS[i]) ? 0 : 1;

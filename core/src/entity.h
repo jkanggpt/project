@@ -120,7 +120,7 @@ struct Building {
     int32_t water_served;
     int32_t actual_work_milli, agriculture_work_milli, forestry_carry_milli;
     int32_t crop_work_carry;
-    int32_t service_credit_milli, service_carry, breeding_progress[4], feed_milli;
+    int32_t service_credit_milli, service_carry, breeding_progress[7], feed_milli;
     int32_t expansion_loaded;
 
     int32_t type_serial, logging_cursor, combat_guard_id;
@@ -128,6 +128,9 @@ struct Building {
     int32_t frontend_tower[2];
     int32_t combat_until_tick;
 
+    int32_t harvest_deferred_lo, harvest_deferred_hi;
+    int32_t annual_harvest_total, annual_harvest_released, annual_harvest_year, annual_harvest_day;
+    int32_t forecast_meta[24][4], v124_loaded;
     int32_t forecast_day, forecast_horizon, forecast_count, forecast_entries[24][4], v123_loaded;
 
     Villager **workers;    /* 일꾼 (id 순으로 정렬) */

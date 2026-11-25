@@ -126,10 +126,10 @@ void test_v121_exact_crop_and_magic_cost(void) {
     int baseline=3*540*24*1000;
     w->clock.tick=24*144+48;
     farm->crop_labor_milli=baseline/24*21+baseline/24*3/4;
-    expansion_produce(w);CHECK_EQ(farm->pending_harvest_milli,543000);
-    farm->crop_year=0;farm->pending_harvest_milli=0;
+    expansion_produce(w);CHECK_EQ(farm->annual_harvest_total,543000);
+    farm->crop_year=0;farm->pending_harvest_milli=0;farm->annual_harvest_year=0;farm->annual_harvest_total=0;
     farm->crop_labor_milli=baseline/24*21+baseline/24*3*24/10;
-    expansion_produce(w);CHECK_EQ(farm->pending_harvest_milli,705000);
+    expansion_produce(w);CHECK_EQ(farm->annual_harvest_total,705000);
     Building *magic=building121(w,CORE_BLD_MAGIC_WORKSHOP,70,70);
     int n=w->defs.buildings[magic->type].worker_slots;
     magic->daily_work_milli=n*540000*75/10;magic->actual_work_milli=n*540000;
