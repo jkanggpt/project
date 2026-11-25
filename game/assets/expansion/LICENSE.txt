@@ -26,3 +26,8 @@ v1.2.2 추가 원화와 패킹 결과도 프로젝트 보유 권리를 CC0 1.0 U
 패킹: tools/pack_v122_art.c. 원래 프로젝트 픽셀아트를 참고해 내장 image_gen으로 제작했습니다.
 사용자 첨부 참고 이미지 자체는 배포하지 않습니다.
 2026-11-23 보완: combat_fx.png / factions.png는 내장 image_gen 원화를 C 패킹한 CC0 이미지입니다. portraits.png는 기존 CC0 주민 프레임에서 어깨 위를 자른 파생 그림입니다. 원본 art/v122_patch1, 프롬프트 art/V122_PATCH1_PROMPTS.json, 패커 tools/pack_ui_art.c를 참고하세요.
+
+v1.2.3 원화13장과 C 패킹 PNG23개도 프로젝트 보유 권리를 CC0 1.0 Universal로 헌정합니다.
+원본 art/v123, 생성 기록 art/V123_PROMPTS.json, 치수/SHA256 art/V123_MANIFEST.json.
+패커 tools/pack_v123_art.c. 신규4시설/상인/어선/교량/천문대 관측/토양·광석·상인 아이콘입니다.
+어선 승객은 기존48주민 CC0 스프라이트를 합성합니다.

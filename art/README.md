@@ -1,3 +1,16 @@
+# v1.2.3 원화와 패킹 — 2026-11-25
+
+원화13장은 `art/v123`, 생성 요청/참조 기록은 [V123_PROMPTS.json](V123_PROMPTS.json), 치수·SHA256은 [V123_MANIFEST.json](V123_MANIFEST.json)입니다. 최초 시설4장의 누락된 프롬프트 전문은 요약으로 명시했고 보존된 요청은 전문으로 수록합니다.
+
+`castle_v123_art`가 원화 셀을 분리해 `game/assets/expansion`에 PNG23개를 만듭니다. 새4시설은 방향별4장, 상인6×4(4걷기+2대기), 어선4×4, 교량4×4, 천문대4방향×주야2×관측8=64셀, 광석/토양/아이콘 시트를 포함합니다. 상인은 기존 주민 스타일에 청색·적색 천/금 장식, 어선은 기존48외형을 좌석에 합성합니다. 배/시설/천문대는 투명 경계와 방향별 공통 배율을 사용합니다.
+
+```powershell
+./build/msvc-check/bin/Release/castle_v123_art.exe
+./build/msvc-check/bin/Release/castle_v123_art.exe --check game/assets/expansion
+```
+
+지도와 건설 카드는 최신 텍스처의 같은 소스 영역을 사용하며 원본 농장/성문 이미지로 되돌아가지 않습니다. 카드 색은 해금 등급이고 그림 색을 덧칠하지 않습니다. 모든 새 생성 원화 및 C 패킹 결과에 대해 프로젝트 보유 권리를 CC0 1.0으로 헌정합니다.
+
 # v1.2.2 후속 그림 — 2026-11-23
 
 공격 이펙트8종×6프레임과6세력 문장은 내장 image_gen으로 만들었습니다. 원본은 `v122_patch1`, 전문은 [V122_PATCH1_PROMPTS.json](V122_PATCH1_PROMPTS.json)입니다. `castle_ui_art`가 간격을 감지해 자르고 `game/assets/expansion/combat_fx.png`, `factions.png`로 패킹합니다. 같은 도구가 기본 주민의 실제 정면 프레임을 어깨 위까지 잘라 `portraits.png`48셀을 만듭니다. 프로필은 원래 외형을 보존합니다. 런타임에 농장의 투명 여백을 제외해 점유 칸에 맞춥니다. 자세한 적용은 `docs/V1_2_2_PATCH1.md`를 참고합니다.

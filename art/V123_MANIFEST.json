@@ -1,0 +1,227 @@
+{
+  "version": "1.2.3",
+  "date": "2026-11-25",
+  "tool": "image_gen + C/raylib atlas packing",
+  "raw": [
+    {
+      "file": "art/v123/art_museum.png",
+      "width": 1262,
+      "height": 1246,
+      "sha256": "958e49fe6f63543ea290a31e51dbe8b80db45f1f509685d2c16ee2ea788640ec"
+    },
+    {
+      "file": "art/v123/bridge_parts.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "56f0ea6f652704373ecff2b43ef05d51d011447812b79006c0246e5814149c82"
+    },
+    {
+      "file": "art/v123/clay_pit.png",
+      "width": 1312,
+      "height": 1199,
+      "sha256": "e8f32ad47b134e4784df5166e51d3394adde895f7b1910e764da259c31fea41b"
+    },
+    {
+      "file": "art/v123/fishing_boats.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "3c251780a0933028cf395cc4a9707447f0b0954b36858c4a835598780e1209b0"
+    },
+    {
+      "file": "art/v123/merchant.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "dd1b8a5ea77f80374269085700e23e5438978a60112049f1935673b4e2c3ab75"
+    },
+    {
+      "file": "art/v123/observatory.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "286935140348eb2d30df628aac62ae22e9a8564e17fdf61a90828c513f178a87"
+    },
+    {
+      "file": "art/v123/observatory_motion_0.png",
+      "width": 1261,
+      "height": 1247,
+      "sha256": "6407d7194deacc0f4814050909dad57e38fea545b73a97d454537bbe06dd8a0b"
+    },
+    {
+      "file": "art/v123/observatory_motion_1.png",
+      "width": 1274,
+      "height": 1235,
+      "sha256": "8fe6dfb6cb0dcd381df84fc4aadb03f9cc2014ee233378bf6d693ba0ff6b46c7"
+    },
+    {
+      "file": "art/v123/observatory_motion_2.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "4d6212f157255776665b16411eb839c8fb40cd89ed0c02c5692d09c5806bfec7"
+    },
+    {
+      "file": "art/v123/observatory_motion_3.png",
+      "width": 1292,
+      "height": 1217,
+      "sha256": "0e738950bfed9097e4b705443b766f5324c72dd55ae75d48ee7fd897a5440d57"
+    },
+    {
+      "file": "art/v123/ore_soil.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "900f3924acab14c9fc0b8462b826f3a6d1bdd05ed237371b5bec9be0f8475e3c"
+    },
+    {
+      "file": "art/v123/soil_markers.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "1d61b6cca22dc65353fd42cef24efaab8612dcb86a915e9f538fea5efe429c16"
+    },
+    {
+      "file": "art/v123/water_tower.png",
+      "width": 1199,
+      "height": 1312,
+      "sha256": "f0ccb92a5f680053a0f069429694590a61828edc0bc219550d31458beb249592"
+    }
+  ],
+  "runtime": [
+    {
+      "file": "game/assets/expansion/clay_pit_0.png",
+      "width": 384,
+      "height": 352,
+      "sha256": "2ecbf1c1ddfd9380e86f18bbefc45b514a85ba2663d00ef7456d724e6838a914"
+    },
+    {
+      "file": "game/assets/expansion/clay_pit_1.png",
+      "width": 384,
+      "height": 336,
+      "sha256": "18c13e947b796dfe44a316bc2d6277823ff5d121e5673982b28cf2a02d691325"
+    },
+    {
+      "file": "game/assets/expansion/clay_pit_2.png",
+      "width": 384,
+      "height": 372,
+      "sha256": "d67f77621b7fce13e5f644f6fcaca3b409f565b677bded0619e9661bf287668d"
+    },
+    {
+      "file": "game/assets/expansion/clay_pit_3.png",
+      "width": 384,
+      "height": 353,
+      "sha256": "bd73257092ee6fca9e11422207c0b24e3059ad83ea1370e9855dc3e0c804bd1e"
+    },
+    {
+      "file": "game/assets/expansion/water_tower_0.png",
+      "width": 303,
+      "height": 384,
+      "sha256": "59e7426c067fc8c560afb98f1a5bd1ae903e43809d2ffc489d3e6e237a5b77b0"
+    },
+    {
+      "file": "game/assets/expansion/water_tower_1.png",
+      "width": 296,
+      "height": 384,
+      "sha256": "62de7f5f0afee98ce7c425bab7e7aff9cd9fe97ef6ad9941527aa11149f2fb6f"
+    },
+    {
+      "file": "game/assets/expansion/water_tower_2.png",
+      "width": 305,
+      "height": 384,
+      "sha256": "cd889742aad3e11cbf8759d97af3e6fa8be2d8193d36d4c5bc32cdd4940e057b"
+    },
+    {
+      "file": "game/assets/expansion/water_tower_3.png",
+      "width": 283,
+      "height": 384,
+      "sha256": "d426b77dd094059fc68ac43422a2e19365e8743ceed7f525b0e994155d68ac9c"
+    },
+    {
+      "file": "game/assets/expansion/observatory_0.png",
+      "width": 336,
+      "height": 384,
+      "sha256": "3f814eea5e3ed634aebf8f4663ee56f8325ef1486e9265cb2aeb93d539e73db3"
+    },
+    {
+      "file": "game/assets/expansion/observatory_1.png",
+      "width": 340,
+      "height": 384,
+      "sha256": "17eb5377548bd5e9e1eec00f4047a1b344ff512d8d4d5168cb50ad7f36e96bcf"
+    },
+    {
+      "file": "game/assets/expansion/observatory_2.png",
+      "width": 344,
+      "height": 384,
+      "sha256": "45b05a1c15ea19d3f832713b4e8d87c9ca5949cc61a7ef271ed59371db935f99"
+    },
+    {
+      "file": "game/assets/expansion/observatory_3.png",
+      "width": 338,
+      "height": 384,
+      "sha256": "58002eb9ff6c44a62c5ef75d620694ca49968615030f1deb60c15a8477154ca7"
+    },
+    {
+      "file": "game/assets/expansion/art_museum_0.png",
+      "width": 353,
+      "height": 384,
+      "sha256": "b17e45713287a8555f3ae92d7478d97da862addb9d9e0b5c6371819c87da7532"
+    },
+    {
+      "file": "game/assets/expansion/art_museum_1.png",
+      "width": 379,
+      "height": 384,
+      "sha256": "827cce8b1a27286d014767e407898b26e3157cd50c1e41d87f24cc171989d2f7"
+    },
+    {
+      "file": "game/assets/expansion/art_museum_2.png",
+      "width": 360,
+      "height": 384,
+      "sha256": "6ca48d89816bbd8cfebb08700d56e5bbf7fd84717fc7035aa4ddf960065e9586"
+    },
+    {
+      "file": "game/assets/expansion/art_museum_3.png",
+      "width": 379,
+      "height": 384,
+      "sha256": "292fcf56777848835efd07fb4e5367b6df7bc25f1b2f7212884e941df1b07eb6"
+    },
+    {
+      "file": "game/assets/expansion/merchant.png",
+      "width": 576,
+      "height": 384,
+      "sha256": "f0b7d8803fc3741b175759d1fa171cfc14e649c0c62d3abbcb72a42a2f7285db"
+    },
+    {
+      "file": "game/assets/expansion/merchant_portrait.png",
+      "width": 96,
+      "height": 58,
+      "sha256": "d3c5e3fe82a0b2e37352bab65f27eddabfdafabe7b9da9bb7d66676cfd33c05f"
+    },
+    {
+      "file": "game/assets/expansion/fishing_boats.png",
+      "width": 512,
+      "height": 512,
+      "sha256": "1191f61763edf632409fa29ab6ca6dde6003d74e723d4838e4812de214491918"
+    },
+    {
+      "file": "game/assets/expansion/bridge_parts.png",
+      "width": 512,
+      "height": 512,
+      "sha256": "5d7c9459734426a2c6a4bfc8b2f1ec6430e24bfd98b4ae37f6c848196865b438"
+    },
+    {
+      "file": "game/assets/expansion/observatory_motion.png",
+      "width": 1024,
+      "height": 4096,
+      "sha256": "61b437680526ffcc511b8c4ad50ca53da4224de290b3aa3e69d29c49b98e5e01"
+    },
+    {
+      "file": "game/assets/expansion/ore_soil.png",
+      "width": 512,
+      "height": 384,
+      "sha256": "d4878b5418f1d8548bf18eced83a66a76a37a977062f478c4bb5df4c22ad8fc5"
+    },
+    {
+      "file": "game/assets/expansion/soil_markers.png",
+      "width": 512,
+      "height": 256,
+      "sha256": "5a763d88098adae04608dddaacef6820a3bf1f59a29d597362dafc0901ea578e"
+    }
+  ],
+  "states": "신규 건물 공사·파손은 공용 발판/공사장 오버레이와 손상 색상을 사용합니다.",
+  "residents": "어업 전용 복장은 만들지 않고 기존 48종 상반신을 4방향으로 배에 합성합니다."
+}
