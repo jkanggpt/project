@@ -2,6 +2,7 @@
 
 C11/raylib 기반 중세 판타지 영지 경영 게임입니다. 그래픽과 콘솔은 같은160×160 세계,73종 건물과 현재 규칙을 사용합니다.
 
+- [현재 상태 보고서 — 만든 방법, 기능 전체, 안 된 것 (처음 읽을 문서)](docs/GAME_STATE.md)
 - [현재 명세](docs/SPEC.md)
 - [빌드·아트 생성·검사](docs/BUILD_AND_TEST.md)
 - [구조와 소유권](docs/ARCHITECTURE.md)
