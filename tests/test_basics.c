@@ -12,8 +12,7 @@
 #include "rng.h"
 #include "test_util.h"
 
-void test_rng_is_deterministic(void)
-{
+void test_rng_is_deterministic(void) {
     Rng a;
     Rng b;
     Rng c;
@@ -33,8 +32,7 @@ void test_rng_is_deterministic(void)
     CHECK((a.inc & 1u) == 1u);
 }
 
-void test_rng_range_stays_in_bounds(void)
-{
+void test_rng_range_stays_in_bounds(void) {
     Rng rng;
     int seen[7];
     int i;
@@ -54,8 +52,7 @@ void test_rng_range_stays_in_bounds(void)
     CHECK(rng_chance_permille(&rng, 1000) == 1);
 }
 
-void test_clock_math(void)
-{
+void test_clock_math(void) {
     Clock clock;
     clock.tick = CLOCK_START_TICK;
     CHECK_EQ(clock_day(&clock), 1);
@@ -65,16 +62,16 @@ void test_clock_math(void)
     CHECK_EQ(clock_year(&clock), 1);
     CHECK(!clock_is_night(&clock));
 
-    clock.tick = CLOCK_TICKS_PER_DAY * 8; /* 9일 0시: 여름 1일 */
-    CHECK_EQ(clock_day(&clock), 9);
+    clock.tick = CLOCK_TICKS_PER_DAY * 12; /* 13일 0시: 여름 1일 */
+    CHECK_EQ(clock_day(&clock), 13);
     CHECK_EQ(clock_season(&clock), CORE_SEASON_SUMMER);
     CHECK_EQ(clock_day_of_season(&clock), 1);
     CHECK(clock_is_night(&clock));
 
-    clock.tick = CLOCK_TICKS_PER_DAY * 32 - 1; /* 32일 23:50: 겨울 마지막 날 */
-    CHECK_EQ(clock_day(&clock), 32);
+    clock.tick = CLOCK_TICKS_PER_DAY * 48 - 1; /* 48일 23:50: 겨울 마지막 날 */
+    CHECK_EQ(clock_day(&clock), 48);
     CHECK_EQ(clock_season(&clock), CORE_SEASON_WINTER);
-    CHECK_EQ(clock_day_of_season(&clock), 8);
+    CHECK_EQ(clock_day_of_season(&clock), 12);
     CHECK_EQ(clock_year(&clock), 1);
     CHECK_EQ(clock_minute_of_day(&clock), 23 * 60 + 50);
 
@@ -88,8 +85,7 @@ void test_clock_math(void)
     CHECK(!clock_is_night_minute(CLOCK_NIGHT_END_MIN));
 }
 
-void test_events_grow_and_drop_oldest(void)
-{
+void test_events_grow_and_drop_oldest(void) {
     EventQueue queue;
     Event event;
     int32_t i;
@@ -134,8 +130,7 @@ void test_events_grow_and_drop_oldest(void)
     events_free(&queue);
 }
 
-void test_economy_bank_rules(void)
-{
+void test_economy_bank_rules(void) {
     ResourceBank bank;
     int32_t cost[CORE_RES_COUNT];
 
@@ -150,7 +145,7 @@ void test_economy_bank_rules(void)
     /* 금화는 한도가 없음 */
     CHECK_EQ(eco_bank_add(&bank, CORE_RES_GOLD, 5000), 5000);
     /* 0 아래로 내려가지 않음 */
-    CHECK_EQ(eco_bank_add(&bank, CORE_RES_FOOD, -100000), -60);
+    CHECK_EQ(eco_bank_add(&bank, CORE_RES_FOOD, -100000), -125);
     CHECK_EQ(bank.amount[CORE_RES_FOOD], 0);
     /* 잘못된 자원 번호는 무시 */
     CHECK_EQ(eco_bank_add(&bank, 99, 10), 0);
@@ -160,17 +155,16 @@ void test_economy_bank_rules(void)
     cost[CORE_RES_FOOD] = 1;
     CHECK(!eco_bank_can_afford(&bank, cost));
     CHECK(!eco_bank_spend(&bank, cost)); /* 식량이 0이라 아무것도 빠지지 않음 */
-    CHECK_EQ(bank.amount[CORE_RES_GOLD], 5200);
+    CHECK_EQ(bank.amount[CORE_RES_GOLD], 5160);
     cost[CORE_RES_FOOD] = 0;
     CHECK(eco_bank_spend(&bank, cost));
-    CHECK_EQ(bank.amount[CORE_RES_GOLD], 5100);
+    CHECK_EQ(bank.amount[CORE_RES_GOLD], 5060);
 
     eco_bank_init(&bank, 99); /* 잘못된 난이도 → 보통 */
-    CHECK_EQ(bank.amount[CORE_RES_GOLD], 200);
+    CHECK_EQ(bank.amount[CORE_RES_GOLD], 160);
 }
 
-void test_platform_replace_and_copy(void)
-{
+void test_platform_replace_and_copy(void) {
     const char *a = "platform_a.txt";
     const char *b = "platform_b.txt";
     const char *c = u8"플랫폼_복사본.txt";

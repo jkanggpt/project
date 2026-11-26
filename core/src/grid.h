@@ -3,7 +3,8 @@
  *
  * 지도는 width × height 타일이고, 격자는 행 우선 1차원 배열(index = y * width + x)로 저장합니다.
  * 크기는 월드를 만들 때 정해지므로 calloc 으로 할당합니다.
- * 이동 비용 격자는 지형(나중에는 도로, 건물, 성벽)으로부터 계산되며, C 그래픽 프런트엔드은 이것으로 길찾기 격자를 만듭니다.
+ * 이동 비용 격자는 지형(나중에는 도로, 건물, 성벽)으로부터 계산되며, C 그래픽 프런트엔드은 이것으로 길찾기
+ * 격자를 만듭니다.
  */
 #ifndef CASTLE_GRID_H
 #define CASTLE_GRID_H
@@ -17,10 +18,10 @@
 #define GRID_MIN_SIZE 32
 #define GRID_MAX_SIZE 256
 
-#define GRID_KEEP_SIZE 3        /* 성채가 차지하는 칸 (3×3, 중심이 keep_x, keep_y) */
-#define GRID_KEEP_CLEAR 3       /* 성채 중심에서 이 거리(체비쇼프)까지는 풀밭으로 비웁니다 */
-#define GRID_NO_WATER_RADIUS 9  /* 성채 근처에는 호수를 만들지 않습니다 */
-#define GRID_FAIR_RADIUS 14     /* "공정한 시작" 검사 반지름 (유클리드) */
+#define GRID_KEEP_SIZE 3  /* 성채가 차지하는 칸 (3×3, 중심이 keep_x, keep_y) */
+#define GRID_KEEP_CLEAR 3 /* 성채 중심에서 이 거리(체비쇼프)까지는 풀밭으로 비웁니다 */
+#define GRID_NO_WATER_RADIUS 9 /* 성채 근처에는 호수를 만들지 않습니다 */
+#define GRID_FAIR_RADIUS 14    /* "공정한 시작" 검사 반지름 (유클리드) */
 
 /* 이동 비용: 0 = 지나갈 수 없음, 10 = 보통 풀밭 걸음 (값은 castle_core.h 의 CORE_COST_*) */
 #define GRID_COST_BLOCKED CORE_COST_BLOCKED
@@ -42,8 +43,8 @@ typedef struct Grid {
     uint8_t *door_count; /* 그 칸을 문 앞으로 쓰는 건물 수 (다시 계산) */
     uint8_t *block;      /* GRID_BLOCK_* (다시 계산) */
     uint8_t *cost;       /* 이동 비용 (다시 계산) */
-    int32_t cost_rev;    /* 비용 격자가 바뀔 때마다 1 증가 → C 그래픽 프런트엔드이 길찾기를 다시 만들지 판단 */
-    uint8_t *scratch_mark;  /* 길 검사용 작업 공간 (배치 검사 때마다 새로 할당하지 않으려고 미리 마련) */
+    int32_t cost_rev; /* 비용 격자가 바뀔 때마다 1 증가 → C 그래픽 프런트엔드이 길찾기를 다시 만들지 판단 */
+    uint8_t *scratch_mark; /* 길 검사용 작업 공간 (배치 검사 때마다 새로 할당하지 않으려고 미리 마련) */
     int32_t *scratch_queue;
 } Grid;
 
@@ -52,15 +53,11 @@ int grid_alloc(Grid *grid, int32_t width, int32_t height);
 void grid_free(Grid *grid);
 
 /* 아주 자주 불리므로 헤더에 inline 으로 둡니다 (길 검사, 비용 계산의 안쪽 반복문) */
-static inline int grid_in_bounds(const Grid *grid, int32_t x, int32_t y)
-{
+static inline int grid_in_bounds(const Grid *grid, int32_t x, int32_t y) {
     return x >= 0 && y >= 0 && x < grid->width && y < grid->height;
 }
 
-static inline int32_t grid_index(const Grid *grid, int32_t x, int32_t y)
-{
-    return y * grid->width + x;
-}
+static inline int32_t grid_index(const Grid *grid, int32_t x, int32_t y) { return y * grid->width + x; }
 
 /* 지도 밖이면 CORE_TERRAIN_WATER (지나갈 수 없는 칸으로 취급) */
 uint8_t grid_terrain_at(const Grid *grid, int32_t x, int32_t y);

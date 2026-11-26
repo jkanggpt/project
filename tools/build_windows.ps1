@@ -1,4 +1,4 @@
-# 한글 경로를 지원하지 않는 MinGW/Ninja에도 같은 C 빌드를 제공합니다.
+﻿# 한글 경로를 지원하지 않는 MinGW/Ninja에도 같은 C 빌드를 제공합니다.
 param([switch]$NoTests, [switch]$CoreOnly)
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))

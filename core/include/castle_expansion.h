@@ -1,12 +1,13 @@
-/* castle_expansion.h — 통합 확장 v1의 평면 뷰와 명령 */
+/* castle_expansion.h — 현재 게임의 평면 뷰와 명령 */
 #ifndef CASTLE_EXPANSION_API_H
 #define CASTLE_EXPANSION_API_H
 #include "castle_core.h"
 
-#define CORE_RULES_CLASSIC 0
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CORE_RULES_EXPANSION 1
-#define CORE_LEGACY_BLD_COUNT 16
-#define CORE_LEGACY_RANK_COUNT 5
 #define CORE_EXP_SKILLS 12
 #define CORE_EXP_STATS 5
 #define CORE_EXP_ANIMALS 35
@@ -147,29 +148,46 @@ CORE_API int32_t core_expansion_fire(CoreWorld *world, int32_t building_id);
 CORE_API int32_t core_expansion_report_position(CoreWorld *world, int32_t villager_id, int32_t x_milli,
                                                 int32_t y_milli);
 /* v1.2.1 습격 외형과 고유 능력. 기본 적 번호는 세력별 순서입니다. */
-typedef struct CoreRaiderInfo { int32_t faction,cost,unlock,width_milli,height_milli,ability; char name[CORE_NAME_BYTES]; } CoreRaiderInfo;
-CORE_API int32_t core_expansion_raider_info(int32_t type,CoreRaiderInfo *out);
-CORE_API int32_t core_expansion_summon(CoreWorld *world,int32_t parent_id,int32_t *out_id);
-CORE_API int32_t core_expansion_slow(CoreWorld *world,int32_t villager_id);
-typedef struct CoreEventLayers {int32_t plague_days,economic_event,economic_days;} CoreEventLayers;
-CORE_API int32_t core_expansion_events(const CoreWorld *world,CoreEventLayers *out);
-CORE_API int32_t core_expansion_efficiency(const CoreWorld *world,int32_t villager_id,int32_t building_type,int32_t *out_percent);
+typedef struct CoreRaiderInfo {
+    int32_t faction, cost, unlock, width_milli, height_milli, ability;
+    char name[CORE_NAME_BYTES];
+} CoreRaiderInfo;
+CORE_API int32_t core_expansion_raider_info(int32_t type, CoreRaiderInfo *out);
+CORE_API int32_t core_expansion_summon(CoreWorld *world, int32_t parent_id, int32_t *out_id);
+CORE_API int32_t core_expansion_slow(CoreWorld *world, int32_t villager_id);
+typedef struct CoreEventLayers {
+    int32_t plague_days, economic_event, economic_days;
+} CoreEventLayers;
+CORE_API int32_t core_expansion_events(const CoreWorld *world, CoreEventLayers *out);
+CORE_API int32_t core_expansion_efficiency(const CoreWorld *world, int32_t villager_id, int32_t building_type,
+                                           int32_t *out_percent);
 
 /* v1.2.2: UI·시뮬레이터가 공유하는 실제 규칙 질의입니다. */
 enum CoreRaidPhase { CORE_RAID_COMPLETE, CORE_RAID_ASSAULT, CORE_RAID_RETREAT, CORE_RAID_APPROACH };
 /* 현재 습격의 살아 있는 적이 최초 공격 동작에 들어갔음을 보고합니다. */
-CORE_API int32_t core_expansion_engaged(CoreWorld *world,int32_t enemy_id);
-enum CoreMission { CORE_MISSION_NONE, CORE_MISSION_SCOUT, CORE_MISSION_HUNT,
-    CORE_MISSION_PATROL, CORE_MISSION_COMBAT, CORE_MISSION_RETURN, CORE_MISSION_WALK, CORE_MISSION_EQUIP, CORE_MISSION_UNEQUIP };
+CORE_API int32_t core_expansion_engaged(CoreWorld *world, int32_t enemy_id);
+enum CoreMission {
+    CORE_MISSION_NONE,
+    CORE_MISSION_SCOUT,
+    CORE_MISSION_HUNT,
+    CORE_MISSION_PATROL,
+    CORE_MISSION_COMBAT,
+    CORE_MISSION_RETURN,
+    CORE_MISSION_WALK,
+    CORE_MISSION_EQUIP,
+    CORE_MISSION_UNEQUIP
+};
 /* 저장된 mission_target은 업무복을 보관한 일터 번호입니다. */
-CORE_API int32_t core_expansion_outfit(const CoreWorld *world,int32_t villager_id);
-CORE_API int32_t core_expansion_weights(int32_t type,int32_t out_percent[5]);
+CORE_API int32_t core_expansion_outfit(const CoreWorld *world, int32_t villager_id);
+CORE_API int32_t core_expansion_weights(int32_t type, int32_t out_percent[5]);
 CORE_API int32_t core_expansion_skill_threshold(int32_t level);
-CORE_API int32_t core_expansion_profession_efficiency(const CoreWorld *world,int32_t villager_id,int32_t field,int32_t *out_percent);
-CORE_API int32_t core_expansion_daily_requirements(const CoreWorld *world,int32_t out_milli[CORE_RES_COUNT]);
-CORE_API int32_t core_expansion_tradable(const CoreWorld *world,int32_t resource);
+CORE_API int32_t core_expansion_profession_efficiency(const CoreWorld *world, int32_t villager_id,
+                                                      int32_t field, int32_t *out_percent);
+CORE_API int32_t core_expansion_daily_requirements(const CoreWorld *world, int32_t out_milli[CORE_RES_COUNT]);
+CORE_API int32_t core_expansion_tradable(const CoreWorld *world, int32_t resource);
 /* 배율은 만분율이며 재입고량은 최종 5개 단위로 반올림합니다. */
-CORE_API int32_t core_expansion_restock(int32_t level,int32_t efficiency,int32_t *base,int32_t *mult_bp,int32_t *quantity);
+CORE_API int32_t core_expansion_restock(int32_t level, int32_t efficiency, int32_t *base, int32_t *mult_bp,
+                                        int32_t *quantity);
 typedef struct CoreFacilityView {
     int32_t id, type_serial, radius, sight, attack, range, cooldown, assigned, present;
     int32_t labor_milli, mature_trees, logs_milli, magic_logs_milli, deposits[CORE_RES_COUNT];
@@ -178,24 +196,45 @@ typedef struct CoreFacilityView {
     int32_t actual_input[CORE_RES_COUNT], actual_output[CORE_RES_COUNT], fuel_milli, annual_yield;
     int32_t trade_base, trade_limit, trade_used, trade_efficiency, trade_next_day;
 } CoreFacilityView;
-typedef struct CoreWorkSchedule { int32_t start, end, second_start, second_end, sleep_start, sleep_end, on_duty, shift; } CoreWorkSchedule;
+typedef struct CoreWorkSchedule {
+    int32_t start, end, second_start, second_end, sleep_start, sleep_end, on_duty, shift;
+} CoreWorkSchedule;
 CORE_API int32_t core_expansion_tree_mature_age(int32_t kind);
-CORE_API int32_t core_expansion_facility(const CoreWorld *world,int32_t id,int32_t type,int32_t x,int32_t y,int32_t rotation,CoreFacilityView *out);
-CORE_API int32_t core_expansion_schedule(const CoreWorld *world,int32_t villager_id,CoreWorkSchedule *out);
+CORE_API int32_t core_expansion_facility(const CoreWorld *world, int32_t id, int32_t type, int32_t x,
+                                         int32_t y, int32_t rotation, CoreFacilityView *out);
+CORE_API int32_t core_expansion_schedule(const CoreWorld *world, int32_t villager_id, CoreWorkSchedule *out);
 CORE_API int32_t core_expansion_build_locked(const CoreWorld *world);
-CORE_API int32_t core_expansion_set_shift(CoreWorld *world,int32_t villager_id,int32_t shift);
+CORE_API int32_t core_expansion_set_shift(CoreWorld *world, int32_t villager_id, int32_t shift);
 /* 빈 주간/야간 슬롯에 최초 배치합니다. 실패하면 기존 일터를 유지합니다. */
-CORE_API int32_t core_expansion_assign_shift(CoreWorld *world,int32_t villager_id,int32_t building_id,int32_t shift);
-CORE_API int32_t core_expansion_enemy_runtime(CoreWorld *world,int32_t enemy_id,const CoreEnemyRuntime *state);
-CORE_API int32_t core_expansion_hit_animal(CoreWorld *world,int32_t animal_id,int32_t damage,int32_t source_kind,int32_t source_id);
-CORE_API int32_t core_expansion_building_hit(CoreWorld *world,int32_t building_id,int32_t damage,int32_t source_kind,int32_t source_type);
-CORE_API int32_t core_expansion_person_hit(CoreWorld *world,int32_t villager_id,int32_t damage,int32_t source_kind,int32_t source_type);
+CORE_API int32_t core_expansion_assign_shift(CoreWorld *world, int32_t villager_id, int32_t building_id,
+                                             int32_t shift);
+CORE_API int32_t core_expansion_enemy_runtime(CoreWorld *world, int32_t enemy_id,
+                                              const CoreEnemyRuntime *state);
+CORE_API int32_t core_expansion_hit_animal(CoreWorld *world, int32_t animal_id, int32_t damage,
+                                           int32_t source_kind, int32_t source_id);
+CORE_API int32_t core_expansion_building_hit(CoreWorld *world, int32_t building_id, int32_t damage,
+                                             int32_t source_kind, int32_t source_type);
+CORE_API int32_t core_expansion_person_hit(CoreWorld *world, int32_t villager_id, int32_t damage,
+                                           int32_t source_kind, int32_t source_type);
 
 /* 프런트엔드 전투 중간 상태도 정수로 저장해 불러올 때 공격을 재시작하지 않습니다. */
-enum CoreRuntimeKind { CORE_RUNTIME_ACTOR=1, CORE_RUNTIME_TOWER=2, CORE_RUNTIME_CLOCK=3, CORE_RUNTIME_PROJECTILE=4 };
-enum { CORE_RUNTIME_ACTOR_INTS=20, CORE_RUNTIME_TOWER_INTS=2, CORE_RUNTIME_CLOCK_INTS=2, CORE_RUNTIME_PROJECTILE_INTS=13, CORE_RUNTIME_PROJECTILES=512 };
-CORE_API int32_t core_expansion_copy_runtime(const CoreWorld *world,int32_t kind,int32_t id,int32_t *values,int32_t count);
-CORE_API int32_t core_expansion_report_runtime(CoreWorld *world,int32_t kind,int32_t id,const int32_t *values,int32_t count);
+enum CoreRuntimeKind {
+    CORE_RUNTIME_ACTOR = 1,
+    CORE_RUNTIME_TOWER = 2,
+    CORE_RUNTIME_CLOCK = 3,
+    CORE_RUNTIME_PROJECTILE = 4
+};
+enum {
+    CORE_RUNTIME_ACTOR_INTS = 20,
+    CORE_RUNTIME_TOWER_INTS = 2,
+    CORE_RUNTIME_CLOCK_INTS = 2,
+    CORE_RUNTIME_PROJECTILE_INTS = 13,
+    CORE_RUNTIME_PROJECTILES = 512
+};
+CORE_API int32_t core_expansion_copy_runtime(const CoreWorld *world, int32_t kind, int32_t id,
+                                             int32_t *values, int32_t count);
+CORE_API int32_t core_expansion_report_runtime(CoreWorld *world, int32_t kind, int32_t id,
+                                               const int32_t *values, int32_t count);
 
 /* v1.2.3의 추가 상태는 기존 주민·시장과 독립된 평면 질의입니다. */
 #define CORE_EXP_MAX_BOATS 256
@@ -267,7 +306,8 @@ typedef struct CoreLivestockInfo {
 } CoreLivestockInfo;
 CORE_API int32_t core_expansion_livestock_info(int32_t kind, int32_t building_type, CoreLivestockInfo *out);
 CORE_API int32_t core_expansion_animal_class(int32_t kind);
-CORE_API int32_t core_expansion_rank_requirements(const CoreWorld *world, CoreRankRequirementView *out, int32_t capacity);
+CORE_API int32_t core_expansion_rank_requirements(const CoreWorld *world, CoreRankRequirementView *out,
+                                                  int32_t capacity);
 CORE_API int32_t core_expansion_ui_color_group(int32_t type);
 CORE_API int32_t core_expansion_adjacent_water(const CoreWorld *world, int32_t type, int32_t x, int32_t y,
                                                int32_t rotation);
@@ -292,5 +332,9 @@ CORE_API int32_t core_expansion_copy_boats(const CoreWorld *world, CoreBoatView 
                                            int32_t *count);
 CORE_API int32_t core_expansion_clay_tile(const CoreWorld *world, int32_t x, int32_t y, int32_t *current,
                                           int32_t *initial, int32_t *shore_percent);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

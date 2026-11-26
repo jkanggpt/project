@@ -27,30 +27,21 @@ static const TestCase TESTS[] = {
 static int g_failures = 0;
 static const char *g_current_name = "test";
 
-const char *test_current_name(void)
-{
-    return g_current_name;
-}
+const char *test_current_name(void) { return g_current_name; }
 
-void test_fail(const char *file, int line, const char *expression)
-{
+void test_fail(const char *file, int line, const char *expression) {
     g_failures++;
     fprintf(stderr, "  FAIL %s:%d: %s\n", file, line, expression);
 }
 
-void test_fail_values(const char *file, int line, const char *expression, long long left, long long right)
-{
+void test_fail_values(const char *file, int line, const char *expression, long long left, long long right) {
     g_failures++;
     fprintf(stderr, "  FAIL %s:%d: %s (%lld != %lld)\n", file, line, expression, left, right);
 }
 
-int test_failed(void)
-{
-    return g_failures > 0;
-}
+int test_failed(void) { return g_failures > 0; }
 
-CoreWorld *test_make_world(int32_t seed, int32_t difficulty)
-{
+CoreWorld *test_make_world(int32_t seed, int32_t difficulty) {
     CoreNewGameParams params;
     CoreWorld *world = NULL;
     memset(&params, 0, sizeof(params));
@@ -63,19 +54,14 @@ CoreWorld *test_make_world(int32_t seed, int32_t difficulty)
     return world;
 }
 
-static void print_violation(void *context, const char *what)
-{
+static void print_violation(void *context, const char *what) {
     (void)context;
     fprintf(stderr, "    violation: %s\n", what);
 }
 
-int32_t test_validate_verbose(const CoreWorld *world)
-{
-    return validate_world(world, print_violation, NULL);
-}
+int32_t test_validate_verbose(const CoreWorld *world) { return validate_world(world, print_violation, NULL); }
 
-char *test_read_file(const char *path, size_t *out_size)
-{
+char *test_read_file(const char *path, size_t *out_size) {
     FILE *file = fopen(path, "rb");
     char *data;
     long size;
@@ -98,8 +84,7 @@ char *test_read_file(const char *path, size_t *out_size)
     return data;
 }
 
-int test_write_file(const char *path, const char *data, size_t size)
-{
+int test_write_file(const char *path, const char *data, size_t size) {
     FILE *file = fopen(path, "wb");
     int ok;
     if (file == NULL) {
@@ -109,8 +94,7 @@ int test_write_file(const char *path, const char *data, size_t size)
     return fclose(file) == 0 && ok;
 }
 
-static int run_one(const TestCase *test)
-{
+static int run_one(const TestCase *test) {
     int before = g_failures;
     g_current_name = test->name;
     printf("[ RUN  ] %s\n", test->name);
@@ -120,14 +104,14 @@ static int run_one(const TestCase *test)
     return g_failures == before;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     int i;
     int passed = 0;
 
     if (argc > 1) {
-        g_current_name=argv[1];
-        if(test_v124_parameter(argv[1]))return test_failed()?1:0;
+        g_current_name = argv[1];
+        if (test_content_parameter(argv[1]))
+            return test_failed() ? 1 : 0;
         for (i = 0; i < TEST_COUNT; i++) {
             if (strcmp(TESTS[i].name, argv[1]) == 0) {
                 return run_one(&TESTS[i]) ? 0 : 1;

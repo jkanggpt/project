@@ -14,7 +14,7 @@
 #endif
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable: 5105) /* 구형 Windows SDK 헤더 내부의 매크로 */
+#pragma warning(disable : 5105) /* 구형 Windows SDK 헤더 내부의 매크로 */
 #endif
 #include <windows.h>
 #ifdef _MSC_VER
@@ -22,8 +22,7 @@
 #endif
 #endif
 
-void console_init(void)
-{
+void console_init(void) {
 #ifdef _WIN32
     /* 한국어 Windows 의 기본 콘솔 코드 페이지는 949 라서 UTF-8 한글이 깨집니다 */
     SetConsoleOutputCP(CP_UTF8);
@@ -34,8 +33,7 @@ void console_init(void)
 #ifdef _WIN32
 /* 콘솔에서 직접 입력받을 때는 UTF-16 으로 읽어 UTF-8 로 바꿉니다.
  * (일부 Windows 버전은 CP_UTF8 상태에서 fgets 로 한글을 읽으면 글자가 사라집니다) */
-static int read_console_utf8(HANDLE input, char *buffer, size_t size)
-{
+static int read_console_utf8(HANDLE input, char *buffer, size_t size) {
     wchar_t wide[512];
     DWORD read_count = 0;
     int bytes;
@@ -59,8 +57,7 @@ static int read_console_utf8(HANDLE input, char *buffer, size_t size)
 }
 #endif
 
-int console_read_line(char *buffer, size_t size)
-{
+int console_read_line(char *buffer, size_t size) {
     size_t length;
 
 #ifdef _WIN32
@@ -95,8 +92,7 @@ int console_read_line(char *buffer, size_t size)
     return -1;
 }
 
-int read_int(const char *prompt, int min, int max, int *out)
-{
+int read_int(const char *prompt, int min, int max, int *out) {
     char line[64];
     for (;;) {
         char *end = NULL;
@@ -132,8 +128,7 @@ int read_int(const char *prompt, int min, int max, int *out)
     }
 }
 
-int read_text(const char *prompt, const char *default_text, char *buffer, size_t size)
-{
+int read_text(const char *prompt, const char *default_text, char *buffer, size_t size) {
     for (;;) {
         int got;
         if (default_text != NULL) {

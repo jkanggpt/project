@@ -11,7 +11,7 @@ game/export/
 game/.mono/
 game/obj/
 
-# 스크린숏, 시뮬레이터 출력 등 (docs/screenshots/ 는 커밋함)
+# 이전 로컬 산출물도 계속 제외합니다. 현재 검사는 build/reports를 사용합니다.
 /artifacts/
 
 # 에디터, IDE

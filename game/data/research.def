@@ -1,128 +1,248 @@
 # 연구 나무. 이 파일이 목록 전체를 정합니다 (최대 32개). 문법이 틀리면 게임이 기본값을 쓰고 경고합니다.
 # branch: economy(경제) defense(방어) magic(마법)
 # requires: 먼저 끝내야 하는 연구의 키 (이 파일에서 더 앞에 있어야 함) 또는 none
-# required_rank: 시작하려면 필요한 등급 (0 촌락, 1 마을, 2 요새, 3 성, 4 왕성)
+# required_rank: 시작하려면 필요한 등급 (0 개척지, 1 촌락, 2 마을, 3 도시, 4 성채, 5 왕성)
 # cost_gold/cost_mana: 시작할 때 내는 값, points: 마탑의 마법사가 모아야 하는 연구 점수
 # effect: farm_yield(농장 +%) extract_yield(벌목장·채석장 +%) storage(저장 한도 +%) market(시장 차이 -%p)
 #         tower_damage(감시탑 +) wall_hp(성벽·성문 체력 +%) guard_damage(경비병 +) keep_damage(성채 망루 +)
 #         mana_yield(마정석 광산 +%) healing(앓는 시간 -%) heating(난방 목재 -) ward(습격 건물 피해 -%)
 
-[research crop_rotation]
+[research rotation]
 requires = none
 branch = economy
-required_rank = 2
-cost_gold = 40
-cost_mana = 15
-points = 25
+required_rank = 3
+cost_gold = 70
+cost_mana = 0
+points = 80
 effect = farm_yield
-value = 25
+value = 0
 
-[research better_tools]
-requires = crop_rotation
+[research tools]
+requires = rotation
 branch = economy
-required_rank = 2
-cost_gold = 60
-cost_mana = 25
-points = 35
-effect = extract_yield
-value = 25
+required_rank = 3
+cost_gold = 90
+cost_mana = 0
+points = 100
+effect = farm_yield
+value = 0
 
-[research trade_guild]
-requires = better_tools
+[research water_survey]
+requires = tools
 branch = economy
 required_rank = 3
 cost_gold = 100
-cost_mana = 40
-points = 45
-effect = market
-value = 10
+cost_mana = 5
+points = 120
+effect = farm_yield
+value = 0
 
-[research granary]
-requires = trade_guild
+[research logistics]
+requires = water_survey
 branch = economy
-required_rank = 3
-cost_gold = 140
-cost_mana = 60
-points = 55
-effect = storage
-value = 30
+required_rank = 4
+cost_gold = 130
+cost_mana = 10
+points = 150
+effect = farm_yield
+value = 0
 
-[research sharp_arrows]
+[research seeds]
+requires = logistics
+branch = economy
+required_rank = 4
+cost_gold = 180
+cost_mana = 15
+points = 190
+effect = farm_yield
+value = 0
+
+[research smelting]
+requires = seeds
+branch = economy
+required_rank = 4
+cost_gold = 190
+cost_mana = 18
+points = 210
+effect = farm_yield
+value = 0
+
+[research storage]
+requires = smelting
+branch = economy
+required_rank = 5
+cost_gold = 250
+cost_mana = 25
+points = 260
+effect = farm_yield
+value = 0
+
+[research royal_trade]
+requires = storage
+branch = economy
+required_rank = 5
+cost_gold = 320
+cost_mana = 30
+points = 300
+effect = farm_yield
+value = 0
+
+[research scouting]
 requires = none
 branch = defense
-required_rank = 2
-cost_gold = 40
-cost_mana = 15
-points = 25
-effect = tower_damage
-value = 4
+required_rank = 3
+cost_gold = 70
+cost_mana = 0
+points = 80
+effect = farm_yield
+value = 0
 
-[research stone_walls]
-requires = sharp_arrows
+[research longbows]
+requires = scouting
 branch = defense
-required_rank = 2
-cost_gold = 60
-cost_mana = 25
-points = 35
-effect = wall_hp
-value = 60
+required_rank = 3
+cost_gold = 90
+cost_mana = 0
+points = 100
+effect = farm_yield
+value = 0
 
-[research drill]
-requires = stone_walls
+[research gatecraft]
+requires = longbows
 branch = defense
 required_rank = 3
 cost_gold = 100
-cost_mana = 40
-points = 45
-effect = guard_damage
-value = 5
+cost_mana = 5
+points = 120
+effect = farm_yield
+value = 0
 
-[research keep_ballista]
-requires = drill
+[research armor]
+requires = gatecraft
 branch = defense
-required_rank = 3
-cost_gold = 140
-cost_mana = 60
-points = 55
-effect = keep_damage
-value = 8
+required_rank = 4
+cost_gold = 150
+cost_mana = 10
+points = 160
+effect = farm_yield
+value = 0
 
-[research mana_sense]
+[research gunpowder]
+requires = armor
+branch = defense
+required_rank = 4
+cost_gold = 190
+cost_mana = 15
+points = 200
+effect = farm_yield
+value = 0
+
+[research fortification]
+requires = gunpowder
+branch = defense
+required_rank = 4
+cost_gold = 200
+cost_mana = 20
+points = 220
+effect = farm_yield
+value = 0
+
+[research tactics]
+requires = fortification
+branch = defense
+required_rank = 5
+cost_gold = 260
+cost_mana = 25
+points = 260
+effect = farm_yield
+value = 0
+
+[research royal_defense]
+requires = tactics
+branch = defense
+required_rank = 5
+cost_gold = 340
+cost_mana = 30
+points = 310
+effect = farm_yield
+value = 0
+
+[research mana_survey]
 requires = none
 branch = magic
-required_rank = 2
-cost_gold = 30
-cost_mana = 15
-points = 25
-effect = mana_yield
-value = 50
-
-[research herbal_magic]
-requires = mana_sense
-branch = magic
-required_rank = 2
-cost_gold = 60
-cost_mana = 25
-points = 35
-effect = healing
-value = 50
-
-[research warm_hearth]
-requires = herbal_magic
-branch = magic
-required_rank = 3
+required_rank = 4
 cost_gold = 100
-cost_mana = 40
-points = 45
-effect = heating
-value = 1
+cost_mana = 10
+points = 120
+effect = farm_yield
+value = 0
+
+[research abundance]
+requires = mana_survey
+branch = magic
+required_rank = 4
+cost_gold = 140
+cost_mana = 15
+points = 150
+effect = farm_yield
+value = 0
+
+[research healing_light]
+requires = abundance
+branch = magic
+required_rank = 4
+cost_gold = 160
+cost_mana = 20
+points = 170
+effect = farm_yield
+value = 0
+
+[research embers]
+requires = healing_light
+branch = magic
+required_rank = 4
+cost_gold = 180
+cost_mana = 25
+points = 190
+effect = farm_yield
+value = 0
+
+[research mana_control]
+requires = embers
+branch = magic
+required_rank = 4
+cost_gold = 220
+cost_mana = 30
+points = 240
+effect = farm_yield
+value = 0
 
 [research ward]
-requires = warm_hearth
+requires = mana_control
 branch = magic
-required_rank = 3
-cost_gold = 140
+required_rank = 5
+cost_gold = 260
+cost_mana = 35
+points = 280
+effect = farm_yield
+value = 0
+
+[research alchemy]
+requires = ward
+branch = magic
+required_rank = 5
+cost_gold = 300
+cost_mana = 45
+points = 320
+effect = farm_yield
+value = 0
+
+[research grand_magic]
+requires = alchemy
+branch = magic
+required_rank = 5
+cost_gold = 400
 cost_mana = 60
-points = 55
-effect = ward
-value = 30
+points = 400
+effect = farm_yield
+value = 0

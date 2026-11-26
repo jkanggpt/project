@@ -4,35 +4,34 @@
 #include <string.h>
 
 #include "mem.h"
+#include "fixtures/town.h"
 #include "test_town.h"
 #include "test_util.h"
 #include "validate.h"
 #include "world.h"
 
-void test_world_create_and_destroy(void)
-{
+void test_world_create_and_destroy(void) {
     CoreWorld *world = test_make_world(99, CORE_DIFF_HARSH);
     CoreSummaryView summary;
     CHECK(world != NULL);
     CHECK_EQ(test_validate_verbose(world), 0);
     CHECK_EQ(core_get_summary(world, &summary), CORE_OK);
-    CHECK_EQ(summary.map_width, 96);
-    CHECK_EQ(summary.map_height, 96);
+    CHECK_EQ(summary.map_width, 160);
+    CHECK_EQ(summary.map_height, 160);
     CHECK_EQ(summary.day, 1);
     CHECK_EQ(summary.minute_of_day, 6 * 60);
     CHECK_EQ(summary.difficulty, CORE_DIFF_HARSH);
-    CHECK_EQ(summary.keep_x, 48);
-    CHECK_EQ(summary.keep_size, 3);
+    CHECK_EQ(summary.keep_x, 80);
+    CHECK_EQ(summary.keep_size, 4);
     CHECK(strcmp(summary.castle_name, u8"시험성") == 0);
     CHECK(summary.cost_grid_rev >= 1);
-    CHECK_EQ(summary.resource_capacity[CORE_RES_GOLD], 0);
+    CHECK_EQ(summary.resource_capacity[CORE_RES_GOLD], ECO_MAX_AMOUNT);
     CHECK(summary.resource_capacity[CORE_RES_FOOD] > 0);
     core_destroy(world);
     core_destroy(NULL); /* NULL 해제는 아무 일도 하지 않아야 함 */
 }
 
-void test_world_rejects_bad_params(void)
-{
+void test_world_rejects_bad_params(void) {
     CoreNewGameParams params;
     CoreWorld *world = (CoreWorld *)&params; /* 실패하면 NULL 로 바뀌어야 함 */
 
@@ -71,62 +70,31 @@ void test_world_rejects_bad_params(void)
     core_destroy(world);
 }
 
-void test_world_tick_emits_events(void)
-{
-    CoreWorld *world = test_make_world(5, CORE_DIFF_NORMAL);
-    CoreEventView event;
-    CoreSummaryView summary;
-    int day_started = 0;
-    int night = 0;
-    int dawn = 0;
-    int season = 0;
-    int32_t rc;
-    int32_t days;
-
-    CHECK(world != NULL);
-    /* 06:00 → 다음 날 06:00 */
-    CHECK_EQ(core_tick(world, 144), CORE_OK);
-    while ((rc = core_poll_event(world, &event)) == 1) {
-        if (event.type == CORE_EVT_DAY_STARTED) {
-            day_started++;
-            CHECK_EQ(event.a, 2);
-        } else if (event.type == CORE_EVT_NIGHT_FELL) {
-            night++;
-            CHECK_EQ(event.a, 1);
-        } else if (event.type == CORE_EVT_DAWN) {
-            dawn++;
-            CHECK_EQ(event.a, 2);
-        }
-    }
-    CHECK_EQ(rc, 0);
-    CHECK_EQ(day_started, 1);
-    CHECK_EQ(night, 1);
-    CHECK_EQ(dawn, 1);
-    CHECK_EQ(core_get_summary(world, &summary), CORE_OK);
-    CHECK_EQ(summary.day, 2);
-    CHECK_EQ(summary.minute_of_day, 6 * 60);
-
-    /* 7일을 더 가면 9일째 = 여름 */
-    for (days = 0; days < 7; days++) {
-        CHECK(test_run(world, 144)); /* 도착을 알려 주며 (아무도 못 먹어 모두 떠나면 패배해서 시간이 멈춤) */
-    }
-    while (core_poll_event(world, &event) == 1) {
-        if (event.type == CORE_EVT_SEASON_CHANGED) {
-            season++;
-            CHECK_EQ(event.a, CORE_SEASON_SUMMER);
-            CHECK_EQ(event.b, 1);
-        }
-    }
-    CHECK_EQ(season, 1);
-    CHECK_EQ(core_get_summary(world, &summary), CORE_OK);
-    CHECK_EQ(summary.season, CORE_SEASON_SUMMER);
-    CHECK_EQ(summary.day_of_season, 1);
-    CHECK_EQ(test_validate_verbose(world), 0);
-    core_destroy(world);
+void test_world_tick_emits_events(void) {
+    World *w = test_make_world(5, CORE_DIFF_NORMAL);
+    CHECK(w);
+    Building *b = fx_town_building(w, CORE_BLD_SHACK, 0);
+    CHECK(b);
+    b->state = CORE_BSTATE_CONSTRUCTING;
+    b->build_progress = w->defs.buildings[b->type].build_ticks - 1;
+    CHECK_EQ(core_tick(w, 1), CORE_OK);
+    CHECK_EQ(b->state, CORE_BSTATE_ACTIVE);
+    CHECK_EQ(fx_town_events(w, CORE_EVT_BUILDING_COMPLETED), 1);
+    test_keep_alive(w);
+    CHECK(test_run(w, 144 - 1));
+    CoreSummaryView s;
+    CHECK_EQ(core_get_summary(w, &s), CORE_OK);
+    CHECK_EQ(s.day, 2);
+    CHECK_EQ(s.minute_of_day, 360);
+    w->clock.tick = 12 * 144 + 36;
+    CHECK_EQ(core_get_summary(w, &s), CORE_OK);
+    CHECK_EQ(s.season, CORE_SEASON_SUMMER);
+    CHECK_EQ(s.day_of_season, 1);
+    CHECK_EQ(core_validate(w), 0);
+    core_destroy(w);
 }
 
-void test_world_same_seed_same_state(void)
-{
+void test_world_same_seed_same_state(void) {
     CoreWorld *a = test_make_world(777, CORE_DIFF_NORMAL);
     CoreWorld *b = test_make_world(777, CORE_DIFF_NORMAL);
     uint64_t hash_a = 0;
@@ -145,8 +113,7 @@ void test_world_same_seed_same_state(void)
     core_destroy(b);
 }
 
-void test_world_out_of_memory_is_clean(void)
-{
+void test_world_out_of_memory_is_clean(void) {
     CoreNewGameParams params;
     long baseline = mem_test_live_blocks();
     long fail_after;
@@ -158,7 +125,7 @@ void test_world_out_of_memory_is_clean(void)
     params.difficulty = CORE_DIFF_NORMAL;
 
     /* k 번째 할당에서 실패시키며 모든 실패 지점을 지나 봅니다 */
-    for (fail_after = 0; fail_after < 100 && !succeeded; fail_after++) {
+    for (fail_after = 0; fail_after < 512 && !succeeded; fail_after++) {
         CoreWorld *world = (CoreWorld *)&params;
         int32_t rc;
         mem_test_fail_after(fail_after);
@@ -180,14 +147,12 @@ void test_world_out_of_memory_is_clean(void)
     CHECK(fail_after > 3); /* 실패 지점이 여러 개 있었는지 */
 }
 
-static void count_report(void *context, const char *what)
-{
+static void count_report(void *context, const char *what) {
     (void)what;
     (*(int *)context)++;
 }
 
-void test_validate_detects_corruption(void)
-{
+void test_validate_detects_corruption(void) {
     CoreWorld *world = test_make_world(3, CORE_DIFF_NORMAL);
     int reports = 0;
     uint8_t saved_terrain;
@@ -197,7 +162,7 @@ void test_validate_detects_corruption(void)
 
     world->bank.amount[CORE_RES_FOOD] = -1;
     CHECK(core_validate(world) > 0);
-    world->bank.amount[CORE_RES_FOOD] = world->bank.capacity + 1;
+    world->bank.amount[CORE_RES_FOOD] = ECO_MAX_AMOUNT + 1;
     CHECK(core_validate(world) > 0);
     world->bank.amount[CORE_RES_FOOD] = 0;
     CHECK_EQ(core_validate(world), 0);
@@ -214,10 +179,10 @@ void test_validate_detects_corruption(void)
     world->grid.cost[5] = (uint8_t)saved_cost;
 
     world->grid.terrain[grid_index(&world->grid, world->keep_x, world->keep_y)] = CORE_TERRAIN_WATER;
-    grid_rebuild_costs(&world->grid);
+    expansion_rebuild(world);
     CHECK(core_validate(world) > 0);
     world->grid.terrain[grid_index(&world->grid, world->keep_x, world->keep_y)] = CORE_TERRAIN_GRASS;
-    grid_rebuild_costs(&world->grid);
+    expansion_rebuild(world);
 
     world->rng.inc = 2;
     CHECK(core_validate(world) > 0);

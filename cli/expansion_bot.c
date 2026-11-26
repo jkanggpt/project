@@ -252,12 +252,18 @@ static int fortify(ExpansionBot *bot, int ring) {
     if (!bot->fort.valid[ring])
         return 0;
     /* 첫 보호구역 이후에는 필수시설용 원목을 성벽 확장에 모두 쓰지 않습니다. */
-    if(bot->summary.protected_area>=25) {
-        CoreRankRequirementView rows[24];int n=core_expansion_rank_requirements(bot->world,rows,24);
-        for(int r=0;r<n;r++)if(rows[r].kind==2 && !rows[r].satisfied)for(int k=0;k<rows[r].type_count;k++) {
-            int type=rows[r].types[k];CoreExpansionBuildingInfo info;
-            if(!count_type(bot,type) && core_expansion_building_info(type,&info)==CORE_OK && info.cost[CORE_RES_LOGS]>reserve)reserve=info.cost[CORE_RES_LOGS];
-        }
+    if (bot->summary.protected_area >= 25) {
+        CoreRankRequirementView rows[24];
+        int n = core_expansion_rank_requirements(bot->world, rows, 24);
+        for (int r = 0; r < n; r++)
+            if (rows[r].kind == 2 && !rows[r].satisfied)
+                for (int k = 0; k < rows[r].type_count; k++) {
+                    int type = rows[r].types[k];
+                    CoreExpansionBuildingInfo info;
+                    if (!count_type(bot, type) && core_expansion_building_info(type, &info) == CORE_OK &&
+                        info.cost[CORE_RES_LOGS] > reserve)
+                        reserve = info.cost[CORE_RES_LOGS];
+                }
     }
     for (pass = 0; pass < 2 && placed < 10; pass++) {
         for (y = bounds[1]; y <= bounds[3] && placed < 10; y++)

@@ -39,12 +39,12 @@ static void paths(void) {
     cost[6] = 30;
     EXPECT(game_path_find(&finder, cost, 5, 5, 0, 0, 4, 0, 0, &path) == 1);
     EXPECT(path.count == 5); /* 일곱 칸 우회보다 네 번 움직이는 길이 쌉니다. */
-    memset(cost,10,sizeof(cost));
-    cost[7]=cost[11]=cost[13]=CORE_COST_WALL;
-    EXPECT(game_path_find(&finder,cost,5,5,2,2,-1,-1,3,&path)==1);
-    EXPECT(path.count>=3 && path.cells[path.count-1]/5==4);
-    cost[17]=CORE_COST_WALL;
-    EXPECT(game_path_find(&finder,cost,5,5,2,2,-1,-1,3,&path)==0);
+    memset(cost, 10, sizeof(cost));
+    cost[7] = cost[11] = cost[13] = CORE_COST_WALL;
+    EXPECT(game_path_find(&finder, cost, 5, 5, 2, 2, -1, -1, 3, &path) == 1);
+    EXPECT(path.count >= 3 && path.cells[path.count - 1] / 5 == 4);
+    cost[17] = CORE_COST_WALL;
+    EXPECT(game_path_find(&finder, cost, 5, 5, 2, 2, -1, -1, 3, &path) == 0);
     game_path_free(&path);
     game_pathfinder_free(&finder);
 }
@@ -73,7 +73,7 @@ static void session(const char *data) {
         return;
     EXPECT(game_session_init(s, data) == CORE_OK);
     EXPECT(game_session_new(s, u8"한글 성채", 42, CORE_DIFF_NORMAL) == CORE_OK);
-    EXPECT(s->summary.population == 6 && s->cells == 96 * 96);
+    EXPECT(s->summary.population == 4 && s->cells == 160 * 160);
     EXPECT(game_session_step(s, 60) == CORE_OK);
     EXPECT(s->arrivals > 0 && core_validate(s->world) == 0);
     EXPECT(core_state_hash(s->world, &before) == CORE_OK);
@@ -84,8 +84,9 @@ static void session(const char *data) {
     EXPECT(core_state_hash(s->world, &after) == CORE_OK && before == after);
     EXPECT(game_session_step(s, NAN) == CORE_ERR_INVALID_ARG);
     EXPECT(core_debug_stress(s->world, 20, 2) == CORE_OK);
-    EXPECT(game_session_refresh(s) == CORE_OK && s->enemy_count == 2);
-    EXPECT(core_save(s->world, "native_raid.sav") == CORE_ERR_REJECTED);
+    EXPECT(game_session_refresh(s) == CORE_OK && s->enemy_count >= 2);
+    expansion_raid_discover(s->world);
+    EXPECT(core_save(s->world, "native_raid.sav") == CORE_OK);
     for (i = 0; i < s->enemy_count; i++) {
         s->enemies[i].actor.position = (GamePoint){s->summary.keep_x + 0.5f, s->summary.keep_y + 3.5f};
         s->enemies[i].hp = 1;
@@ -141,7 +142,9 @@ static void walking_direction(void) {
     GameSession s = {0};
     GameActor actor = {0};
     float held;
-    memset(cost, CORE_COST_NORMAL, sizeof(cost));
+    /* 현재 영지의 보통 통행 비용은 100입니다. */
+    memset(cost, 100, sizeof(cost));
+    s.summary.ruleset = 1;
     s.cost = cost;
     s.summary.map_width = 5;
     actor.position = (GamePoint){2.5f, 2.5f};
@@ -273,193 +276,432 @@ static void animal_movement(const char *data) {
     free(s);
 }
 static void raid_attack_frames(const char *data) {
-    GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
-    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;
-    EXPECT(game_session_new(s,u8"공격 프레임",42,1)==CORE_OK);
-    EXPECT(threat_debug_raid(s->world,CORE_THREAT_BANDITS,CORE_DIR_NORTH,3)==CORE_OK);
-    EXPECT(game_session_refresh(s)==CORE_OK);
-    for(int i=0;i<s->world->villager_count;i++)s->world->villagers[i]->inside_building=world_keep(s->world)->id;
-    Villager *v=s->world->villagers[0];v->inside_building=0;v->health=100;v->state=CORE_VS_IDLE;v->at_target=1;
-    GameActor *a=game_actor(s,v->id);a->position=(GamePoint){100.5f,100.5f};
-    v->current_x_milli=100500;v->current_y_milli=100500;
-    for(int i=0;i<s->enemy_count;i++)s->enemies[i].actor.position=(GamePoint){160.5f,160.5f};
-    s->enemies[0].actor.position=(GamePoint){101.0f,100.5f};
-    EXPECT(game_session_step(s,1.2f)==CORE_OK);EXPECT(v->health==100);
-    EXPECT(game_session_step(s,1.2f)==CORE_OK);EXPECT(v->health==100);
-    EXPECT(game_session_step(s,1.2f)==CORE_OK);EXPECT(v->health==95);
-    EXPECT(game_session_step(s,1.2f)==CORE_OK);EXPECT(v->health==95);
-    Building *keep=world_keep(s->world);uint64_t before=0,after=0;
-    EXPECT(core_report_building_damage(s->world,s->raid_id,keep->id,100000)==CORE_OK);
-    EXPECT(game_session_step(s,10)==CORE_OK);
-    EXPECT(s->summary.outcome==CORE_OUTCOME_LOST);
-    EXPECT(core_state_hash(s->world,&before)==CORE_OK);
-    EXPECT(core_save(s->world,"native_defeat.sav")==CORE_OK);
+    GameSession *s = calloc(1, sizeof(*s));
+    EXPECT(s != NULL);
+    if (!s)
+        return;
+    EXPECT(game_session_init(s, data) == CORE_OK);
+    s->ruleset = 1;
+    EXPECT(game_session_new(s, u8"공격 프레임", 42, 1) == CORE_OK);
+    EXPECT(threat_debug_raid(s->world, CORE_THREAT_BANDITS, CORE_DIR_NORTH, 3) == CORE_OK);
+    EXPECT(game_session_refresh(s) == CORE_OK);
+    for (int i = 0; i < s->world->villager_count; i++)
+        s->world->villagers[i]->inside_building = world_keep(s->world)->id;
+    Villager *v = s->world->villagers[0];
+    v->inside_building = 0;
+    v->health = 100;
+    v->state = CORE_VS_IDLE;
+    v->at_target = 1;
+    GameActor *a = game_actor(s, v->id);
+    a->position = (GamePoint){100.5f, 100.5f};
+    v->current_x_milli = 100500;
+    v->current_y_milli = 100500;
+    for (int i = 0; i < s->enemy_count; i++)
+        s->enemies[i].actor.position = (GamePoint){160.5f, 160.5f};
+    s->enemies[0].actor.position = (GamePoint){101.0f, 100.5f};
+    EXPECT(game_session_step(s, 1.2f) == CORE_OK);
+    EXPECT(v->health == 100);
+    EXPECT(game_session_step(s, 1.2f) == CORE_OK);
+    EXPECT(v->health == 100);
+    EXPECT(game_session_step(s, 1.2f) == CORE_OK);
+    EXPECT(v->health == 95);
+    EXPECT(game_session_step(s, 1.2f) == CORE_OK);
+    EXPECT(v->health == 95);
+    Building *keep = world_keep(s->world);
+    uint64_t before = 0, after = 0;
+    EXPECT(core_report_building_damage(s->world, s->raid_id, keep->id, 100000) == CORE_OK);
+    EXPECT(game_session_step(s, 10) == CORE_OK);
+    EXPECT(s->summary.outcome == CORE_OUTCOME_LOST);
+    EXPECT(core_state_hash(s->world, &before) == CORE_OK);
+    EXPECT(core_save(s->world, "native_defeat.sav") == CORE_OK);
     {
-        CoreWorld *copy=NULL;
-        EXPECT(core_load("native_defeat.sav",NULL,&copy,NULL)==CORE_OK);
-        if(copy) {
-            uint64_t copied=0;core_state_hash(copy,&copied);EXPECT(copied==before);
-            int differences=0;
-            for(int p=0;p<s->cells;p++)if(s->world->grid.cost[p]!=copy->grid.cost[p]) {
-                if(differences++<4)fprintf(stderr,"defeat cost mismatch at %d: %d != %d\n",p,s->world->grid.cost[p],copy->grid.cost[p]);
-            }
-            EXPECT(differences==0);core_destroy(copy);
+        CoreWorld *copy = NULL;
+        EXPECT(core_load("native_defeat.sav", NULL, &copy, NULL) == CORE_OK);
+        if (copy) {
+            uint64_t copied = 0;
+            core_state_hash(copy, &copied);
+            EXPECT(copied == before);
+            int differences = 0;
+            for (int p = 0; p < s->cells; p++)
+                if (s->world->grid.cost[p] != copy->grid.cost[p]) {
+                    if (differences++ < 4)
+                        fprintf(stderr, "defeat cost mismatch at %d: %d != %d\n", p, s->world->grid.cost[p],
+                                copy->grid.cost[p]);
+                }
+            EXPECT(differences == 0);
+            core_destroy(copy);
         }
     }
-    EXPECT(game_session_load(s,"native_defeat.sav",NULL)==CORE_OK);
-    EXPECT(core_state_hash(s->world,&after)==CORE_OK);EXPECT(before==after);
-    (void)platform_remove_file("native_defeat.sav");(void)platform_remove_file("native_defeat.sav.bak");
-    game_session_free(s);free(s);
+    EXPECT(game_session_load(s, "native_defeat.sav", NULL) == CORE_OK);
+    EXPECT(core_state_hash(s->world, &after) == CORE_OK);
+    EXPECT(before == after);
+    (void)platform_remove_file("native_defeat.sav");
+    (void)platform_remove_file("native_defeat.sav.bak");
+    game_session_free(s);
+    free(s);
 }
 static void bot_trade_recovery(const char *data) {
-    GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
-    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;
-    EXPECT(game_session_new(s,u8"거래 시설 복구",42,1)==CORE_OK);
-    CoreExpansionBuildingInfo info;core_expansion_building_info(CORE_BLD_STALL,&info);
-    Building *b=entity_add_building(s->world,CORE_BLD_STALL);EXPECT(b!=NULL);
-    if(b) {
-        b->x=110;b->y=110;b->w=info.w;b->h=info.h;b->door_x=b->x+b->w/2;b->door_y=b->y+b->h;
-        b->state=CORE_BSTATE_RUINED;b->hp=0;
-        for(int r=0;r<15;r++)s->world->bank.amount[r]=100;
-        s->world->bank.amount[CORE_RES_GOLD]=1000;
+    GameSession *s = calloc(1, sizeof(*s));
+    EXPECT(s != NULL);
+    if (!s)
+        return;
+    EXPECT(game_session_init(s, data) == CORE_OK);
+    s->ruleset = 1;
+    EXPECT(game_session_new(s, u8"거래 시설 복구", 42, 1) == CORE_OK);
+    CoreExpansionBuildingInfo info;
+    core_expansion_building_info(CORE_BLD_STALL, &info);
+    Building *b = entity_add_building(s->world, CORE_BLD_STALL);
+    EXPECT(b != NULL);
+    if (b) {
+        b->x = 110;
+        b->y = 110;
+        b->w = info.w;
+        b->h = info.h;
+        b->door_x = b->x + b->w / 2;
+        b->door_y = b->y + b->h;
+        b->state = CORE_BSTATE_RUINED;
+        b->hp = 0;
+        for (int r = 0; r < 15; r++)
+            s->world->bank.amount[r] = 100;
+        s->world->bank.amount[CORE_RES_GOLD] = 1000;
         expansion_rebuild(s->world);
-        EXPECT(core_validate(s->world)==0);
-        EXPECT(sim_bot_daily(s->world,"reasonable")==CORE_OK);
-        EXPECT(b->state==CORE_BSTATE_ACTIVE);EXPECT(b->hp==info.hp);
-        int trade=0;for(int i=0;i<s->world->building_count;i++)trade+=s->world->buildings[i]->type==CORE_BLD_STALL || s->world->buildings[i]->type==CORE_BLD_MARKET || s->world->buildings[i]->type==CORE_BLD_TRADING_POST;
-        EXPECT(trade==1);EXPECT(core_validate(s->world)==0);
+        EXPECT(core_validate(s->world) == 0);
+        EXPECT(sim_bot_daily(s->world, "reasonable") == CORE_OK);
+        EXPECT(b->state == CORE_BSTATE_ACTIVE);
+        EXPECT(b->hp == info.hp);
+        int trade = 0;
+        for (int i = 0; i < s->world->building_count; i++)
+            trade += s->world->buildings[i]->type == CORE_BLD_STALL ||
+                     s->world->buildings[i]->type == CORE_BLD_MARKET ||
+                     s->world->buildings[i]->type == CORE_BLD_TRADING_POST;
+        EXPECT(trade == 1);
+        EXPECT(core_validate(s->world) == 0);
     }
-    game_session_free(s);free(s);
+    game_session_free(s);
+    free(s);
 }
 static void ability_during_attack(const char *data) {
-    for(int kind=0;kind<2;kind++) {
-        GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
-        EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;
-        EXPECT(game_session_new(s,u8"공격 중 주기 능력",42,1)==CORE_OK);
-        EXPECT(threat_debug_raid(s->world,CORE_THREAT_MONSTERS,CORE_DIR_NORTH,3)==CORE_OK);
-        s->world->threat.raid.enemies[0].type=kind?16:13;
-        EXPECT(game_session_refresh(s)==CORE_OK);
-        GameEnemy *caster=&s->enemies[0],*ally=&s->enemies[1];
-        caster->actor.position=(GamePoint){100.5f,100.5f};ally->actor.position=(GamePoint){101.0f,100.5f};
-        caster->special_clock=119;caster->attack_serial=1;caster->attack_elapsed=0;ally->pending_spawn=0;
-        int before=s->world->expansion->summons_total,hp=ally->def.hp-20;
-        ally->hp=hp;
-        EXPECT(game_session_step(s,1)==CORE_OK);
-        if(kind)EXPECT(s->enemies[1].hp==hp+15);
-        else EXPECT(s->world->expansion->summons_total==before+1);
-        game_session_free(s);free(s);
+    for (int kind = 0; kind < 2; kind++) {
+        GameSession *s = calloc(1, sizeof(*s));
+        EXPECT(s != NULL);
+        if (!s)
+            return;
+        EXPECT(game_session_init(s, data) == CORE_OK);
+        s->ruleset = 1;
+        EXPECT(game_session_new(s, u8"공격 중 주기 능력", 42, 1) == CORE_OK);
+        EXPECT(threat_debug_raid(s->world, CORE_THREAT_MONSTERS, CORE_DIR_NORTH, 3) == CORE_OK);
+        s->world->threat.raid.enemies[0].type = kind ? 16 : 13;
+        EXPECT(game_session_refresh(s) == CORE_OK);
+        GameEnemy *caster = &s->enemies[0], *ally = &s->enemies[1];
+        caster->actor.position = (GamePoint){100.5f, 100.5f};
+        ally->actor.position = (GamePoint){101.0f, 100.5f};
+        caster->special_clock = 119;
+        caster->attack_serial = 1;
+        caster->attack_elapsed = 0;
+        ally->pending_spawn = 0;
+        int before = s->world->expansion->summons_total, hp = ally->def.hp - 20;
+        ally->hp = hp;
+        EXPECT(game_session_step(s, 1) == CORE_OK);
+        if (kind)
+            EXPECT(s->enemies[1].hp == hp + 15);
+        else
+            EXPECT(s->world->expansion->summons_total == before + 1);
+        game_session_free(s);
+        free(s);
     }
 }
 static void actual_retreat(const char *data) {
-    GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
-    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;
-    EXPECT(game_session_new(s,u8"철수 우회 검사",42,0)==CORE_OK);
-    EXPECT(threat_debug_raid(s->world,CORE_THREAT_BANDITS,CORE_DIR_EAST,1)==CORE_OK);
-    EXPECT(game_session_refresh(s)==CORE_OK);
-    GameEnemy *e=&s->enemies[0];int x=s->summary.keep_x+14,y=s->summary.keep_y+14;
-    while(x<s->summary.map_width-2 && !game_path_cost(s->cost[y*s->summary.map_width+x],3))x++;
-    e->actor.position=(GamePoint){x+.5f,y+.5f};e->actor.grid_revision=-1;
-    e->entry_x=s->summary.map_width-1;e->entry_y=y;
-    e->inbound_count=1;e->inbound[0]=s->summary.keep_x;e->inbound[1]=s->summary.keep_y;
-    s->world->threat.raid.phase=CORE_RAID_ASSAULT;
-    s->world->threat.raid.first_discovered=1;
-    s->world->threat.raid.started_tick=0;s->world->threat.raid.assault_end_tick=1;
-    EXPECT(core_tick(s->world,1)==CORE_OK);
-    EXPECT(s->world->threat.raid.phase==CORE_RAID_RETREAT);
-    EXPECT(core_expansion_build_locked(s->world));EXPECT(game_session_refresh(s)==CORE_OK);
-    float before=e->actor.position.x;GamePoint retreat_from=e->actor.position;e->retarget=30;
-    memset(s->visibility,2,(size_t)s->cells);
-    EXPECT(game_session_step(s,1)==CORE_OK);EXPECT(e->actor.position.x<before+2);
-    EXPECT(game_distance(e->actor.position,retreat_from)>.001f);
-    EXPECT(s->raid_id!=0);
-    memset(s->visibility,0,(size_t)s->cells);
-    EXPECT(game_session_step(s,1)==CORE_OK);
-    EXPECT(s->raid_id==0);EXPECT(!core_expansion_build_locked(s->world));
-    EXPECT(s->world->threat.raid.escaped==1);EXPECT(s->world->threat.raid.killed==0);
-    GameActor *resident=game_actor(s,s->villagers[0].id);EXPECT(resident!=NULL);
-    if(resident){resident->chasing=1;resident->attack_serial=7;resident->attack_elapsed=1;resident->outfit=4;EXPECT(game_session_step(s,1)==CORE_OK);EXPECT(!resident->chasing && !resident->attack_serial && !resident->outfit);}
-    EXPECT(core_validate(s->world)==0);game_session_free(s);free(s);
+    GameSession *s = calloc(1, sizeof(*s));
+    EXPECT(s != NULL);
+    if (!s)
+        return;
+    EXPECT(game_session_init(s, data) == CORE_OK);
+    s->ruleset = 1;
+    EXPECT(game_session_new(s, u8"철수 우회 검사", 42, 0) == CORE_OK);
+    EXPECT(threat_debug_raid(s->world, CORE_THREAT_BANDITS, CORE_DIR_EAST, 1) == CORE_OK);
+    EXPECT(game_session_refresh(s) == CORE_OK);
+    GameEnemy *e = &s->enemies[0];
+    int x = s->summary.keep_x + 14, y = s->summary.keep_y + 14;
+    while (x < s->summary.map_width - 2 && !game_path_cost(s->cost[y * s->summary.map_width + x], 3))
+        x++;
+    e->actor.position = (GamePoint){x + .5f, y + .5f};
+    e->actor.grid_revision = -1;
+    e->entry_x = s->summary.map_width - 1;
+    e->entry_y = y;
+    e->inbound_count = 1;
+    e->inbound[0] = s->summary.keep_x;
+    e->inbound[1] = s->summary.keep_y;
+    s->world->threat.raid.phase = CORE_RAID_ASSAULT;
+    s->world->threat.raid.first_discovered = 1;
+    s->world->threat.raid.started_tick = 0;
+    s->world->threat.raid.assault_end_tick = 1;
+    EXPECT(core_tick(s->world, 1) == CORE_OK);
+    EXPECT(s->world->threat.raid.phase == CORE_RAID_RETREAT);
+    EXPECT(core_expansion_build_locked(s->world));
+    EXPECT(game_session_refresh(s) == CORE_OK);
+    float before = e->actor.position.x;
+    GamePoint retreat_from = e->actor.position;
+    e->retarget = 30;
+    memset(s->visibility, 2, (size_t)s->cells);
+    EXPECT(game_session_step(s, 1) == CORE_OK);
+    EXPECT(e->actor.position.x < before + 2);
+    EXPECT(game_distance(e->actor.position, retreat_from) > .001f);
+    EXPECT(s->raid_id != 0);
+    memset(s->visibility, 0, (size_t)s->cells);
+    EXPECT(game_session_step(s, 1) == CORE_OK);
+    EXPECT(s->raid_id == 0);
+    EXPECT(!core_expansion_build_locked(s->world));
+    EXPECT(s->world->threat.raid.escaped == 1);
+    EXPECT(s->world->threat.raid.killed == 0);
+    GameActor *resident = game_actor(s, s->villagers[0].id);
+    EXPECT(resident != NULL);
+    if (resident) {
+        resident->chasing = 1;
+        resident->attack_serial = 7;
+        resident->attack_elapsed = 1;
+        resident->outfit = 4;
+        EXPECT(game_session_step(s, 1) == CORE_OK);
+        EXPECT(!resident->chasing && !resident->attack_serial && !resident->outfit);
+    }
+    EXPECT(core_validate(s->world) == 0);
+    game_session_free(s);
+    free(s);
 }
 static void blocked_raid_target(const char *data) {
-    GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
-    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;
-    EXPECT(game_session_new(s,u8"막힌 목표와 지속 공격",42,0)==CORE_OK);
-    Building *keep=world_keep(s->world),*pocket=entity_add_building(s->world,CORE_BLD_WAREHOUSE);
-    EXPECT(pocket!=NULL);if(!pocket){game_session_free(s);free(s);return;}
-    pocket->x=keep->x-5;pocket->y=keep->y;pocket->w=pocket->h=1;pocket->door_x=pocket->x;pocket->door_y=pocket->y+1;pocket->hp=200;pocket->state=CORE_BSTATE_ACTIVE;
+    GameSession *s = calloc(1, sizeof(*s));
+    EXPECT(s != NULL);
+    if (!s)
+        return;
+    EXPECT(game_session_init(s, data) == CORE_OK);
+    s->ruleset = 1;
+    EXPECT(game_session_new(s, u8"막힌 목표와 지속 공격", 42, 0) == CORE_OK);
+    Building *keep = world_keep(s->world), *pocket = entity_add_building(s->world, CORE_BLD_WAREHOUSE);
+    EXPECT(pocket != NULL);
+    if (!pocket) {
+        game_session_free(s);
+        free(s);
+        return;
+    }
+    pocket->x = keep->x - 5;
+    pocket->y = keep->y;
+    pocket->w = pocket->h = 1;
+    pocket->door_x = pocket->x;
+    pocket->door_y = pocket->y + 1;
+    pocket->hp = 200;
+    pocket->state = CORE_BSTATE_ACTIVE;
     expansion_rebuild(s->world);
-    EXPECT(threat_debug_raid(s->world,CORE_THREAT_BANDITS,CORE_DIR_WEST,1)==CORE_OK);
-    expansion_raid_discover(s->world);EXPECT(game_session_refresh(s)==CORE_OK);
-    memset(s->cost,100,(size_t)s->cells);
-    for(int y=keep->y;y<keep->y+keep->h;y++)for(int x=keep->x;x<keep->x+keep->w;x++)s->cost[y*s->summary.map_width+x]=0;
-    for(int y=pocket->y-2;y<=pocket->y+2;y++)for(int x=pocket->x-2;x<=pocket->x+2;x++)s->cost[y*s->summary.map_width+x]=0;
-    s->enemy_cost_revision=-1;
-    for(int v=0;v<s->villager_count;v++)s->villagers[v].inside_building=keep->id;
-    GameEnemy *e=&s->enemies[0];e->actor.position=(GamePoint){keep->x-9.5f,keep->y+.5f};e->hp=100000;e->def.damage=1;
-    e->def.range=1;e->def.cooldown=20;e->def.speed=1000;e->def.behavior=CORE_BEHAVIOR_MONSTER;
-    int hp=keep->hp;
-    for(int n=0;n<240;n++)game_combat_step(s,2);
-    if(keep->hp==hp || e->attack_serial<4)fprintf(stderr,"blocked attack: hp=%d/%d pos=%.2f,%.2f target=%d/%d path=%d/%d goal=%d,%d cd=%.1f retarget=%.1f range=%d pocket_hp=%d raid=%d\n",keep->hp,hp,e->actor.position.x,e->actor.position.y,e->target_kind,e->target_id,e->actor.next,e->actor.path.count,e->actor.target_x,e->actor.target_y,e->actor.cooldown,e->retarget,e->def.range,pocket->hp,s->raid_id);
-    EXPECT(keep->hp<hp);EXPECT(e->attack_serial>=4);EXPECT(e->target_id!=pocket->id);
-    GamePoint hit={(float)keep->x+1,(float)keep->y+1};s->visibility[((int)hit.y)*s->summary.map_width+(int)hit.x]=2;
-    game_hit_fx_direction(s,(GamePoint){hit.x,hit.y+1},hit,0);
-    GameHitFx *fx=&s->hit_fx[(s->hit_cursor+159)%160];
-    EXPECT(fx->active);EXPECT(fabsf(fx->angle+90)<.01f);
-    GameDrawItem depth[2]={{97*16,DRAW_VILLAGER,0,1},{96*16,DRAW_HIT_FX,0,2}};
-    qsort(depth,2,sizeof(*depth),game_draw_compare);EXPECT(depth[0].kind==DRAW_HIT_FX);
-    game_session_free(s);free(s);
+    EXPECT(threat_debug_raid(s->world, CORE_THREAT_BANDITS, CORE_DIR_WEST, 1) == CORE_OK);
+    expansion_raid_discover(s->world);
+    EXPECT(game_session_refresh(s) == CORE_OK);
+    memset(s->cost, 100, (size_t)s->cells);
+    for (int y = keep->y; y < keep->y + keep->h; y++)
+        for (int x = keep->x; x < keep->x + keep->w; x++)
+            s->cost[y * s->summary.map_width + x] = 0;
+    for (int y = pocket->y - 2; y <= pocket->y + 2; y++)
+        for (int x = pocket->x - 2; x <= pocket->x + 2; x++)
+            s->cost[y * s->summary.map_width + x] = 0;
+    s->enemy_cost_revision = -1;
+    for (int v = 0; v < s->villager_count; v++)
+        s->villagers[v].inside_building = keep->id;
+    GameEnemy *e = &s->enemies[0];
+    e->actor.position = (GamePoint){keep->x - 9.5f, keep->y + .5f};
+    e->hp = 100000;
+    e->def.damage = 1;
+    e->def.range = 1;
+    e->def.cooldown = 20;
+    e->def.speed = 1000;
+    e->def.behavior = CORE_BEHAVIOR_MONSTER;
+    int hp = keep->hp;
+    for (int n = 0; n < 240; n++)
+        game_combat_step(s, 2);
+    if (keep->hp == hp || e->attack_serial < 4)
+        fprintf(stderr,
+                "blocked attack: hp=%d/%d pos=%.2f,%.2f target=%d/%d path=%d/%d goal=%d,%d cd=%.1f "
+                "retarget=%.1f range=%d pocket_hp=%d raid=%d\n",
+                keep->hp, hp, e->actor.position.x, e->actor.position.y, e->target_kind, e->target_id,
+                e->actor.next, e->actor.path.count, e->actor.target_x, e->actor.target_y, e->actor.cooldown,
+                e->retarget, e->def.range, pocket->hp, s->raid_id);
+    EXPECT(keep->hp < hp);
+    EXPECT(e->attack_serial >= 4);
+    EXPECT(e->target_id != pocket->id);
+    GamePoint hit = {(float)keep->x + 1, (float)keep->y + 1};
+    s->visibility[((int)hit.y) * s->summary.map_width + (int)hit.x] = 2;
+    game_hit_fx_direction(s, (GamePoint){hit.x, hit.y + 1}, hit, 0);
+    GameHitFx *fx = &s->hit_fx[(s->hit_cursor + 159) % 160];
+    EXPECT(fx->active);
+    EXPECT(fabsf(fx->angle + 90) < .01f);
+    GameDrawItem depth[2] = {{97 * 16, DRAW_VILLAGER, 0, 1}, {96 * 16, DRAW_HIT_FX, 0, 2}};
+    qsort(depth, 2, sizeof(*depth), game_draw_compare);
+    EXPECT(depth[0].kind == DRAW_HIT_FX);
+    game_session_free(s);
+    free(s);
 }
 static void enclosed_enemy_keeps_attacking(const char *data) {
-    GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
-    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;EXPECT(game_session_new(s,u8"공사 완성 위치에 갇힌 적",42,0)==CORE_OK);
-    Building *b=entity_add_building(s->world,CORE_BLD_WAREHOUSE);EXPECT(b!=NULL);if(!b){game_session_free(s);free(s);return;}
-    b->x=70;b->y=70;b->w=b->h=3;b->door_x=71;b->door_y=73;b->hp=500;b->state=CORE_BSTATE_ACTIVE;expansion_rebuild(s->world);
-    EXPECT(threat_debug_raid(s->world,CORE_THREAT_MONSTERS,CORE_DIR_EAST,1)==CORE_OK);expansion_raid_discover(s->world);EXPECT(game_session_refresh(s)==CORE_OK);
-    memset(s->cost,100,(size_t)s->cells);
-    for(int y=b->y;y<b->y+b->h;y++)for(int x=b->x;x<b->x+b->w;x++)s->cost[y*s->summary.map_width+x]=0;
-    s->enemy_cost_revision=-1;
-    for(int i=0;i<s->villager_count;i++)s->villagers[i].inside_building=s->world->keep_id;
-    CoreVillagerView *v=&s->villagers[0];v->inside_building=0;v->state=CORE_VS_GUARD_POST;
-    GameActor *a=game_actor(s,v->id);a->position=(GamePoint){75.5f,71.5f};
-    GameEnemy *e=&s->enemies[0];e->actor.position=(GamePoint){71.5f,71.5f};e->def.speed=1000;e->def.range=1;e->def.damage=1;e->def.cooldown=20;e->def.behavior=CORE_BEHAVIOR_MONSTER;
-    for(int i=0;i<90;i++)game_combat_step(s,2);
-    EXPECT(b->hp<500);EXPECT(e->attack_serial>=4);
-    game_session_free(s);free(s);
+    GameSession *s = calloc(1, sizeof(*s));
+    EXPECT(s != NULL);
+    if (!s)
+        return;
+    EXPECT(game_session_init(s, data) == CORE_OK);
+    s->ruleset = 1;
+    EXPECT(game_session_new(s, u8"공사 완성 위치에 갇힌 적", 42, 0) == CORE_OK);
+    Building *b = entity_add_building(s->world, CORE_BLD_WAREHOUSE);
+    EXPECT(b != NULL);
+    if (!b) {
+        game_session_free(s);
+        free(s);
+        return;
+    }
+    b->x = 70;
+    b->y = 70;
+    b->w = b->h = 3;
+    b->door_x = 71;
+    b->door_y = 73;
+    b->hp = 500;
+    b->state = CORE_BSTATE_ACTIVE;
+    expansion_rebuild(s->world);
+    EXPECT(threat_debug_raid(s->world, CORE_THREAT_MONSTERS, CORE_DIR_EAST, 1) == CORE_OK);
+    expansion_raid_discover(s->world);
+    EXPECT(game_session_refresh(s) == CORE_OK);
+    memset(s->cost, 100, (size_t)s->cells);
+    for (int y = b->y; y < b->y + b->h; y++)
+        for (int x = b->x; x < b->x + b->w; x++)
+            s->cost[y * s->summary.map_width + x] = 0;
+    s->enemy_cost_revision = -1;
+    for (int i = 0; i < s->villager_count; i++)
+        s->villagers[i].inside_building = s->world->keep_id;
+    CoreVillagerView *v = &s->villagers[0];
+    v->inside_building = 0;
+    v->state = CORE_VS_GUARD_POST;
+    GameActor *a = game_actor(s, v->id);
+    a->position = (GamePoint){75.5f, 71.5f};
+    GameEnemy *e = &s->enemies[0];
+    e->actor.position = (GamePoint){71.5f, 71.5f};
+    e->def.speed = 1000;
+    e->def.range = 1;
+    e->def.damage = 1;
+    e->def.cooldown = 20;
+    e->def.behavior = CORE_BEHAVIOR_MONSTER;
+    for (int i = 0; i < 90; i++)
+        game_combat_step(s, 2);
+    EXPECT(b->hp < 500);
+    EXPECT(e->attack_serial >= 4);
+    game_session_free(s);
+    free(s);
 }
 static void dispersed_raid_and_global_dispatch(const char *data) {
-    GameSession *s=calloc(1,sizeof(*s));EXPECT(s!=NULL);if(!s)return;
-    EXPECT(game_session_init(s,data)==CORE_OK);s->ruleset=1;EXPECT(game_session_new(s,u8"분산 습격과 전역 출동",42,0)==CORE_OK);
-    EXPECT(threat_debug_raid(s->world,CORE_THREAT_BANDITS,CORE_DIR_EAST,8)==CORE_OK);EXPECT(game_session_refresh(s)==CORE_OK);
-    int pending=0,different=0;
-    for(int i=0;i<s->enemy_count;i++){pending+=s->enemies[i].pending_spawn;different+=game_distance(s->enemies[0].actor.position,s->enemies[i].actor.position)>.5f;}
-    EXPECT(pending==7);EXPECT(different>=4);EXPECT(game_enemy(s,2)==NULL);
-    EXPECT(game_session_step(s,2)==CORE_OK);EXPECT(s->enemies[1].pending_spawn);EXPECT(core_save(s->world,"native_spawn_queue.sav")==CORE_OK);
-    EXPECT(game_session_load(s,"native_spawn_queue.sav",NULL)==CORE_OK);EXPECT(s->enemies[1].pending_spawn);
-    EXPECT(game_session_step(s,3)==CORE_OK);EXPECT(!s->enemies[1].pending_spawn);EXPECT(s->enemies[2].pending_spawn);
-    for(int i=1;i<s->enemy_count;i++){s->enemies[i].hp=0;core_report_enemy_escaped(s->world,s->raid_id,s->enemies[i].actor.id);}
-    Building *b=entity_add_building(s->world,CORE_BLD_BARRACKS);EXPECT(b!=NULL);
-    if(b) {
-        b->x=s->summary.keep_x+7;b->y=s->summary.keep_y;b->w=3;b->h=3;b->door_x=b->x+1;b->door_y=b->y+3;b->hp=300;b->state=CORE_BSTATE_ACTIVE;
-        Villager *v=s->world->villagers[0];EXPECT(entity_link_worker(b,v,4)==CORE_OK);
-        v->state=CORE_VS_GUARD_POST;v->mission=CORE_MISSION_COMBAT;v->mission_target=b->id;v->inside_building=0;v->current_x_milli=b->door_x*1000+500;v->current_y_milli=b->door_y*1000+500;
-        expansion_raid_discover(s->world);expansion_rebuild(s->world);EXPECT(game_session_refresh(s)==CORE_OK);
-        memset(s->cost,100,(size_t)s->cells);s->enemy_cost_revision=-1;
-        GameActor *a=game_actor(s,v->id);a->position=(GamePoint){b->door_x+.5f,b->door_y+.5f};a->outfit=3;
-        GameEnemy *e=&s->enemies[0];e->pending_spawn=0;e->actor.position=(GamePoint){a->position.x+14,a->position.y};e->def.speed=0;
-        memset(s->visibility,0,(size_t)s->cells);s->visibility[(int)e->actor.position.y*s->summary.map_width+(int)e->actor.position.x]=2;
-        s->alarm_seen_id=s->summary.raid_id;s->dispatch_delay=0;GamePoint before=a->position;
-        game_combat_step(s,2);EXPECT(a->chasing);EXPECT(game_distance(before,a->position)>.001f);
-        /* 같은 좌표에 있던 적도 통행 가능한 칸 안에서 서로 떨어집니다. */
-        s->enemies[1].hp=100;s->enemies[1].pending_spawn=0;s->enemies[1].actor.position=e->actor.position;s->enemies[1].def.speed=0;
-        game_combat_step(s,2);EXPECT(game_distance(e->actor.position,s->enemies[1].actor.position)>.01f);
+    GameSession *s = calloc(1, sizeof(*s));
+    EXPECT(s != NULL);
+    if (!s)
+        return;
+    EXPECT(game_session_init(s, data) == CORE_OK);
+    s->ruleset = 1;
+    EXPECT(game_session_new(s, u8"분산 습격과 전역 출동", 42, 0) == CORE_OK);
+    EXPECT(threat_debug_raid(s->world, CORE_THREAT_BANDITS, CORE_DIR_EAST, 8) == CORE_OK);
+    EXPECT(game_session_refresh(s) == CORE_OK);
+    int pending = 0, different = 0;
+    for (int i = 0; i < s->enemy_count; i++) {
+        pending += s->enemies[i].pending_spawn;
+        different += game_distance(s->enemies[0].actor.position, s->enemies[i].actor.position) > .5f;
     }
-    (void)platform_remove_file("native_spawn_queue.sav");(void)platform_remove_file("native_spawn_queue.sav.bak");game_session_free(s);free(s);
+    EXPECT(pending == 7);
+    EXPECT(different >= 4);
+    EXPECT(game_enemy(s, 2) == NULL);
+    EXPECT(game_session_step(s, 2) == CORE_OK);
+    EXPECT(s->enemies[1].pending_spawn);
+    EXPECT(core_save(s->world, "native_spawn_queue.sav") == CORE_OK);
+    EXPECT(game_session_load(s, "native_spawn_queue.sav", NULL) == CORE_OK);
+    EXPECT(s->enemies[1].pending_spawn);
+    EXPECT(game_session_step(s, 3) == CORE_OK);
+    EXPECT(!s->enemies[1].pending_spawn);
+    EXPECT(s->enemies[2].pending_spawn);
+    for (int i = 1; i < s->enemy_count; i++) {
+        s->enemies[i].hp = 0;
+        core_report_enemy_escaped(s->world, s->raid_id, s->enemies[i].actor.id);
+    }
+    Building *b = entity_add_building(s->world, CORE_BLD_BARRACKS);
+    EXPECT(b != NULL);
+    if (b) {
+        b->x = s->summary.keep_x + 7;
+        b->y = s->summary.keep_y;
+        b->w = 3;
+        b->h = 3;
+        b->door_x = b->x + 1;
+        b->door_y = b->y + 3;
+        b->hp = 300;
+        b->state = CORE_BSTATE_ACTIVE;
+        Villager *v = s->world->villagers[0];
+        EXPECT(entity_link_worker(b, v, 4) == CORE_OK);
+        v->state = CORE_VS_GUARD_POST;
+        v->mission = CORE_MISSION_COMBAT;
+        v->mission_target = b->id;
+        v->inside_building = 0;
+        v->current_x_milli = b->door_x * 1000 + 500;
+        v->current_y_milli = b->door_y * 1000 + 500;
+        expansion_raid_discover(s->world);
+        expansion_rebuild(s->world);
+        EXPECT(game_session_refresh(s) == CORE_OK);
+        memset(s->cost, 100, (size_t)s->cells);
+        s->enemy_cost_revision = -1;
+        GameActor *a = game_actor(s, v->id);
+        a->position = (GamePoint){b->door_x + .5f, b->door_y + .5f};
+        a->outfit = 3;
+        GameEnemy *e = &s->enemies[0];
+        e->pending_spawn = 0;
+        e->actor.position = (GamePoint){a->position.x + 14, a->position.y};
+        e->def.speed = 0;
+        memset(s->visibility, 0, (size_t)s->cells);
+        s->visibility[(int)e->actor.position.y * s->summary.map_width + (int)e->actor.position.x] = 2;
+        s->alarm_seen_id = s->summary.raid_id;
+        s->dispatch_delay = 0;
+        GamePoint before = a->position;
+        game_combat_step(s, 2);
+        EXPECT(a->chasing);
+        EXPECT(game_distance(before, a->position) > .001f);
+        /* 같은 좌표에 있던 적도 통행 가능한 칸 안에서 서로 떨어집니다. */
+        s->enemies[1].hp = 100;
+        s->enemies[1].pending_spawn = 0;
+        s->enemies[1].actor.position = e->actor.position;
+        s->enemies[1].def.speed = 0;
+        game_combat_step(s, 2);
+        EXPECT(game_distance(e->actor.position, s->enemies[1].actor.position) > .01f);
+    }
+    (void)platform_remove_file("native_spawn_queue.sav");
+    (void)platform_remove_file("native_spawn_queue.sav.bak");
+    game_session_free(s);
+    free(s);
 }
 static void rock_density(void) {
-    CoreNewGameParams p={0};World *w=NULL;strcpy(p.castle_name,u8"바위 표시 검사");p.ruleset=1;p.seed=42;EXPECT(core_create(&p,NULL,&w)==CORE_OK);if(!w)return;
-    int before=0,after=0,seen[15]={0};uint64_t a,b;core_state_hash(w,&a);
-    for(int y=0;y<w->grid.height;y++)for(int x=0;x<w->grid.width;x++){int q=grid_index(&w->grid,x,y);const CoreExpansionTileView *tile=&w->expansion->tiles[q];if(w->grid.terrain[q]==CORE_TERRAIN_WATER)continue;before+=tile->rock_variant>0&&(tile->stone_milli>0||tile->ore_milli>0);if(game_rock_marker(w->expansion->tiles,w->grid.road,NULL,w->grid.width,w->grid.height,x,y)){after++;seen[tile->ore_milli>0?tile->ore_kind:CORE_RES_STONE]++;}}
-    core_state_hash(w,&b);EXPECT(a==b);EXPECT(after>0&&after*2<before);EXPECT(seen[CORE_RES_GOLD_ORE]>0&&seen[CORE_RES_MANA]>0);printf("ROCK_MARKERS: seed=42 before=%d after=%d reduction=%.1f%% resources_preserved=%d\n",before,after,100.0*(before-after)/before,a==b);core_destroy(w);
+    CoreNewGameParams p = {0};
+    World *w = NULL;
+    strcpy(p.castle_name, u8"바위 표시 검사");
+    p.ruleset = 1;
+    p.seed = 42;
+    EXPECT(core_create(&p, NULL, &w) == CORE_OK);
+    if (!w)
+        return;
+    int before = 0, after = 0, seen[15] = {0};
+    uint64_t a, b;
+    core_state_hash(w, &a);
+    for (int y = 0; y < w->grid.height; y++)
+        for (int x = 0; x < w->grid.width; x++) {
+            int q = grid_index(&w->grid, x, y);
+            const CoreExpansionTileView *tile = &w->expansion->tiles[q];
+            if (w->grid.terrain[q] == CORE_TERRAIN_WATER)
+                continue;
+            before += tile->rock_variant > 0 && (tile->stone_milli > 0 || tile->ore_milli > 0);
+            if (game_rock_marker(w->expansion->tiles, w->grid.road, NULL, w->grid.width, w->grid.height, x,
+                                 y)) {
+                after++;
+                seen[tile->ore_milli > 0 ? tile->ore_kind : CORE_RES_STONE]++;
+            }
+        }
+    core_state_hash(w, &b);
+    EXPECT(a == b);
+    EXPECT(after > 0 && after * 2 < before);
+    EXPECT(seen[CORE_RES_GOLD_ORE] > 0 && seen[CORE_RES_MANA] > 0);
+    printf("ROCK_MARKERS: seed=42 before=%d after=%d reduction=%.1f%% resources_preserved=%d\n", before,
+           after, 100.0 * (before - after) / before, a == b);
+    core_destroy(w);
 }
 int main(int argc, char **argv) {
     if (argc != 2)

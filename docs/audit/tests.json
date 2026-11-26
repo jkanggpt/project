@@ -1,0 +1,1671 @@
+{
+  "before": 277,
+  "after": 272,
+  "cases": [
+    {
+      "before": "native_smoke_20",
+      "after": "native_smoke_20",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "native_bad_arguments",
+      "after": "native_bad_arguments",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v122_map_and_real_v9",
+      "after": "world_golden,current_save_unsupported",
+      "status": "REPLACE",
+      "reason": "현행 지도 부분은 1000골든으로 확장, 구 저장 성공 조건은 지원하지 않는 스키마 안전 거부로 대체"
+    },
+    {
+      "before": "expansion_bot_closes_region",
+      "after": "expansion_bot_closes_region",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_bot_rejects_unprotected",
+      "after": "expansion_bot_rejects_unprotected",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_art_assets",
+      "after": "assets_runtime,assets_regenerate,assets_reproducible",
+      "status": "MERGE",
+      "reason": "각 실제 C 생성 단계의 원래 검사를 단일 파이프라인에 유지하고 412출력 SHA 검사"
+    },
+    {
+      "before": "v123_art_assets",
+      "after": "assets_runtime,assets_regenerate,assets_reproducible",
+      "status": "MERGE",
+      "reason": "각 실제 C 생성 단계의 원래 검사를 단일 파이프라인에 유지하고 412출력 SHA 검사"
+    },
+    {
+      "before": "ui_art_assets",
+      "after": "assets_runtime,assets_regenerate,assets_reproducible",
+      "status": "MERGE",
+      "reason": "각 실제 C 생성 단계의 원래 검사를 단일 파이프라인에 유지하고 412출력 SHA 검사"
+    },
+    {
+      "before": "v122_art_assets",
+      "after": "assets_runtime,assets_regenerate,assets_reproducible",
+      "status": "MERGE",
+      "reason": "각 실제 C 생성 단계의 원래 검사를 단일 파이프라인에 유지하고 412출력 SHA 검사"
+    },
+    {
+      "before": "v121_art_assets",
+      "after": "assets_runtime,assets_regenerate,assets_reproducible",
+      "status": "MERGE",
+      "reason": "각 실제 C 생성 단계의 원래 검사를 단일 파이프라인에 유지하고 412출력 SHA 검사"
+    },
+    {
+      "before": "v111_art_assets",
+      "after": "assets_runtime,assets_regenerate,assets_reproducible",
+      "status": "MERGE",
+      "reason": "각 실제 C 생성 단계의 원래 검사를 단일 파이프라인에 유지하고 412출력 SHA 검사"
+    },
+    {
+      "before": "native_art_assets",
+      "after": "assets_runtime,assets_regenerate,assets_reproducible",
+      "status": "MERGE",
+      "reason": "각 실제 C 생성 단계의 원래 검사를 단일 파이프라인에 유지하고 412출력 SHA 검사"
+    },
+    {
+      "before": "expansion_art_assets",
+      "after": "assets_runtime,assets_regenerate,assets_reproducible",
+      "status": "MERGE",
+      "reason": "각 실제 C 생성 단계의 원래 검사를 단일 파이프라인에 유지하고 412출력 SHA 검사"
+    },
+    {
+      "before": "native_runtime",
+      "after": "native_runtime",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "rng_is_deterministic",
+      "after": "rng_is_deterministic",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "rng_range_stays_in_bounds",
+      "after": "rng_range_stays_in_bounds",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "clock_math",
+      "after": "clock_math",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "events_grow_and_drop_oldest",
+      "after": "events_grow_and_drop_oldest",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "economy_bank_rules",
+      "after": "economy_bank_rules",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "grid_generation_is_deterministic",
+      "after": "grid_generation_is_deterministic",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "grid_fair_start_many_seeds",
+      "after": "grid_fair_start_many_seeds",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "grid_connectivity_many_seeds",
+      "after": "grid_connectivity_many_seeds",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "grid_terrain_mix_is_reasonable",
+      "after": "grid_terrain_mix_is_reasonable",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "world_create_and_destroy",
+      "after": "world_create_and_destroy",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "world_rejects_bad_params",
+      "after": "world_rejects_bad_params",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "world_tick_emits_events",
+      "after": "world_tick_emits_events",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "world_same_seed_same_state",
+      "after": "world_same_seed_same_state",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "world_out_of_memory_is_clean",
+      "after": "world_out_of_memory_is_clean",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "validate_detects_corruption",
+      "after": "validate_detects_corruption",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "api_rejects_null_and_bad_args",
+      "after": "api_rejects_null_and_bad_args",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "api_struct_sizes_and_config",
+      "after": "api_struct_sizes_and_config",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "api_events_drain",
+      "after": "api_events_drain",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "save_roundtrip_same_hash",
+      "after": "save_roundtrip_same_hash",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "save_keeps_backup",
+      "after": "save_keeps_backup",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "save_korean_path",
+      "after": "save_korean_path",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "save_refuses_invalid_world",
+      "after": "save_refuses_invalid_world",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "load_missing_file",
+      "after": "load_missing_file",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "load_wrong_version",
+      "after": "load_wrong_version",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "load_rejects_bad_values",
+      "after": "load_rejects_bad_values",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "load_truncated_files",
+      "after": "load_truncated_files",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "load_garbled_files",
+      "after": "load_garbled_files",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "load_out_of_memory_is_clean",
+      "after": "load_out_of_memory_is_clean",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "save_peek_summarizes_slot",
+      "after": "save_peek_summarizes_slot",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "save_peek_broken_offers_backup",
+      "after": "save_peek_broken_offers_backup",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "castle_name_check",
+      "after": "castle_name_check",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "platform_replace_and_copy",
+      "after": "platform_replace_and_copy",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "defs_builtin_roundtrip",
+      "after": "defs_builtin_roundtrip",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "defs_errors_keep_defaults",
+      "after": "defs_errors_keep_defaults",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "defs_traits_and_names_grow",
+      "after": "defs_traits_and_names_grow",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "entity_links_both_directions",
+      "after": "entity_links_both_directions",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "placement_rules",
+      "after": "placement_rules",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "placement_roads_and_paths",
+      "after": "placement_roads_and_paths",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "demolish_refunds_and_unlinks",
+      "after": "demolish_refunds_and_unlinks",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "villager_handshake_stale_rev",
+      "after": "villager_handshake_stale_rev",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "production_only_while_working",
+      "after": "production_only_while_working",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "consumption_and_starvation",
+      "after": "consumption_and_starvation",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "wages_and_taxes",
+      "after": "wages_and_taxes",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "departure_after_low_mood",
+      "after": "departure_after_low_mood",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "immigration_needs_housing_and_food",
+      "after": "immigration_needs_housing_and_food",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "auto_and_manual_assignment",
+      "after": "auto_and_manual_assignment",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "auto_assign_unstaffed_type_first",
+      "after": "auto_assign_unstaffed_type_first",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "autumn_immigration_needs_winter_food",
+      "after": "autumn_immigration_needs_winter_food",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "debug_stress_town",
+      "after": "debug_stress_town",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "save_roundtrip_colony",
+      "after": "save_roundtrip_colony",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "winter_farms_stop_and_houses_burn_wood",
+      "after": "winter_farms_stop_and_houses_burn_wood",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "nature_forecast_then_drought",
+      "after": "nature_forecast_then_drought",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "nature_events_follow_seasons",
+      "after": "nature_events_follow_seasons",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "storm_damage_ruin_and_repair",
+      "after": "storm_damage_ruin_and_repair",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "sickness_and_healer",
+      "after": "sickness_and_healer",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "market_trade_rules",
+      "after": "market_trade_rules",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "merchant_visits_and_deals",
+      "after": "merchant_visits_and_deals",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "ledger_matches_bank",
+      "after": "ledger_matches_bank",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "save_roundtrip_world_pressure",
+      "after": "save_roundtrip_world_pressure",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "threat_first_bandits_announced",
+      "after": "threat_first_bandits_announced",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "raid_start_flee_and_guards",
+      "after": "raid_start_flee_and_guards",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "raid_reports_apply",
+      "after": "raid_reports_apply",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "raid_times_out",
+      "after": "raid_times_out",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "ruined_wall_is_passable",
+      "after": "ruined_wall_is_passable",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "no_repair_during_raid",
+      "after": "no_repair_during_raid",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "sheltered_villagers_eat",
+      "after": "sheltered_villagers_eat",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "research_flow",
+      "after": "research_flow",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "research_effects_and_save",
+      "after": "research_effects_and_save",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "rank_up_rules",
+      "after": "rank_up_rules",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "victory_at_royal_castle",
+      "after": "victory_at_royal_castle",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "keep_falls_defeat",
+      "after": "keep_falls_defeat",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "population_zero_defeat",
+      "after": "population_zero_defeat",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "tutorial_objectives",
+      "after": "tutorial_objectives",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "difficulty_presets",
+      "after": "difficulty_presets",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "research_and_rank_files",
+      "after": "research_and_rank_files",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "building_def_counted_terrain",
+      "after": "building_def_counted_terrain",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "enemy_defs_and_composition",
+      "after": "enemy_defs_and_composition",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "threat_save_roundtrip",
+      "after": "threat_save_roundtrip",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_world_and_save",
+      "after": "expansion_world_and_save",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_fuel_and_recipe",
+      "after": "expansion_fuel_and_recipe",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_harvest_once",
+      "after": "expansion_harvest_once",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_rotation_and_road_guard",
+      "after": "expansion_rotation_and_road_guard",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_medical_and_growth",
+      "after": "expansion_medical_and_growth",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_alert_and_departure",
+      "after": "expansion_alert_and_departure",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_shared_logging",
+      "after": "expansion_shared_logging",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_protected_gate",
+      "after": "expansion_protected_gate",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_candidates_and_housing",
+      "after": "expansion_candidates_and_housing",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_feed_before_output",
+      "after": "expansion_feed_before_output",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_xp_and_stock",
+      "after": "expansion_xp_and_stock",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_allocation_failures",
+      "after": "expansion_allocation_failures",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_validation_bounds",
+      "after": "expansion_validation_bounds",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_contract_deadline",
+      "after": "expansion_contract_deadline",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_magic_consumption",
+      "after": "expansion_magic_consumption",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_gate_connectivity",
+      "after": "expansion_gate_connectivity",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_nearest_refuge",
+      "after": "expansion_nearest_refuge",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_guaranteed_starter_waves",
+      "after": "expansion_guaranteed_starter_waves",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "expansion_repair_protection",
+      "after": "expansion_repair_protection",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v111_population_floor_and_refill",
+      "after": "settlement_population_floor_and_refill",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v111_immigration_status",
+      "after": "settlement_immigration_status",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v111_long_happiness",
+      "after": "settlement_long_happiness",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v111_manor_promotion_save",
+      "after": "settlement_manor_promotion_save",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v111_market_split_quotes",
+      "after": "settlement_market_split_quotes",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v111_ecology_water_and_roads",
+      "after": "settlement_ecology_water_and_roads",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v111_migrant_fog_and_save",
+      "after": "settlement_migrant_fog_and_save",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v111_weighted_hubs",
+      "after": "settlement_weighted_hubs",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v111_water_temperature_and_fishing",
+      "after": "settlement_water_temperature_and_fishing",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v111_hunting_and_debug_cap",
+      "after": "settlement_hunting_and_debug_cap",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v111_attack_impact_and_save",
+      "after": "settlement_attack_impact_and_save",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v121_identity_and_save",
+      "after": "labor_identity_and_save",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v121_actual_labor_and_xp",
+      "after": "labor_actual_labor_and_xp",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v121_event_labor_and_services",
+      "after": "labor_event_labor_and_services",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v121_visibility_trade_and_centers",
+      "after": "labor_visibility_trade_and_centers",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v121_livestock_age_and_breeding",
+      "after": "labor_livestock_age_and_breeding",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v121_raids_summons_and_drops",
+      "after": "labor_raids_summons_and_drops",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v121_exact_crop_and_magic_cost",
+      "after": "labor_exact_crop_and_magic_cost",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v121_medical_actual_staff",
+      "after": "labor_medical_actual_staff",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v122_rules_and_save",
+      "after": "lifecycle_rules_and_save",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v122_discovery_timer_and_shift",
+      "after": "lifecycle_discovery_timer_and_shift",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v122_patch2_economy_and_vision",
+      "after": "workforce_economy_and_vision",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v122_patch2_uniform_route",
+      "after": "workforce_uniform_route",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v123_world_and_clay",
+      "after": "services_world_and_clay",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v123_barter_atomic",
+      "after": "services_barter_atomic",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v123_exile_floor",
+      "after": "services_exile_floor",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v123_forecast_rng",
+      "after": "services_forecast_rng",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v123_bridge_and_boats",
+      "after": "services_bridge_and_boats",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v123_merchant_visit_and_save",
+      "after": "services_merchant_visit_and_save",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v123_water_and_medicine",
+      "after": "services_water_and_medicine",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v123_real_v10_preserved",
+      "after": "current_save_unsupported,current_save_integrity",
+      "status": "REMOVE_COMPATIBILITY",
+      "reason": "구 저장 호환·이관만 검증하므로 현행 스키마 거부·손상 검사로 대체"
+    },
+    {
+      "before": "v123_hunter_retaliation",
+      "after": "services_hunter_retaliation",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_harvest_six_days",
+      "after": "content_harvest_six_days",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_immigration_samples",
+      "after": "content_immigration_samples",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_livestock_purchase",
+      "after": "content_livestock_purchase",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_rank_groups",
+      "after": "content_rank_groups",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_medical_qualification",
+      "after": "content_medical_qualification",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_real_v11_preserved",
+      "after": "current_save_unsupported,current_save_integrity",
+      "status": "REMOVE_COMPATIBILITY",
+      "reason": "구 저장 호환·이관만 검증하므로 현행 스키마 거부·손상 검사로 대체"
+    },
+    {
+      "before": "v124_migrate_barracks",
+      "after": "current_save_unsupported,current_save_integrity",
+      "status": "REMOVE_COMPATIBILITY",
+      "reason": "구 저장 호환·이관만 검증하므로 현행 스키마 거부·손상 검사로 대체"
+    },
+    {
+      "before": "v124_catalog",
+      "after": "content_catalog",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_harvest_actual_tick",
+      "after": "content_harvest_actual_tick",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_livestock_daily_budget",
+      "after": "content_livestock_daily_budget",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "cli_menu_script",
+      "after": "cli_menu_script",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "cli_simulate",
+      "after": "cli_simulate",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "cli_soak_short",
+      "after": "cli_soak_short",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "cli_bad_arguments",
+      "after": "cli_bad_arguments",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_1",
+      "after": "content_recipe_1",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_2",
+      "after": "content_recipe_2",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_3",
+      "after": "content_recipe_3",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_4",
+      "after": "content_recipe_4",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_5",
+      "after": "content_recipe_5",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_6",
+      "after": "content_recipe_6",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_7",
+      "after": "content_recipe_7",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_8",
+      "after": "content_recipe_8",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_9",
+      "after": "content_recipe_9",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_10",
+      "after": "content_recipe_10",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_11",
+      "after": "content_recipe_11",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_12",
+      "after": "content_recipe_12",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_13",
+      "after": "content_recipe_13",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_14",
+      "after": "content_recipe_14",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_15",
+      "after": "content_recipe_15",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_16",
+      "after": "content_recipe_16",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_17",
+      "after": "content_recipe_17",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_18",
+      "after": "content_recipe_18",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_19",
+      "after": "content_recipe_19",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_20",
+      "after": "content_recipe_20",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_21",
+      "after": "content_recipe_21",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_22",
+      "after": "content_recipe_22",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_23",
+      "after": "content_recipe_23",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_24",
+      "after": "content_recipe_24",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_25",
+      "after": "content_recipe_25",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_26",
+      "after": "content_recipe_26",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_27",
+      "after": "content_recipe_27",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_28",
+      "after": "content_recipe_28",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_29",
+      "after": "content_recipe_29",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_30",
+      "after": "content_recipe_30",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_31",
+      "after": "content_recipe_31",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_32",
+      "after": "content_recipe_32",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_33",
+      "after": "content_recipe_33",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_34",
+      "after": "content_recipe_34",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_35",
+      "after": "content_recipe_35",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_36",
+      "after": "content_recipe_36",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_37",
+      "after": "content_recipe_37",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_38",
+      "after": "content_recipe_38",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_39",
+      "after": "content_recipe_39",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_40",
+      "after": "content_recipe_40",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_41",
+      "after": "content_recipe_41",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_42",
+      "after": "content_recipe_42",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_43",
+      "after": "content_recipe_43",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_44",
+      "after": "content_recipe_44",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_45",
+      "after": "content_recipe_45",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_46",
+      "after": "content_recipe_46",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_47",
+      "after": "content_recipe_47",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_48",
+      "after": "content_recipe_48",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_49",
+      "after": "content_recipe_49",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_50",
+      "after": "content_recipe_50",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_51",
+      "after": "content_recipe_51",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_52",
+      "after": "content_recipe_52",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_53",
+      "after": "content_recipe_53",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_54",
+      "after": "content_recipe_54",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_55",
+      "after": "content_recipe_55",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_56",
+      "after": "content_recipe_56",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_57",
+      "after": "content_recipe_57",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_58",
+      "after": "content_recipe_58",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_59",
+      "after": "content_recipe_59",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_60",
+      "after": "content_recipe_60",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_61",
+      "after": "content_recipe_61",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_62",
+      "after": "content_recipe_62",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_63",
+      "after": "content_recipe_63",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_64",
+      "after": "content_recipe_64",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_65",
+      "after": "content_recipe_65",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_66",
+      "after": "content_recipe_66",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_67",
+      "after": "content_recipe_67",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_68",
+      "after": "content_recipe_68",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_69",
+      "after": "content_recipe_69",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_70",
+      "after": "content_recipe_70",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_71",
+      "after": "content_recipe_71",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_72",
+      "after": "content_recipe_72",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_73",
+      "after": "content_recipe_73",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_74",
+      "after": "content_recipe_74",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_75",
+      "after": "content_recipe_75",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_76",
+      "after": "content_recipe_76",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_77",
+      "after": "content_recipe_77",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_78",
+      "after": "content_recipe_78",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_79",
+      "after": "content_recipe_79",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_80",
+      "after": "content_recipe_80",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_81",
+      "after": "content_recipe_81",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_82",
+      "after": "content_recipe_82",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_83",
+      "after": "content_recipe_83",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_84",
+      "after": "content_recipe_84",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_recipe_85",
+      "after": "content_recipe_85",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_0",
+      "after": "content_animal_0",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_1",
+      "after": "content_animal_1",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_2",
+      "after": "content_animal_2",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_3",
+      "after": "content_animal_3",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_4",
+      "after": "content_animal_4",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_5",
+      "after": "content_animal_5",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_6",
+      "after": "content_animal_6",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_7",
+      "after": "content_animal_7",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_8",
+      "after": "content_animal_8",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_9",
+      "after": "content_animal_9",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_10",
+      "after": "content_animal_10",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_11",
+      "after": "content_animal_11",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_12",
+      "after": "content_animal_12",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_13",
+      "after": "content_animal_13",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_14",
+      "after": "content_animal_14",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_15",
+      "after": "content_animal_15",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_16",
+      "after": "content_animal_16",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_17",
+      "after": "content_animal_17",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_18",
+      "after": "content_animal_18",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_19",
+      "after": "content_animal_19",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_20",
+      "after": "content_animal_20",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_21",
+      "after": "content_animal_21",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_22",
+      "after": "content_animal_22",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_23",
+      "after": "content_animal_23",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_24",
+      "after": "content_animal_24",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_25",
+      "after": "content_animal_25",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_26",
+      "after": "content_animal_26",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_27",
+      "after": "content_animal_27",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_28",
+      "after": "content_animal_28",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_29",
+      "after": "content_animal_29",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_30",
+      "after": "content_animal_30",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_31",
+      "after": "content_animal_31",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_32",
+      "after": "content_animal_32",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_33",
+      "after": "content_animal_33",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    },
+    {
+      "before": "v124_animal_34",
+      "after": "content_animal_34",
+      "status": "PRESERVED",
+      "reason": "현행 기능 사례 유지"
+    }
+  ],
+  "added": [
+    "current_save_cycles"
+  ]
+}

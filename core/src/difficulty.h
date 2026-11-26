@@ -12,13 +12,11 @@
 #include "castle_core.h"
 
 typedef struct DifficultyPreset {
-    int32_t start_villagers;
-    int32_t start_resources[CORE_RES_COUNT]; /* 금화, 마정석, 식량, 목재, 석재, 약초 */
-    int32_t base_mood;          /* 기분 계산의 기본값 */
-    int32_t raid_strength_pct;  /* 습격의 적 수 % */
-    int32_t raid_interval_pct;  /* 습격 사이 간격 % (클수록 드묾) */
-    int32_t nature_pct;         /* 자연 사건의 확률과 피해 % */
-    int32_t tribute_pct;        /* 승급 공물 % */
+    int32_t base_mood;         /* 기분 계산의 기본값 */
+    int32_t raid_strength_pct; /* 습격의 적 수 % */
+    int32_t raid_interval_pct; /* 습격 사이 간격 % (클수록 드묾) */
+    int32_t nature_pct;        /* 자연 사건의 확률과 피해 % */
+    int32_t tribute_pct;       /* 승급 공물 % */
 } DifficultyPreset;
 
 /* 난이도의 설정. 범위 밖이면 보통 */

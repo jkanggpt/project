@@ -20,7 +20,8 @@ const char *fmt_terrain_name(int32_t terrain);
 const char *fmt_result_message(int32_t code);
 /* 이벤트 하나를 문장으로 */
 void fmt_event(const CoreEventView *event, char *out, size_t size);
-/* 조사 고르기: word 의 마지막 글자에 받침이 있으면 with_final("이", "을"), 없으면 without_final("가", "를") */
+/* 조사 고르기: word 의 마지막 글자에 받침이 있으면 with_final("이", "을"), 없으면 without_final("가", "를")
+ */
 const char *fmt_josa(const char *word, const char *with_final, const char *without_final);
 const char *fmt_building_name(int32_t type);
 const char *fmt_place_result(int32_t result);

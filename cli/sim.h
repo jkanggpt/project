@@ -18,7 +18,7 @@ int sim_run_simulation(int days, int32_t seed, int difficulty, const char *bot_n
 
 /* 성공(위반 0) 0, 실패 1 */
 int sim_run_soak(int days, int seeds, int32_t first_seed, const CoreDefs *defs);
-/* 성능 측정: core_debug_stress 로 큰 마을을 만들고 하루 적응 뒤 닷새 동안 core_tick 한 번의 시간을 잽니다.
+/* 성능 측정: 현재 영지를 만들고 하루 적응 뒤 닷새 동안 공용 GameSession 진행 시간을 잽니다.
  * 평균과 가장 느린 틱을 출력. 0 = 성공 */
 int sim_run_bench(int villagers, int enemies, int32_t seed, const CoreDefs *defs);
 

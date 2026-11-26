@@ -67,11 +67,11 @@ jobs:
       - name: C balance tool
         run: build/windows-msvc/bin/Release/castle_balance.exe --data game/data --seeds 1 --days 10 --difficulty 1
       - name: Package
-        run: cmake --install build/windows-msvc --config Release --prefix artifacts/MagicCastle
+        run: cmake --install build/windows-msvc --config Release --prefix build/release/MagicCastle --component Runtime
       - uses: actions/upload-artifact@v4
         with:
           name: MagicCastle-C-windows-x64
-          path: artifacts/MagicCastle/
+          path: build/release/MagicCastle/
           retention-days: 14
 
   graphics:
@@ -87,9 +87,9 @@ jobs:
           ctest --preset linux-release -j4
       - name: C game screenshot
         run: |
-          mkdir -p artifacts/screenshots
-          xvfb-run -a build/linux-release/bin/castle_game --screenshot artifacts/screenshots/native.png --screen game --no-audio
+          mkdir -p build/reports/screenshots
+          xvfb-run -a build/linux-release/bin/castle_game --screenshot build/reports/screenshots/native.png --screen game --no-audio
       - uses: actions/upload-artifact@v4
         with:
           name: MagicCastle-C-linux-screenshot
-          path: artifacts/screenshots/
+          path: build/reports/screenshots/

@@ -1,6 +1,6 @@
 # 마법성채 키우기 — 최상위 CMake 설정
 # C 코어, 그래픽 게임, CLI, 밸런스 도구와 테스트를 빌드합니다.
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
 project(MagicCastle VERSION 1.2.4 LANGUAGES C)
 
 option(CASTLE_SANITIZE "AddressSanitizer + UBSan + LeakSanitizer (GCC/Clang 전용)" OFF)
@@ -55,7 +55,7 @@ endif()
 include_directories(BEFORE "${PROJECT_SOURCE_DIR}/core/include")
 add_subdirectory(core)
 
-if(CASTLE_BUILD_CLI OR CASTLE_BUILD_TOOLS OR CASTLE_BUILD_GAME)
+if(CASTLE_BUILD_CLI OR CASTLE_BUILD_TOOLS OR CASTLE_BUILD_GAME OR CASTLE_BUILD_TESTS)
   add_subdirectory(cli)
 endif()
 
@@ -63,6 +63,7 @@ if(CASTLE_BUILD_TESTS)
   enable_testing()
 endif()
 
+include(cmake/Assets.cmake)
 add_subdirectory(game)
 if(CASTLE_BUILD_TOOLS)
   add_subdirectory(tools)
@@ -70,4 +71,24 @@ endif()
 
 if(CASTLE_BUILD_TESTS)
   add_subdirectory(tests)
+endif()
+
+# 실행 파일들이 한 작업에서 현재 정의 6파일을 복사합니다.
+# 같은 출력 폴더를 공유하는 병렬 타깃 사이의 복사 충돌을 피합니다.
+set(CASTLE_DATA_CONSUMERS)
+foreach(consumer castle_cli castle_game castle_balance castle_expansion_balance)
+  if(TARGET ${consumer})
+    list(APPEND CASTLE_DATA_CONSUMERS ${consumer})
+  endif()
+endforeach()
+if(CASTLE_DATA_CONSUMERS)
+  add_custom_target(castle_runtime_data ALL)
+  foreach(consumer IN LISTS CASTLE_DATA_CONSUMERS)
+    add_custom_command(TARGET castle_runtime_data POST_BUILD
+      COMMAND ${CMAKE_COMMAND} "-DSOURCE=${PROJECT_SOURCE_DIR}/game/data"
+        "-DDESTINATION=$<TARGET_FILE_DIR:${consumer}>/data"
+        -P "${PROJECT_SOURCE_DIR}/cmake/CopyData.cmake"
+      VERBATIM)
+    add_dependencies(${consumer} castle_runtime_data)
+  endforeach()
 endif()

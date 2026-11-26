@@ -2,68 +2,310 @@
 # range(공격 거리, 칸), behavior: thief(훔쳐 달아남) raider(건물을 부숨) monster(주민을 노림),
 # loot/loot_amount: 저장소에 닿으면 훔치는 자원과 양, mana_reward: 쓰러뜨리면 얻는 마정석
 
-[enemy bandit]
-hp = 30
-damage = 4
-cooldown = 10
-speed = 2300
-range = 1
-behavior = thief
-loot = gold
-loot_amount = 12
-mana_reward = 0
-
-[enemy brute]
-hp = 70
-damage = 8
-cooldown = 15
-speed = 2000
-range = 1
-behavior = thief
-loot = gold
-loot_amount = 30
-mana_reward = 0
-
-[enemy goblin]
-hp = 30
+[enemy outlaw]
+hp = 45
 damage = 5
-cooldown = 10
-speed = 2600
-range = 1
-behavior = monster
-loot = food
-loot_amount = 8
-mana_reward = 1
-
-[enemy ogre]
-hp = 140
-damage = 16
 cooldown = 20
-speed = 1600
+speed = 1350
 range = 1
 behavior = monster
-loot = food
-loot_amount = 20
-mana_reward = 5
-
-[enemy soldier]
-hp = 60
-damage = 8
-cooldown = 10
-speed = 1900
-range = 1
-behavior = raider
 loot = none
 loot_amount = 0
 mana_reward = 0
 
-[enemy archer]
-hp = 35
-damage = 6
-cooldown = 15
-speed = 2000
+[enemy plunderer]
+hp = 50
+damage = 5
+cooldown = 30
+speed = 1100
 range = 4
-behavior = raider
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy captain]
+hp = 110
+damage = 10
+cooldown = 20
+speed = 1150
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy bandit_chief]
+hp = 235
+damage = 17
+cooldown = 30
+speed = 1120
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy goblin]
+hp = 38
+damage = 5
+cooldown = 20
+speed = 1300
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy hobgoblin]
+hp = 90
+damage = 8
+cooldown = 20
+speed = 1000
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy goblin_shaman]
+hp = 70
+damage = 8
+cooldown = 30
+speed = 900
+range = 4
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy orc]
+hp = 170
+damage = 15
+cooldown = 30
+speed = 850
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy ogre]
+hp = 300
+damage = 23
+cooldown = 40
+speed = 650
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy skeleton]
+hp = 65
+damage = 7
+cooldown = 20
+speed = 950
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy skeleton_archer]
+hp = 48
+damage = 6
+cooldown = 30
+speed = 900
+range = 4
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy ghoul]
+hp = 95
+damage = 7
+cooldown = 20
+speed = 1400
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy wraith]
+hp = 120
+damage = 10
+cooldown = 30
+speed = 1150
+range = 2
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy necromancer]
+hp = 150
+damage = 12
+cooldown = 30
+speed = 750
+range = 4
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy leshy]
+hp = 70
+damage = 6
+cooldown = 30
+speed = 950
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy lizardman]
+hp = 90
+damage = 9
+cooldown = 20
+speed = 1150
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy druid]
+hp = 105
+damage = 9
+cooldown = 30
+speed = 920
+range = 4
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy drake]
+hp = 185
+damage = 17
+cooldown = 30
+speed = 1100
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy treant]
+hp = 390
+damage = 27
+cooldown = 40
+speed = 520
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy northern_raider]
+hp = 75
+damage = 9
+cooldown = 20
+speed = 1120
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy ice_shield]
+hp = 145
+damage = 8
+cooldown = 30
+speed = 750
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy frost_shaman]
+hp = 100
+damage = 10
+cooldown = 30
+speed = 850
+range = 4
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy yeti]
+hp = 300
+damage = 24
+cooldown = 40
+speed = 800
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy believer]
+hp = 55
+damage = 6
+cooldown = 20
+speed = 1080
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy martyr]
+hp = 65
+damage = 4
+cooldown = 20
+speed = 1220
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy flame_priest]
+hp = 85
+damage = 10
+cooldown = 30
+speed = 900
+range = 4
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy paladin]
+hp = 190
+damage = 16
+cooldown = 30
+speed = 900
+range = 1
+behavior = monster
+loot = none
+loot_amount = 0
+mana_reward = 0
+
+[enemy inquisitor]
+hp = 245
+damage = 18
+cooldown = 30
+speed = 950
+range = 4
+behavior = monster
 loot = none
 loot_amount = 0
 mana_reward = 0

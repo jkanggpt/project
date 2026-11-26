@@ -2,7 +2,8 @@
  * defs.h — 정의 (건물·특성 수치, 주민 이름 목록)
  *
  * 게임의 밸런스 수치는 모두 여기에 모입니다. 기본값은 defs_builtin.c 의 const 표에 있고,
- * game/data/ 의 .def 파일이 있으면 그 값으로 덮어씁니다. 파일이 없거나 망가졌으면 기본값을 쓰고 경고를 남깁니다.
+ * game/data/ 의 .def 파일이 있으면 그 값으로 덮어씁니다. 파일이 없거나 망가졌으면 기본값을 쓰고 경고를
+ * 남깁니다.
  *
  * - 건물 종류는 고정(열거형)이고, 수치만 파일로 바꿀 수 있습니다.
  * - 특성, 이름, 연구는 개수를 미리 모르므로 동적 배열(realloc 으로 키움)입니다.
@@ -19,7 +20,7 @@
 
 #define DEFS_MAX_WARNINGS 8
 #define DEFS_MIN_NAMES 10
-#define DEFS_ENEMY_COUNT 6 /* 적 종류 수 (그림과 습격 구성이 종류마다 있어서 정의 파일로 새로 만들 수는 없음) */
+#define DEFS_ENEMY_COUNT 28 /* 현재 세력별 적 종류 */
 
 /* 적 종류 번호 (data/enemies.def 의 순서) */
 enum {
@@ -41,22 +42,22 @@ typedef struct BuildingDef {
     int32_t worker_slots;
     int32_t resident_slots;
     int32_t storage;
-    int32_t produces;       /* 자원 번호, -1 = 없음 */
-    int32_t rate;           /* 일꾼 한 명이 일하는 한 틱에 만드는 양 × 1000 */
+    int32_t produces; /* 자원 번호, -1 = 없음 */
+    int32_t rate;     /* 일꾼 한 명이 일하는 한 틱에 만드는 양 × 1000 */
     int32_t secondary;
     int32_t secondary_rate;
     int32_t work_radius;
-    int32_t placement;      /* CorePlacementRule */
+    int32_t placement; /* CorePlacementRule */
     int32_t min_terrain;
     int32_t ideal_terrain;
     int32_t wage;
     int32_t required_rank;
-    int32_t category;       /* CoreBuildCategory */
+    int32_t category; /* CoreBuildCategory */
     int32_t line;
-    int32_t attack;         /* 감시탑 화살 / 경비병 한 명의 피해 (0 = 싸우지 않음) */
-    int32_t attack_range;   /* 칸 */
-    int32_t attack_cooldown;/* 게임 속 분 */
-    int32_t defense;        /* 방어 점수 (승급 조건). 다 지은 건물만 셈 */
+    int32_t attack;          /* 감시탑 화살 / 경비병 한 명의 피해 (0 = 싸우지 않음) */
+    int32_t attack_range;    /* 칸 */
+    int32_t attack_cooldown; /* 게임 속 분 */
+    int32_t defense;         /* 방어 점수 (승급 조건). 다 지은 건물만 셈 */
 } BuildingDef;
 
 typedef struct EnemyDef {
@@ -84,26 +85,26 @@ typedef struct TraitDef {
 /* 연구 하나 (data/research.def). 파일이 목록 전체를 정합니다 (개수를 미리 모름 → 동적 배열) */
 typedef struct ResearchDef {
     char key[CORE_KEY_BYTES];
-    int32_t branch;        /* CoreResearchBranch */
-    int32_t requires;      /* 먼저 끝내야 하는 연구 번호 (-1 = 없음). 파일에는 앞에 나온 연구의 키로 적음 */
+    int32_t branch; /* CoreResearchBranch */
+    int32_t requires; /* 먼저 끝내야 하는 연구 번호 (-1 = 없음). 파일에는 앞에 나온 연구의 키로 적음 */
     int32_t required_rank; /* 시작하려면 필요한 등급 */
     int32_t cost_gold;
     int32_t cost_mana;
-    int32_t points;        /* 마탑에서 모아야 하는 연구 점수 */
-    int32_t effect;        /* CoreResearchEffect (research.c 의 효과 함수 표 번호) */
-    int32_t value;         /* 효과의 크기 */
+    int32_t points; /* 마탑에서 모아야 하는 연구 점수 */
+    int32_t effect; /* CoreResearchEffect (research.c 의 효과 함수 표 번호) */
+    int32_t value;  /* 효과의 크기 */
 } ResearchDef;
 
 /* 등급 하나 (data/ranks.def): 이 등급으로 오르는 조건과 공물, 오르면 늘어나는 저장 한도 */
 typedef struct RankDef {
     char key[CORE_KEY_BYTES];
     int32_t population;
-    int32_t mood;          /* 평균 기분 */
-    int32_t defense;       /* 방어 점수 */
-    int32_t research;      /* 끝낸 연구 수 */
+    int32_t mood;     /* 평균 기분 */
+    int32_t defense;  /* 방어 점수 */
+    int32_t research; /* 끝낸 연구 수 */
     int32_t tribute_gold;
     int32_t tribute_mana;
-    int32_t storage;       /* 오르면 늘어나는 저장 한도 */
+    int32_t storage; /* 오르면 늘어나는 저장 한도 */
 } RankDef;
 
 typedef struct NameEntry {
@@ -120,10 +121,10 @@ typedef struct Defs {
     int32_t expanded;
     BuildingDef buildings[CORE_BLD_COUNT];
     EnemyDef enemies[28];
-    TraitDef *traits;   /* 동적 배열 */
+    TraitDef *traits; /* 동적 배열 */
     int32_t trait_count;
     int32_t trait_capacity;
-    NameEntry *names;   /* 동적 배열 */
+    NameEntry *names; /* 동적 배열 */
     int32_t name_count;
     int32_t name_capacity;
     ResearchDef *research; /* 동적 배열 */
@@ -140,15 +141,10 @@ struct CoreDefs {
 };
 
 /* 내장 기본값 (defs_builtin.c) */
-extern const BuildingDef BUILTIN_BUILDINGS[CORE_BLD_COUNT];
-extern const EnemyDef BUILTIN_ENEMIES[DEFS_ENEMY_COUNT];
 extern const TraitDef BUILTIN_TRAITS[];
 extern const int32_t BUILTIN_TRAIT_COUNT;
 extern const char *const BUILTIN_NAMES[];
 extern const int32_t BUILTIN_NAME_COUNT;
-extern const ResearchDef BUILTIN_RESEARCH[];
-extern const int32_t BUILTIN_RESEARCH_COUNT;
-extern const RankDef BUILTIN_RANKS[CORE_RANK_COUNT];
 
 /* 기본값으로 채웁니다. CORE_OK 또는 CORE_ERR_OUT_OF_MEMORY (실패하면 아무것도 남기지 않음) */
 int defs_init_builtin(Defs *defs);

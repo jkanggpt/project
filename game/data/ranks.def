@@ -1,9 +1,9 @@
-# 등급 (촌락 → 마을 → 요새 → 성 → 왕성). 왕성이 되면 승리입니다.
+# 등급 (개척지 → 촌락 → 마을 → 도시 → 성채 → 왕성). 왕성이 되면 승리입니다.
 # 다음 등급으로 오르려면: population(인구), mood(평균 기분), defense(방어 점수), research(끝낸 연구 수)를
 # 모두 채우고 공물 tribute_gold, tribute_mana 를 냅니다 (난이도에 따라 공물 %가 다름).
 # storage: 그 등급이 되면 늘어나는 저장 한도. 촌락은 시작 등급이라 조건을 쓰지 않습니다.
 
-[rank hamlet]
+[rank colony]
 population = 0
 mood = 0
 defense = 0
@@ -14,36 +14,45 @@ storage = 0
 
 [rank village]
 population = 8
-mood = 50
-defense = 3
+mood = 40
+defense = 0
 research = 0
-tribute_gold = 30
-tribute_mana = 5
-storage = 100
+tribute_gold = 20
+tribute_mana = 0
+storage = 0
+
+[rank town]
+population = 18
+mood = 48
+defense = 0
+research = 0
+tribute_gold = 70
+tribute_mana = 0
+storage = 0
+
+[rank city]
+population = 40
+mood = 56
+defense = 0
+research = 0
+tribute_gold = 240
+tribute_mana = 0
+storage = 0
 
 [rank fortress]
-population = 16
-mood = 55
-defense = 6
-research = 0
-tribute_gold = 50
-tribute_mana = 10
-storage = 150
-
-[rank castle]
-population = 26
-mood = 55
-defense = 12
-research = 3
-tribute_gold = 150
-tribute_mana = 50
-storage = 200
+population = 70
+mood = 64
+defense = 0
+research = 2
+tribute_gold = 520
+tribute_mana = 20
+storage = 0
 
 [rank royal_castle]
-population = 36
-mood = 60
-defense = 18
+population = 100
+mood = 72
+defense = 0
 research = 6
-tribute_gold = 250
-tribute_mana = 100
-storage = 250
+tribute_gold = 950
+tribute_mana = 110
+storage = 0

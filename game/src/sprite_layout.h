@@ -34,13 +34,14 @@ typedef struct GameDrawItem {
 GameSpriteBox game_building_sprite(int type, int x, int y, int w, int h, int image_w, int image_h);
 GameSpriteBox game_actor_sprite(float feet_x, float feet_y, float height);
 GameSpriteBox game_expansion_building_sprite(const CoreBuildingView *building, int image_w, int image_h);
-int game_rock_marker(const CoreExpansionTileView *tiles,const uint8_t *roads,const uint8_t *blocked,int width,int height,int x,int y);
+int game_rock_marker(const CoreExpansionTileView *tiles, const uint8_t *roads, const uint8_t *blocked,
+                     int width, int height, int x, int y);
 int game_wall_mask(const uint8_t *cost, int width, int height, int x, int y);
 int game_draw_compare(const void *left, const void *right);
 int game_villager_art(int id);
 int game_walk_facing(float dx, float dy, int previous);
 int game_walk_frame(float distance, int moving);
 GameSpriteFrame game_villager_frame(int id, int facing, float distance, int moving);
-GameSpriteBox game_building_attachment(int type,int rotation);
-GameSpriteBox game_boat_seat(int boat_kind,int direction,int seat);
+GameSpriteBox game_building_attachment(int type, int rotation);
+GameSpriteBox game_boat_seat(int boat_kind, int direction, int seat);
 #endif

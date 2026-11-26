@@ -8,8 +8,7 @@
 #include "placement.h"
 
 /* 주민이 목표로 바로 걸어간 것으로 치고 도착을 보고합니다 (C 그래픽 프런트엔드 대신) */
-void test_arrive_all(CoreWorld *world)
-{
+void test_arrive_all(CoreWorld *world) {
     int32_t i;
     for (i = world->villager_count - 1; i >= 0; i--) {
         Villager *v = world->villagers[i];
@@ -20,8 +19,7 @@ void test_arrive_all(CoreWorld *world)
 }
 
 /* ticks 만큼 진행하며 매 틱 모두 도착시킵니다 */
-int test_run(CoreWorld *world, int32_t ticks)
-{
+int test_run(CoreWorld *world, int32_t ticks) {
     int32_t i;
     for (i = 0; i < ticks; i++) {
         if (core_tick(world, 1) != CORE_OK) {
@@ -32,8 +30,7 @@ int test_run(CoreWorld *world, int32_t ticks)
     return 1;
 }
 
-void test_keep_alive(CoreWorld *world)
-{
+void test_keep_alive(CoreWorld *world) {
     int32_t i;
     world->bank.amount[CORE_RES_FOOD] = world->bank.capacity;
     world->bank.amount[CORE_RES_WOOD] = world->bank.capacity;
@@ -47,8 +44,7 @@ void test_keep_alive(CoreWorld *world)
 }
 
 /* 건물을 짓고 다 지어질 때까지 진행합니다. 성공하면 건물 */
-Building *test_build_now(CoreWorld *world, int32_t type, int32_t x, int32_t y)
-{
+Building *test_build_now(CoreWorld *world, int32_t type, int32_t x, int32_t y) {
     int32_t id = 0;
     int32_t reason = 0;
     Building *building;
@@ -59,7 +55,8 @@ Building *test_build_now(CoreWorld *world, int32_t type, int32_t x, int32_t y)
         placement_refresh_capacity(world);
     }
     if (core_place_building(world, type, x, y, &id, &reason) != CORE_OK) {
-        fprintf(stderr, "    place %d at (%d,%d) failed: reason %d\n", (int)type, (int)x, (int)y, (int)reason);
+        fprintf(stderr, "    place %d at (%d,%d) failed: reason %d\n", (int)type, (int)x, (int)y,
+                (int)reason);
         return NULL;
     }
     building = entity_find_building(world, id);
@@ -70,8 +67,7 @@ Building *test_build_now(CoreWorld *world, int32_t type, int32_t x, int32_t y)
 }
 
 /* 지형을 풀밭으로 바꿔 시험용 빈터를 만듭니다 (x..x+w, y..y+h) */
-void test_flatten(CoreWorld *world, int32_t x, int32_t y, int32_t w, int32_t h)
-{
+void test_flatten(CoreWorld *world, int32_t x, int32_t y, int32_t w, int32_t h) {
     int32_t cx;
     int32_t cy;
     for (cy = y; cy < y + h; cy++) {
@@ -82,11 +78,10 @@ void test_flatten(CoreWorld *world, int32_t x, int32_t y, int32_t w, int32_t h)
     grid_rebuild_costs(&world->grid);
 }
 
-void test_give(CoreWorld *world, int32_t amount)
-{
+void test_give(CoreWorld *world, int32_t amount) {
     int32_t i;
     for (i = 0; i < CORE_RES_COUNT; i++) {
-        world->bank.amount[i] = eco_is_stored_good(i) && amount > world->bank.capacity ? world->bank.capacity : amount;
+        world->bank.amount[i] =
+            eco_is_stored_good(i) && amount > world->bank.capacity ? world->bank.capacity : amount;
     }
 }
-

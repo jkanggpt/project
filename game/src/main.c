@@ -1,4 +1,4 @@
-/* main.c — Godot와 .NET 없이 실행하는 C 게임의 진입점과 한 판의 흐름 */
+/* main.c — 화면 계층와 .NET 없이 실행하는 C 게임의 진입점과 한 판의 흐름 */
 #include "app.h"
 #include "expansion.h"
 #include "format.h"
@@ -34,6 +34,25 @@ static void help(void) {
          "title|game|villagers|uniforms|farms|population|rotations|connections|research|rank|market|load]\n"
          "  --frames N --autoplay --no-audio --width 1440 --height 900\n"
          "  --difficulty peaceful|normal|harsh (or 0|1|2)");
+}
+static int capture_scene_needs_town(const char *name) {
+    static const char *const scenes[] = {"clinic",   "lighthouse",        "smallboat",
+                                         "windmill", "irrigated",         "largeboat",
+                                         "roads",    "rank_requirements", "alerts"};
+    for (size_t i = 0; i < sizeof(scenes) / sizeof(scenes[0]); i++)
+        if (!strcmp(name, scenes[i]))
+            return 1;
+    return 0;
+}
+static int capture_scene_known(const char *name) {
+    static const char *const scenes[] = {"merchant",          "clinic",    "lighthouse", "smallboat",
+                                         "windmill",          "irrigated", "fishing",    "largeboat",
+                                         "household",         "forecast",  "roads",      "facilities",
+                                         "rank_requirements", "alerts",    "cards_high", "gates"};
+    for (size_t i = 0; i < sizeof(scenes) / sizeof(scenes[0]); i++)
+        if (!strcmp(name, scenes[i]))
+            return 1;
+    return 0;
 }
 static int options(int argc, char **argv, Options *o) {
     int i;
@@ -112,14 +131,14 @@ static int options(int argc, char **argv, Options *o) {
         } else
             return 0;
     }
-    if (strncmp(o->screen, "v124", 4) && strncmp(o->screen, "v123", 4) && strcmp(o->screen, "title") &&
-        strcmp(o->screen, "game") && strcmp(o->screen, "villagers") && strcmp(o->screen, "population") &&
-        strcmp(o->screen, "rotations") && strcmp(o->screen, "connections") && strcmp(o->screen, "research") &&
-        strcmp(o->screen, "rank") && strcmp(o->screen, "market") && strcmp(o->screen, "load") &&
-        strcmp(o->screen, "uniforms") && strcmp(o->screen, "farms") && strcmp(o->screen, "raid") &&
-        strcmp(o->screen, "alerts") && strcmp(o->screen, "tower") && strcmp(o->screen, "assign") &&
-        strcmp(o->screen, "effects") && strcmp(o->screen, "selection") && strcmp(o->screen, "demolition") &&
-        strcmp(o->screen, "workforce") && strcmp(o->screen, "trade") && strcmp(o->screen, "skills"))
+    if (!capture_scene_known(o->screen) && strcmp(o->screen, "title") && strcmp(o->screen, "game") &&
+        strcmp(o->screen, "villagers") && strcmp(o->screen, "population") && strcmp(o->screen, "rotations") &&
+        strcmp(o->screen, "connections") && strcmp(o->screen, "research") && strcmp(o->screen, "rank") &&
+        strcmp(o->screen, "market") && strcmp(o->screen, "load") && strcmp(o->screen, "uniforms") &&
+        strcmp(o->screen, "farms") && strcmp(o->screen, "raid") && strcmp(o->screen, "alerts") &&
+        strcmp(o->screen, "tower") && strcmp(o->screen, "assign") && strcmp(o->screen, "effects") &&
+        strcmp(o->screen, "selection") && strcmp(o->screen, "demolition") && strcmp(o->screen, "workforce") &&
+        strcmp(o->screen, "trade") && strcmp(o->screen, "skills"))
         return 0;
     return 1;
 }
@@ -241,51 +260,7 @@ int game_app_save(GameApp *a, int slot) {
         game_app_result(a, rc, 0, 0);
     return rc;
 }
-void game_app_legacy_slot_path(GameApp *a, int slot, int backup, char path[GAME_PATH_BYTES]) {
-    char directory[GAME_PATH_BYTES], name[48];
-    if (slot == 0)
-        snprintf(name, sizeof(name), "autosave.sav%s", backup ? ".bak" : "");
-    else
-        snprintf(name, sizeof(name), "slot%d.sav%s", slot, backup ? ".bak" : "");
-    if (!game_join_path(directory, sizeof(directory), a->user_dir,
-                        a->load_legacy == 3   ? "saves_v11"
-                        : a->load_legacy == 2 ? "saves_v10"
-                                              : "saves_v9") ||
-        !game_join_path(path, GAME_PATH_BYTES, directory, name))
-        path[0] = 0;
-}
-int game_app_import_v9(GameApp *a, int slot, int backup) {
-    char source[GAME_PATH_BYTES], destination[GAME_PATH_BYTES];
-    int target = 0, line = 0;
-    for (int i = 1; i <= 3; i++) {
-        game_app_slot_path(a, i, 0, destination);
-        if (!platform_file_exists(destination)) {
-            target = i;
-            break;
-        }
-    }
-    if (!target) {
-        snprintf(a->message, sizeof(a->message),
-                 u8"기존 저장을 보존하려면 v12의 빈 수동 저장 슬롯이 필요합니다.");
-        return 0;
-    }
-    game_app_legacy_slot_path(a, slot, backup, source);
-    int rc = game_session_load(&a->session, source, &line);
-    if (rc != CORE_OK) {
-        snprintf(a->message, sizeof(a->message), u8"이전 버전 가져오기 실패: %s (%d번째 줄)",
-                 fmt_result_message(rc), line);
-        return 0;
-    }
-    enter_game(a);
-    rc = game_app_save(a, target);
-    if (rc == CORE_OK) {
-        a->load_legacy = 0;
-        game_app_notice(a, u8"이전 원본을 보존하고 빈 슬롯에 v12로 저장했습니다.");
-        return 1;
-    }
-    game_app_notice(a, u8"이전 버전을 불러왔지만 새 저장에 실패했습니다. 원본은 보존되어 있습니다.");
-    return 0;
-}
+
 int game_app_load(GameApp *a, int slot, int backup) {
     char path[GAME_PATH_BYTES];
     int rc, line = 0;
@@ -366,14 +341,13 @@ static void event(void *context, const CoreEventView *e) {
     default:
         break;
     }
-    if (a->session.summary.ruleset &&
-        (e->type == CORE_EVT_RANK_UP || e->type == CORE_EVT_RANK_READY ||
+    if ((e->type == CORE_EVT_RANK_UP || e->type == CORE_EVT_RANK_READY ||
          e->type == CORE_EVT_RESEARCH_STARTED || e->type == CORE_EVT_RESEARCH_DONE ||
          e->type == CORE_EVT_TUTORIAL_STEP || e->type == CORE_EVT_TUTORIAL_DONE))
         text[0] = '\0';
     else
         fmt_event(e, text, sizeof(text));
-    if (a->session.summary.ruleset) {
+    {
         if (e->type == CORE_EVT_RAID_STARTED) {
             if (!a->automated && !a->raid_alert_id) {
                 a->raid_alert_id = e->a;
@@ -516,13 +490,13 @@ static Building *screenshot_facility(World *w, int type, int x, int y) {
         }
     return b;
 }
-static void screenshot_v123(GameApp *a, const Options *o) {
+static void game_capture_scenario(GameApp *a, const Options *o) {
     World *w = a->session.world;
     w->clock.tick = 54;
     w->rank = 5;
     for (int r = 0; r < CORE_RES_COUNT; r++)
         w->bank.amount[r] = r == CORE_RES_GOLD ? 2000 : r == CORE_RES_MANA ? 40 : 80;
-    if (!strcmp(o->screen, "v123merchant")) {
+    if (!strcmp(o->screen, "merchant")) {
         w->rank = 2;
         w->expansion->wandering.next_target_tick = w->clock.tick + 1;
         for (int tick = 0; tick < 400; tick++) {
@@ -534,15 +508,15 @@ static void screenshot_v123(GameApp *a, const Options *o) {
         game_session_refresh(&a->session);
         game_select(a, 5, w->expansion->wandering.visit_id);
     } else {
-        int type = !strcmp(o->screen, "v124clinic")       ? CORE_BLD_CLINIC
-                   : !strcmp(o->screen, "v124lighthouse") ? CORE_BLD_LIGHTHOUSE
-                   : !strcmp(o->screen, "v124smallboat")  ? CORE_BLD_FISHING_SPOT
-                   : !strcmp(o->screen, "v124windmill")   ? CORE_BLD_WINDMILL
-                   : !strcmp(o->screen, "v124irrigated")  ? CORE_BLD_IRRIGATED_FARM
-                   : (!strcmp(o->screen, "v123boats") || !strcmp(o->screen, "v124largeboat")) ? CORE_BLD_PORT
-                   : !strcmp(o->screen, "v123home")                                           ? CORE_BLD_HOUSE
-                   : !strcmp(o->screen, "v123forecast") ? CORE_BLD_OBSERVATORY
-                                                        : CORE_BLD_CLAY_PIT;
+        int type = !strcmp(o->screen, "clinic")       ? CORE_BLD_CLINIC
+                   : !strcmp(o->screen, "lighthouse") ? CORE_BLD_LIGHTHOUSE
+                   : !strcmp(o->screen, "smallboat")  ? CORE_BLD_FISHING_SPOT
+                   : !strcmp(o->screen, "windmill")   ? CORE_BLD_WINDMILL
+                   : !strcmp(o->screen, "irrigated")  ? CORE_BLD_IRRIGATED_FARM
+                   : (!strcmp(o->screen, "fishing") || !strcmp(o->screen, "largeboat")) ? CORE_BLD_PORT
+                   : !strcmp(o->screen, "household")                                    ? CORE_BLD_HOUSE
+                   : !strcmp(o->screen, "forecast")                                     ? CORE_BLD_OBSERVATORY
+                                                                                        : CORE_BLD_CLAY_PIT;
         Building *b = screenshot_facility(w, type, w->keep_x - 5, w->keep_y + 5);
         if (!b)
             return;
@@ -590,7 +564,7 @@ static void screenshot_v123(GameApp *a, const Options *o) {
                 expansion_boats_tick(w);
             }
         }
-        if (!strncmp(o->screen, "v124", 4)) {
+        if (capture_scene_needs_town(o->screen)) {
             if (type == CORE_BLD_LIGHTHOUSE)
                 w->clock.tick = 120;
             for (int boat = 0; boat < w->expansion->boat_count; boat++) {
@@ -598,7 +572,7 @@ static void screenshot_v123(GameApp *a, const Options *o) {
                 w->expansion->boats[boat].phase_milli = 1400;
             }
             a->session.visual_time = .2f;
-            if (!strcmp(o->screen, "v124roads")) {
+            if (!strcmp(o->screen, "roads")) {
                 for (int kind = 0; kind < 3; kind++)
                     for (int dy = -2; dy <= 2; dy++)
                         for (int dx = -2; dx <= 2; dx++) {
@@ -618,11 +592,11 @@ static void screenshot_v123(GameApp *a, const Options *o) {
         }
         if (type == CORE_BLD_OBSERVATORY)
             expansion_forecast_refresh(w, b);
-        expansion_v122_numbers(w);
+        expansion_ensure_building_serials(w);
         expansion_visibility(w);
         game_session_refresh(&a->session);
         game_select(a, 1, b->id);
-        if (!strcmp(o->screen, "v123buildings")) {
+        if (!strcmp(o->screen, "facilities")) {
             const int types[3] = {CORE_BLD_WATER_TOWER, CORE_BLD_OBSERVATORY, CORE_BLD_ART_MUSEUM};
             for (int i = 0; i < 3; i++)
                 screenshot_facility(w, types[i], w->keep_x + (i % 2) * 7 - 6, w->keep_y - (i / 2) * 7 - 8);
@@ -632,25 +606,33 @@ static void screenshot_v123(GameApp *a, const Options *o) {
         }
         a->camera.target = (Vector2){(b->x + b->w / 2.0f) * 16, (b->y + b->h / 2.0f) * 16};
     }
-    if (!strcmp(o->screen, "v123buildings")) {
+    if (!strcmp(o->screen, "facilities")) {
         a->camera.zoom = 1.25f;
         a->camera.target = (Vector2){w->keep_x * 16.0f, (w->keep_y - 2) * 16.0f};
     }
-    if (!strncmp(o->screen, "v124", 4)) {
+    if (capture_scene_needs_town(o->screen)) {
         a->camera.zoom = 3;
-        if (!strcmp(o->screen, "v124rank")){w->rank=1;game_session_refresh(&a->session);a->panel = PANEL_RANK;}
-        if (!strcmp(o->screen, "v124roads")) {
+        if (!strcmp(o->screen, "rank_requirements")) {
+            w->rank = 1;
+            game_session_refresh(&a->session);
+            a->panel = PANEL_RANK;
+        }
+        if (!strcmp(o->screen, "roads")) {
             a->selected_building = 0;
             a->selection_kind = 0;
             a->category = expansion_spec(CORE_BLD_PAVED_ROAD)->category;
             a->camera.target = (Vector2){w->keep_x * 16.0f, (w->keep_y + 6) * 16.0f};
         }
     }
-    if(!strcmp(o->screen,"v124alerts")){game_app_notice(a,u8"겨울 대비 · 식량8일분을 비축하세요.");game_app_notice(a,u8"역병 발생 · 의원의 의료진과 약초를 확인하세요.");game_app_notice(a,u8"상인 도착 · 영주관 근처에서 거래할 수 있습니다.");}
+    if (!strcmp(o->screen, "alerts")) {
+        game_app_notice(a, u8"겨울 대비 · 식량8일분을 비축하세요.");
+        game_app_notice(a, u8"역병 발생 · 의원의 의료진과 약초를 확인하세요.");
+        game_app_notice(a, u8"상인 도착 · 영주관 근처에서 거래할 수 있습니다.");
+    }
     a->speed = 0;
-    if (!strcmp(o->screen, "v123cards_high"))
+    if (!strcmp(o->screen, "cards_high"))
         a->build_scroll = 3;
-    if (!strcmp(o->screen, "v123gates")) {
+    if (!strcmp(o->screen, "gates")) {
         a->category = CORE_CAT_DEFENSE;
         a->build_scroll = 4;
     }
@@ -667,8 +649,8 @@ static void screenshot_screen(GameApp *a, const Options *o) {
     }
     (void)game_session_new(&a->session, u8"바람언덕", o->seed, o->difficulty);
     enter_game(a);
-    if (!strncmp(o->screen, "v123", 4) || !strncmp(o->screen, "v124", 4)) {
-        screenshot_v123(a, o);
+    if (capture_scene_known(o->screen)) {
+        game_capture_scenario(a, o);
         return;
     }
     /* 명시적인 촬영 모드의 재현 자료이며 정상 자동플레이 평가에는 사용하지 않습니다. */
@@ -692,7 +674,7 @@ static void screenshot_screen(GameApp *a, const Options *o) {
             b->door_y = b->y + b->h;
             b->state = CORE_BSTATE_ACTIVE;
             b->hp = w->defs.buildings[type].max_hp;
-            expansion_v122_numbers(w);
+            expansion_ensure_building_serials(w);
             expansion_rebuild(w);
             Villager *v = w->villagers[0];
             (void)core_assign_worker(w, v->id, b->id);
@@ -774,7 +756,7 @@ static void screenshot_screen(GameApp *a, const Options *o) {
             b->door_y = b->y + 1;
             b->hp = 110;
             b->state = CORE_BSTATE_ACTIVE;
-            expansion_v122_numbers(w);
+            expansion_ensure_building_serials(w);
             expansion_rebuild(w);
             (void)core_expansion_assign_shift(w, w->villagers[0]->id, b->id, 1);
             if (!strcmp(o->screen, "tower"))
@@ -896,7 +878,7 @@ static int run(int argc, char **argv) {
         }
         strcpy(a->save_dir, o.save_dir);
     } else if (!game_join_path(a->save_dir, sizeof(a->save_dir), a->automated ? exe : a->user_dir,
-                               a->automated ? "saves_v12_automated" : "saves_v12")) {
+                               a->automated ? "saves_automated" : "saves")) {
         free(a);
         return 1;
     }
@@ -997,10 +979,7 @@ static int run(int argc, char **argv) {
         }
         if (a->in_game && a->panel == PANEL_NONE && a->speed > 0 &&
             a->session.summary.outcome != CORE_OUTCOME_LOST) {
-            float minutes = a->session.summary.ruleset
-                                ? delta * a->speed * 12.0f
-                                : delta * a->speed * 1000 / a->session.config.real_ms_per_tick *
-                                      a->session.config.minutes_per_tick;
+            float minutes = delta * a->speed * 12.0f;
             double sim_started = GetTime();
             status = game_session_step(&a->session, minutes);
             sim_ms = (GetTime() - sim_started) * 1000;

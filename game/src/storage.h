@@ -17,7 +17,10 @@ int game_settings_save(const GameSettings *settings, const char *path);
 unsigned char *game_read_bytes(const char *path, int *length);
 int game_write_bytes(const char *path, const void *data, size_t length);
 unsigned long long game_file_modified(const char *path);
-typedef struct GameArguments { int count; char **values; } GameArguments;
-int game_arguments(GameArguments *out,int argc,char **argv);
+typedef struct GameArguments {
+    int count;
+    char **values;
+} GameArguments;
+int game_arguments(GameArguments *out, int argc, char **argv);
 void game_arguments_free(GameArguments *args);
 #endif

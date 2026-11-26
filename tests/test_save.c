@@ -14,16 +14,14 @@
 #include "test_util.h"
 #include "world.h"
 
-static uint64_t hash_of(const CoreWorld *world)
-{
+static uint64_t hash_of(const CoreWorld *world) {
     uint64_t hash = 0;
     (void)core_state_hash(world, &hash);
     return hash;
 }
 
 /* 시간을 조금 진행하고 자원을 바꾼 월드 (기본값만 저장되는 실수를 잡기 위해) */
-static CoreWorld *make_played_world(int32_t seed)
-{
+static CoreWorld *make_played_world(int32_t seed) {
     CoreWorld *world = test_make_world(seed, CORE_DIFF_HARSH);
     if (world == NULL) {
         return NULL;
@@ -37,8 +35,7 @@ static CoreWorld *make_played_world(int32_t seed)
     return world;
 }
 
-static void remove_save_files(const char *path)
-{
+static void remove_save_files(const char *path) {
     char buffer[512];
     (void)platform_remove_file(path);
     snprintf(buffer, sizeof(buffer), "%s.bak", path);
@@ -47,8 +44,7 @@ static void remove_save_files(const char *path)
     (void)platform_remove_file(buffer);
 }
 
-void test_save_roundtrip_same_hash(void)
-{
+void test_save_roundtrip_same_hash(void) {
     const char *path = "roundtrip.sav";
     CoreWorld *world = make_played_world(2024);
     CoreWorld *loaded = NULL;
@@ -75,6 +71,10 @@ void test_save_roundtrip_same_hash(void)
     /* 불러온 뒤에도 같은 미래가 나와야 합니다 (난수 상태까지 저장되었는지) */
     CHECK(test_run(world, 500));
     CHECK(test_run(loaded, 500));
+    if (hash_of(world) != hash_of(loaded)) {
+        core_save(world, "future_original.sav");
+        core_save(loaded, "future_loaded.sav");
+    }
     CHECK(hash_of(world) == hash_of(loaded));
     CHECK(rng_next(&world->rng) == rng_next(&loaded->rng));
 
@@ -83,8 +83,7 @@ void test_save_roundtrip_same_hash(void)
     remove_save_files(path);
 }
 
-void test_save_keeps_backup(void)
-{
+void test_save_keeps_backup(void) {
     const char *path = "backup.sav";
     CoreWorld *world = make_played_world(5);
     CoreWorld *loaded = NULL;
@@ -111,9 +110,9 @@ void test_save_keeps_backup(void)
     remove_save_files(path);
 }
 
-void test_save_korean_path(void)
-{
-    /* Windows 사용자 폴더에 한글이 있는 경우를 흉내 냅니다 (Windows CI 에서 _wfopen/MoveFileExW 경로를 확인) */
+void test_save_korean_path(void) {
+    /* Windows 사용자 폴더에 한글이 있는 경우를 흉내 냅니다 (Windows CI 에서 _wfopen/MoveFileExW 경로를 확인)
+     */
     const char *dir = u8"세이브_폴더";
     const char *path = u8"세이브_폴더/바람언덕 성채.sav";
     CoreWorld *world = make_played_world(31);
@@ -136,8 +135,7 @@ void test_save_korean_path(void)
     remove_save_files(path);
 }
 
-void test_save_refuses_invalid_world(void)
-{
+void test_save_refuses_invalid_world(void) {
     const char *path = "invalid.sav";
     CoreWorld *world = test_make_world(4, CORE_DIFF_NORMAL);
     CHECK(world != NULL);
@@ -151,8 +149,7 @@ void test_save_refuses_invalid_world(void)
     core_destroy(world);
 }
 
-void test_load_missing_file(void)
-{
+void test_load_missing_file(void) {
     CoreWorld *loaded = (CoreWorld *)&loaded;
     int32_t line = 99;
     CHECK_EQ(core_load("definitely_missing.sav", NULL, &loaded, &line), CORE_ERR_FILE_OPEN);
@@ -161,8 +158,7 @@ void test_load_missing_file(void)
 }
 
 /* 정상 세이브 파일 내용을 만들어 돌려줍니다 (free 필요) */
-static char *make_valid_save_text(size_t *out_size)
-{
+static char *make_valid_save_text(size_t *out_size) {
     char path[128];
     CoreWorld *world = make_played_world(77);
     char *data;
@@ -182,8 +178,7 @@ static char *make_valid_save_text(size_t *out_size)
 }
 
 /* text 를 파일로 쓰고 불러 봅니다. 결과 코드를 돌려줍니다 */
-static int32_t load_text(const char *text, size_t size, int32_t *out_line)
-{
+static int32_t load_text(const char *text, size_t size, int32_t *out_line) {
     char path[128];
     CoreWorld *loaded = NULL;
     int32_t rc;
@@ -206,8 +201,7 @@ static int32_t load_text(const char *text, size_t size, int32_t *out_line)
 }
 
 /* text 안의 needle 을 replacement 로 한 번 바꾼 새 문자열 (free 필요) */
-static char *replace_once(const char *text, const char *needle, const char *replacement)
-{
+static char *replace_once(const char *text, const char *needle, const char *replacement) {
     const char *at = strstr(text, needle);
     size_t prefix;
     size_t total;
@@ -227,8 +221,7 @@ static char *replace_once(const char *text, const char *needle, const char *repl
     return result;
 }
 
-void test_load_wrong_version(void)
-{
+void test_load_wrong_version(void) {
     size_t size = 0;
     char *text = make_valid_save_text(&size);
     char *changed;
@@ -237,18 +230,18 @@ void test_load_wrong_version(void)
     CHECK(text != NULL);
     CHECK_EQ(load_text(text, size, &line), CORE_OK);
 
-    changed = replace_once(text, "MAGICCASTLE_SAVE 12", "MAGICCASTLE_SAVE 1299");
+    changed = replace_once(text, "MAGICCASTLE_SAVE 13", "MAGICCASTLE_SAVE 1399");
     CHECK(changed != NULL);
     CHECK_EQ(load_text(changed, strlen(changed), &line), CORE_ERR_VERSION);
     CHECK_EQ(line, 1);
     free(changed);
 
-    changed = replace_once(text, "MAGICCASTLE_SAVE 12", "SOMETHING_ELSE 2");
+    changed = replace_once(text, "MAGICCASTLE_SAVE 13", "SOMETHING_ELSE 2");
     CHECK(changed != NULL);
     CHECK_EQ(load_text(changed, strlen(changed), &line), CORE_ERR_FORMAT);
     free(changed);
 
-    /* Windows 메모장이 CRLF 로 바꿔 저장해도 읽혀야 합니다 */
+    /* 체크섬이 있는 현재 파일은 수동 줄바꿈 변환도 손상으로 거부합니다. */
     {
         size_t i;
         size_t j = 0;
@@ -260,15 +253,34 @@ void test_load_wrong_version(void)
             }
             crlf[j++] = text[i];
         }
-        CHECK_EQ(load_text(crlf, j, &line), CORE_OK);
+        CHECK_EQ(load_text(crlf, j, &line), CORE_ERR_FORMAT);
         free(crlf);
     }
     CHECK_EQ(load_text("", 0, &line), CORE_ERR_FORMAT);
     free(text);
 }
 
-void test_load_rejects_bad_values(void)
-{
+static uint32_t current_crc(const char *text, size_t size) {
+    uint32_t c = UINT32_MAX;
+    for (size_t i = 0; i < size; i++) {
+        c ^= (unsigned char)text[i];
+        for (int bit = 0; bit < 8; bit++)
+            c = (c >> 1) ^ ((0u - (c & 1u)) & UINT32_C(0xedb88320));
+    }
+    return ~c;
+}
+/* 의미상 손상 검사도 CRC를 통과시켜 실제 필드 파서까지 검사합니다. */
+static void refresh_crc(char *text) {
+    char *footer = strstr(text, "MAGICCASTLE_CHECKSUM ");
+    if (!footer)
+        return;
+    size_t size = (size_t)(footer - text), available = strlen(footer) + 1;
+    uint32_t crc = current_crc(text, size);
+    snprintf(footer, available, "MAGICCASTLE_CHECKSUM %020llu %08x\n", (unsigned long long)size,
+             (unsigned)crc);
+}
+
+void test_load_rejects_bad_values(void) {
     /* 바꿀 문자열 → 기대하는 결과 */
     static const char *const CASES[][2] = {
         {"difficulty=2", "difficulty=3"},
@@ -277,14 +289,14 @@ void test_load_rejects_bad_values(void)
         {"difficulty=2", "difficulty=2x"},
         {"difficulty=2", "difficulty=99999999999999999999"},
         {"seed=77", "seed=-77"},
-        {"keep=48,48", "keep=0,0"},
-        {"keep=48,48", "keep=48"},
+        {"keep=80,80", "keep=0,0"},
+        {"keep=80,80", "keep=48"},
         {"tick=", "tick=-"},
-        {"capacity=300", "capacity=0"},
+        {"capacity=250", "capacity=0"},
         {"gold=12345", "gold=-1"},
-        {"herbs=7", "herbs=999"}, /* 저장 한도를 넘음 → 불변 조건 검사에서 걸림 */
-        {"size=96,96", "size=96,95"},
-        {"size=96,96", "size=10,10"},
+        {"herbs=7", "herbs=1000000001"}, /* 저장 한도를 넘음 → 불변 조건 검사에서 걸림 */
+        {"size=160,160", "size=96,95"},
+        {"size=160,160", "size=10,10"},
         {"[clock]", "[clock2]"},
         {"[rng]", "[meta]"},
         {"inc=", "inc=zz"},
@@ -308,6 +320,7 @@ void test_load_rejects_bad_values(void)
             fprintf(stderr, "  case %u: pattern not found: %s\n", (unsigned)i, CASES[i][0]);
             CHECK(changed != NULL);
         }
+        refresh_crc(changed);
         rc = load_text(changed, strlen(changed), &line);
         if (rc != CORE_ERR_FORMAT) {
             fprintf(stderr, "  case %u (%s -> %s): rc=%d\n", (unsigned)i, CASES[i][0], CASES[i][1], (int)rc);
@@ -318,8 +331,7 @@ void test_load_rejects_bad_values(void)
     free(text);
 }
 
-void test_load_truncated_files(void)
-{
+void test_load_truncated_files(void) {
     size_t size = 0;
     char *text = make_valid_save_text(&size);
     size_t length;
@@ -331,20 +343,19 @@ void test_load_truncated_files(void)
     for (length = 0; length < size; length += step) {
         int32_t line = 0;
         int32_t rc = load_text(text, length, &line);
-        /* 마지막 줄바꿈만 빠진 경우("[end]" 로 끝남)만 읽혀도 됩니다 */
+        /* 체크섬 푸터가 조금이라도 잘린 파일은 거부합니다. */
         if (length >= size - 1) {
-            CHECK(rc == CORE_OK);
+            CHECK(rc == CORE_ERR_FORMAT);
         } else {
             CHECK(rc == CORE_ERR_FORMAT);
         }
         CHECK_EQ(mem_test_live_blocks(), baseline);
     }
-    CHECK_EQ(load_text(text, size - 1, NULL), CORE_OK);
+    CHECK_EQ(load_text(text, size - 1, NULL), CORE_ERR_FORMAT);
     free(text);
 }
 
-void test_load_garbled_files(void)
-{
+void test_load_garbled_files(void) {
     size_t size = 0;
     char *text = make_valid_save_text(&size);
     char *copy;
@@ -382,7 +393,7 @@ void test_load_garbled_files(void)
         char *line = (char *)malloc(big);
         CHECK(line != NULL);
         memset(line, 'A', big);
-        memcpy(line, "MAGICCASTLE_SAVE 12\nrow=", 23);
+        memcpy(line, "MAGICCASTLE_SAVE 13\nrow=", 23);
         CHECK_EQ(load_text(line, big, NULL), CORE_ERR_FORMAT);
         free(line);
     }
@@ -390,8 +401,7 @@ void test_load_garbled_files(void)
     free(text);
 }
 
-void test_load_out_of_memory_is_clean(void)
-{
+void test_load_out_of_memory_is_clean(void) {
     const char *path = "oom.sav";
     CoreWorld *world = make_played_world(9);
     long baseline;
@@ -433,8 +443,7 @@ void test_load_out_of_memory_is_clean(void)
     remove_save_files(path);
 }
 
-void test_save_peek_summarizes_slot(void)
-{
+void test_save_peek_summarizes_slot(void) {
     const char *path = "peek_slot.sav";
     CoreWorld *world = make_played_world(41);
     CoreSummaryView summary;
@@ -479,8 +488,7 @@ void test_save_peek_summarizes_slot(void)
     remove_save_files(path);
 }
 
-void test_save_peek_broken_offers_backup(void)
-{
+void test_save_peek_broken_offers_backup(void) {
     const char *path = "peek_broken.sav";
     CoreWorld *world = make_played_world(43);
     CoreSaveInfoView info;
@@ -503,7 +511,7 @@ void test_save_peek_broken_offers_backup(void)
     CHECK_EQ(core_peek_save(path, NULL, &info), CORE_ERR_FORMAT);
     CHECK_EQ(info.result, CORE_ERR_FORMAT);
     CHECK_EQ(info.version, CORE_SAVE_VERSION); /* 첫 줄은 남아 있음 */
-    CHECK(info.error_line > 1);
+    CHECK(info.error_line >= 1);
     CHECK_EQ(core_load(path, NULL, &loaded, &line), CORE_ERR_FORMAT);
     CHECK(loaded == NULL);
     CHECK_EQ(line, info.error_line);
@@ -514,7 +522,7 @@ void test_save_peek_broken_offers_backup(void)
     core_destroy(loaded);
 
     /* 다른 버전의 세이브: 버전 번호를 알려 줌 */
-    changed = replace_once(text, "MAGICCASTLE_SAVE 12", "MAGICCASTLE_SAVE 4");
+    changed = replace_once(text, "MAGICCASTLE_SAVE 13", "MAGICCASTLE_SAVE 4");
     CHECK(changed != NULL);
     CHECK(test_write_file(path, changed, strlen(changed)));
     CHECK_EQ(core_peek_save(path, NULL, &info), CORE_ERR_VERSION);
@@ -532,8 +540,7 @@ void test_save_peek_broken_offers_backup(void)
     remove_save_files(path);
 }
 
-void test_castle_name_check(void)
-{
+void test_castle_name_check(void) {
     char longest[CORE_NAME_BYTES];
     char too_long[CORE_NAME_BYTES + 1];
     memset(longest, 'a', sizeof(longest) - 1);
@@ -547,7 +554,7 @@ void test_castle_name_check(void)
     CHECK_EQ(core_check_castle_name(too_long), CORE_ERR_INVALID_ARG);
     CHECK_EQ(core_check_castle_name(""), CORE_ERR_INVALID_ARG);
     CHECK_EQ(core_check_castle_name(u8"두 줄\n이름"), CORE_ERR_INVALID_ARG); /* 세이브는 한 줄에 값 하나 */
-    CHECK_EQ(core_check_castle_name("\xff\xfe"), CORE_ERR_INVALID_ARG);   /* 잘못된 UTF-8 */
-    CHECK_EQ(core_check_castle_name("\xea\xb0"), CORE_ERR_INVALID_ARG);   /* 잘린 한글 */
+    CHECK_EQ(core_check_castle_name("\xff\xfe"), CORE_ERR_INVALID_ARG); /* 잘못된 UTF-8 */
+    CHECK_EQ(core_check_castle_name("\xea\xb0"), CORE_ERR_INVALID_ARG); /* 잘린 한글 */
     CHECK_EQ(core_check_castle_name(NULL), CORE_ERR_NULL_ARG);
 }

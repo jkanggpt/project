@@ -20,11 +20,11 @@ typedef struct CoreWorld World;
 typedef struct Villager Villager;
 typedef struct Building Building;
 
-#define NATURE_GRACE_DAYS 6          /* 처음 며칠은 사건이 없음 */
-#define NATURE_CALM_DAYS 4           /* 사건이 끝나고 다음 예보까지 쉬는 날 */
-#define NATURE_SICK_TICKS 432        /* 병이 저절로 낫는 기본 시간 (3일, 체력에 따라 달라짐) */
-#define NATURE_HEAL_TICKS 6          /* 치료소에서 낫는 데 걸리는 시간 (1시간) */
-#define NATURE_FOOD_PER_DAY_X10 12   /* 겨울 준비 계산: 주민 한 명이 하루에 먹는 식량 × 10 */
+#define NATURE_GRACE_DAYS 6   /* 처음 며칠은 사건이 없음 */
+#define NATURE_CALM_DAYS 4    /* 사건이 끝나고 다음 예보까지 쉬는 날 */
+#define NATURE_SICK_TICKS 432 /* 병이 저절로 낫는 기본 시간 (3일, 체력에 따라 달라짐) */
+#define NATURE_HEAL_TICKS 6   /* 치료소에서 낫는 데 걸리는 시간 (1시간) */
+#define NATURE_FOOD_PER_DAY_X10 12 /* 겨울 준비 계산: 주민 한 명이 하루에 먹는 식량 × 10 */
 
 typedef struct Nature {
     int32_t weather;    /* CoreWeather */
@@ -32,8 +32,8 @@ typedef struct Nature {
     int32_t event_days; /* 남은 날 (오늘 포함) */
     int32_t forecast;   /* 내일 시작할 사건 */
     int32_t forecast_days;
-    int32_t calm_days;  /* 마지막 사건이 끝난 뒤 지난 날 */
-    int32_t cold_houses;/* 지난밤 난방을 못 한 집 수 (저장함: 기분에 영향) */
+    int32_t calm_days;   /* 마지막 사건이 끝난 뒤 지난 날 */
+    int32_t cold_houses; /* 지난밤 난방을 못 한 집 수 (저장함: 기분에 영향) */
 } Nature;
 
 void nature_init(Nature *nature);

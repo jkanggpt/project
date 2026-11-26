@@ -12,12 +12,15 @@
 
 #include "castle_core.h"
 
+extern const int32_t ECO_START_RESOURCES[CORE_RES_COUNT];
+#define ECO_START_POPULATION 4
+
 #define ECO_MAX_AMOUNT 1000000000 /* 금화·마정석의 상한 (int32 넘침 방지) */
 
 typedef struct ResourceBank {
     int32_t amount[CORE_RES_COUNT];
     int32_t capacity; /* 물건 하나당 저장 한도 */
-    int32_t individual_limits,limits[CORE_RES_COUNT];
+    int32_t individual_limits, limits[CORE_RES_COUNT];
 } ResourceBank;
 
 /* 장부 항목은 공개 헤더의 CoreLedgerCategory (C 그래픽 프런트엔드 툴팁도 같은 번호를 씀) */

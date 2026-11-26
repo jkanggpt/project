@@ -1,5 +1,5 @@
 # castle_cli — 공개 API 만 써서 진짜 게임을 돌리는 콘솔 프런트엔드 (선생님 시연, 테스트, 밸런스 시뮬레이터)
-add_library(castle_cli_support STATIC format.c sim.c walker.c battle.c expansion_bot.c fortification_plan.c)
+add_library(castle_cli_support STATIC format.c sim.c expansion_bot.c fortification_plan.c)
 target_include_directories(castle_cli_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(castle_cli_support PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 target_include_directories(castle_cli_support PRIVATE ${PROJECT_SOURCE_DIR}/game/src)

@@ -1,0 +1,530 @@
+[
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_center_distance",
+    "new_path": "core/src/people/work.c",
+    "new_symbol": "expansion_center_distance",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_centers_distance",
+    "new_path": "core/src/people/work.c",
+    "new_symbol": "expansion_centers_distance",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_working_present",
+    "new_path": "core/src/people/work.c",
+    "new_symbol": "expansion_working_present",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_working_count",
+    "new_path": "core/src/people/work.c",
+    "new_symbol": "expansion_working_count",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_labor_milli",
+    "new_path": "core/src/people/work.c",
+    "new_symbol": "expansion_labor_milli",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_sqrt_milli",
+    "new_path": "core/src/people/work.c",
+    "new_symbol": "expansion_sqrt_milli",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_begin_work",
+    "new_path": "core/src/people/work.c",
+    "new_symbol": "expansion_begin_work",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "core_expansion_efficiency",
+    "new_path": "core/src/people/work.c",
+    "new_symbol": "core_expansion_efficiency",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "core_expansion_profession_efficiency",
+    "new_path": "core/src/people/work.c",
+    "new_symbol": "core_expansion_profession_efficiency",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_event_active",
+    "new_path": "core/src/services/capacity.c",
+    "new_symbol": "expansion_event_active",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_agriculture_event",
+    "new_path": "core/src/services/capacity.c",
+    "new_symbol": "expansion_agriculture_event",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_service_base",
+    "new_path": "core/src/services/capacity.c",
+    "new_symbol": "expansion_service_base",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_service_shift",
+    "new_path": "core/src/services/capacity.c",
+    "new_symbol": "expansion_service_shift",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "core_expansion_events",
+    "new_path": "core/src/services/capacity.c",
+    "new_symbol": "core_expansion_events",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_trade_efficiency",
+    "new_path": "core/src/economy/trade_rules.c",
+    "new_symbol": "expansion_trade_efficiency",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_trade_limit",
+    "new_path": "core/src/economy/trade_rules.c",
+    "new_symbol": "expansion_trade_limit",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "expansion_choose_identity",
+    "new_path": "core/src/people/identity.c",
+    "new_symbol": "expansion_choose_identity",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v121.c",
+    "symbol": "core_expansion_daily_requirements",
+    "new_path": "core/src/people/consumption.c",
+    "new_symbol": "core_expansion_daily_requirements",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "expansion_military",
+    "new_path": "core/src/combat/defense.c",
+    "new_symbol": "expansion_military",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "expansion_initialize_shift",
+    "new_path": "core/src/combat/defense.c",
+    "new_symbol": "expansion_initialize_shift",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "expansion_defend_damage",
+    "new_path": "core/src/combat/defense.c",
+    "new_symbol": "expansion_defend_damage",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "core_expansion_building_hit",
+    "new_path": "core/src/combat/defense.c",
+    "new_symbol": "core_expansion_building_hit",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "core_expansion_person_hit",
+    "new_path": "core/src/combat/defense.c",
+    "new_symbol": "core_expansion_person_hit",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "expansion_tower",
+    "new_path": "core/src/combat/defense.c",
+    "new_symbol": "expansion_tower",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "runtime_slot",
+    "new_path": "core/src/persistence/runtime_state.c",
+    "new_symbol": "runtime_slot",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "core_expansion_copy_runtime",
+    "new_path": "core/src/persistence/runtime_state.c",
+    "new_symbol": "core_expansion_copy_runtime",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "core_expansion_report_runtime",
+    "new_path": "core/src/persistence/runtime_state.c",
+    "new_symbol": "core_expansion_report_runtime",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "core_expansion_build_locked",
+    "new_path": "core/src/persistence/runtime_state.c",
+    "new_symbol": "core_expansion_build_locked",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "core_expansion_enemy_runtime",
+    "new_path": "core/src/persistence/runtime_state.c",
+    "new_symbol": "core_expansion_enemy_runtime",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "expansion_v122_numbers",
+    "new_path": "core/src/buildings/serials.c",
+    "new_symbol": "expansion_ensure_building_serials",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "map_noise",
+    "new_path": "core/src/world/resource_budget.c",
+    "new_symbol": "budget_noise",
+    "status": "REIMPLEMENTED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "stone_base",
+    "new_path": "core/src/world/resource_budget.c",
+    "new_symbol": "sample_base_stone",
+    "status": "REIMPLEMENTED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "expansion_legacy_generate",
+    "new_path": "core/src/world/resource_budget.c",
+    "new_symbol": "expansion_resource_budget",
+    "status": "REIMPLEMENTED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "expansion_v122_migrate",
+    "new_path": null,
+    "new_symbol": null,
+    "status": "REMOVED_COMPATIBILITY",
+    "reason": "구 저장 이관 전용; 현재 스키마 생성·읽기는 별도 단일 구현"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "core_expansion_tree_mature_age",
+    "new_path": "core/src/buildings/facilities.c",
+    "new_symbol": "core_expansion_tree_mature_age",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "core_expansion_facility",
+    "new_path": "core/src/buildings/facilities.c",
+    "new_symbol": "core_expansion_facility",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "expansion_duty",
+    "new_path": "core/src/people/schedule.c",
+    "new_symbol": "expansion_duty",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "expansion_leisure",
+    "new_path": "core/src/people/schedule.c",
+    "new_symbol": "expansion_leisure",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "expansion_schedule",
+    "new_path": "core/src/people/schedule.c",
+    "new_symbol": "expansion_schedule",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "core_expansion_schedule",
+    "new_path": "core/src/people/schedule.c",
+    "new_symbol": "core_expansion_schedule",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "core_expansion_set_shift",
+    "new_path": "core/src/people/schedule.c",
+    "new_symbol": "core_expansion_set_shift",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "core_expansion_assign_shift",
+    "new_path": "core/src/people/schedule.c",
+    "new_symbol": "core_expansion_assign_shift",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "expansion_mood_event",
+    "new_path": "core/src/people/schedule.c",
+    "new_symbol": "expansion_mood_event",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v122.c",
+    "symbol": "expansion_v122_life",
+    "new_path": "core/src/people/schedule.c",
+    "new_symbol": "expansion_people_needs_tick",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "expansion_water_capacity",
+    "new_path": "core/src/services/water.c",
+    "new_symbol": "expansion_water_capacity",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "expansion_water_radius",
+    "new_path": "core/src/services/water.c",
+    "new_symbol": "expansion_water_radius",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "expansion_adjacent_water_id",
+    "new_path": "core/src/services/water.c",
+    "new_symbol": "expansion_adjacent_water_id",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "core_expansion_adjacent_water",
+    "new_path": "core/src/services/water.c",
+    "new_symbol": "core_expansion_adjacent_water",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "core_expansion_bridge_mask",
+    "new_path": "core/src/services/water.c",
+    "new_symbol": "core_expansion_bridge_mask",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "core_expansion_water_provider",
+    "new_path": "core/src/services/water.c",
+    "new_symbol": "core_expansion_water_provider",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "expansion_clay_take",
+    "new_path": "core/src/world/clay.c",
+    "new_symbol": "expansion_clay_take",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "expansion_heal_herbs_required",
+    "new_path": "core/src/services/healing.c",
+    "new_symbol": "expansion_heal_herbs_required",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "core_expansion_healing_herbs",
+    "new_path": "core/src/services/healing.c",
+    "new_symbol": "core_expansion_healing_herbs",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "expansion_person_exit",
+    "new_path": "core/src/people/departures.c",
+    "new_symbol": "expansion_person_exit",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "core_expansion_can_expel",
+    "new_path": "core/src/people/departures.c",
+    "new_symbol": "core_expansion_can_expel",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "core_expansion_expel",
+    "new_path": "core/src/people/departures.c",
+    "new_symbol": "core_expansion_expel",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "core_expansion_resident_status",
+    "new_path": "core/src/people/departures.c",
+    "new_symbol": "core_expansion_resident_status",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "core_expansion_house_residents",
+    "new_path": "core/src/people/departures.c",
+    "new_symbol": "core_expansion_house_residents",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "expansion_v123_migrate",
+    "new_path": null,
+    "new_symbol": null,
+    "status": "REMOVED_COMPATIBILITY",
+    "reason": "구 저장 이관 전용; 현재 스키마 생성·읽기는 별도 단일 구현"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "expansion_hunter_threat",
+    "new_path": "core/src/people/hunting.c",
+    "new_symbol": "expansion_hunter_threat",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "expansion_notice",
+    "new_path": "core/src/common/interface_rules.c",
+    "new_symbol": "expansion_notice",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v123_rules.c",
+    "symbol": "core_expansion_ui_color_group",
+    "new_path": "core/src/common/interface_rules.c",
+    "new_symbol": "core_expansion_ui_color_group",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "expansion_is_phantom",
+    "new_path": "core/src/ecology/species.c",
+    "new_symbol": "expansion_is_phantom",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "core_expansion_animal_class",
+    "new_path": "core/src/ecology/species.c",
+    "new_symbol": "core_expansion_animal_class",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "expansion_lighthouse_bonus",
+    "new_path": "core/src/services/lighthouse.c",
+    "new_symbol": "expansion_lighthouse_bonus",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "expansion_immigration_wait",
+    "new_path": "core/src/people/immigration.c",
+    "new_symbol": "expansion_immigration_wait",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "expansion_immigration_limits",
+    "new_path": "core/src/people/immigration.c",
+    "new_symbol": "expansion_immigration_limits",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "expansion_immigration_count",
+    "new_path": "core/src/people/immigration.c",
+    "new_symbol": "expansion_immigration_count",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "expansion_harvest_deferred",
+    "new_path": "core/src/economy/harvest.c",
+    "new_symbol": "expansion_harvest_deferred",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "expansion_harvest_defer",
+    "new_path": "core/src/economy/harvest.c",
+    "new_symbol": "expansion_harvest_defer",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "expansion_harvest_release",
+    "new_path": "core/src/economy/harvest.c",
+    "new_symbol": "expansion_harvest_release",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "core_expansion_harvest",
+    "new_path": "core/src/economy/harvest.c",
+    "new_symbol": "core_expansion_harvest",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "expansion_is_medical",
+    "new_path": "core/src/services/medical.c",
+    "new_symbol": "expansion_is_medical",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "core_expansion_medical",
+    "new_path": "core/src/services/medical.c",
+    "new_symbol": "core_expansion_medical",
+    "status": "PRESERVED"
+  },
+  {
+    "old_path": "core/src/expansion_v124.c",
+    "symbol": "expansion_v124_migrate",
+    "new_path": null,
+    "new_symbol": null,
+    "status": "REMOVED_COMPATIBILITY",
+    "reason": "구 저장 이관 전용; 현재 스키마 생성·읽기는 별도 단일 구현"
+  }
+]

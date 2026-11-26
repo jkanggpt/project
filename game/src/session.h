@@ -1,9 +1,9 @@
 /* session.h — C 코어의 스냅숏과 실시간 이동·전투를 연결하는 C 실행 계층 */
 #ifndef CASTLE_GAME_SESSION_H
 #define CASTLE_GAME_SESSION_H
+#include "path.h"
 #include <castle_core.h>
 #include <castle_expansion.h>
-#include "path.h"
 
 #define GAME_MAX_ENEMIES 64
 #define GAME_MAX_PROJECTILES 512
@@ -18,10 +18,10 @@ typedef struct GameActor {
     int facing;
     float indoor;
     int indoor_building;
-    int chasing,boat_port;
+    int chasing, boat_port;
     GamePoint chase_goal;
     float attack_elapsed;
-    int attack_serial,attack_applied,attack_kind,attack_target,outfit;
+    int attack_serial, attack_applied, attack_kind, attack_target, outfit;
 } GameActor;
 typedef struct GameEnemy {
     GameActor actor;
@@ -31,8 +31,9 @@ typedef struct GameEnemy {
     int attack_serial, attack_applied, attack_kind, attack_target, summoner_id;
     GamePoint attack_to;
     CoreRaiderInfo info;
-    int entry_x,entry_y,inbound_count,inbound[128],retreat_index,retreat_started;
-    int pending_spawn;float stalled;
+    int entry_x, entry_y, inbound_count, inbound[128], retreat_index, retreat_started;
+    int pending_spawn;
+    float stalled;
 } GameEnemy;
 typedef struct GameProjectile {
     GamePoint from, to;
@@ -55,11 +56,16 @@ typedef struct GameEffect {
     GamePoint position;
     float hurt_started, hurt_until, bar_until, death_started, attack_started;
 } GameEffect;
-typedef struct GameHitFx {GamePoint position;float started,angle;int style,active;} GameHitFx;
+typedef struct GameHitFx {
+    GamePoint position;
+    float started, angle;
+    int style, active;
+} GameHitFx;
 typedef void (*GameEventFn)(void *context, const CoreEventView *event);
 typedef struct GameSession {
     CoreWorld *world;
     CoreDefs *defs;
+    int defs_borrowed;
     CoreConfigView config;
     CoreSummaryView summary;
     CoreBuildingDefView building_defs[CORE_BLD_COUNT];
@@ -95,16 +101,18 @@ typedef struct GameSession {
     GameEventFn on_event;
     void *event_context;
     GameEffect effects[2048];
-    GameHitFx hit_fx[160];int hit_cursor;
+    GameHitFx hit_fx[160];
+    int hit_cursor;
     int effect_revision;
     float visual_time;
 } GameSession;
 
 int game_session_init(GameSession *s, const char *data_dir);
+int game_session_init_shared(GameSession *s, const CoreDefs *defs);
 void game_session_free(GameSession *s);
 int game_session_new(GameSession *s, const char *name, int seed, int difficulty);
 int game_session_load(GameSession *s, const char *path, int *error_line);
-int game_session_checkpoint(GameSession *s,int restore);
+int game_session_checkpoint(GameSession *s, int restore);
 int game_session_refresh(GameSession *s);
 /* 게임 속 분 단위. 프레임과 무관하게 최대 2분씩 잘라 이동·전투를 풉니다. */
 int game_session_step(GameSession *s, float minutes);
@@ -123,7 +131,7 @@ void game_combat_step(GameSession *s, float minutes);
 GameEffect *game_effect(GameSession *s, int category, int id);
 void game_effects_sync(GameSession *s);
 void game_effects_event(GameSession *s, const CoreEventView *event);
-void game_hit_fx(GameSession *s,GamePoint position,int style);
-void game_hit_fx_direction(GameSession *s,GamePoint origin,GamePoint position,int style);
+void game_hit_fx(GameSession *s, GamePoint position, int style);
+void game_hit_fx_direction(GameSession *s, GamePoint origin, GamePoint position, int style);
 int game_hit_style(int source);
 #endif

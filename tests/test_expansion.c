@@ -3,8 +3,8 @@
 #include "mem.h"
 #include "test_util.h"
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 static World *expanded(void) {
     CoreNewGameParams p = {0};
@@ -13,7 +13,7 @@ static World *expanded(void) {
     p.seed = 7;
     p.difficulty = 1;
     p.ruleset = 1;
-    if (test_legacy_world(&p, &w) != CORE_OK) {
+    if (test_create_settlement(&p, &w) != CORE_OK) {
         test_fail(__FILE__, __LINE__, "expanded world creation");
         return NULL;
     }
@@ -49,7 +49,7 @@ void test_expansion_world_and_save(void) {
     if (!w)
         return;
     CHECK_EQ(core_get_summary(w, &summary), CORE_OK);
-    CHECK_EQ(summary.map_width, 192);
+    CHECK_EQ(summary.map_width, 160);
     CHECK_EQ(summary.population, 4);
     CHECK_EQ(summary.resources[CORE_RES_LOGS], 65);
     CHECK_EQ(summary.resources[CORE_RES_FOOD], 125);
@@ -289,9 +289,10 @@ void test_expansion_feed_before_output(void) {
     CHECK_EQ(entity_link_worker(a, w->villagers[0], 3), CORE_OK);
     CHECK_EQ(entity_link_worker(b, w->villagers[1], 3), CORE_OK);
     a->daily_work_milli = b->daily_work_milli = w->defs.buildings[CORE_BLD_PASTURE].worker_slots * 540000;
-    w->expansion->animals[w->expansion->animal_count-1].age = 24;
-    w->expansion->animals[w->expansion->animal_count-2].age = 24;
-    for(int p=0;p<w->expansion->cells;p++)w->expansion->tiles[p].biome=CORE_BIOME_DESERT;
+    w->expansion->animals[w->expansion->animal_count - 1].age = 24;
+    w->expansion->animals[w->expansion->animal_count - 2].age = 24;
+    for (int p = 0; p < w->expansion->cells; p++)
+        w->expansion->tiles[p].biome = CORE_BIOME_DESERT;
     w->bank.amount[CORE_RES_FOOD] = 0;
     w->expansion->fractional[CORE_RES_FOOD] = 600;
     expansion_animal_daily(w);
@@ -334,7 +335,7 @@ void test_expansion_allocation_failures(void) {
         World *w = NULL;
         int rc;
         mem_test_fail_after(limit);
-        rc = test_legacy_world(&p, &w);
+        rc = test_create_settlement(&p, &w);
         mem_test_fail_after(-1);
         if (rc == CORE_OK) {
             core_destroy(w);
@@ -395,8 +396,11 @@ void test_expansion_magic_consumption(void) {
     keep = world_keep(w);
     CHECK_EQ(entity_link_worker(tower, w->villagers[0], 3), CORE_OK);
     Villager *worker = w->villagers[0];
-    worker->state=CORE_VS_WORKING;worker->target=tower;worker->at_target=1;
-    worker->current_x_milli=tower->door_x*1000+500;worker->current_y_milli=tower->door_y*1000+500;
+    worker->state = CORE_VS_WORKING;
+    worker->target = tower;
+    worker->at_target = 1;
+    worker->current_x_milli = tower->door_x * 1000 + 500;
+    worker->current_y_milli = tower->door_y * 1000 + 500;
     w->research.done = (1u << 21) | (1u << 22);
     w->research.done_count = 2;
     w->bank.amount[CORE_RES_MANA] = 0;
@@ -438,7 +442,7 @@ void test_expansion_gate_connectivity(void) {
     home->state = CORE_BSTATE_RUINED;
     expansion_rebuild(w);
     CHECK_EQ(expansion_remove_road(w, 97, 100), CORE_OK);
-    w->grid.road[grid_index(&w->grid,97,100)] = 1;
+    w->grid.road[grid_index(&w->grid, 97, 100)] = 1;
     home->state = CORE_BSTATE_ACTIVE;
     for (x = 97; x <= 99; x++)
         w->grid.road[grid_index(&w->grid, x, 99)] = 1;

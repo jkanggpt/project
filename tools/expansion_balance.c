@@ -31,12 +31,14 @@ static void print_summary(CoreWorld *world) {
     puts("");
     (void)core_copy_buildings(world, buildings, 4096, &n);
     for (i = 0; i < n; i++)
-        printf("b=%d type=%d x=%d y=%d worker=%d/%d active=%d labor=%d pending=%d door=%d,%d road=%d connected=%d\n", buildings[i].id,
-               buildings[i].type, buildings[i].x, buildings[i].y, buildings[i].workers,
-               buildings[i].worker_slots, buildings[i].state, buildings[i].crop_labor_milli,
-               buildings[i].pending_harvest_milli, buildings[i].door_x, buildings[i].door_y,
-               world->grid.road[grid_index(&world->grid, buildings[i].door_x, buildings[i].door_y)],
-               world->expansion->connected[grid_index(&world->grid, buildings[i].door_x, buildings[i].door_y)]);
+        printf(
+            "b=%d type=%d x=%d y=%d worker=%d/%d active=%d labor=%d pending=%d door=%d,%d road=%d "
+            "connected=%d\n",
+            buildings[i].id, buildings[i].type, buildings[i].x, buildings[i].y, buildings[i].workers,
+            buildings[i].worker_slots, buildings[i].state, buildings[i].crop_labor_milli,
+            buildings[i].pending_harvest_milli, buildings[i].door_x, buildings[i].door_y,
+            world->grid.road[grid_index(&world->grid, buildings[i].door_x, buildings[i].door_y)],
+            world->expansion->connected[grid_index(&world->grid, buildings[i].door_x, buildings[i].door_y)]);
     (void)core_copy_villagers(world, villagers, 512, &n);
     for (i = 0; i < n; i++)
         printf("v=%d mood=%d health=%d hunger=%d home=%d job=%d state=%d at=%d inside=%d target=%d,%d\n",
@@ -83,7 +85,7 @@ int main(int argc, char **argv) {
     GameArguments args;
     int days = 200, seeds = 48, first_seed = 1, only_difficulty = -1, i, d, failures = 0;
     int require_protection_by = 0, unqualified = 0;
-    const char *data = "game/data", *out = "artifacts/expansion/balance";
+    const char *data = "game/data", *out = "build/reports/balance/detailed";
     if (!game_arguments(&args, argc, argv))
         return 2;
     for (i = 1; i < args.count; i++) {
@@ -138,7 +140,7 @@ int main(int argc, char **argv) {
                 char path[GAME_PATH_BYTES], save[GAME_PATH_BYTES];
                 FILE *csv, *eventcsv;
                 MetricContext context = {0};
-                int logged_day = 0,work_logged_day=0;
+                int logged_day = 0, work_logged_day = 0;
                 clock_t metric_started = clock();
                 int tick, last_day = 0, rc, first_protection = 0, peak_area = 0, peak_protected = 0;
                 uint64_t before = 0, after = 0;
@@ -181,7 +183,8 @@ int main(int argc, char **argv) {
                     if (last_day != s->summary.day) {
                         CoreSummaryView *p = &s->summary;
                         if (core_validate(s->world) != 0) {
-                            fprintf(stderr,"validate failed: difficulty=%d seed=%d day=%d violations=%d\n",d,first_seed+i,p->day,core_validate(s->world));
+                            fprintf(stderr, "validate failed: difficulty=%d seed=%d day=%d violations=%d\n",
+                                    d, first_seed + i, p->day, core_validate(s->world));
                             failures++;
                             break;
                         }
@@ -193,15 +196,18 @@ int main(int argc, char **argv) {
                         if (!first_protection && p->protected_area >= 25 && p->protected_population > 0)
                             first_protection = p->day;
                         if (sim_expansion_bot_daily(s->world) != CORE_OK) {
-                            fprintf(stderr,"bot failed: difficulty=%d seed=%d day=%d\n",d,first_seed+i,p->day);
+                            fprintf(stderr, "bot failed: difficulty=%d seed=%d day=%d\n", d, first_seed + i,
+                                    p->day);
                             failures++;
                             break;
                         }
                     }
-                    if(s->summary.minute_of_day==720)sim_expansion_bot_trade(s->world);
+                    if (s->summary.minute_of_day == 720)
+                        sim_expansion_bot_trade(s->world);
                     rc = game_session_step(s, 10);
                     if (rc != CORE_OK) {
-                        fprintf(stderr,"step failed: difficulty=%d seed=%d day=%d result=%d\n",d,first_seed+i,s->summary.day,rc);
+                        fprintf(stderr, "step failed: difficulty=%d seed=%d day=%d result=%d\n", d,
+                                first_seed + i, s->summary.day, rc);
                         failures++;
                         break;
                     }
@@ -214,8 +220,9 @@ int main(int argc, char **argv) {
                         checkpoint.type = -1;
                         metric_event(&context, &checkpoint);
                     }
-                    if(s->summary.minute_of_day>=1430 && work_logged_day!=s->summary.day) {
-                        metric_work_details(&context);work_logged_day=s->summary.day;
+                    if (s->summary.minute_of_day >= 1430 && work_logged_day != s->summary.day) {
+                        metric_work_details(&context);
+                        work_logged_day = s->summary.day;
                     }
                     /* 하루 중 충족한 장기 행복도와 보호구역 조건으로 승급합니다. */
                     if (s->summary.rank_ready) {
@@ -234,29 +241,38 @@ int main(int argc, char **argv) {
                 s->event_context = NULL;
                 (void)snprintf(save, sizeof(save), "%s/d%d_seed%d.sav", out, d, first_seed + i);
                 {
-                    int hash_result=core_state_hash(s->world,&before);
-                    int save_result=hash_result==CORE_OK?core_save(s->world,save):hash_result;
-                    int load_result=save_result==CORE_OK?game_session_load(s,save,NULL):save_result;
-                    int after_result=load_result==CORE_OK?core_state_hash(s->world,&after):load_result;
-                    if(hash_result!=CORE_OK||save_result!=CORE_OK||load_result!=CORE_OK||after_result!=CORE_OK||before!=after) {
-                        fprintf(stderr,"save roundtrip failed: difficulty=%d seed=%d day=%d hash=%d save=%d load=%d after=%d before=%llu after_hash=%llu validate=%d\n",d,first_seed+i,s->summary.day,hash_result,save_result,load_result,after_result,(unsigned long long)before,(unsigned long long)after,core_validate(s->world));
+                    int hash_result = core_state_hash(s->world, &before);
+                    int save_result = hash_result == CORE_OK ? core_save(s->world, save) : hash_result;
+                    int load_result = save_result == CORE_OK ? game_session_load(s, save, NULL) : save_result;
+                    int after_result =
+                        load_result == CORE_OK ? core_state_hash(s->world, &after) : load_result;
+                    if (hash_result != CORE_OK || save_result != CORE_OK || load_result != CORE_OK ||
+                        after_result != CORE_OK || before != after) {
+                        fprintf(stderr,
+                                "save roundtrip failed: difficulty=%d seed=%d day=%d hash=%d save=%d load=%d "
+                                "after=%d before=%llu after_hash=%llu validate=%d\n",
+                                d, first_seed + i, s->summary.day, hash_result, save_result, load_result,
+                                after_result, (unsigned long long)before, (unsigned long long)after,
+                                core_validate(s->world));
                         failures++;
-                        if(load_result==CORE_OK) {
+                        if (load_result == CORE_OK) {
                             char diagnostic[GAME_PATH_BYTES];
-                            (void)snprintf(diagnostic,sizeof(diagnostic),"%s/d%d_seed%d.reloaded.sav",out,d,first_seed+i);
-                            (void)core_save(s->world,diagnostic);
+                            (void)snprintf(diagnostic, sizeof(diagnostic), "%s/d%d_seed%d.reloaded.sav", out,
+                                           d, first_seed + i);
+                            (void)core_save(s->world, diagnostic);
                         }
                     }
                 }
                 if (require_protection_by && (!first_protection || first_protection > require_protection_by))
                     unqualified++;
                 printf("difficulty=%d seed=%d day=%d pop=%d rank=%d outcome=%d first_protection=%d "
-                       "peak_area=%d peak_protected=%d qualified=%d errors=%d save_skipped=%d hash_match=%d hash=%llu\n",
+                       "peak_area=%d peak_protected=%d qualified=%d errors=%d save_skipped=%d hash_match=%d "
+                       "hash=%llu\n",
                        d, first_seed + i, s->summary.day, s->summary.population, s->summary.rank,
                        s->summary.outcome, first_protection, peak_area, peak_protected,
                        first_protection > 0 &&
                            (!require_protection_by || first_protection <= require_protection_by),
-                       failures,0,before!=0 && before==after,(unsigned long long)after);
+                       failures, 0, before != 0 && before == after, (unsigned long long)after);
                 fflush(stdout);
                 game_session_free(s);
                 free(s);

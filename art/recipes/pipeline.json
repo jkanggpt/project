@@ -1,0 +1,39 @@
+{
+  "implementation": "tools/art_pipeline.c",
+  "stages": [
+    {
+      "role": "base",
+      "implementation": "tools/art/base.c"
+    },
+    {
+      "role": "buildings",
+      "implementation": "tools/art/buildings.c"
+    },
+    {
+      "role": "nature",
+      "implementation": "tools/art/nature.c"
+    },
+    {
+      "role": "scenery",
+      "implementation": "tools/art/scenery.c"
+    },
+    {
+      "role": "residents",
+      "implementation": "tools/art/residents.c"
+    },
+    {
+      "role": "interface",
+      "implementation": "tools/art/interface.c"
+    },
+    {
+      "role": "services",
+      "implementation": "tools/art/services.c"
+    },
+    {
+      "role": "production",
+      "implementation": "tools/art/production.c"
+    }
+  ],
+  "publish_manifest": "game/assets/assets_manifest.json",
+  "temporary_output": "build/<run>/art-work"
+}

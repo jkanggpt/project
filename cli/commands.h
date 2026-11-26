@@ -8,17 +8,15 @@
 #define CASTLE_CLI_COMMANDS_H
 
 #include "castle_core.h"
-#include "battle.h"
-#include "walker.h"
+#include "session.h"
 
 #define CLI_PATH_BYTES 260
 
 typedef struct CliContext {
-    CoreWorld *world;       /* 지금 진행 중인 게임 (없으면 NULL) */
-    const CoreDefs *defs;   /* 정의 (data 폴더에서 읽은 것) */
-    Walker walker;          /* 주민 걷기 흉내 */
-    Battle battle;          /* 습격을 숫자로 풀기 (C 그래픽 프런트엔드 의 전투 대신) */
-    int running;            /* 0 이 되면 메뉴를 끝냄 */
+    CoreWorld *world;     /* 지금 진행 중인 게임 (없으면 NULL) */
+    const CoreDefs *defs; /* 정의 (data 폴더에서 읽은 것) */
+    GameSession *session; /* 그래픽판과 같은 이동·전투 실행기 */
+    int running;          /* 0 이 되면 메뉴를 끝냄 */
     char save_path[CLI_PATH_BYTES];
 } CliContext;
 

@@ -1,0 +1,8 @@
+include("${CMAKE_CURRENT_LIST_DIR}/Data.cmake")
+file(MAKE_DIRECTORY "${DESTINATION}")
+foreach(file IN LISTS CASTLE_DATA_FILES)
+  if(NOT EXISTS "${SOURCE}/${file}")
+    message(FATAL_ERROR "필수 정의 파일 누락: ${file}")
+  endif()
+  file(COPY_FILE "${SOURCE}/${file}" "${DESTINATION}/${file}" ONLY_IF_DIFFERENT)
+endforeach()

@@ -1,28 +1,16 @@
-# 마법성채 키우기 — C 실행판 개발 안내
+# 마법성채 키우기 — 개발 안내
 
-먼저 docs/SPEC.md, docs/NATIVE_PORT.md, PROGRESS.md를 읽습니다.
-현재 게임은 C11 + raylib이며 Godot/.NET/Python을 사용하지 않습니다.
-main에 푸시하거나 PR을 병합하지 않습니다. 한국어 UI·문서·주석, 영어 식별자를 사용합니다.
+먼저 docs/SPEC.md와 PROGRESS.md를 읽습니다. 구조는 docs/ARCHITECTURE.md, 빌드·검사는 docs/BUILD_AND_TEST.md, 실제 검증과 한계는 docs/CLEANUP_AUDIT.md 및 docs/MISSING_FEATURES.md를 따릅니다.
 
-## Commands
+현재 게임은 C11 + raylib이며 그래픽과 콘솔이 같은 GameSession을 사용합니다. Godot/.NET은 필요하지 않습니다. 공개 헤더는 core/include 한 벌이고 실행 에셋은 game/assets/assets_manifest.json이 정본입니다.
 
-저장소 루트에서 실행합니다.
+마일스톤 브랜치에서 커밋하고 사용자 지시에 따라 해당 브랜치에 푸시합니다. main 푸시나 PR 병합은 하지 않습니다. 한국어 UI·문서·주석과 영어 식별자를 사용합니다.
 
-- Windows MSVC: `cmake --preset windows-msvc -DCASTLE_WERROR=ON`, `cmake --build --preset windows-msvc`, `ctest --preset windows-msvc`
-- Windows MinGW (한글 경로 포함): `./tools/build_windows.ps1`
-- Linux C 검사: `cmake --preset linux-debug -DCASTLE_WERROR=ON`, `cmake --build --preset linux-debug`, `ctest --preset linux-debug -j8`
-- Linux 그래픽: `cmake --preset linux-release -DCASTLE_WERROR=ON`, `cmake --build --preset linux-release`
-- 자동 플레이: `<bin>/castle_game --smoke-test --days 20 --seed 42`
-- 긴 자동 플레이: `<bin>/castle_game --smoke-test --days 60 --seed 42`
-- 성능: `<bin>/castle_game --stress` 또는 `--stress-probe --no-audio`
-- 화면: `<bin>/castle_game --screenshot artifacts/title.png --screen title --no-audio`
-- 주민 외형·방향 비교: `<bin>/castle_game --screenshot artifacts/villagers.png --screen villagers --no-audio`
-- 전체 촬영: `cmake -DGAME=<실행파일 절대경로> -DOUT=<출력폴더> -P tools/screenshots.cmake`
-- 소크: `<bin>/castle_cli --soak 400 --seeds 20`
-- 밸런스: `<bin>/castle_balance --data game/data --seeds 16 --days 100`
-- 새 그림 패킹: `<bin>/castle_art art/generated game/assets/painted`, 검사: `<bin>/castle_art --check game/assets/painted`
-- 배포: `cmake --install <빌드폴더> --prefix <배포폴더>`
+~~~powershell
+cmake --preset windows-msvc -DCASTLE_WERROR=ON
+cmake --build --preset windows-msvc --parallel 4
+ctest --preset windows-msvc --parallel 4
+powershell -File tools/audit_project.ps1 -Output build/reports/audit
+~~~
 
-CMake 설정은 CASTLE_BUILD_GAME=OFF로 외부 그래픽 의존성 없이 빌드할 수 있습니다.
-MSVC 실행 파일은 bin/Release, 단일 구성 MinGW/Linux는 bin에 있습니다.
-최신 결과와 한계는 PROGRESS.md에 남깁니다.
+MinGW의 한글 경로 지원은 tools/build_windows.ps1을 사용합니다. 아트 재생성과 독립 설치 절차는 docs/BUILD_AND_TEST.md에 있습니다. 검사 산출물은 build/reports에만 작성하고 사용자 저장을 정리 대상으로 삼지 않습니다.

@@ -19,7 +19,6 @@ Villager *population_create(World *world, int32_t x, int32_t y);
 /* 새 게임의 첫 주민들 (성채 문 앞). CORE_OK 또는 CORE_ERR_OUT_OF_MEMORY */
 int population_spawn_initial(World *world);
 /* 하루 결산: 이주민 */
-void population_daily(World *world);
 /* 마을을 떠나기 시작함 (일터·집 연결을 끊고 가장자리로 감) */
 void population_begin_leaving(World *world, Villager *villager);
 /* 가장자리에 도착해 떠남: 목록에서 지움 */

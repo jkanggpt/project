@@ -4,9 +4,10 @@
 #include <string.h>
 
 #include "test_util.h"
+#include "events.h"
+#include "world.h"
 
-void test_api_rejects_null_and_bad_args(void)
-{
+void test_api_rejects_null_and_bad_args(void) {
     CoreWorld *world = test_make_world(1, CORE_DIFF_NORMAL);
     CoreSummaryView summary;
     CoreEventView event;
@@ -30,7 +31,7 @@ void test_api_rejects_null_and_bad_args(void)
     CHECK_EQ(core_get_summary(world, NULL), CORE_ERR_NULL_ARG);
     CHECK_EQ(core_get_map_size(world, NULL, &height), CORE_ERR_NULL_ARG);
     CHECK_EQ(core_get_map_size(world, &width, &height), CORE_OK);
-    CHECK_EQ(width * height, 96 * 96);
+    CHECK_EQ(width * height, 160 * 160);
     CHECK_EQ(core_copy_terrain(world, small, (int32_t)sizeof(small)), CORE_ERR_BUFFER_TOO_SMALL);
     CHECK_EQ(core_copy_terrain(world, NULL, 100000), CORE_ERR_NULL_ARG);
     CHECK_EQ(core_copy_cost_grid(world, small, (int32_t)sizeof(small), NULL), CORE_ERR_BUFFER_TOO_SMALL);
@@ -54,8 +55,7 @@ void test_api_rejects_null_and_bad_args(void)
     core_destroy(world);
 }
 
-void test_api_struct_sizes_and_config(void)
-{
+void test_api_struct_sizes_and_config(void) {
     CoreStructSizes sizes;
     CoreConfigView config;
     CHECK_EQ(core_abi_version(), CORE_ABI_VERSION);
@@ -69,10 +69,10 @@ void test_api_struct_sizes_and_config(void)
     CHECK_EQ(sizes.summary_view, (55 + 3 * CORE_RES_COUNT + 23) * 4 + 48);
     CHECK_EQ(sizes.config_view, 17 * 4);
     CHECK_EQ(sizes.villager_view, 80 * 4 + 48);
-    CHECK_EQ(sizes.building_view, 44*4);
-    CHECK_EQ(sizes.building_def_view, 44*4+72);
+    CHECK_EQ(sizes.building_view, 44 * 4);
+    CHECK_EQ(sizes.building_def_view, 44 * 4 + 72);
     CHECK_EQ(sizes.trait_def_view, 6 * 4 + 24);
-    CHECK_EQ(sizes.placement_view, 22*4);
+    CHECK_EQ(sizes.placement_view, 22 * 4);
     CHECK_EQ(sizes.mood_term_view, 8);
     CHECK_EQ(sizes.ledger_view, 2 * CORE_RES_COUNT * CORE_LEDGER_COUNT * 4);
     CHECK_EQ(sizes.market_view, (2 + 4 * CORE_RES_COUNT) * 4);
@@ -96,40 +96,20 @@ void test_api_struct_sizes_and_config(void)
     CHECK_EQ(config.terrain_count, CORE_TERRAIN_COUNT);
 }
 
-void test_api_events_drain(void)
-{
-    CoreWorld *world = test_make_world(8, CORE_DIFF_NORMAL);
-    CoreEventView event;
-    int count = 0;
-    int warnings = 0;
-    int i;
-    CHECK(world != NULL);
-    /* 아무도 이벤트를 꺼내지 않아도 큐가 끝없이 커지지 않고, 꺼낼 때 버린 개수를 알려 줍니다.
-     * (아무것도 짓지 않으므로 주민이 굶다가 모두 떠나 패배하면, 그 뒤에는 시간이 흐르지 않음) */
-    for (i = 0; i < 400; i++) {
-        int32_t rc = core_tick(world, 1440);
-        if (rc == CORE_ERR_REJECTED) {
-            CoreSummaryView summary;
-            CHECK_EQ(core_get_summary(world, &summary), CORE_OK);
-            CHECK_EQ(summary.outcome, CORE_OUTCOME_LOST);
-            CHECK_EQ(summary.lose_reason, CORE_LOSE_POPULATION);
-            break;
-        }
-        CHECK_EQ(rc, CORE_OK);
-    }
-    CHECK(i > 0);
-    CHECK_EQ(core_validate(world), 0);
-    while (core_poll_event(world, &event) == 1) {
+void test_api_events_drain(void) {
+    World *w = test_make_world(8, CORE_DIFF_NORMAL);
+    CHECK(w);
+    for (int i = 0; i < EVENTS_MAX_CAPACITY + 10; i++)
+        events_push_day(&w->events, CORE_EVT_DAY_STARTED, i);
+    CoreEventView e;
+    int count = 0, warnings = 0;
+    while (core_poll_event(w, &e) == 1) {
         count++;
-        if (event.type == CORE_EVT_WARNING) {
-            warnings++;
-        }
+        warnings += e.type == CORE_EVT_WARNING;
     }
-    /* 큐는 4096개를 넘지 않음. 넘쳐서 버렸다면 "버림" 경고가 꼭 한 번 (버리는 규칙 자체는 test_basics 가 확인) */
-    CHECK(count > 0 && count <= 4097);
-    CHECK(warnings <= 1);
-    CHECK(count < 4097 || warnings == 1);
-    CHECK_EQ(core_poll_event(world, &event), 0);
-    CHECK_EQ(event.type, CORE_EVT_NONE);
-    core_destroy(world);
+    CHECK(count > 0 && count <= EVENTS_MAX_CAPACITY + 1);
+    CHECK_EQ(warnings, 1);
+    CHECK_EQ(core_poll_event(w, &e), 0);
+    CHECK_EQ(e.type, CORE_EVT_NONE);
+    core_destroy(w);
 }

@@ -1,5 +1,16 @@
-# 이관 검사용 실제 저장 파일은 운영체제별 개행 변환 없이 보존합니다.
-tests/fixtures/*.sav binary
+# 생성 아트·원음·폰트·권리 파일의 바이트를 그대로 보존합니다.
+art/sources/** -text
+game/assets/** -text
+# 설정·원장은 운영체제와 관계없이 LF를 씁니다.
+game/assets/assets_manifest.json text eol=lf
+art/art_manifest.json text eol=lf
+art/recipes/*.json text eol=lf
+game/data/* text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
 
-# 아트 매니페스트와 메타데이터의 해시는 운영체제에 관계없이 같습니다.
-game/assets/expansion/fishing_passenger_offsets_*.json text eol=lf
+# 외부 권리 원문의 탭·줄끝도 그대로 유지합니다.
+art/sources/licenses/** -whitespace
+game/assets/licenses/** -whitespace

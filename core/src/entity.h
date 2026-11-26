@@ -40,24 +40,24 @@ struct Villager {
     int32_t id;
     char name[CORE_NAME_BYTES];
     int32_t age;
-    Stats stats;          /* 포함 */
-    Needs needs;          /* 포함 */
-    int32_t traits[2];    /* 특성 번호, -1 = 없음 */
-    int32_t mood;         /* 기본 규칙 0..100, 확장 사건 기분 −200..200 */
-    int32_t health;       /* 0..100 */
-    int32_t flags;        /* CORE_VF_* */
-    Building *home;       /* 참조 (없으면 NULL) */
-    Building *workplace;  /* 참조 */
+    Stats stats;         /* 포함 */
+    Needs needs;         /* 포함 */
+    int32_t traits[2];   /* 특성 번호, -1 = 없음 */
+    int32_t mood;        /* 기본 규칙 0..100, 확장 사건 기분 −200..200 */
+    int32_t health;      /* 0..100 */
+    int32_t flags;       /* CORE_VF_* */
+    Building *home;      /* 참조 (없으면 NULL) */
+    Building *workplace; /* 참조 */
 
     /* 의도: C 그래픽 프런트엔드 이 이것을 보고 걷게 합니다 */
-    int32_t state;        /* CoreVillagerState */
+    int32_t state; /* CoreVillagerState */
     int32_t intent_rev;
     int32_t intent_flags; /* CORE_INTENT_* */
     Building *target;     /* 목표 건물 (참조, 칸 목표면 NULL) */
     int32_t target_x;
     int32_t target_y;
     int32_t at_target;
-    int32_t loc_x;        /* 마지막으로 도착한 칸 */
+    int32_t loc_x; /* 마지막으로 도착한 칸 */
     int32_t loc_y;
 
     /* 시간 기록 */
@@ -70,9 +70,9 @@ struct Villager {
     int32_t blocked_day;    /* 길 막힘 알림을 마지막으로 보낸 날 */
     int32_t sick_ticks;     /* 병이 저절로 낫기까지 남은 틱 (0 = 건강) */
     int32_t heal_ticks;     /* 치료소에서 치료받은 틱 */
-    int32_t initial_stats[5],stat_xp[5],skill_minutes[12];
-    int32_t contract_end_tick,personal_id,water,hygiene,culture_until,culture_bonus,visit_day;
-    int32_t inside_building,current_x_milli,current_y_milli,meal_day;
+    int32_t initial_stats[5], stat_xp[5], skill_minutes[12];
+    int32_t contract_end_tick, personal_id, water, hygiene, culture_until, culture_bonus, visit_day;
+    int32_t inside_building, current_x_milli, current_y_milli, meal_day;
     int32_t expansion_loaded;
     int32_t water_building;
     int32_t refuge_revision;
@@ -92,31 +92,31 @@ struct Villager {
     int32_t thirst_stage, hunger_stage, damage_kind, damage_source;
     int32_t xp_pending[12][5]; /* 분야별 6시간 미정산 능력치 분자와 소수 잔여 */
     int32_t frontend_actor[20];
-    int32_t shift_sleep_day,mood_event_source;
-    int32_t departure_reason, departure_approved, departure_tick, boat_port_id, hunt_retreat_reason,
-        v123_loaded;
+    int32_t shift_sleep_day, mood_event_source;
+    int32_t departure_reason, departure_approved, departure_tick, boat_port_id, hunt_retreat_reason;
 };
 
 struct Building {
     int32_t id;
-    int32_t type;          /* CoreBuildingType */
-    int32_t x;             /* 왼쪽 위 칸 */
+    int32_t type; /* CoreBuildingType */
+    int32_t x;    /* 왼쪽 위 칸 */
     int32_t y;
     int32_t w;
     int32_t h;
-    int32_t state;         /* CoreBuildingState */
+    int32_t state; /* CoreBuildingState */
     int32_t hp;
     int32_t build_progress;
-    int32_t door_x;        /* 문 앞 칸 */
+    int32_t door_x; /* 문 앞 칸 */
     int32_t door_y;
     int32_t auto_assign;
     int32_t work_milli[2]; /* 생산 누적 (주 자원, 두 번째 자원) × 1000 */
-    int32_t productivity;  /* 지형에 따른 생산성 % (지도에서 다시 계산하므로 저장하지 않음) */
-    int32_t flags;         /* CORE_BF_* (난방 못 함 등) */
-    int32_t rotation,completed_day,mode,mode_day,operating,blocked_reason;
-    int32_t daily_work_milli,crop_labor_milli,crop_year,crop_drought,pending_harvest_milli,harvest_expiry;
+    int32_t productivity; /* 지형에 따른 생산성 % (지도에서 다시 계산하므로 저장하지 않음) */
+    int32_t flags; /* CORE_BF_* (난방 못 함 등) */
+    int32_t rotation, completed_day, mode, mode_day, operating, blocked_reason;
+    int32_t daily_work_milli, crop_labor_milli, crop_year, crop_drought, pending_harvest_milli,
+        harvest_expiry;
     int32_t research_work_milli;
-    int32_t processing_milli[CORE_RES_COUNT],hunts_milli,shots,visits_today;
+    int32_t processing_milli[CORE_RES_COUNT], hunts_milli, shots, visits_today;
     int32_t water_served;
     int32_t actual_work_milli, agriculture_work_milli, forestry_carry_milli;
     int32_t crop_work_carry;
@@ -124,19 +124,19 @@ struct Building {
     int32_t expansion_loaded;
 
     int32_t type_serial, logging_cursor, combat_guard_id;
-    int32_t damage_kind,damage_source,damage_tick;
+    int32_t damage_kind, damage_source, damage_tick;
     int32_t frontend_tower[2];
     int32_t combat_until_tick;
 
     int32_t harvest_deferred_lo, harvest_deferred_hi;
     int32_t annual_harvest_total, annual_harvest_released, annual_harvest_year, annual_harvest_day;
-    int32_t forecast_meta[24][4], v124_loaded;
-    int32_t forecast_day, forecast_horizon, forecast_count, forecast_entries[24][4], v123_loaded;
+    int32_t forecast_meta[24][4];
+    int32_t forecast_day, forecast_horizon, forecast_count, forecast_entries[24][4];
 
-    Villager **workers;    /* 일꾼 (id 순으로 정렬) */
+    Villager **workers; /* 일꾼 (id 순으로 정렬) */
     int32_t worker_count;
     int32_t worker_capacity;
-    Villager **residents;  /* 거주민 (id 순으로 정렬) */
+    Villager **residents; /* 거주민 (id 순으로 정렬) */
     int32_t resident_count;
     int32_t resident_capacity;
 };

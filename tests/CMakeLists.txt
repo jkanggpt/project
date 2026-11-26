@@ -5,6 +5,23 @@ add_executable(castle_tests
   test_grid.c
   test_world.c
   test_save.c
+  test_current_save.c
+  fixture_world.c
+  test_catalog_data.c
+  test_boats.c
+  test_buildings.c
+  test_combat.c
+  test_ecology.c
+  test_environment.c
+  test_forecast.c
+  test_hunting.c
+  test_integration.c
+  test_livestock.c
+  test_medical.c
+  test_people.c
+  test_production.c
+  test_trade.c
+  test_workforce.c
   test_api.c
   test_colony.c
   test_town.c
@@ -12,12 +29,8 @@ add_executable(castle_tests
   test_threat.c
   test_progress.c
   test_expansion.c
-  test_v111.c
-  test_v121.c
-  test_v122.c
-  test_v123.c
-  test_v124.c
 )
+target_include_directories(castle_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(castle_tests PRIVATE CASTLE_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 target_link_libraries(castle_tests PRIVATE castle_core_testing castle_warnings)
 
@@ -55,10 +68,12 @@ if(TARGET castle_cli)
 endif()
 
 foreach(id RANGE 1 85)
-  add_test(NAME v124_recipe_${id} COMMAND castle_tests v124_recipe_${id})
-  set_tests_properties(v124_recipe_${id} PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  add_test(NAME content_recipe_${id} COMMAND castle_tests content_recipe_${id})
+  set_tests_properties(content_recipe_${id} PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endforeach()
 foreach(id RANGE 0 34)
-  add_test(NAME v124_animal_${id} COMMAND castle_tests v124_animal_${id})
-  set_tests_properties(v124_animal_${id} PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  add_test(NAME content_animal_${id} COMMAND castle_tests content_animal_${id})
+  set_tests_properties(content_animal_${id} PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endforeach()
+
+set_tests_properties(current_save_cycles PROPERTIES TIMEOUT 1800 RUN_SERIAL TRUE)
