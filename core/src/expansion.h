@@ -166,6 +166,8 @@ void expansion_wellbeing_daily(World *world, Villager *v);
 void expansion_hurt(World *world, Villager *v, int damage, int raid);
 Building *expansion_hub(World *world, Villager *v, int food, Building *job);
 void expansion_ecology_init(World *world);
+/* 불러온 세계: 지역 표를 다시 만들되 동물마다 저장된 지역을 그대로 씁니다 */
+void expansion_ecology_restore(World *world);
 void expansion_ecology_daily(World *world);
 void expansion_ecology_recount(World *world);
 int expansion_animal_spawn(World *world, int region, int initial);

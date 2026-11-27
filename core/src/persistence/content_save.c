@@ -509,7 +509,7 @@ int expansion_finish_load(World *w) {
     expansion_capacity(w);
     expansion_water_bodies(w);
     expansion_rebuild(w);
-    expansion_ecology_init(w);
+    expansion_ecology_restore(w); /* 저장된 동물 지역을 그대로 (위치로 다시 정하지 않음) */
     expansion_visibility_cache(w, 0);
     return CORE_OK;
 }
@@ -756,6 +756,7 @@ int expansion_validate(const World *w) {
                     a->attack_tick < 0 || a->attack_tick > w->clock.tick);
         }
         bad += a->id >= e->next_animal_id || a->age < 0 || a->starve_days < 0 || a->breed_day < 0;
+        bad += a->region < 0 || a->region >= 30; /* 지역 표(regions[30])의 번호 */
         bad += a->attack_remaining_milli < 0 || a->attack_remaining_milli > 2400;
         bad += a->threat_until_tick < 0 || a->attack_cooldown_milli < 0 || a->attack_cooldown_milli > 60000;
         for (j = i + 1; j < e->animal_count; j++)
