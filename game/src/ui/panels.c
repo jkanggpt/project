@@ -580,6 +580,8 @@ static void title(GameApp *a) {
     }
     if (row_button(a, b, &y, u8"새 게임", 1))
         game_app_open(a, PANEL_NEW);
+    if (row_button(a, b, &y, u8"튜토리얼", 1))
+        (void)game_tutorial_start(a); /* 메인 화면 ↔ 튜토리얼의 약속 함수 (ui/tutorial.h) */
     if (row_button(a, b, &y, u8"불러오기", 1))
         game_app_open(a, PANEL_LOAD);
     if (row_button(a, b, &y, u8"설정", 1))
@@ -1268,6 +1270,7 @@ void game_render_interface(GameApp *a) {
         build_bar(a);
         inspector(a);
         notices(a);
+        game_tutorial_draw(a); /* 튜토리얼 안내: HUD 위, 창 아래 */
         a->ui.input_blocked = a->raid_alert_id != 0;
     }
     switch (a->panel) {

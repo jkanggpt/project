@@ -1,5 +1,26 @@
 # PROGRESS
 
+## 메인 화면·튜토리얼 병행 준비 (Phase 0, 2026-11-27)
+
+두 기능을 동시에 만듭니다: 메인 화면 = Codex (`codex/main-screen`), 튜토리얼 = Claude (`claude/wizardly-allen-7ou35f`). 계획·파일 담당·약속은 docs/PLAN_MAIN_SCREEN_TUTORIAL.md.
+
+- CI 복구: gcc 의 snprintf 잘림 경고(wandering_merchant.c)와 clang 의 _Static_assert u8 메시지(api.c)를 고쳐 -Werror 디버그 빌드가 다시 됨. 긴 소크는 ASan 으로 2시간이 넘어 릴리스 빌드 400일×10시드로.
+- 연결점: game/src/ui/main_menu.{h,c}, game/src/ui/tutorial.{h,c}, GameApp 의 menu·tutorial 상태, main.c 매 프레임 연결점, 게임 화면 위 튜토리얼 그리기 자리, 제목 화면의 "튜토리얼" 단추(자리표시: 시드 42·평화 새 게임), --screen tutorial.
+- 확인 (Linux): gcc·clang ASan 디버그 -Werror 빌드와 CTest, 릴리스 그래픽 -Werror 빌드, 제목·튜토리얼 스크린숏, 20일 스모크.
+
+다음: 이 PR 병합 → Codex 는 메인 화면, Claude 는 튜토리얼 (계획 문서 5절), 둘 다 끝나면 통합 (6절).
+
+## 현재 상태 보고서 작성 (2026-11-27)
+
+docs/GAME_STATE.md 에 개발 과정(Godot판 → C/raylib판), 구조, 기능 전체, 검사 상태, 안 된 것을 정리했습니다. 코드는 바꾸지 않았습니다. 쓰면서 Linux 에서 직접 확인한 것:
+
+- Linux gcc + ASan/UBSan 테스트 267/267 통과, 그래픽 빌드·스크린숏 성공, 20일 스모크 해시가 Windows 기록과 같음.
+- CI 빨간불의 원인: core/src/economy/wandering_merchant.c:49 의 snprintf 잘림 경고 하나가 -Werror 디버그 빌드를 멈춤. 400일×20시드 소크는 ASan 으로 약 2시간이 걸려 45분 제한에 걸림.
+- 새 게임 창 문구가 192×192 지도라고 함 (실제 160×160).
+- 봇 표본(보통, 8시드×100일): 모두 촌락(17~45일째)까지, 마을 0판.
+
+다음 할 일은 GAME_STATE.md 7절 (CI 복구 → 문구 → 사람 플레이 테스트 → 성장 밸런스 → 성능).
+
 ## 완료 — 소스·에셋·저장 구조 통합 (2026-11-27)
 
 브랜치 codex/structure-cleanup, 기준630ab27, 구조 통합 커밋a5e618d. 사용자의 구조 정리 명세와 ‘콘솔도 현행 규칙으로 통합’을 적용했습니다. 하위 에이전트·새 이미지 생성 없이 진행했습니다. 사용자의 최신 지시에 따라 현재 브랜치에 커밋하고 원격 저장소에 푸시합니다. AGENTS.md와 OS 사용자 저장은 변경하지 않았습니다. docs.zip·tools.zip은 사용자가 직접 이동/삭제했다고 확인했으며 복구나 스테이징을 하지 않습니다.

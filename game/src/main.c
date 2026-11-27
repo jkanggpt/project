@@ -31,7 +31,7 @@ static void help(void) {
          "  --smoke-test [--days 20] [--seed 42]  C runtime test without a window\n"
          "  --stress | --stress-probe              150 villagers + 40 enemies\n"
          "  --screenshot file.png [--screen "
-         "title|game|villagers|uniforms|farms|population|rotations|connections|research|rank|market|load]\n"
+         "title|tutorial|game|villagers|uniforms|farms|population|rotations|connections|research|rank|market|load]\n"
          "  --frames N --autoplay --no-audio --width 1440 --height 900\n"
          "  --difficulty peaceful|normal|harsh (or 0|1|2)");
 }
@@ -131,8 +131,9 @@ static int options(int argc, char **argv, Options *o) {
         } else
             return 0;
     }
-    if (!capture_scene_known(o->screen) && strcmp(o->screen, "title") && strcmp(o->screen, "game") &&
-        strcmp(o->screen, "villagers") && strcmp(o->screen, "population") && strcmp(o->screen, "rotations") &&
+    if (!capture_scene_known(o->screen) && strcmp(o->screen, "title") && strcmp(o->screen, "tutorial") &&
+        strcmp(o->screen, "game") && strcmp(o->screen, "villagers") && strcmp(o->screen, "population") &&
+        strcmp(o->screen, "rotations") &&
         strcmp(o->screen, "connections") && strcmp(o->screen, "research") && strcmp(o->screen, "rank") &&
         strcmp(o->screen, "market") && strcmp(o->screen, "load") && strcmp(o->screen, "uniforms") &&
         strcmp(o->screen, "farms") && strcmp(o->screen, "raid") && strcmp(o->screen, "alerts") &&
@@ -647,6 +648,10 @@ static void screenshot_screen(GameApp *a, const Options *o) {
         a->in_game = 0;
         return;
     }
+    if (!strcmp(o->screen, "tutorial")) { /* 메인 화면의 "튜토리얼" 단추와 같은 길 */
+        (void)game_tutorial_start(a);
+        return;
+    }
     (void)game_session_new(&a->session, u8"바람언덕", o->seed, o->difficulty);
     enter_game(a);
     if (capture_scene_known(o->screen)) {
@@ -977,6 +982,11 @@ static int run(int argc, char **argv) {
             int32_t why = 0;
             (void)core_rank_up(a->session.world, &why);
         }
+        /* 기능별 매 프레임 연결점: 입력 뒤, 시간 진행 전 */
+        if (a->in_game)
+            game_tutorial_update(a, delta);
+        else
+            game_main_menu_update(a, delta);
         if (a->in_game && a->panel == PANEL_NONE && a->speed > 0 &&
             a->session.summary.outcome != CORE_OUTCOME_LOST) {
             float minutes = delta * a->speed * 12.0f;

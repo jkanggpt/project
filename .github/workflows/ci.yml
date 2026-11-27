@@ -34,17 +34,19 @@ jobs:
       - name: Short soak
         run: build/${{ matrix.preset }}/bin/castle_cli --soak 60 --seeds 5 --first-seed 1000
 
+  # 160×160 세계에서는 ASan 빌드가 시드 하나 하루에 1초가 넘게 걸려 400일 × 20시드가 2시간을 넘습니다.
+  # 긴 소크는 릴리스 빌드로 불변 조건만 보고, 메모리 오류는 위 Linux 작업의 ASan 짧은 소크와 CTest가 봅니다.
   soak:
-    name: 400 days x 20 seeds
+    name: 400 days x 10 seeds (release)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y ninja-build
       - run: |
-          cmake --preset linux-debug -DCASTLE_BUILD_TESTS=OFF -DCASTLE_BUILD_TOOLS=OFF
-          cmake --build --preset linux-debug --target castle_cli
-          build/linux-debug/bin/castle_cli --soak 400 --seeds 20
+          cmake --preset linux-release -DCASTLE_BUILD_GAME=OFF -DCASTLE_BUILD_TESTS=OFF -DCASTLE_BUILD_TOOLS=OFF
+          cmake --build --preset linux-release --target castle_cli
+          build/linux-release/bin/castle_cli --soak 400 --seeds 10
 
   mingw:
     name: Linux to Windows C cross-compile

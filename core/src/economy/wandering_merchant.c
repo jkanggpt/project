@@ -46,7 +46,9 @@ CORE_API int32_t core_expansion_barter_recipe(int32_t id, CoreBarterRecipe *out)
     out->max_uses = r[5];
     out->weight = r[6];
     out->benefit_bp = (r[4] * BUY[r[3]] - r[2] * SELL[r[1]]) * 10000 / (r[2] * SELL[r[1]]);
-    (void)snprintf(out->code, sizeof(out->code), "%c%02d", id <= 13 ? 'M' : 'U', id <= 13 ? id : id - 13);
+    /* id 는 1~85 이므로 번호는 항상 두 자리입니다. % 100 은 컴파일러에게 그 범위를 알려 잘림 경고를 없앱니다. */
+    (void)snprintf(out->code, sizeof(out->code), "%c%02u", id <= 13 ? 'M' : 'U',
+                   (unsigned)(id <= 13 ? id : id - 13) % 100u);
     return CORE_OK;
 }
 CORE_API int32_t core_expansion_merchant_view(const CoreWorld *w, CoreWanderingMerchantView *out) {
