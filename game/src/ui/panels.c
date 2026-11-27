@@ -52,6 +52,8 @@ static void hud(GameApp *a) {
                       a->speed == i, u8"숫자 1~3: 배속"))
             a->speed = i;
     }
+    game_tutorial_anchor(a, GAME_ANCHOR_UI + CORE_GUIDE_UI_SPEED,
+                         rect(width < 1100 ? width - 200 : 540, 4, 186, 30));
     {
         static const char *const labels[] = {u8"영지", u8"연구", u8"거래", u8"고용", u8"주민", u8"장부"};
         static const GamePanel panels[] = {PANEL_RANK,     PANEL_RESEARCH,  PANEL_MARKET,
@@ -60,10 +62,15 @@ static void hud(GameApp *a) {
         float button_w = (width - menu_x - 8) / 6;
         if (button_w > 90)
             button_w = 90;
-        for (i = 0; i < 6; i++)
-            if (ui_button(u, rect(menu_x + i * button_w, width < 1100 ? 43.0f : 9.0f, button_w - 5, 36),
-                          labels[i], 1, 0, NULL))
+        for (i = 0; i < 6; i++) {
+            Rectangle button = rect(menu_x + i * button_w, width < 1100 ? 43.0f : 9.0f, button_w - 5, 36);
+            if (ui_button(u, button, labels[i], 1, 0, NULL))
                 game_app_open(a, panels[i]);
+            if (panels[i] == PANEL_RANK)
+                game_tutorial_anchor(a, GAME_ANCHOR_UI + CORE_GUIDE_UI_RANK, button);
+            else if (panels[i] == PANEL_LEDGER)
+                game_tutorial_anchor(a, GAME_ANCHOR_UI + CORE_GUIDE_UI_LEDGER, button);
+        }
     }
     float hud_font = u->font_size;
     if (width < 1100)
@@ -92,6 +99,7 @@ static void hud(GameApp *a) {
     }
     ui_small(u, 10 + 7 * (width - 20) / 8, 96, UI_TEXT, u8"인구%d · 행복%d", s->population,
              s->average_happiness);
+    game_tutorial_anchor(a, GAME_ANCHOR_UI + CORE_GUIDE_UI_RESOURCES, rect(6, 72, width - 12, 56));
     {
         CoreImmigrationView status;
         core_expansion_immigration(a->session.world, &status);
@@ -189,6 +197,7 @@ static void build_bar(GameApp *a) {
             a->category = groups[i];
             a->build_scroll = 0;
         }
+        game_tutorial_anchor(a, GAME_ANCHOR_TAB + groups[i], r);
     }
     if (ui_button(u, rect(width - 112, y + 5, 104, 26), u8"철거 X", 1, a->demolish,
                   u8"도로 연결을 보존하는 철거")) {
@@ -249,6 +258,7 @@ static void build_bar(GameApp *a) {
                  : missing ? u8"건설 재료 부족"
                            : u8"배치 시 지형·도로·시야를 다시 검사합니다.");
         Rectangle r = rect(8 + column * (card + 8), y + 66, card, 148);
+        game_tutorial_anchor(a, GAME_ANCHOR_CARD + type, r);
         Color fill = colors[group < 0 ? 0 : group];
         DrawRectangleRounded(r, .08f, 4, Fade(fill, .18f));
 
@@ -501,10 +511,15 @@ static void inspector(GameApp *a) {
     } else {
         ui_text(u, x + 8, y, UI_GOLD, u8"성채 안내");
         y += 40;
-        ui_wrap(u, rect(x + 8, y, width - 24, 220), UI_TEXT,
-                u8"벌목지·채집장·텃밭으로 시작하고 막사와 우물을 마련하세요. 원목과 가공 목재는 "
-                u8"다릅니다.\n\n촌락부터 제재소·경작지·저장고를 도로로 연결해 확장하세요. 주민이 일터에 "
-                u8"도착해야 생산합니다.");
+        if (a->tutorial.active && !a->tutorial.view.finished)
+            ui_wrap(u, rect(x + 8, y, width - 24, 220), UI_TEXT,
+                    u8"튜토리얼 중입니다. 왼쪽 아래 안내를 따라 하세요. 할 일이 있는 단추와 지도 자리는 "
+                    u8"금색 테두리로 깜빡입니다.\n\n아래 처음 목표는 튜토리얼과 함께 채워집니다.");
+        else
+            ui_wrap(u, rect(x + 8, y, width - 24, 220), UI_TEXT,
+                    u8"벌목지·채집장·텃밭으로 시작하고 막사와 우물을 마련하세요. 원목과 가공 목재는 "
+                    u8"다릅니다.\n\n촌락부터 제재소·경작지·저장고를 도로로 연결해 확장하세요. 주민이 일터에 "
+                    u8"도착해야 생산합니다.");
         y += 230;
         ui_text(u, x + 8, y, UI_GOLD, u8"처음 목표");
         y += 38;
@@ -1334,7 +1349,8 @@ void game_render_interface(GameApp *a) {
                 u8"적을 실제 발견한 순간 경보가 울리고 병영이 자동 출동합니다. 연구 24종과 여섯 등급을 "
                 u8"진행합니다. 가까운 보호구역으로 피신하며 내부에서는 안전 욕구가 회복됩니다.\n"
                 u8"고용 계약은 이동시간 포함 정확히12일 선불이며 승급 인구·세금에는 제외합니다. 매일 자동 "
-                u8"저장하며 한글 이름은 Ctrl+V로 붙여넣을 수 있습니다.");
+                u8"저장하며 한글 이름은 Ctrl+V로 붙여넣을 수 있습니다.\n"
+                u8"처음이라면 메인 화면의 '튜토리얼'로 기본 조작을 단계별로 배울 수 있습니다.");
         break;
     }
     case PANEL_NONE:

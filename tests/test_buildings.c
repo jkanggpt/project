@@ -40,8 +40,8 @@ void test_content_rank_groups(void) {
 }
 
 void test_content_catalog(void) {
-    CHECK_EQ(CORE_ABI_VERSION, 14);
-    CHECK_EQ(CORE_SAVE_VERSION, 13);
+    CHECK_EQ(CORE_ABI_VERSION, 15);
+    CHECK_EQ(CORE_SAVE_VERSION, 14);
     CHECK_EQ(CORE_BLD_COUNT, 73);
     CHECK_EQ(CORE_EXP_ANIMALS, 35);
     CHECK_EQ(core_expansion_barter_count(), 85);

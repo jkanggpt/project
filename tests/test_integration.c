@@ -312,7 +312,7 @@ void test_lifecycle_rules_and_save(void) {
     if (!w)
         return;
     CHECK_EQ(CORE_BLD_COUNT, 73);
-    CHECK_EQ(CORE_SAVE_VERSION, 13);
+    CHECK_EQ(CORE_SAVE_VERSION, 14);
     CHECK_EQ(core_expansion_tree_mature_age(3), 48000);
     CHECK_EQ(expansion_spec(CORE_BLD_COTTAGE)->w, 2);
     CHECK_EQ(expansion_spec(CORE_BLD_COTTAGE)->h, 3);

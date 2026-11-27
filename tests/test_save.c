@@ -230,13 +230,13 @@ void test_load_wrong_version(void) {
     CHECK(text != NULL);
     CHECK_EQ(load_text(text, size, &line), CORE_OK);
 
-    changed = replace_once(text, "MAGICCASTLE_SAVE 13", "MAGICCASTLE_SAVE 1399");
+    changed = replace_once(text, "MAGICCASTLE_SAVE 14", "MAGICCASTLE_SAVE 1499");
     CHECK(changed != NULL);
     CHECK_EQ(load_text(changed, strlen(changed), &line), CORE_ERR_VERSION);
     CHECK_EQ(line, 1);
     free(changed);
 
-    changed = replace_once(text, "MAGICCASTLE_SAVE 13", "SOMETHING_ELSE 2");
+    changed = replace_once(text, "MAGICCASTLE_SAVE 14", "SOMETHING_ELSE 2");
     CHECK(changed != NULL);
     CHECK_EQ(load_text(changed, strlen(changed), &line), CORE_ERR_FORMAT);
     free(changed);
@@ -306,6 +306,12 @@ void test_load_rejects_bad_values(void) {
         {"name=", "unknown=1\nname="},
         {"difficulty=2", "difficulty=2\ndifficulty=2"},
         {"row=", "row=?"},
+        {"guide=0,0,0", "guide=2,0,0"},  /* 켜짐은 0/1 */
+        {"guide=0,0,0", "guide=0,3,0"},  /* 꺼졌는데 단계가 있음 */
+        {"guide=0,0,0", "guide=1,99,0"}, /* 없는 단계 */
+        {"guide=0,0,0", "guide=1,2,7"},  /* 예약 칸은 0 */
+        {"guide=0,0,0", "guide=1,2"},
+        {"guide=0,0,0", ""}, /* 스키마 14 의 필수 키 */
     };
     size_t size = 0;
     char *text = make_valid_save_text(&size);
@@ -393,7 +399,7 @@ void test_load_garbled_files(void) {
         char *line = (char *)malloc(big);
         CHECK(line != NULL);
         memset(line, 'A', big);
-        memcpy(line, "MAGICCASTLE_SAVE 13\nrow=", 23);
+        memcpy(line, "MAGICCASTLE_SAVE 14\nrow=", 23);
         CHECK_EQ(load_text(line, big, NULL), CORE_ERR_FORMAT);
         free(line);
     }
@@ -522,7 +528,7 @@ void test_save_peek_broken_offers_backup(void) {
     core_destroy(loaded);
 
     /* 다른 버전의 세이브: 버전 번호를 알려 줌 */
-    changed = replace_once(text, "MAGICCASTLE_SAVE 13", "MAGICCASTLE_SAVE 4");
+    changed = replace_once(text, "MAGICCASTLE_SAVE 14", "MAGICCASTLE_SAVE 4");
     CHECK(changed != NULL);
     CHECK(test_write_file(path, changed, strlen(changed)));
     CHECK_EQ(core_peek_save(path, NULL, &info), CORE_ERR_VERSION);

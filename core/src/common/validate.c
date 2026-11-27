@@ -27,6 +27,9 @@ int32_t validate_world(const World *w, ValidateReportFn report, void *context) {
     expect(&c, w->ruleset == 1 && w->expansion, "current world state missing");
     expect(&c, w->clock.tick >= 0 && w->clock.tick <= CLOCK_MAX_TICK, "clock invalid");
     expect(&c, (w->rng.inc & 1u) == 1u, "rng increment must be odd");
+    expect(&c, (w->guide.active == 0 || w->guide.active == 1) && w->guide.step >= 0 &&
+                   w->guide.step <= GUIDE_STEP_COUNT && (w->guide.active || !w->guide.step) && w->guide.flags == 0,
+           "tutorial guide state invalid");
     if (!w->expansion)
         return c.violations;
     expect(&c, expansion_validate(w) == 0, "content invariant failed");
