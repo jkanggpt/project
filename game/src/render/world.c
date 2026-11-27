@@ -1284,12 +1284,16 @@ void game_render_world(GameApp *a) {
     int i;
     if (!a->session.world)
         return;
+    /* 제목 배경의 시야 사본만 밝힙니다. 코어의 탐험 상태와 실제 게임은 바꾸지 않습니다. */
+    if (!a->in_game && a->session.visibility)
+        memset(a->session.visibility, 2, (size_t)a->session.cells);
     BeginMode2D(a->camera);
     terrain(a);
     objects(a);
     livestock_proxies(a);
     corpses(a);
-    fog(a);
+    if (a->in_game)
+        fog(a);
     if (a->session.wandering.state != CORE_MERCHANT_DORMANT) {
         CoreWanderingMerchantView *m = &a->session.wandering;
         int cell = m->y_milli / 1000 * a->session.summary.map_width + m->x_milli / 1000;
@@ -1305,8 +1309,14 @@ void game_render_world(GameApp *a) {
         if (cell >= 0 && cell < a->session.cells && a->session.visibility && a->session.visibility[cell] < 2)
             villager(a, i);
     }
-    overlay(a);
+    if (a->in_game)
+        overlay(a);
     EndMode2D();
+    if (!a->in_game) {
+        float dusk = .10f + .22f * (.5f - .5f * cosf(a->menu.time * .035f));
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade((Color){24, 33, 67, 255}, dusk));
+        return;
+    }
     if (a->session.summary.is_night)
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){22, 28, 65, 85});
     if (a->session.summary.weather == CORE_WEATHER_RAIN || a->session.summary.weather == CORE_WEATHER_SNOW ||
