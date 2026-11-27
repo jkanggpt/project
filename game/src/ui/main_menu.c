@@ -136,6 +136,8 @@ void game_main_menu_update(GameApp *a, float delta) {
             return;
         }
     }
+    /* 공용 루프가 설정한 게임용 화면 중심은 비활성 창에서도 제목용으로 복원합니다. */
+    a->camera.offset = (Vector2){GetScreenWidth() * .70f, GetScreenHeight() * .48f};
     /* 비활성 창은 시간·주민 이동·카메라를 모두 멈춥니다. 자동 캡처는 같은 경로로 진행합니다. */
     if (!a->automated && !IsWindowFocused())
         return;
@@ -153,7 +155,6 @@ void game_main_menu_update(GameApp *a, float delta) {
         if (a->session.summary.day >= 4)
             m->background_ready = 0;
     }
-    a->camera.offset = (Vector2){GetScreenWidth() * .70f, GetScreenHeight() * .48f};
     a->camera.target = (Vector2){a->session.summary.keep_x * 16.0f + sinf(m->time * .035f) * 40,
                                  a->session.summary.keep_y * 16.0f + cosf(m->time * .028f) * 28};
     a->camera.zoom = fmaxf(1.7f, fminf(3, GetScreenHeight() / 300.0f));
