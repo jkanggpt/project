@@ -187,7 +187,7 @@ static void guide_panel(GameApp *a) {
     float old_font = u->font_size, width = fminf(480, GetScreenWidth() * 0.42f), x = 12;
     float text_x = x + 86, text_w = width - 98, body_h, height, y;
     char progress[96] = "";
-    u->font_size = old_font > 20 ? 20 : 17;
+    u->font_size = old_font > 20 ? 20.0f : 17.0f;
     body_h = ui_wrap_height(u, text_w, v->body);
     if (v->progress_need > 0)
         (void)snprintf(progress, sizeof(progress), u8"%s %d / %d", v->progress_label, (int)v->progress,
