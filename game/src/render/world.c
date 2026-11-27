@@ -1093,6 +1093,8 @@ static int world_mouse(GameApp *a, int *x, int *y) {
     for (int i = 0; i < a->toast_area_count; i++)
         if (CheckCollisionPointRec(mouse, a->toast_areas[i]))
             return 0;
+    if (game_tutorial_covers(a, mouse)) /* 튜토리얼 안내 창 위의 클릭 */
+        return 0;
     return a->panel == PANEL_NONE && mouse.y > 135 && mouse.y < GetScreenHeight() - 253 &&
            mouse.x < GetScreenWidth() - 350;
 }

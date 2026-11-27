@@ -157,6 +157,11 @@ void expansion_raids_tick(World *w) {
     }
     if (w->clock.tick < e->next_raid_tick)
         return;
+    if (guide_holds_raids(w)) {
+        /* 튜토리얼 방어 단계 전에는 습격을 하루씩 미룹니다 (난수를 쓰지 않아 일반 게임과 결과가 같음) */
+        e->next_raid_tick = w->clock.tick + 144;
+        return;
+    }
     int day = exp_day(w), n = day > 18 ? day - 18 : 0;
     int budget = exp_clamp(
         (int)(((240000LL + 2500LL * n + 18LL * n * n) * (int[]){80, 100, 125}[w->difficulty] + 500000) /

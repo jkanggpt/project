@@ -5,7 +5,7 @@
 | 구조체와 포함·참조 | core/src/entity.h, world.h, expansion.h | 주민·건물·세계·동물·어선의 소유 관계 |
 | 포인터와 원본 변경 | core/src/common/entities.c, economy/bank.c | 배치·자원·목록 갱신 |
 | 사용자 정의 함수 | core/include/castle_core.h, castle_expansion.h | 공개 API와 역할별 내부 함수 |
-| 함수 포인터 | common/definitions.c, persistence/save.c, cli/commands.c | 정의/저장 파서, 메뉴 디스패치 |
+| 함수 포인터 | common/definitions.c, persistence/save.c, cli/commands.c, common/tutorial.c | 정의/저장 파서, 메뉴 디스패치, 튜토리얼 단계 표(완료 확인·진행·대상 함수) |
 | 동적 메모리 | common/entities.c, world/grid.c, common/events.c | 엔티티 목록·격자·이벤트 큐의 할당과 해제 |
 | 배열·문자열 | buildings/catalog.c, ecology/species.c | 현재 건물·동물 카탈로그, UTF-8 이름 |
 | 파일 입출력 | persistence/save.c, persistence/content_save.c, common/definitions.c | 검증된 저장과 정의 파일 읽기·쓰기 |

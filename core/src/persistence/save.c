@@ -256,6 +256,11 @@ static void write_progress(FILE *file, const World *world) {
     tutorial[1] = world->tutorial_flags;
     fputs("tutorial=", file);
     write_int_list(file, tutorial, 2);
+    {
+        int32_t guide[3] = {world->guide.active, world->guide.step, world->guide.flags};
+        fputs("guide=", file); /* 튜토리얼 안내: 켜짐, 단계, 예약 (스키마 14) */
+        write_int_list(file, guide, 3);
+    }
     stats[0] = world->stats.peak_population;
     stats[1] = world->stats.enemies_killed;
     stats[2] = world->stats.villagers_died;
@@ -1040,6 +1045,18 @@ static int parse_progress(LoadState *state, const char *key, char *value) {
         world->tutorial_flags = v[1];
         return CORE_OK;
     }
+    if (strcmp(key, "guide") == 0 && mark_key(state, 5)) {
+        int32_t v[3];
+        if (parse_int_list(value, v, 3, 1) == NULL || v[0] < 0 || v[0] > 1 || v[1] < 0 ||
+            v[1] > GUIDE_STEP_COUNT || v[2] != 0 || (!v[0] && v[1])) {
+            return CORE_ERR_FORMAT;
+        }
+        memset(&world->guide, 0, sizeof(world->guide));
+        world->guide.active = v[0];
+        world->guide.step = v[1];
+        world->guide.flags = v[2];
+        return CORE_OK;
+    }
     if (strcmp(key, "stats") == 0 && mark_key(state, 4)) {
         int32_t v[6];
         int32_t i;
@@ -1085,7 +1102,7 @@ static const SectionDef SECTIONS[] = {
     {"merchant", parse_merchant, 0x3u, 0},  /* days_left, next_visit (+ deal 줄) */
     {"threat", parse_threat, 0x3u, 0},      /* next_raid, raids_done (+ threat 줄) */
     {"research", parse_research, 0x7u, 0},  /* done, active, progress (건물보다 먼저) */
-    {"progress", parse_progress, 0x1Fu, 0}, /* rank_ready, outcome, lose_reason, … */
+    {"progress", parse_progress, 0x3Fu, 0}, /* rank_ready, outcome, lose_reason, tutorial, stats, guide */
     {"expansion", parse_expansion, 0u, (1u << 6) | (1u << 7)},
 };
 #define SECTION_COUNT ((int32_t)(sizeof(SECTIONS) / sizeof(SECTIONS[0])))

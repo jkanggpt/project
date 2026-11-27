@@ -28,6 +28,7 @@ add_executable(castle_tests
   test_pressure.c
   test_threat.c
   test_progress.c
+  test_guide.c
   test_expansion.c
 )
 target_include_directories(castle_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

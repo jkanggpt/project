@@ -134,22 +134,23 @@ void test_population_zero_defeat(void) {
     CHECK_EQ(core_tick(w, 1), CORE_ERR_REJECTED);
     core_destroy(w);
 }
+/* 모든 게임의 처음 목표 5개 (world/content.c 의 expansion_goals, 한 시간마다 확인) */
 void test_tutorial_objectives(void) {
     World *w = fx_town_world(507);
     CHECK(w);
     CoreSummaryView s;
+    Building *garden = fx_town_building(w, CORE_BLD_GARDEN, 0);
+    CHECK(garden);
+    CHECK(fx_town_building(w, CORE_BLD_SHACK, 1)); /* fx_town_building 은 영주관까지 도로도 깔아 줌 */
+    fx_town_worker(w, garden, w->villagers[0]);
+    CHECK_EQ(core_tick(w, 6), CORE_OK);
     CHECK_EQ(core_get_summary(w, &s), CORE_OK);
-    CHECK(fx_town_building(w, CORE_BLD_FARM, 0));
-    CHECK(fx_town_building(w, CORE_BLD_HOUSE, 1));
-    CHECK(fx_town_building(w, CORE_BLD_WALL, 2));
-    tutorial_note_assign(w);
-    tutorial_hourly(w);
+    CHECK_EQ(s.tutorial_done & 15, 15); /* 텃밭, 주거, 직접 배치, 연결 도로 10칸 */
+    CHECK(!(s.tutorial_done & 16));
+    w->rank = 1;
+    CHECK_EQ(core_tick(w, 6), CORE_OK);
     CHECK_EQ(core_get_summary(w, &s), CORE_OK);
-    CHECK((s.tutorial_done & 15) == 15);
-    w->threat.raids_done = 1;
-    tutorial_hourly(w);
-    CHECK_EQ(core_get_summary(w, &s), CORE_OK);
-    CHECK(s.tutorial_done & 16);
+    CHECK_EQ(s.tutorial_done, 31); /* 촌락 승급까지 */
     core_destroy(w);
 }
 void test_difficulty_presets(void) {

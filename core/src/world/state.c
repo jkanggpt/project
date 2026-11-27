@@ -162,6 +162,7 @@ int world_create(const CoreNewGameParams *params, const Defs *defs, World **out)
 static void world_step(World *world) {
     world->clock.tick++;
     expansion_tick(world);
+    guide_tick(world);
 }
 
 int world_tick(World *world, int32_t ticks) {
@@ -287,6 +288,10 @@ uint64_t world_state_hash(const World *world) {
     hash = hash_i32(hash, world->lose_reason);
     hash = hash_i32(hash, world->tutorial_done);
     hash = hash_i32(hash, world->tutorial_flags);
+    if (world->guide.active) { /* 일반 게임의 해시는 예전과 같게 둡니다 */
+        hash = hash_i32(hash, world->guide.step);
+        hash = hash_i32(hash, world->guide.flags);
+    }
     hash = hash_u64(hash, world->research.done);
     hash = hash_i32(hash, world->research.active);
     hash = hash_i32(hash, world->research.progress_milli);

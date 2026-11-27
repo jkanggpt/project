@@ -24,6 +24,7 @@
 #include "research.h"
 #include "rng.h"
 #include "threat.h"
+#include "tutorial.h"
 
 /* 하루 일정 (분) */
 #define WORLD_WORK_START_MIN (7 * 60) /* 07:00 일 시작 */
@@ -55,6 +56,7 @@ struct CoreWorld {
     int32_t lose_reason;      /* CoreLoseReason */
     int32_t tutorial_done;    /* 이룬 튜토리얼 목표 비트 */
     int32_t tutorial_flags;   /* 튜토리얼이 기억하는 일 (주민을 직접 배치했음) */
+    GuideState guide;         /* 튜토리얼 안내 (튜토리얼 게임에서만 켜짐) */
     int32_t next_villager_id; /* 다음 주민 id (다시 쓰지 않음, 저장함) */
     int32_t next_building_id; /* 다음 건물 id */
     int32_t mourning;         /* 최근 죽음으로 인한 슬픔 0..30 */

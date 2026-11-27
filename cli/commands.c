@@ -87,6 +87,16 @@ static int cmd_status(CliContext *context) {
     printf(u8"등급   : %s%s (방어 점수 %d, 끝낸 연구 %d)\n", fmt_rank_name(summary.rank),
            summary.rank_ready ? u8" — 지금 승급할 수 있습니다 (메뉴 20)" : "", (int)summary.defense,
            (int)summary.research_done);
+    {
+        CoreGuideView guide;
+        /* 튜토리얼 세이브를 콘솔에서 불러왔을 때도 같은 안내를 보여 줍니다 */
+        if (core_guide_view(context->world, &guide) == CORE_OK && guide.active && !guide.finished) {
+            printf(u8"튜토리얼 %d/%d: %s — %s", (int)guide.step + 1, (int)guide.count, guide.title, guide.body);
+            if (guide.progress_need > 0)
+                printf(u8" (%s %d/%d)", guide.progress_label, (int)guide.progress, (int)guide.progress_need);
+            printf("\n");
+        }
+    }
     if (summary.outcome == CORE_OUTCOME_WON) {
         printf(u8"결과   : 승리! 왕성이 되었습니다. 계속 다스릴 수 있습니다.\n");
     } else if (summary.outcome == CORE_OUTCOME_LOST) {

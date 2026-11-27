@@ -35,9 +35,9 @@ extern "C" {
 #endif
 
 /* 외부 호출자가 확인하는 API 계약 번호입니다. */
-#define CORE_ABI_VERSION 14
+#define CORE_ABI_VERSION 15
 /* 지금 세이브 파일 형식의 버전 (첫 줄 "MAGICCASTLE_SAVE <버전>") */
-#define CORE_SAVE_VERSION 13
+#define CORE_SAVE_VERSION 14
 
 /* 성채·주민 이름 버퍼 크기 (UTF-8 바이트, 끝의 '\0' 포함) */
 #define CORE_NAME_BYTES 48
@@ -531,15 +531,63 @@ typedef enum CoreLoseReason {
     CORE_LOSE_POPULATION = 2 /* 주민이 한 명도 남지 않음 */
 } CoreLoseReason;
 
-/* 튜토리얼 목표 (처음 10분쯤의 체크리스트) */
+/* 처음 목표 (모든 게임의 오른쪽 체크리스트, 이름은 core_expansion_goal_name). 이름은 예전 그대로이고
+ * 뜻은 주석을 따릅니다. 단계별 안내 튜토리얼은 아래 CoreGuideView 입니다. */
 typedef enum CoreTutorialStep {
-    CORE_TUTORIAL_FARM = 0,   /* 농장을 짓기 */
-    CORE_TUTORIAL_HOUSE = 1,  /* 주택을 짓기 */
+    CORE_TUTORIAL_FARM = 0,   /* 텃밭을 짓기 */
+    CORE_TUTORIAL_HOUSE = 1,  /* 주거(막사 등)를 짓기 */
     CORE_TUTORIAL_ASSIGN = 2, /* 주민을 일터에 직접 배치하기 */
-    CORE_TUTORIAL_WALL = 3,   /* 성벽을 짓기 */
-    CORE_TUTORIAL_RAID = 4,   /* 첫 도적 습격을 버티기 */
+    CORE_TUTORIAL_WALL = 3,   /* 연결 도로 10칸 */
+    CORE_TUTORIAL_RAID = 4,   /* 영구 주민 8명으로 촌락 승급 */
     CORE_TUTORIAL_COUNT = 5
 } CoreTutorialStep;
+
+/* ---- 튜토리얼 안내 (메인 화면의 "튜토리얼"로 시작하는 게임) ----------------------------------
+ * 단계마다 할 일을 알려 주고, 해내면 다음 단계로 넘어갑니다. 진행은 세이브에 남습니다. */
+#define CORE_GUIDE_TITLE_BYTES 96
+#define CORE_GUIDE_BODY_BYTES 768
+
+typedef enum CoreGuideKind {
+    CORE_GUIDE_INFO = 0,  /* 읽고 "다음"을 누르는 단계 (core_guide_next) */
+    CORE_GUIDE_ACTION = 1 /* 해내면 저절로 넘어가는 단계 */
+} CoreGuideKind;
+
+/* 화면이 강조할 대상 */
+typedef enum CoreGuideTarget {
+    CORE_GUIDE_TARGET_NONE = 0,
+    CORE_GUIDE_TARGET_UI = 1,       /* target_id = CoreGuideUi */
+    CORE_GUIDE_TARGET_BUILD = 2,    /* target_id = 지을 건물 종류, hint = 권하는 왼쪽 위 칸 (-1 이면 없음) */
+    CORE_GUIDE_TARGET_BUILDING = 3, /* target_id = 지도 위의 건물 id (눌러 볼 건물), hint = 그 건물의 칸 */
+    CORE_GUIDE_TARGET_LINE = 4      /* target_id = 도로 종류, hint = 시작 칸 (영주관 문 앞), goal = 이을 건물의 문 앞 */
+} CoreGuideTarget;
+
+typedef enum CoreGuideUi {
+    CORE_GUIDE_UI_NONE = 0,
+    CORE_GUIDE_UI_MAP = 1,       /* 지도 (화면 이동·확대) */
+    CORE_GUIDE_UI_SPEED = 2,     /* 일시정지·배속 단추 */
+    CORE_GUIDE_UI_RESOURCES = 3, /* 위쪽 자원 숫자 */
+    CORE_GUIDE_UI_LEDGER = 4,    /* "장부" 단추 */
+    CORE_GUIDE_UI_RANK = 5,      /* "영지" 단추 (승급 창) */
+    CORE_GUIDE_UI_COUNT = 6
+} CoreGuideUi;
+
+typedef struct CoreGuideView {
+    int32_t active;   /* 1: 튜토리얼 게임 (끝났어도 1), 0: 일반 게임이거나 건너뜀 */
+    int32_t finished; /* 1: 모든 단계를 마침 */
+    int32_t step;     /* 0 부터. finished 이면 count */
+    int32_t count;    /* 단계 수 */
+    int32_t kind;     /* CoreGuideKind */
+    int32_t pause;    /* 1: 이 단계를 읽는 동안 시간을 멈추기를 권함 */
+    int32_t target;   /* CoreGuideTarget */
+    int32_t target_id;
+    int32_t hint_x, hint_y; /* 칸 좌표 (-1 = 없음) */
+    int32_t hint_w, hint_h; /* 강조할 칸 크기 */
+    int32_t goal_x, goal_y; /* LINE: 도로를 이을 건물의 문 앞 칸 (-1 = 없음) */
+    int32_t progress, progress_need; /* 예: 연결 도로 6 / 10 (need 0 = 표시 안 함) */
+    char progress_label[48];         /* 진행 표시의 이름 (UTF-8, 예: "연결 도로") */
+    char title[CORE_GUIDE_TITLE_BYTES]; /* UTF-8 */
+    char body[CORE_GUIDE_BODY_BYTES];   /* UTF-8, 줄바꿈은 화면이 함 */
+} CoreGuideView;
 
 #define CORE_MAX_RESEARCH 32 /* 연구 정의는 최대 32개 */
 
@@ -1155,6 +1203,18 @@ CORE_API int32_t core_peek_save(const char *path_utf8, const CoreDefs *defs, Cor
 /* 성채 이름으로 쓸 수 있는지 (새 게임 화면). UTF-8, 1 ~ CORE_NAME_BYTES-1 바이트, 제어 문자·잘린 글자 없음.
  * 쓸 수 있으면 CORE_OK, 아니면 CORE_ERR_INVALID_ARG */
 CORE_API int32_t core_check_castle_name(const char *name_utf8);
+
+/* ---- 튜토리얼 안내 ---------------------------------------------------- */
+/* 이 세계를 튜토리얼 게임으로 만듭니다 (새 게임 직후, 첫날에만). 이미 켜져 있거나 하루가 지났으면
+ * CORE_ERR_REJECTED. 튜토리얼 중에는 방어 단계를 마치기 전까지 습격이 오지 않습니다. */
+CORE_API int32_t core_guide_start(CoreWorld *world);
+/* 지금 단계를 out 에 채웁니다. 이미 해낸 행동 단계는 먼저 넘기므로 월드를 바꿀 수 있습니다.
+ * 튜토리얼이 아니면 out->active = 0 */
+CORE_API int32_t core_guide_view(CoreWorld *world, CoreGuideView *out);
+/* 정보 단계를 넘깁니다. 행동 단계이거나 튜토리얼이 아니면 CORE_ERR_REJECTED */
+CORE_API int32_t core_guide_next(CoreWorld *world);
+/* 튜토리얼 안내를 끕니다 (이후 일반 게임과 같음). 튜토리얼이 아니면 CORE_ERR_REJECTED */
+CORE_API int32_t core_guide_skip(CoreWorld *world);
 
 /* ---- 디버그 ---------------------------------------------------------- */
 /* 성능 측정용 (디버그 전용, 일반 플레이에서는 부르지 않음): 성채 둘레에 집·농장을 공짜로 바로 짓고

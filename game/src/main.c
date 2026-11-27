@@ -31,7 +31,7 @@ static void help(void) {
          "  --smoke-test [--days 20] [--seed 42]  C runtime test without a window\n"
          "  --stress | --stress-probe              150 villagers + 40 enemies\n"
          "  --screenshot file.png [--screen "
-         "title|tutorial|game|villagers|uniforms|farms|population|rotations|connections|research|rank|market|load]\n"
+         "title|tutorial|tutorial_build|game|villagers|uniforms|farms|population|rotations|connections|research|rank|market|load]\n"
          "  --frames N --autoplay --no-audio --width 1440 --height 900\n"
          "  --difficulty peaceful|normal|harsh (or 0|1|2)");
 }
@@ -132,6 +132,7 @@ static int options(int argc, char **argv, Options *o) {
             return 0;
     }
     if (!capture_scene_known(o->screen) && strcmp(o->screen, "title") && strcmp(o->screen, "tutorial") &&
+        strcmp(o->screen, "tutorial_build") &&
         strcmp(o->screen, "game") && strcmp(o->screen, "villagers") && strcmp(o->screen, "population") &&
         strcmp(o->screen, "rotations") &&
         strcmp(o->screen, "connections") && strcmp(o->screen, "research") && strcmp(o->screen, "rank") &&
@@ -649,8 +650,11 @@ static void screenshot_screen(GameApp *a, const Options *o) {
         a->in_game = 0;
         return;
     }
-    if (!strcmp(o->screen, "tutorial")) { /* 메인 화면의 "튜토리얼" 단추와 같은 길 */
+    if (!strcmp(o->screen, "tutorial") || !strcmp(o->screen, "tutorial_build")) {
+        /* 메인 화면의 "튜토리얼" 단추와 같은 길. tutorial_build 는 첫 건설 단계(텃밭)까지 넘김 */
         (void)game_tutorial_start(a);
+        for (int step = 0; !strcmp(o->screen, "tutorial_build") && step < 3; step++)
+            (void)core_guide_next(a->session.world);
         return;
     }
     (void)game_session_new(&a->session, u8"바람언덕", o->seed, o->difficulty);
