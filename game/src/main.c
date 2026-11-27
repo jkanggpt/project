@@ -193,6 +193,7 @@ void game_app_close(GameApp *a) {
     a->ui.focus = 0;
 }
 static void enter_game(GameApp *a) {
+    game_main_menu_enter(a);
     a->in_game = 1;
     a->panel = PANEL_NONE;
     a->return_panel = PANEL_NONE;
@@ -929,8 +930,8 @@ static int run(int argc, char **argv) {
     if (a->assets.audio_ready)
         SetMasterVolume(a->settings.master_volume);
     a->camera = (Camera2D){{o.width * 0.5f - 160, o.height * 0.5f}, {48 * 16, 48 * 16}, 0, 3};
-    (void)game_session_new(&a->session, u8"바람언덕", 42, 1);
     a->panel = PANEL_TITLE;
+    game_main_menu_update(a, 0);
     if (o.stress || (o.frames && !o.screenshot)) {
         (void)game_app_start(a);
         if (o.stress) {

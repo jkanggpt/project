@@ -10,6 +10,8 @@ typedef struct GameUi {
     unsigned tooltip_hash;
     float tooltip_scroll;
     int tooltip_bad;
+    float transition;
+    int transition_out;
 } GameUi;
 extern const Color UI_BG, UI_PANEL, UI_EDGE, UI_TEXT, UI_MUTED, UI_GOLD, UI_GOOD, UI_BAD;
 void ui_begin(GameUi *ui, GameAssets *assets, float size, float volume);
@@ -28,4 +30,6 @@ void ui_bar(Rectangle area, float fraction, Color color);
 void ui_textbox(GameUi *ui, Rectangle area, int id, char *text, size_t size, int digits_only);
 void ui_slider(GameUi *ui, Rectangle area, float *value);
 void ui_tooltip(GameUi *ui);
+void ui_transition(GameUi *ui);
+void ui_transition_out(GameUi *ui);
 #endif

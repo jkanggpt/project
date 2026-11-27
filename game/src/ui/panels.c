@@ -569,58 +569,6 @@ static Rectangle modal(GameApp *a, const char *title, float wanted_width, float 
         game_app_close(a);
     return box;
 }
-static void title(GameApp *a) {
-    Rectangle b = modal(a, u8"마법성채 키우기", 650, 600);
-    float y = b.y + 110;
-    ui_text(&a->ui, b.x + 32, b.y + 65, UI_MUTED, u8"C로 다스리는 중세 판타지 성채");
-    if (row_button(a, b, &y, u8"이어하기", game_app_latest(a) >= 0)) {
-        int slot = game_app_latest(a);
-        if (slot >= 0)
-            (void)game_app_load(a, slot, 0);
-    }
-    if (row_button(a, b, &y, u8"새 게임", 1))
-        game_app_open(a, PANEL_NEW);
-    if (row_button(a, b, &y, u8"튜토리얼", 1))
-        (void)game_tutorial_start(a); /* 메인 화면 ↔ 튜토리얼의 약속 함수 (ui/tutorial.h) */
-    if (row_button(a, b, &y, u8"불러오기", 1))
-        game_app_open(a, PANEL_LOAD);
-    if (row_button(a, b, &y, u8"설정", 1))
-        game_app_open(a, PANEL_SETTINGS);
-    if (row_button(a, b, &y, u8"도움말", 1))
-        game_app_open(a, PANEL_HELP);
-    if (row_button(a, b, &y, u8"종료", 1))
-        a->quit = 1;
-    ui_small(&a->ui, b.x + 32, b.y + b.height - 55, UI_MUTED,
-             u8"농장 하나에서 왕성까지, 주민과 함께 성장하세요.");
-}
-static void new_game(GameApp *a) {
-    Rectangle b = modal(a, u8"새 게임", 740, 620);
-    GameUi *u = &a->ui;
-    CoreDifficultyView d;
-    float y = b.y + 78;
-    int i;
-    ui_text(u, b.x + 32, y, UI_TEXT, u8"성채 이름 (한글은 붙여넣기도 가능)");
-    y += 36;
-    ui_textbox(u, rect(b.x + 32, y, b.width - 64, 46), 1, a->castle_name, sizeof(a->castle_name), 0);
-    y += 64;
-    ui_text(u, b.x + 32, y, UI_TEXT, u8"지도 시드 (비우면 무작위)");
-    y += 36;
-    ui_textbox(u, rect(b.x + 32, y, b.width - 64, 46), 2, a->seed_text, sizeof(a->seed_text), 1);
-    y += 64;
-    for (i = 0; i < CORE_DIFF_COUNT; i++)
-        if (ui_button(u, rect(b.x + 32 + i * (b.width - 64) / 3, y, (b.width - 76) / 3, 40),
-                      fmt_difficulty_name(i), 1, a->difficulty == i, NULL))
-            a->difficulty = i;
-    y += 60;
-    if (core_get_difficulty(a->difficulty, &d) == CORE_OK)
-        ui_text(u, b.x + 32, y, UI_TEXT, u8"시작 주민 4명 · 192×192 지도 · 한 계절 12일 · 하루 120초");
-    y += 48;
-    if (core_check_castle_name(a->castle_name) != CORE_OK)
-        ui_small(u, b.x + 32, y, UI_BAD, u8"이름은 올바른 UTF-8로 1~47바이트여야 합니다.");
-    if (ui_button(u, rect(b.x + 32, b.y + b.height - 76, b.width - 64, 44), u8"성채 다스리기",
-                  core_check_castle_name(a->castle_name) == CORE_OK, 0, NULL))
-        (void)game_app_start(a);
-}
 static void leave(GameApp *a, int action) {
     int rc = game_app_save(a, 0);
     if (rc < 0 && a->in_game && a->session.summary.outcome != CORE_OUTCOME_LOST && !a->automated) {
@@ -1275,10 +1223,10 @@ void game_render_interface(GameApp *a) {
     }
     switch (a->panel) {
     case PANEL_TITLE:
-        title(a);
+        game_main_menu_title(a);
         break;
     case PANEL_NEW:
-        new_game(a);
+        game_main_menu_new_game(a);
         break;
     case PANEL_PAUSE:
         pause_menu(a);

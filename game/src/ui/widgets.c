@@ -41,8 +41,19 @@ void ui_begin(GameUi *ui, GameAssets *assets, float size, float volume) {
     ui->volume = volume;
     ui->tooltip_bad = 0;
     ui->tooltip[0] = '\0';
-    ui->input_blocked = 0;
+    ui->input_blocked = ui->transition_out;
     ui->consumed = 0;
+    float step = fminf(GetFrameTime(), .1f);
+    ui->transition = ui->transition_out ? fminf(1, ui->transition + step / .16f)
+                                        : fmaxf(0, ui->transition - step / .28f);
+}
+void ui_transition(GameUi *ui) {
+    ui->transition = 1;
+    ui->transition_out = 0;
+}
+void ui_transition_out(GameUi *ui) {
+    ui->transition = 0;
+    ui->transition_out = 1;
 }
 static void textv(GameUi *ui, float x, float y, float size, Color color, const char *format, va_list args) {
     char text[2048];
@@ -215,6 +226,10 @@ void ui_slider(GameUi *ui, Rectangle area, float *value) {
     DrawCircleV((Vector2){area.x + area.width * (*value), area.y + area.height * 0.5f}, 8, UI_TEXT);
 }
 void ui_tooltip(GameUi *ui) {
+    if (ui->transition > 0) {
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, ui->transition));
+        return;
+    }
     if (!ui->tooltip[0])
         return;
     unsigned hash = 2166136261u;
