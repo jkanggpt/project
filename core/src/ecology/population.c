@@ -142,7 +142,10 @@ int expansion_wild_kind(World *w, int x, int y) {
             return k;
     return -1;
 }
-void expansion_ecology_recount(World *w) {
+/* refresh 가 1 이면 야생 동물의 지역을 지금 위치로 다시 정합니다 (매일 아침·사냥 등 실제 게임 진행).
+ * 불러올 때는 0: 저장된 지역을 그대로 써야 저장 직전과 같은 상태(같은 해시)가 됩니다. 지역은 하루에 한 번만
+ * 위치를 따라가므로, 낮 동안 경계를 넘은 동물은 저장 순간에 이전 지역을 가지고 있을 수 있습니다. */
+static void ecology_recount(World *w, int refresh) {
     ExpansionState *e = w->expansion;
     int i;
     for (i = 0; i < e->region_count; i++)
@@ -152,14 +155,16 @@ void expansion_ecology_recount(World *w) {
         CoreHabitatView *r;
         if (!a->alive || a->owner)
             continue;
-        a->region = e->region_map[grid_index(&w->grid, a->x_milli / 1000, a->y_milli / 1000)];
+        if (refresh)
+            a->region = e->region_map[grid_index(&w->grid, a->x_milli / 1000, a->y_milli / 1000)];
         r = &e->regions[a->region];
         r->count++;
         r->biomass += EXP_ANIMALS[a->kind].biomass;
         r->aggressive += !expansion_is_phantom(a->kind) && EXP_ANIMALS[a->kind].behavior == 2;
     }
 }
-void expansion_ecology_init(World *w) {
+void expansion_ecology_recount(World *w) { ecology_recount(w, 1); }
+static void ecology_regions(World *w) {
     ExpansionState *e = w->expansion;
     int i, j, centers[30][2], counts[30][10] = {{0}};
     e->region_count = 30;
@@ -218,7 +223,14 @@ void expansion_ecology_init(World *w) {
             e->region_capacity[i] = r->capacity;
         r->pressure_until = e->region_pressure_until[i];
     }
-    expansion_ecology_recount(w);
+}
+void expansion_ecology_init(World *w) {
+    ecology_regions(w);
+    ecology_recount(w, 1);
+}
+void expansion_ecology_restore(World *w) {
+    ecology_regions(w);
+    ecology_recount(w, 0);
 }
 int expansion_animal_spawn(World *w, int region, int initial) {
     ExpansionState *e = w->expansion;
