@@ -1,5 +1,15 @@
 # PROGRESS
 
+## 메인 화면·튜토리얼 병행 준비 (Phase 0, 2026-11-27)
+
+두 기능을 동시에 만듭니다: 메인 화면 = Codex (`codex/main-screen`), 튜토리얼 = Claude (`claude/wizardly-allen-7ou35f`). 계획·파일 담당·약속은 docs/PLAN_MAIN_SCREEN_TUTORIAL.md.
+
+- CI 복구: gcc 의 snprintf 잘림 경고(wandering_merchant.c)와 clang 의 _Static_assert u8 메시지(api.c)를 고쳐 -Werror 디버그 빌드가 다시 됨. 긴 소크는 ASan 으로 2시간이 넘어 릴리스 빌드 400일×10시드로.
+- 연결점: game/src/ui/main_menu.{h,c}, game/src/ui/tutorial.{h,c}, GameApp 의 menu·tutorial 상태, main.c 매 프레임 연결점, 게임 화면 위 튜토리얼 그리기 자리, 제목 화면의 "튜토리얼" 단추(자리표시: 시드 42·평화 새 게임), --screen tutorial.
+- 확인 (Linux): gcc·clang ASan 디버그 -Werror 빌드와 CTest, 릴리스 그래픽 -Werror 빌드, 제목·튜토리얼 스크린숏, 20일 스모크.
+
+다음: 이 PR 병합 → Codex 는 메인 화면, Claude 는 튜토리얼 (계획 문서 5절), 둘 다 끝나면 통합 (6절).
+
 ## 현재 상태 보고서 작성 (2026-11-27)
 
 docs/GAME_STATE.md 에 개발 과정(Godot판 → C/raylib판), 구조, 기능 전체, 검사 상태, 안 된 것을 정리했습니다. 코드는 바꾸지 않았습니다. 쓰면서 Linux 에서 직접 확인한 것:

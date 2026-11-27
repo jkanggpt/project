@@ -311,9 +311,9 @@ CMake 3.21 이상, 프리셋: `windows-msvc`, `windows-mingw`, `mingw-release`(L
 
 | 문제 | 위치 | 고치는 방법 |
 |---|---|---|
-| Linux 디버그 빌드가 `-Werror`에서 실패 → CI 빨간불 | `core/src/economy/wandering_merchant.c:49` | `out->code` 크기를 늘리거나 `id` 범위를 명시(예: `% 100`)해서 경고 없애기 |
-| CI 소크가 45분 안에 끝나지 않음 | `.github/workflows/ci.yml`의 `soak` | 릴리스 빌드로 돌리거나 일수·시드를 줄이기(예: 100일 × 5시드) |
-| 새 게임 창에 "192×192 지도"라고 나옴 (실제는 160×160) | `game/src/ui/panels.c:614` | 문구를 160×160으로, 가능하면 `core_get_map_size` 값으로 |
+| Linux 디버그 빌드가 `-Werror`에서 실패 → CI 빨간불 | `core/src/economy/wandering_merchant.c:49` (gcc), `core/src/common/api.c`의 `_Static_assert` u8 메시지 (clang) | **고침** (Phase 0, `docs/PLAN_MAIN_SCREEN_TUTORIAL.md`) |
+| CI 소크가 45분 안에 끝나지 않음 | `.github/workflows/ci.yml`의 `soak` | **고침** (Phase 0): 릴리스 빌드 400일 × 10시드 |
+| 새 게임 창에 "192×192 지도"라고 나옴 (실제는 160×160) | `game/src/ui/panels.c`의 `new_game()` | 메인 화면 작업에서 고침 (`docs/PLAN_MAIN_SCREEN_TUTORIAL.md` 5.1) |
 | README·여러 문서에서 숫자 앞 띄어쓰기가 빠짐 (예: "같은160×160 세계,73종") | `README.md`, `PROGRESS.md`, `docs/*.md` | 문서 정리 |
 
 ### 6.2 기록된 한계 (`docs/MISSING_FEATURES.md`)
