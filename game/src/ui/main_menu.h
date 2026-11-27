@@ -13,7 +13,7 @@ typedef struct GameMenuState {
     float time; /* 게임 밖(메인 화면)에 머문 시간(초). 배경 연출에 씁니다 */
     float simulation_time, save_age, preview_delay;
     int background_ready, selected, credits, saves_checked, latest_slot, latest_backup;
-    int pending_action;
+    int pending_action, pending_panel;
     CoreSaveInfoView latest;
     float mouse_x, mouse_y;
     char preview_key[32];

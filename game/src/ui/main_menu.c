@@ -241,14 +241,20 @@ static void menu_action(GameApp *a, int item) {
 }
 
 static void request_action(GameApp *a, int item) {
-    if (!a->automated && (item == 0 || item == 2 || item == 8)) {
+    if (!a->automated && !a->in_game && (item == 0 || item == 2 || item == 8)) {
         a->menu.pending_action = item + 1;
+        a->menu.pending_panel = (int)a->panel;
         ui_transition_out(&a->ui);
     } else
         menu_action(a, item);
 }
 
 static int finish_transition(GameApp *a) {
+    if (a->menu.pending_action && a->menu.pending_panel != (int)a->panel) {
+        a->menu.pending_action = 0;
+        ui_transition(&a->ui);
+        return 0;
+    }
     if (!a->menu.pending_action || a->ui.transition < 1)
         return 0;
     int item = a->menu.pending_action - 1;
