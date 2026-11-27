@@ -6,6 +6,8 @@
 #include "sprite_layout.h"
 #include "storage.h"
 #include "ui.h"
+#include "ui/main_menu.h"
+#include "ui/tutorial.h"
 typedef enum GamePanel {
     PANEL_NONE,
     PANEL_TITLE,
@@ -58,6 +60,9 @@ typedef struct GameApp {
     unsigned char *decor_blocked;
     int decor_capacity;
     double accumulator;
+    /* 기능별 상태는 각자의 헤더에서 늘립니다 (이 구조체에 필드를 더하지 않아도 되게) */
+    GameMenuState menu;         /* 메인 화면: ui/main_menu.h */
+    GameTutorialState tutorial; /* 튜토리얼: ui/tutorial.h */
 } GameApp;
 int game_hover_building(GameApp *app, Vector2 screen);
 float game_ui_facility_details(GameApp *app, const CoreBuildingView *building, float x, float y, float width);
