@@ -25,7 +25,7 @@ static int constant_direction_test(CastleGpu *gpu) {
     Image image = GenImageColor(4, 4, WHITE), map = GenImageColor(1, 1, (Color){60, 180, 220, 255});
     Texture2D albedo = LoadTextureFromImage(image), normal = LoadTextureFromImage(map);
     int errors = 0;
-    for (int mode = 0; mode < 3; mode++) {
+    for (int mode = 0; mode < 5; mode++) {
         CastleGpuFrame frame = {.width = 320,
                                 .height = 240,
                                 .map_width = 20,
@@ -44,16 +44,20 @@ static int constant_direction_test(CastleGpu *gpu) {
         memcpy(s.normal_source, s.source, sizeof(s.source));
         for (int j = 0; j < 4; j++)
             s.tint[j] = 1;
+        if (mode == 3)
+            s.tint[3] = .5f;
+        if (mode == 4)
+            s.tint[3] = 0;
         s.shape[0] = 160;
         s.shape[1] = 1;
         s.shape[2] = .4f;
         s.tags[1] = mode == 2 ? GPU_MATERIAL_ROAD : GPU_MATERIAL_ACTOR;
-        s.tags[2] = mode == 2 ? 14u : 4u;
+        s.tags[2] = mode >= 2 ? (mode == 2 ? 14u : 12u) : 4u;
         Vector3 n = Vector3Normalize((Vector3){60 / 127.5f - 1, 180 / 127.5f - 1, 220 / 127.5f - 1});
         Vector2 sample = {128, 128};
         if (mode == 1)
             n.x = -n.x;
-        if (mode == 2) {
+        if (mode >= 2) {
             float c = cosf(.4f), sn = sinf(.4f);
             n = (Vector3){n.x, -n.z, n.y};
             n = Vector3Normalize((Vector3){c * n.x - sn * n.y, sn * n.x + c * n.y, fmaxf(n.z, .15f)});
@@ -66,9 +70,19 @@ static int constant_direction_test(CastleGpu *gpu) {
             ImageFlipVertical(&result);
             ImageFormat(&result, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
             Color found = ((Color *)result.data)[(int)sample.y * result.width + (int)sample.x];
-            errors += abs(found.r - (int)((n.x * .5f + .5f) * 255)) > 3 ||
-                      abs(found.g - (int)((n.y * .5f + .5f) * 255)) > 3 ||
-                      abs(found.b - (int)((n.z * .5f + .5f) * 255)) > 3;
+            if (mode < 3)
+                errors += abs(found.r - (int)((n.x * .5f + .5f) * 255)) > 3 ||
+                          abs(found.g - (int)((n.y * .5f + .5f) * 255)) > 3 ||
+                          abs(found.b - (int)((n.z * .5f + .5f) * 255)) > 3;
+            else {
+                int covered = 0;
+                for (int i = 0; i < result.width * result.height; i++) {
+                    Color pixel = ((Color *)result.data)[i];
+                    covered += pixel.b > 100 && pixel.g < 100;
+                }
+                errors += mode == 3 ? covered < 1900 || covered > 2200 : covered != 0;
+                printf("GPU MATERIAL FADE: mode=%d covered=%d\n", mode, covered);
+            }
             UnloadImage(result);
         } else
             errors++;
@@ -77,7 +91,7 @@ static int constant_direction_test(CastleGpu *gpu) {
     UnloadTexture(normal);
     UnloadImage(image);
     UnloadImage(map);
-    printf("GPU MATERIAL AXES: cases=3 errors=%d\n", errors);
+    printf("GPU MATERIAL AXES: cases=5 errors=%d\n", errors);
     return errors;
 }
 int main(void) {

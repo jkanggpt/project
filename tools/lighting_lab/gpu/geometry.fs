@@ -56,6 +56,11 @@ void main(){
     vec4 original=kind==8u&&uNatural!=0?meadowColor(tuftNormal):texture(uAlbedo,uv);
     vec4 color=original*spriteTint;
     if(original.a<.5||color.a<.005)discard;
+    if((spriteTags.z&8u)!=0u&&spriteTint.a<1.0){
+        /* 사라지는 몸체의 법선이 밑의 지면 조명을 덮지 않도록 같은 화소에서 잘라냅니다. */
+        if(spriteTint.a<=bayerValue(ivec2(floor(worldScreen))))discard;
+        color.a=original.a;
+    }
     float z=max(0.0,(1.0-localUv.y)*spriteShape.y);
     vec3 n=vec3(0,0,1);
     float emission=0.0;
