@@ -22,6 +22,8 @@ void game_gpu_overlay_begin(void);
 void game_gpu_overlay_end(void);
 Vector2 game_gpu_canvas_size(void);
 void game_gpu_object(int material, uint32_t owner, float foot);
+/* 다음 원화의 구운 발광 배율(0~1). game_gpu_object가 1로 되돌립니다. */
+void game_gpu_emission(float gate);
 int game_gpu_sprite(Texture2D texture, Rectangle source, Rectangle destination, Color tint);
 int game_gpu_floor_sprite(Texture2D texture, Rectangle source, Rectangle destination, Color tint,
                           float angle);

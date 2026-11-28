@@ -37,5 +37,7 @@ typedef struct GameSceneProfile {
 /* time은 등대 방향과 서로 다른 불빛 위상을 위한 시각 시간입니다. */
 int game_scene_profile(const CoreBuildingView *building, Rectangle picture, float time,
                        GameSceneProfile *profile);
+/* 원화에 그려진 창·불의 발광을 켤지 정합니다. 광원과 같은 점등 조건을 사용합니다. */
+int game_scene_lit(const CoreBuildingView *building);
 int game_scene_profile_validate(void);
 #endif

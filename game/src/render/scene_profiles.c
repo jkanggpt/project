@@ -87,6 +87,11 @@ static int eligible(const CoreBuildingView *b, int policy) {
         return 0;
     }
 }
+int game_scene_lit(const CoreBuildingView *b) {
+    if (!b || b->type < 0 || b->type >= CORE_BLD_COUNT)
+        return 0;
+    return eligible(b, sources[b->type].policy);
+}
 static void volume(GameSceneProfile *p, int kind, Vector3 center, Vector3 extent, int contact) {
     if (p->volume_count < 8)
         p->volumes[p->volume_count++] = (GameSceneVolume){center, extent, kind, contact};

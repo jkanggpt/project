@@ -4,7 +4,8 @@ uniform sampler2D uAlbedo,uNormalHeight,uMaterial,uOwner,uSunCache,uPointCache;
 uniform vec2 uOrigin,uViewport,uMap;
 uniform float uScale,uAmbient,uElevation;
 uniform int uShadows,uView,uLightTileStride;
-uniform float uTime;
+uniform float uTime,uOvercast;
+uniform int uWater;
 layout(std430,binding=3) readonly buffer LightTiles {uint lightWords[];};
 uint ownerAt(ivec2 p){uvec4 b=uvec4(round(texelFetch(uOwner,p,0)*255.0));return b.x|(b.y<<8)|(b.z<<16)|(b.w<<24);}
 float visible(vec3 world,vec2 screen,int index,uint owner,float dither){
@@ -72,16 +73,28 @@ void main(){
     vec3 color=albedo.rgb*sqrt(clamp(radiance,vec3(.035),vec3(1.55)))+specular*vec3(1,.9,.7)+emission;
     vec3 sunReflection=vec3(0);
     if(kind==7&&uSunEnabled!=0){
-        /* 고정 시점의 물결 면에 닿는 햇빛을 세계 좌표의 화소 반짝임으로 표현합니다. */
-        vec3 viewDirection=normalize(vec3(0,.70710678,.70710678));
+        /* 고정 시점·햇빛 방향·물결 법선으로 반짝임을 계산합니다. 미세면은 세계 화소 칸(3×1)에 고정되어
+           타일 경계와 화면 이동에 따라 움직이지 않고, 물결 효과가 꺼지면 시간도 멈춥니다. */
+        vec3 viewDirection=vec3(0,.70710678,.70710678);
         vec3 halfway=normalize(uSunDirection+viewDirection);
-        float roughness=clamp(material.z,.12,.78);
-        float sparkle=pow(max(0.0,dot(normal,halfway)),mix(68.0,18.0,roughness));
-        float breakup=.52+.48*noiseValue(screen/13.0+vec2(uTime*.073,-uTime*.041));
-        float reflection=floor(clamp(sparkle*breakup,0.0,1.0)*8.0+dither*.35)/8.0;
-        float fresnel=pow(1.0-max(0.0,dot(normal,viewDirection)),3.0);
-        vec3 sunColor=uElevation<25.0?vec3(1.0,.62,.30):vec3(.88,.94,.82);
-        sunReflection=sunColor*reflection*(.23+fresnel*.40)*sunVisibility;
+        ivec2 facetCell=ivec2(floor(screen/vec2(3.0,1.0)));
+        uint facetSeed=hashCell(facetCell+ivec2(9157,-311));
+        float clock=uWater!=0?uTime:0.0;
+        float phase=floor(clock*(3.0+randomUnit(facetSeed)*4.0)+randomUnit(facetSeed+7u)*8.0);
+        uint twinkle=hashWord(facetSeed^uint(int(phase))*0x27d4eb2du);
+        vec2 jitter=vec2(randomUnit(twinkle),randomUnit(twinkle+19u))*2.0-1.0;
+        vec2 slope=normal.xy/max(.2,normal.z)*6.0+jitter*.42;
+        vec3 facet=normalize(vec3(slope,1.0));
+        float aligned=dot(facet,halfway);
+        float glint=smoothstep(.955,.985,aligned);
+        /* 큰 물결 마루를 따라 짧고 흐린 가로 띠를 더합니다. */
+        float crest=noiseValue(vec2(screen.x/9.0+clock*.11,screen.y/1.7-clock*.04));
+        float streak=step(.70,crest)*smoothstep(.80,.95,dot(normalize(vec3(normal.xy*6.0,1.0)),halfway))*.45;
+        float elevation=smoothstep(4.0,18.0,uElevation);
+        float strength=elevation*(1.0-.9*clamp(uOvercast,0.0,1.0))*sunVisibility;
+        float level=floor(clamp(max(glint,streak)*strength,0.0,1.0)*4.0+dither*.35)/4.0;
+        vec3 sunColor=uElevation<25.0?vec3(1.0,.74,.46):vec3(.95,.97,.90);
+        sunReflection=sunColor*level*.38;
         color+=sunReflection;
     }
     if(uView==5)color=sunReflection;

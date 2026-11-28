@@ -271,17 +271,50 @@ static int roof_pixel(Guide g, Color c, int y) {
            ((y < g.roof && (colored || luminance(c) < 45)) ||
             (colored && y < clamp(g.roof + 32, 0, 210)));
 }
-static unsigned char emission(Color c, Guide g, int y) {
-    if (!g.emission || y < g.glow_top || y > g.glow_bottom)
-        return 0;
-    int light = luminance(c), hot = 0;
-    if (g.emission == 2)
-        hot = (c.b > 140 && c.b * 100 > c.r * 120 && c.b * 100 > c.g * 112) ||
-              (c.g > 145 && c.b > 145 && c.g * 100 > c.r * 130 && c.b * 100 > c.r * 130);
-    else
-        hot = c.r > 190 && c.g > (g.emission == 3 ? 75 : 125) && c.r * 100 > c.g * 108 &&
-              c.g * 100 > c.b * 145 && light > (g.emission == 3 ? 100 : 150);
-    return hot ? (unsigned char)clamp((light - (g.emission == 3 ? 85 : 120)) * 3, 0, 240) : 0;
+/* 발광은 흰빛에 가까운 불꽃·유리 중심에서만 시작하고 2화소 안의 따뜻한 화소로만 넓힙니다.
+   주황 벽돌·크림색 회벽처럼 색만 비슷한 칠은 중심 조건을 통과하지 못합니다. */
+static int emission_seed(Color c, int kind) {
+    int light = luminance(c);
+    if (kind == 2)
+        return (c.b >= 170 && c.b * 100 > c.r * 118 && c.b * 100 > c.g * 112 && light >= 120) ||
+               (c.g >= 170 && c.b >= 170 && c.g * 100 > c.r * 130 && c.b * 100 > c.r * 130);
+    return c.r >= 235 && c.g >= 160 && c.r - c.b >= 115 && light >= 170;
+}
+static int emission_warm(Color c, int kind) {
+    if (kind == 2)
+        return c.b >= 120 && c.b * 100 > c.r * 110;
+    return c.r >= 210 && c.g >= 100 && c.r - c.b >= 110;
+}
+static void emission_mask(const Color *source, int stride, int w, int h, Guide g, int top, int bottom,
+                          unsigned char *glow) {
+    memset(glow, 0, (size_t)w * h);
+    if (!g.emission)
+        return;
+    for (int y = 0; y < h; y++) {
+        int band = (y - top) * 256 / (bottom - top + 1);
+        if (band < g.glow_top || band > g.glow_bottom)
+            continue;
+        for (int x = 0; x < w; x++) {
+            Color c = source[y * stride + x];
+            if (c.a >= 32 && emission_seed(c, g.emission))
+                glow[y * w + x] = (unsigned char)clamp((luminance(c) - 110) * 2 + 60, 120, 240);
+        }
+    }
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            Color c = source[y * stride + x];
+            if (glow[y * w + x] || c.a < 32 || !emission_warm(c, g.emission))
+                continue;
+            int best = 0;
+            for (int dy = -2; dy <= 2; dy++)
+                for (int dx = -2; dx <= 2; dx++) {
+                    int xx = x + dx, yy = y + dy;
+                    if (xx >= 0 && yy >= 0 && xx < w && yy < h && glow[yy * w + xx] > best &&
+                        emission_seed(source[yy * stride + xx], g.emission))
+                        best = glow[yy * w + xx];
+                }
+            glow[y * w + x] = (unsigned char)(best * 3 / 5);
+        }
 }
 static Vector macro_normal(Profile p, Guide g, Color c, int x, int y, int dx, int dy) {
     Vector n = {0, 0, 4096};
@@ -327,10 +360,11 @@ static int bake_frame(const Color *source, int stride, Color *albedo, unsigned c
     uint16_t *distance = malloc((size_t)w * h * sizeof(*distance));
     Vector *vectors = malloc((size_t)w * h * sizeof(*vectors));
     Color *surfaces = malloc((size_t)w * h * sizeof(*surfaces));
+    unsigned char *glow = malloc((size_t)w * h);
     int columns = (w + 15) / 16, rows = (h + 15) / 16;
     Tone *patches = calloc((size_t)columns * rows, sizeof(*patches));
-    if (!distance || !vectors || !patches || !surfaces) {
-        free(distance); free(vectors); free(patches); free(surfaces);
+    if (!distance || !vectors || !patches || !surfaces || !glow) {
+        free(distance); free(vectors); free(patches); free(surfaces); free(glow);
         return 0;
     }
     Guide fallback = {"fixture", p.kind == 1 ? 1 : p.kind == 2 ? 4 : !strcmp(p.name, "field") ? 7 : 0,
@@ -351,6 +385,8 @@ static int bake_frame(const Color *source, int stride, Color *albedo, unsigned c
         }
     }
     if (!reference) reference = &frame_tone;
+    if (bottom < top) top = bottom = 0;
+    emission_mask(source, stride, w, h, g, top, bottom, glow);
     for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
         Color c = source[y * stride + x];
         int key = chroma(c), mean = tone_mean(reference, key, luminance(c));
@@ -382,29 +418,29 @@ static int bake_frame(const Color *source, int stride, Color *albedo, unsigned c
             roughness = 65;
         int neighbors = (luminance(l) + luminance(r) + luminance(u) + luminance(d)) / 4;
         int ao = luminance(c) >= 32 ? 255 - clamp((neighbors - luminance(c) - 18) * 2, 0, 40) : 255;
-        surfaces[i] = (Color){(unsigned char)clamp(height, 0, 255), emission(c, g, yy),
+        surfaces[i] = (Color){(unsigned char)clamp(height, 0, 255), glow[i],
                               (unsigned char)roughness, (unsigned char)ao};
     }
     for (int y = 0; y < h; y += divisor) for (int x = 0; x < w; x += divisor) {
-        Vector sum = {0}; int count = 0, height = 0, roughness = 0, glow = 0, ao = 255;
+        Vector sum = {0}; int count = 0, height = 0, roughness = 0, brightest = 0, ao = 255;
         for (int yy = 0; yy < divisor; yy++) for (int xx = 0; xx < divisor; xx++)
             if (source[(y + yy) * stride + x + xx].a >= 32) {
                 int at = (y + yy) * w + x + xx;
                 Vector v = vectors[at]; sum.x += v.x; sum.y += v.y; sum.z += v.z;
                 Color s = surfaces[at]; count++; height += s.r; roughness += s.b;
-                if (s.g > glow) glow = s.g;
+                if (s.g > brightest) brightest = s.g;
                 if (s.a < ao) ao = s.a;
             }
         sum = unit(sum);
         int at = y / divisor * normal_stride + x / divisor;
         normal[at * 3] = encode(sum.x); normal[at * 3 + 1] = encode(sum.y); normal[at * 3 + 2] = encode(sum.z);
         if (surface) {
-            Color result = {(unsigned char)(count ? height / count : 0), (unsigned char)glow,
+            Color result = {(unsigned char)(count ? height / count : 0), (unsigned char)brightest,
                             (unsigned char)(count ? roughness / count : 255), (unsigned char)ao};
             memcpy(surface + at * 4, &result, sizeof(result));
         }
     }
-    free(distance); free(vectors); free(patches); free(surfaces);
+    free(distance); free(vectors); free(patches); free(surfaces); free(glow);
     return 1;
 }
 /* 회전 .0~.3은 하나의 원화 계열로 묶어 같은 밝기 기준을 사용합니다. */

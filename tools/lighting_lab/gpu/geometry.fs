@@ -63,7 +63,7 @@ void main(){
     }
     float z=max(0.0,(1.0-localUv.y)*spriteShape.y);
     vec3 n=vec3(0,0,1);
-    float emission=0.0;
+    float emission=0.0,roughness=.75,occlusion=1.0;
     if((spriteTags.z&5u)!=0u){
         vec2 normalSize=vec2(textureSize(uNormals,0));
         vec2 normalLo=min(spriteNormalSource.xy,spriteNormalSource.xy+spriteNormalSource.zw)+.5/normalSize;
@@ -75,6 +75,13 @@ void main(){
             vec4 surface=texture(uSurface,at);
             z=(surface.r*255.0+surface.g*255.0/256.0)*spriteShape.y;
             emission=surface.b;
+        }else if((spriteTags.z&4u)!=0u){
+            /* 구운 표면 RGBA: R 상대 높이, G 발광, B 거칠기, A 틈새 차폐입니다. */
+            vec4 surface=texture(uSurface,at);
+            z=surface.r*spriteShape.y;
+            emission=surface.g*clamp(spriteShape.w,0.0,1.0);
+            roughness=surface.b;
+            occlusion=surface.a;
         }
     }else if(kind!=8u){
         float dx=luminance(texture(uAlbedo,clamp(uv+vec2(1.0/size.x,0),lo,hi)).rgb)-luminance(texture(uAlbedo,clamp(uv-vec2(1.0/size.x,0),lo,hi)).rgb);
@@ -119,7 +126,7 @@ void main(){
     if(kind==4u){float macro=noiseValue(worldScreen*.017);color.rgb*=.94+macro*.11;}
     outAlbedo=vec4(color.rgb,color.a);
     outNormalHeight=vec4(n,z);
-    outMaterial=vec4(float(kind)/255.0,emission,.75,color.a);
+    outMaterial=vec4(float(kind)/255.0,emission,roughness,color.a*occlusion);
     uint owner=spriteTags.x;
     outOwner=vec4(float(owner&255u),float((owner>>8)&255u),float((owner>>16)&255u),float(owner>>24))/255.0;
 }

@@ -1290,6 +1290,8 @@ int castle_gpu_render(CastleGpu *gpu) {
     rlBindShaderBuffer(gpu->light_tiles.id, 3);
     uniform_i(gpu->lighting, "uLightTileStride", gpu->light_capacity + 1);
     uniform_f(gpu->lighting, "uTime", gpu->frame.time);
+    uniform_f(gpu->lighting, "uOvercast", gpu->frame.overcast);
+    uniform_i(gpu->lighting, "uWater", gpu->frame.water);
     sampler(gpu->lighting, "uAlbedo", gpu->gbuffer[0], 0);
     sampler(gpu->lighting, "uNormalHeight", gpu->gbuffer[1], 1);
     sampler(gpu->lighting, "uMaterial", gpu->gbuffer[2], 2);

@@ -468,6 +468,8 @@ static void building(GameApp *a, int index) {
         tint = (Color){105, 95, 103, 255};
     if (b->state == CORE_BSTATE_CONSTRUCTING)
         tint = (Color){185, 168, 126, 170};
+    /* 빈 집·멈춘 일터의 창과 화덕은 원화에 그려져 있어도 밤에 빛나지 않습니다. */
+    game_gpu_emission(game_scene_lit(b) ? 1.0f : 0.0f);
     sprite(t, building_source(a, b, t), dest, tint);
     Texture2D attachment;
     Rectangle attachment_source, attachment_dest;

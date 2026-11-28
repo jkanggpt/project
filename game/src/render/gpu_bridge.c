@@ -22,7 +22,7 @@ typedef struct Bridge {
     size_t terrain_capacity;
     int active, material, error, reset_pending;
     uint32_t owner;
-    float foot, time;
+    float foot, time, emission_gate;
     const void *world;
     int world_tick;
     unsigned int frame;
@@ -270,6 +270,10 @@ int game_gpu_begin(GameApp *app) {
                                      .foliage = !app->settings.low_effects,
                                      .grass = !app->settings.low_effects,
                                      .water = 1,
+                                     .overcast = s->summary.weather == CORE_WEATHER_STORM  ? .85f
+                                                 : s->summary.weather == CORE_WEATHER_RAIN ? .60f
+                                                 : s->summary.weather == CORE_WEATHER_SNOW ? .45f
+                                                                                           : 0,
                                      .smoke = !app->settings.low_effects};
     if (!castle_gpu_begin(bridge.gpu, &bridge.config)) {
         bridge.error = 1;
@@ -281,6 +285,7 @@ int game_gpu_begin(GameApp *app) {
     bridge.material = 0;
     bridge.owner = 0;
     bridge.foot = 0;
+    bridge.emission_gate = 1;
     bridge.active = 1;
     bridge.frame++;
     game_gpu_overlay_begin();
@@ -290,7 +295,9 @@ void game_gpu_object(int material, uint32_t owner, float foot) {
     bridge.material = material;
     bridge.owner = owner;
     bridge.foot = foot;
+    bridge.emission_gate = 1;
 }
+void game_gpu_emission(float gate) { bridge.emission_gate = fminf(1, fmaxf(0, gate)); }
 static int same_rect(Rectangle a, Rectangle b) {
     return fabsf(a.x - b.x) < .1f && fabsf(a.y - b.y) < .1f && fabsf(fabsf(a.width) - b.width) < .1f &&
            fabsf(a.height - b.height) < .1f;
@@ -396,12 +403,16 @@ static int sprite(Texture2D texture, Rectangle source, Rectangle destination, Co
     s.shape[0] = bridge.owner ? bridge.foot : destination.y + destination.height;
     s.shape[1] = destination.height * .72f;
     s.shape[2] = 1.25f;
+    s.shape[3] = bridge.emission_gate;
     s.tags[0] = bridge.owner;
     s.tags[1] = (unsigned int)kind;
     s.tags[3] = bridge.owner * 7919u;
     if (texture.id == a->bridge_parts.id || texture.id == a->soil_markers.id)
         s.tags[2] = 2;
-    if (calibrated.width > 0 && !floor_sprite) {
+    /* 구운 재료가 있는 시트는 모든 프레임에 같은 규약을 써서 걷기·회전 중 명암이 바뀌지 않게 합니다.
+       여섯 보정 표본은 구운 재료가 없는 경우와 실험실 비교 장면에만 남깁니다. */
+    int baked = binding && !strcmp(binding->mode, "baked");
+    if (calibrated.width > 0 && !floor_sprite && !baked) {
         texture = bridge.albedo;
         normal = bridge.normal;
         surface = bridge.surface;
@@ -411,7 +422,7 @@ static int sprite(Texture2D texture, Rectangle source, Rectangle destination, Co
         s.tags[2] = 1;
         s.shape[1] = scale;
         bridge.calibrated_sprites++;
-    } else if (binding && !strcmp(binding->mode, "baked")) {
+    } else if (baked) {
         const MaterialPair *pair = material_pair(binding, texture);
         if (!pair)
             return 1;

@@ -55,6 +55,8 @@ typedef struct CastleGpuFrame {
     int smoke_probe;
     int grass_limit;
     int reset_motion;
+    /* 0은 맑음, 1은 짙은 구름·비입니다. 물의 햇빛 반짝임을 줄입니다. */
+    float overcast;
 } CastleGpuFrame;
 typedef struct CastleGpuViewport {
     int width, height, scale;
