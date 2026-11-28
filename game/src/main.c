@@ -5,6 +5,7 @@
 #include "platform.h"
 #include "sim.h"
 #include "render/gpu_bridge.h"
+#include "review.h"
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
@@ -17,6 +18,7 @@ typedef struct Options {
     const char *data, *assets, *save_dir, *screenshot, *screen;
     int seed, difficulty, days, smoke, stress, probe, frames, no_audio, width, height, autoplay, wildlife;
     int gpu_transitions;
+    int review, review_phase, review_view, review_azimuth, review_elevation, crowd, review_zoom, review_clean;
 } Options;
 static int number(const char *text, int min, int max, int *out) {
     char *end;
@@ -32,6 +34,9 @@ static void help(void) {
     puts("Magic Castle - C / raylib\ncastle_game [--data dir] [--assets dir] [--save-dir dir]\n"
          "  --smoke-test [--days 20] [--seed 42]  C runtime test without a window\n"
          "  --stress | --stress-probe              150 villagers + 40 enemies\n"
+         "  --lighting-review [--crowd n] [--review-phase 0-3] [--review-view 0-7] [--review-sun az el]\n"
+         "                    [--review-zoom 1-6] [--review-clean]\n"
+         "                                         조명 검수 장면 (저장하지 않음)\n"
          "  --screenshot file.png [--screen "
          "title|tutorial|tutorial_build|game|villagers|uniforms|farms|population|rotations|connections|"
          "research|rank|market|load]\n"
@@ -68,6 +73,9 @@ static int options(int argc, char **argv, Options *o) {
     o->height = 900;
     o->screen = "title";
     o->wildlife = 360;
+    o->crowd = 240;
+    o->review_azimuth = 200;
+    o->review_elevation = 42;
     for (i = 1; i < argc; i++) {
         const char *arg = argv[i];
         if (!strcmp(arg, "--smoke-test") || !strcmp(arg, "--headless")) {
@@ -90,6 +98,21 @@ static int options(int argc, char **argv, Options *o) {
         }
         if (!strcmp(arg, "--autoplay")) {
             o->autoplay = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--lighting-review")) {
+            o->review = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--review-clean")) {
+            o->review_clean = 1;
+            continue;
+        }
+        if (!strcmp(arg, "--review-sun")) {
+            if (i + 2 >= argc || !number(argv[i + 1], 0, 359, &o->review_azimuth) ||
+                !number(argv[i + 2], 8, 85, &o->review_elevation))
+                return 0;
+            i += 2;
             continue;
         }
         if (i + 1 >= argc)
@@ -115,6 +138,18 @@ static int options(int argc, char **argv, Options *o) {
                 return 0;
         } else if (!strcmp(arg, "--gpu-transitions")) {
             if (!number(argv[++i], 1, 1000, &o->gpu_transitions))
+                return 0;
+        } else if (!strcmp(arg, "--crowd")) {
+            if (!number(argv[++i], 0, 300, &o->crowd))
+                return 0;
+        } else if (!strcmp(arg, "--review-zoom")) {
+            if (!number(argv[++i], 1, 6, &o->review_zoom))
+                return 0;
+        } else if (!strcmp(arg, "--review-phase")) {
+            if (!number(argv[++i], 0, 3, &o->review_phase))
+                return 0;
+        } else if (!strcmp(arg, "--review-view")) {
+            if (!number(argv[++i], 0, 7, &o->review_view))
                 return 0;
         } else if (!strcmp(arg, "--stress-animals")) {
             if (!number(argv[++i], 360, 420, &o->wildlife) || (o->wildlife != 360 && o->wildlife != 420))
@@ -282,6 +317,9 @@ void game_app_slot_path(GameApp *a, int slot, int backup, char path[GAME_PATH_BY
         path[0] = '\0';
 }
 int game_app_save(GameApp *a, int slot) {
+    /* 조명 검수 장면은 사용자 저장 슬롯에 기록하지 않습니다. */
+    if (a->review)
+        return CORE_ERR_REJECTED;
     char path[GAME_PATH_BYTES];
     int rc;
     if (!a->in_game || a->stress || a->session.summary.outcome == CORE_OUTCOME_LOST)
@@ -912,6 +950,7 @@ static int run(int argc, char **argv) {
         return 1;
     a->automated = o.smoke || o.screenshot || o.frames || o.probe;
     a->stress = o.stress;
+    a->review = o.review;
     a->build_type = -1;
     a->category = CORE_CAT_AGRICULTURE;
     a->difficulty = o.difficulty;
@@ -929,7 +968,8 @@ static int run(int argc, char **argv) {
         }
         strcpy(a->save_dir, o.save_dir);
     } else if (!game_join_path(a->save_dir, sizeof(a->save_dir), a->automated ? exe : a->user_dir,
-                               o.gpu_transitions ? "gpu_transition_saves"
+                               o.review            ? "lighting_review_saves"
+                               : o.gpu_transitions ? "gpu_transition_saves"
                                : a->automated    ? "saves_automated"
                                                  : "saves")) {
         free(a);
@@ -1009,7 +1049,21 @@ static int run(int argc, char **argv) {
             }
         }
     }
-    if (o.screenshot)
+    if (o.review) {
+        if (!game_review_start(a, o.seed, o.crowd)) {
+            fprintf(stderr, u8"조명 검수 장면을 만들지 못했습니다.\n");
+            status = 1;
+            a->quit = 1;
+        }
+        a->in_game = 1;
+        a->panel = PANEL_NONE;
+        game_gpu_review_set(o.review_phase, o.review_view, (float)o.review_azimuth, (float)o.review_elevation);
+        game_review_set_clean(o.review_clean);
+        if (o.review_zoom)
+            a->camera.zoom = (float)o.review_zoom;
+        if (o.screenshot)
+            SetMousePosition(GetScreenWidth() - 3, GetScreenHeight() - 3);
+    } else if (o.screenshot)
         screenshot_screen(a, &o);
     while (!a->quit) {
         double frame_started = GetTime(), sim_ms = 0, render_started = 0, render_ms = 0;
@@ -1017,7 +1071,7 @@ static int run(int argc, char **argv) {
         int i;
         unsigned long shots = a->session.shots;
         if (WindowShouldClose()) {
-            if (!a->automated)
+            if (!a->automated && !a->review)
                 (void)game_app_save(a, 0);
             break;
         }
@@ -1046,6 +1100,8 @@ static int run(int argc, char **argv) {
             int32_t why = 0;
             (void)core_rank_up(a->session.world, &why);
         }
+        if (a->review)
+            game_review_update(a);
         /* 기능별 매 프레임 연결점: 입력 뒤, 시간 진행 전 */
         if (a->in_game)
             game_tutorial_update(a, delta);
@@ -1061,11 +1117,11 @@ static int run(int argc, char **argv) {
                 game_app_result(a, status, 0, 0);
                 a->speed = 0;
             }
-            if (!a->automated && !a->stress && a->session.summary.day != a->autosave_day) {
+            if (!a->automated && !a->stress && !a->review && a->session.summary.day != a->autosave_day) {
                 a->autosave_day = a->session.summary.day;
                 (void)game_app_save(a, 0);
             }
-            if (a->autosave_pending && !a->session.summary.raid_id)
+            if (a->autosave_pending && !a->review && !a->session.summary.raid_id)
                 (void)game_app_save(a, 0);
         }
         if (a->session.shots != shots)
@@ -1093,7 +1149,10 @@ static int run(int argc, char **argv) {
             game_render_connection_preview(a);
         else {
             game_render_world(a);
-            game_render_interface(a);
+            if (!a->review || game_review_interface_visible())
+                game_render_interface(a);
+            if (a->review)
+                game_review_draw_help(a);
         }
         EndDrawing();
         if (game_gpu_failed()) {
@@ -1131,7 +1190,7 @@ static int run(int argc, char **argv) {
             if (livestock < min_livestock)
                 min_livestock = livestock;
         }
-        if (o.screenshot && frame == 4) {
+        if (o.screenshot && frame == (o.review && o.frames ? o.frames : 4)) {
             status = game_screenshot(o.screenshot) ? 0 : 1;
             break;
         }

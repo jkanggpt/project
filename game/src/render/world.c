@@ -4,6 +4,7 @@
 #include "gpu_bridge.h"
 #include "carried_lights.h"
 #include "scene_profiles.h"
+#include "review.h"
 #include "gpu.h"
 #include <math.h>
 #include <stdio.h>
@@ -1323,6 +1324,8 @@ static void bubble(GameApp *a, Vector2 anchor, int icon, int warning) {
            (Rectangle){box.x + 4, box.y + 2, 26, 26}, WHITE);
 }
 static void status_bubbles(GameApp *a) {
+    if (a->review && !game_review_interface_visible())
+        return;
     GameSession *s = &a->session;
     int i;
     for (i = 0; i < s->building_count; i++) {

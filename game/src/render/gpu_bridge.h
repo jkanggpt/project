@@ -5,7 +5,15 @@
 #include <stdint.h>
 struct GameApp;
 struct CoreBuildingView;
+typedef struct GameReviewStatus {
+    const char *phase_name;
+    int view, lights, carried, casters;
+    float azimuth, elevation;
+} GameReviewStatus;
 void game_gpu_review_enable(int enabled);
+/* phase: 0 밤, 1 새벽, 2 낮, 3 해질녘. view는 0~7 진단 보기입니다. */
+void game_gpu_review_set(int phase, int view, float azimuth, float elevation);
+GameReviewStatus game_gpu_review_status(void);
 void game_gpu_review_input(void);
 int game_gpu_review_view(void);
 int game_gpu_visual_minute(struct GameApp *app);

@@ -36,20 +36,38 @@ typedef struct Bridge {
     uint64_t baked_sprites, calibrated_sprites, estimated_sprites;
 } Bridge;
 static Bridge bridge;
-static int review_enabled, review_night = 1, review_view;
-static float review_azimuth = 135, review_elevation = 40;
-void game_gpu_review_enable(int enabled) { review_enabled = enabled; }
+/* 검수 장면 전용 상태입니다. 일반 게임은 실제 게임 시각만 사용합니다. */
+static int review_enabled, review_phase, review_view, review_carried;
+static float review_azimuth = 200, review_elevation = 42;
+static const int review_minutes[4] = {1320, 400, 720, 1110};
+static const char *const review_phase_names[4] = {u8"밤", u8"새벽", u8"낮", u8"해질녘"};
+void game_gpu_review_enable(int enabled) {
+    review_enabled = enabled;
+    review_phase = 0;
+    review_view = 0;
+}
+void game_gpu_review_set(int phase, int view, float azimuth, float elevation) {
+    review_phase = phase & 3;
+    review_view = view & 7;
+    review_azimuth = azimuth;
+    review_elevation = fminf(85, fmaxf(8, elevation));
+}
 int game_gpu_review_view(void) { return review_view; }
 int game_gpu_visual_minute(GameApp *app) {
-    return review_enabled ? (review_night ? 1320 : 720) : app->session.summary.minute_of_day;
+    return review_enabled ? review_minutes[review_phase] : app->session.summary.minute_of_day;
+}
+GameReviewStatus game_gpu_review_status(void) {
+    CastleGpuStats s = castle_gpu_stats(bridge.gpu);
+    return (GameReviewStatus){review_phase_names[review_phase], review_view, s.lights, review_carried, s.casters,
+                              review_azimuth, review_elevation};
 }
 void game_gpu_review_input(void) {
     if (!review_enabled)
         return;
     if (IsKeyPressed(KEY_F7))
-        review_night = !review_night;
+        review_phase = (review_phase + 1) % 4;
     if (IsKeyPressed(KEY_F8))
-        review_view = (review_view + 1) % 5;
+        review_view = (review_view + 1) % 8;
     float speed = fminf(.05f, GetFrameTime()) * 45;
     if (IsKeyDown(KEY_LEFT))
         review_azimuth -= speed;
@@ -241,11 +259,15 @@ int game_gpu_begin(GameApp *app) {
         delta = 0;
     float phase = fminf(1, fmaxf(0, (game_gpu_visual_minute(app) - 360) / 840.0f));
     float azimuth = floorf(135 + phase * 90), elevation = floorf(18 + 44 * sinf(phase * PI));
+    /* 해질녘·새벽에는 등불이 켜지는 정도에 맞춰 주변광을 천천히 낮춥니다. */
+    float dusk = game_carried_strength(game_gpu_visual_minute(app));
+    int night = s->summary.is_night;
     if (review_enabled) {
         azimuth = review_azimuth;
-        elevation = review_elevation;
+        elevation = review_phase == 2 ? review_elevation : fminf(review_elevation, 14);
+        night = dusk >= .5f;
     }
-    int night = review_enabled ? review_night : s->summary.is_night;
+    review_carried = 0;
     bridge.config = (CastleGpuFrame){.width = width,
                                      .height = height,
                                      .world_seed = (uint32_t)s->summary.seed,
@@ -262,7 +284,7 @@ int game_gpu_begin(GameApp *app) {
                                      .sun = {cosf(azimuth * DEG2RAD) * cosf(elevation * DEG2RAD),
                                              sinf(azimuth * DEG2RAD) * cosf(elevation * DEG2RAD),
                                              sinf(elevation * DEG2RAD), elevation},
-                                     .ambient = night ? .20f : .50f,
+                                     .ambient = night ? .20f : .50f - .22f * dusk,
                                      .view = review_view,
                                      .detail = 1.25f,
                                      .sun_enabled = !night,
@@ -482,6 +504,7 @@ void game_gpu_local_light(uint32_t owner, uint32_t identity, float x, float y, f
     CastleGpuLight light = {{x, y + z * .9f, z, radius},
                             {color.r / 255.0f, color.g / 255.0f, color.b / 255.0f, strength},
                             {owner, 0, 1, identity}};
+    review_carried++;
     candidate(light);
 }
 int game_gpu_lamp(Texture2D atlas, Rectangle source, Rectangle destination, Color tint, float foot,

@@ -1456,6 +1456,8 @@ Texture2D castle_gpu_clouds(CastleGpu *gpu, const unsigned char *visibility, int
     uniform_f(gpu->fog, "uScale", gpu->frame.scale);
     uniform_f(gpu->fog, "uTime", gpu->frame.time);
     uniform_f(gpu->fog, "uAmbient", gpu->frame.ambient);
+    uniform_f(gpu->fog, "uElevation", gpu->frame.sun[3]);
+    uniform_i(gpu->fog, "uSunEnabled", gpu->frame.sun_enabled);
     rlComputeShaderDispatch((unsigned int)(view.width + 7) / 8, (unsigned int)(view.height + 7) / 8, 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 restore_fog:
