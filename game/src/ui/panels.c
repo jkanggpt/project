@@ -48,7 +48,7 @@ static void hud(GameApp *a) {
                   u8"스페이스: 일시정지 / 계속"))
         a->speed = a->speed ? 0 : 1;
     for (i = 1; i <= 3; i++) {
-        (void)snprintf(text, sizeof(text), "%dx", i);
+        (void)snprintf(text, sizeof(text), "%dx", i * (a->test_tools.active ? a->test_tools.multiplier : 1));
         if (ui_button(u, rect((width < 1100 ? width - 152 : 590) + (i - 1) * 47.0f, 4, 42, 30), text, 1,
                       a->speed == i, u8"숫자 1~3: 배속"))
             a->speed = i;
@@ -249,8 +249,12 @@ static void build_bar(GameApp *a) {
         cost_text(d, cost, sizeof(cost));
         for (int r = 0; r < CORE_RES_COUNT; r++)
             missing |= a->session.summary.resources[r] < d->cost[r];
-        int unlocked = a->session.summary.rank >= d->required_rank,
-            locked = core_expansion_build_locked(a->session.world);
+        if (a->test_tools.flags & CORE_TEST_FREE_BUILD)
+            missing = 0;
+        int unlocked =
+                a->session.summary.rank >= d->required_rank || (a->test_tools.flags & CORE_TEST_UNLOCK_BUILD),
+            locked = core_expansion_build_locked(a->session.world) &&
+                     !(a->test_tools.flags & CORE_TEST_FREE_BUILD);
         snprintf(tip, sizeof(tip),
                  u8"%s 해금%s\n%s · %d×%d칸\n%s\n직원 %d · 공사 %d시간 · 유지 %d금/일\n비용: %s\n%s",
                  core_expansion_rank_name(d->required_rank), unlocked ? u8" · 충족" : u8" · 등급 부족",
@@ -553,7 +557,7 @@ static void notices(GameApp *a) {
         if (y < 136 + a->status_height)
             break;
         Rectangle area = rect(12, y, 390, height);
-        if (a->toast_area_count < 4)
+        if (a->toast_area_count < 8)
             a->toast_areas[a->toast_area_count++] = area;
         ui_box(area, Fade(UI_PANEL, n->age > 13 ? (16 - n->age) / 3 : .94f));
         ui_wrap(&a->ui, rect(22, y + 5, 370, 34), UI_TEXT, n->text);
@@ -607,6 +611,8 @@ static void pause_menu(GameApp *a) {
     float y = b.y + 82;
     if (row_button(a, b, &y, u8"계속하기", 1))
         game_app_close(a);
+    if (a->test_tools.active && row_button(a, b, &y, u8"창작 도구 (F10)", 1))
+        game_test_tools_open(a);
     if (row_button(a, b, &y, u8"저장하기", !a->session.summary.raid_id))
         game_app_open(a, PANEL_SAVE);
     if (row_button(a, b, &y, u8"불러오기", 1))
@@ -1235,7 +1241,8 @@ void game_render_interface(GameApp *a) {
         inspector(a);
         notices(a);
         game_tutorial_draw(a); /* 튜토리얼 안내: HUD 위, 창 아래 */
-        a->ui.input_blocked = a->raid_alert_id != 0;
+        game_test_tools_badge(a);
+        a->ui.input_blocked = a->raid_alert_id != 0 && a->panel != PANEL_TEST_TOOLS;
     }
     switch (a->panel) {
     case PANEL_TITLE:
@@ -1243,6 +1250,9 @@ void game_render_interface(GameApp *a) {
         break;
     case PANEL_NEW:
         game_main_menu_new_game(a);
+        break;
+    case PANEL_TEST_TOOLS:
+        game_test_tools_draw(a);
         break;
     case PANEL_PAUSE:
         pause_menu(a);
@@ -1305,14 +1315,14 @@ void game_render_interface(GameApp *a) {
     case PANEL_NONE:
         break;
     }
-    if (a->message[0]) {
+    if (a->message[0] && a->panel != PANEL_TEST_TOOLS) {
         float toast_y = fminf(GetScreenHeight() - 104.0f, GetScreenHeight() - 248.0f - 12) - 44;
         if (a->notice_top < a->notice_bottom)
             toast_y = (float)a->notice_top - 44;
         ui_box(rect(12, toast_y, fminf(GetScreenWidth() - 370.0f, 1000), 38), (Color){23, 20, 30, 245});
         ui_small(&a->ui, 22, toast_y + 8, UI_GOLD, "%s", a->message);
         Rectangle feedback = rect(12, toast_y, fminf(GetScreenWidth() - 370.0f, 1000), 38);
-        if (a->toast_area_count < 4)
+        if (a->toast_area_count < 8)
             a->toast_areas[a->toast_area_count++] = feedback;
         if (CheckCollisionPointRec(GetMousePosition(), feedback))
             snprintf(a->ui.tooltip, sizeof(a->ui.tooltip), "%s", a->message);
@@ -1363,6 +1373,7 @@ void game_render_interface(GameApp *a) {
             }
         }
     }
-    game_raid_alert(a);
+    if (a->panel != PANEL_TEST_TOOLS)
+        game_raid_alert(a);
     ui_tooltip(&a->ui);
 }

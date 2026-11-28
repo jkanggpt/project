@@ -1,5 +1,6 @@
 /* expansion_world.c — 확장 월드·생물군계·자원 은행과 저빈도 시계 */
 #include "expansion.h"
+#include "test_tools.h"
 #include "mem.h"
 #include "nature.h"
 #include "placement.h"
@@ -345,6 +346,7 @@ static void expansion_goals(World *w) {
 }
 void expansion_tick(World *w) {
     ExpansionState *e = w->expansion;
+    test_tools_maintain(w);
     int i, minute = exp_minute(w);
     if (!w->threat.raid.id)
         e->alarm = 0;
@@ -405,4 +407,5 @@ void expansion_tick(World *w) {
         if (!keep || keep->state == CORE_BSTATE_RUINED)
             rank_lose(w, CORE_LOSE_KEEP);
     }
+    test_tools_maintain(w);
 }

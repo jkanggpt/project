@@ -43,6 +43,7 @@ typedef struct RunStats {
 
 struct CoreWorld {
     int32_t ruleset;
+    int32_t test_flags, test_weather; /* 실행 중 검사 설정: 저장·상태 해시에서 제외 */
     struct ExpansionState *expansion;
     char castle_name[CORE_NAME_BYTES]; /* UTF-8 */
     int32_t difficulty;                /* CoreDifficulty */

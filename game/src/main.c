@@ -16,7 +16,7 @@
 typedef struct Options {
     const char *data, *assets, *save_dir, *screenshot, *screen;
     int seed, difficulty, days, smoke, stress, probe, frames, no_audio, width, height, autoplay, wildlife;
-    int gpu_transitions;
+    int gpu_transitions, test_tools_checks;
 } Options;
 static int number(const char *text, int min, int max, int *out) {
     char *end;
@@ -37,6 +37,7 @@ static void help(void) {
          "research|rank|market|load]\n"
          "  --frames N --autoplay --no-audio --width 1440 --height 900\n"
          u8"  --gpu-transitions N                  GPU 화면·자원 반복 검사\n"
+         u8"  --test-tools-check N                 창작 도구·저장 격리 반복 검사\n"
          "  --difficulty peaceful|normal|harsh (or 0|1|2)");
 }
 static int capture_scene_needs_town(const char *name) {
@@ -116,6 +117,9 @@ static int options(int argc, char **argv, Options *o) {
         } else if (!strcmp(arg, "--gpu-transitions")) {
             if (!number(argv[++i], 1, 1000, &o->gpu_transitions))
                 return 0;
+        } else if (!strcmp(arg, "--test-tools-check")) {
+            if (!number(argv[++i], 1, 1000, &o->test_tools_checks))
+                return 0;
         } else if (!strcmp(arg, "--stress-animals")) {
             if (!number(argv[++i], 360, 420, &o->wildlife) || (o->wildlife != 360 && o->wildlife != 420))
                 return 0;
@@ -138,10 +142,12 @@ static int options(int argc, char **argv, Options *o) {
         } else
             return 0;
     }
-    if (o->gpu_transitions) {
+    if (o->gpu_transitions || o->test_tools_checks) {
         if (o->smoke || o->stress || o->screenshot || o->frames)
             return 0;
-        o->frames = o->gpu_transitions * 24;
+        if (o->gpu_transitions && o->test_tools_checks)
+            return 0;
+        o->frames = (o->gpu_transitions + o->test_tools_checks) * 24;
     }
     if (!capture_scene_known(o->screen) && strcmp(o->screen, "title") && strcmp(o->screen, "tutorial") &&
         strcmp(o->screen, "tutorial_build") && strcmp(o->screen, "game") && strcmp(o->screen, "villagers") &&
@@ -151,7 +157,10 @@ static int options(int argc, char **argv, Options *o) {
         strcmp(o->screen, "farms") && strcmp(o->screen, "raid") && strcmp(o->screen, "alerts") &&
         strcmp(o->screen, "tower") && strcmp(o->screen, "assign") && strcmp(o->screen, "effects") &&
         strcmp(o->screen, "selection") && strcmp(o->screen, "demolition") && strcmp(o->screen, "workforce") &&
-        strcmp(o->screen, "trade") && strcmp(o->screen, "skills"))
+        strcmp(o->screen, "trade") && strcmp(o->screen, "skills") && strcmp(o->screen, "tools") &&
+        strcmp(o->screen, "tools_time") && strcmp(o->screen, "tools_build") &&
+        strcmp(o->screen, "tools_people") && strcmp(o->screen, "tools_world") &&
+        strcmp(o->screen, "tools_setup"))
         return 0;
     return 1;
 }
@@ -225,6 +234,7 @@ static void enter_game(GameApp *a) {
     a->autosave_day = a->session.summary.day;
     a->autosave_pending = 0;
     a->notice_count = 0;
+    game_test_tools_enter(a, 0);
 }
 /* 창과 같은 진입점을 반복해 통과하되 검사 저장은 별도 폴더에만 기록합니다. */
 static int gpu_transition(GameApp *a, int stage) {
@@ -255,7 +265,111 @@ static int gpu_transition(GameApp *a, int stage) {
     a->speed = 0;
     return okay;
 }
-int game_app_start(GameApp *a) {
+/* 실제 메뉴의 생성·저장·불러오기 길을 쓰며 일반 슬롯의 상태 해시도 대조합니다. */
+static int test_tools_transition(GameApp *a, int stage) {
+    static uint64_t normal_hash;
+    static char normal_path[GAME_PATH_BYTES];
+    int32_t flags, weather;
+    switch (stage) {
+    case 0:
+        if (!game_app_start(a) || game_app_save(a, 1) != CORE_OK)
+            return 0;
+        game_app_slot_path(a, 1, 0, normal_path);
+        if (core_state_hash(a->session.world, &normal_hash) != CORE_OK)
+            return 0;
+        break;
+    case 1:
+    case 7:
+        a->in_game = 0;
+        a->panel = PANEL_TITLE;
+        game_main_menu_enter(a);
+        break;
+    case 2:
+        if (!game_app_start_test(a))
+            return 0;
+        game_app_close(a);
+        if (a->panel != PANEL_NONE)
+            return 0;
+        break;
+    case 3: {
+        int badge_blocks = 0;
+        for (int i = 0; i < a->toast_area_count; i++)
+            badge_blocks |=
+                CheckCollisionPointRec((Vector2){20, a->status_height + 12.0f}, a->toast_areas[i]);
+        if (!badge_blocks)
+            return 0;
+        game_test_tools_open(a);
+        char test_path[GAME_PATH_BYTES];
+        int day = a->session.summary.day;
+        if (core_test_resource(a->session.world, CORE_RES_GOLD, 12345) != CORE_OK ||
+            core_test_population(a->session.world, 20) != CORE_OK ||
+            core_test_clock(a->session.world, day + 12, 1260) != CORE_OK ||
+            core_test_configure(a->session.world, a->test_tools.flags, CORE_WEATHER_RAIN) != CORE_OK ||
+            core_test_raid(a->session.world, CORE_THREAT_MONSTERS, CORE_DIR_EAST, 4) != CORE_OK ||
+            core_test_raid(a->session.world, CORE_THREAT_MONSTERS, CORE_DIR_EAST, 0) != CORE_OK ||
+            game_session_refresh(&a->session) != CORE_OK ||
+            game_session_checkpoint(&a->session, 0) != CORE_OK || game_app_save(a, 1) != CORE_OK)
+            return 0;
+        game_app_slot_path(a, 1, 0, test_path);
+        if (!strcmp(normal_path, test_path) || core_validate(a->session.world))
+            return 0;
+        break;
+    }
+    case 4:
+        if (!game_app_load_test(a) || !a->test_tools.active ||
+            a->session.summary.resources[CORE_RES_GOLD] != 12345)
+            return 0;
+        /* 제목에서 손상된 테스트 원본을 골라도 예비 파일의 폴더를 끝까지 유지합니다. */
+        if (game_app_save(a, 1) != CORE_OK)
+            return 0;
+        {
+            char path[GAME_PATH_BYTES];
+            game_app_slot_path(a, 1, 0, path);
+            static const char damaged[] = u8"손상된 검사 자료\n";
+            if (!game_write_bytes(path, damaged, sizeof(damaged) - 1))
+                return 0;
+        }
+        a->in_game = 0;
+        a->test_tools.active = 0;
+        a->panel = PANEL_TEST_TOOLS;
+        if (game_app_load_test(a) || a->panel != PANEL_CONFIRM || !a->test_tools.loading ||
+            !game_app_load(a, a->backup_slot, 1) || !a->test_tools.active ||
+            a->session.summary.resources[CORE_RES_GOLD] != 12345)
+            return 0;
+        break;
+    case 5: {
+        a->test_tools.active = 0;
+        if (!game_app_load(a, 1, 0))
+            return 0;
+        uint64_t actual;
+        if (core_state_hash(a->session.world, &actual) != CORE_OK || actual != normal_hash ||
+            core_test_read(a->session.world, &flags, &weather) != CORE_OK || flags || a->test_tools.active ||
+            core_test_resource(a->session.world, CORE_RES_GOLD, 1) != CORE_ERR_REJECTED)
+            return 0;
+        if (!game_app_copy_test(a) || !a->test_tools.active || game_app_save(a, 2) != CORE_OK)
+            return 0;
+        CoreWorld *original = NULL;
+        int rc = core_load(normal_path, a->session.defs, &original, NULL);
+        if (rc != CORE_OK)
+            return 0;
+        rc = core_state_hash(original, &actual);
+        core_destroy(original);
+        if (rc != CORE_OK || actual != normal_hash)
+            return 0;
+        break;
+    }
+    case 6:
+        if (!game_tutorial_start(a) || a->test_tools.active)
+            return 0;
+        break;
+    default:
+        return 0;
+    }
+    a->speed = 0;
+    a->saved_speed = 0;
+    return 1;
+}
+static int start_game(GameApp *a, int testing) {
     int seed = (int)((unsigned long)time(NULL) & 0x7FFFFFFFul), rc;
     if (a->seed_text[0] && !number(a->seed_text, 0, INT_MAX, &seed)) {
         game_app_notice(a, u8"지도 시드는 0~2147483647의 정수여야 합니다.");
@@ -267,18 +381,42 @@ int game_app_start(GameApp *a) {
         return 0;
     }
     enter_game(a);
+    if (testing) {
+        game_test_tools_enter(a, 1);
+        (void)core_test_resource(a->session.world, CORE_RES_GOLD, 10000);
+        (void)core_test_resource(a->session.world, CORE_RES_MANA, 100);
+        (void)game_session_refresh(&a->session);
+        game_test_tools_open(a);
+    }
     game_session_events(&a->session);
     if (!a->automated && !a->stress)
         (void)game_app_save(a, 0);
     return 1;
 }
+int game_app_start(GameApp *a) { return start_game(a, 0); }
+int game_app_start_test(GameApp *a) {
+    if (start_game(a, 1))
+        return 1;
+    (void)snprintf(a->test_tools.result, sizeof(a->test_tools.result),
+                   u8"영지를 만들지 못했습니다. 이름과 지도 시드를 확인하세요.");
+    return 0;
+}
 void game_app_slot_path(GameApp *a, int slot, int backup, char path[GAME_PATH_BYTES]) {
     char name[48];
+    char directory[GAME_PATH_BYTES];
     if (slot == 0)
         (void)snprintf(name, sizeof(name), "autosave.sav%s", backup ? ".bak" : "");
     else
         (void)snprintf(name, sizeof(name), "slot%d.sav%s", slot, backup ? ".bak" : "");
-    if (!game_join_path(path, GAME_PATH_BYTES, a->save_dir, name))
+    const char *base = a->save_dir;
+    if (a->test_tools.active || a->test_tools.loading == GAME_TEST_LOAD_SAVED) {
+        if (!game_join_path(directory, sizeof(directory), base, "test-tools")) {
+            path[0] = '\0';
+            return;
+        }
+        base = directory;
+    }
+    if (!game_join_path(path, GAME_PATH_BYTES, base, name))
         path[0] = '\0';
 }
 int game_app_save(GameApp *a, int slot) {
@@ -291,6 +429,14 @@ int game_app_save(GameApp *a, int slot) {
         return CORE_ERR_FILE_IO;
     }
     game_app_slot_path(a, slot, 0, path);
+    if (a->test_tools.active) {
+        char directory[GAME_PATH_BYTES];
+        if (!game_join_path(directory, sizeof(directory), a->save_dir, "test-tools") ||
+            !game_make_dirs(directory)) {
+            game_app_result(a, CORE_ERR_FILE_IO, 0, 0);
+            return CORE_ERR_FILE_IO;
+        }
+    }
     rc = core_save(a->session.world, path);
     if (slot == 0 && rc == CORE_ERR_REJECTED)
         a->autosave_pending = 1;
@@ -307,11 +453,15 @@ int game_app_save(GameApp *a, int slot) {
 
 int game_app_load(GameApp *a, int slot, int backup) {
     char path[GAME_PATH_BYTES];
-    int rc, line = 0;
+    int rc, line = 0, testing = a->test_tools.active || a->test_tools.loading;
     game_app_slot_path(a, slot, backup, path);
     rc = game_session_load(&a->session, path, &line);
     if (rc == CORE_OK) {
         enter_game(a);
+        if (testing) {
+            game_test_tools_enter(a, 1);
+            game_test_tools_open(a);
+        }
         game_app_notice(a, u8"저장된 성채를 불러왔습니다.");
         return 1;
     }
@@ -333,6 +483,20 @@ int game_app_load(GameApp *a, int slot, int backup) {
                    line);
     return 0;
 }
+static int load_test(GameApp *a, int copy) {
+    a->test_tools.loading = copy ? GAME_TEST_COPY_NORMAL : GAME_TEST_LOAD_SAVED;
+    int slot = game_app_latest(a);
+    if (slot >= 0 && game_app_load(a, slot, 0))
+        return 1;
+    if (a->panel == PANEL_CONFIRM)
+        return 0;
+    a->test_tools.loading = 0;
+    (void)snprintf(a->test_tools.result, sizeof(a->test_tools.result), "%s",
+                   copy ? u8"복사할 일반 저장이 없습니다." : u8"불러올 테스트 저장이 없습니다.");
+    return 0;
+}
+int game_app_load_test(GameApp *a) { return load_test(a, 0); }
+int game_app_copy_test(GameApp *a) { return load_test(a, 1); }
 int game_app_latest(GameApp *a) {
     int slot, best = -1, best_tick = -1;
     unsigned long long newest = 0;
@@ -698,6 +862,21 @@ static void screenshot_screen(GameApp *a, const Options *o) {
             (void)core_guide_next(a->session.world);
         return;
     }
+    if (!strncmp(o->screen, "tools", 5)) {
+        if (!strcmp(o->screen, "tools_setup")) {
+            a->in_game = 0;
+            a->panel = PANEL_TITLE;
+            game_test_tools_open(a);
+        } else {
+            (void)game_app_start_test(a);
+            a->test_tools.tab = !strcmp(o->screen, "tools_time")     ? 1
+                                : !strcmp(o->screen, "tools_build")  ? 2
+                                : !strcmp(o->screen, "tools_people") ? 3
+                                : !strcmp(o->screen, "tools_world")  ? 4
+                                                                     : 0;
+        }
+        return;
+    }
     (void)game_session_new(&a->session, u8"바람언덕", o->seed, o->difficulty);
     enter_game(a);
     if (capture_scene_known(o->screen)) {
@@ -928,10 +1107,19 @@ static int run(int argc, char **argv) {
             return 2;
         }
         strcpy(a->save_dir, o.save_dir);
+        if (o.test_tools_checks) {
+            char directory[GAME_PATH_BYTES];
+            if (!game_join_path(directory, sizeof(directory), a->save_dir, "tools-check")) {
+                free(a);
+                return 2;
+            }
+            strcpy(a->save_dir, directory);
+        }
     } else if (!game_join_path(a->save_dir, sizeof(a->save_dir), a->automated ? exe : a->user_dir,
-                               o.gpu_transitions ? "gpu_transition_saves"
-                               : a->automated    ? "saves_automated"
-                                                 : "saves")) {
+                               o.test_tools_checks ? "test_tools_check_saves"
+                               : o.gpu_transitions ? "gpu_transition_saves"
+                               : a->automated      ? "saves_automated"
+                                                   : "saves")) {
         free(a);
         return 1;
     }
@@ -991,7 +1179,7 @@ static int run(int argc, char **argv) {
     a->camera = (Camera2D){{o.width * 0.5f - 160, o.height * 0.5f}, {48 * 16, 48 * 16}, 0, 3};
     a->panel = PANEL_TITLE;
     game_main_menu_update(a, 0);
-    if (o.stress || (o.frames && !o.screenshot && !o.gpu_transitions)) {
+    if (o.stress || (o.frames && !o.screenshot && !o.gpu_transitions && !o.test_tools_checks)) {
         (void)game_app_start(a);
         if (o.stress) {
             (void)core_debug_stress(a->session.world, 150, 40);
@@ -1026,10 +1214,21 @@ static int run(int argc, char **argv) {
             status = 1;
             break;
         }
+        if (o.test_tools_checks && (frame - 1) % 3 == 0 && !test_tools_transition(a, ((frame - 1) / 3) % 8)) {
+            fprintf(stderr, u8"창작 도구 반복 검사 실패: %d단계\n", ((frame - 1) / 3) % 8);
+            status = 1;
+            break;
+        }
         a->camera.offset = (Vector2){(GetScreenWidth() - 350) * 0.5f, GetScreenHeight() * 0.5f};
         for (i = 0; i < a->notice_count; i++)
             a->notices[i].age += delta;
-        if (a->panel != PANEL_NONE && a->panel != PANEL_TITLE && IsKeyPressed(KEY_ESCAPE))
+        if (a->test_tools.active && IsKeyPressed(KEY_F10) &&
+            (a->panel == PANEL_NONE || a->panel == PANEL_TEST_TOOLS)) {
+            if (a->panel == PANEL_TEST_TOOLS)
+                game_app_close(a);
+            else
+                game_test_tools_open(a);
+        } else if (a->panel != PANEL_NONE && a->panel != PANEL_TITLE && IsKeyPressed(KEY_ESCAPE))
             game_app_close(a);
         else
             game_world_input(a, delta);
@@ -1054,6 +1253,8 @@ static int run(int argc, char **argv) {
         if (a->in_game && a->panel == PANEL_NONE && a->speed > 0 &&
             a->session.summary.outcome != CORE_OUTCOME_LOST) {
             float minutes = delta * a->speed * 12.0f;
+            if (a->test_tools.active)
+                minutes *= a->test_tools.multiplier;
             double sim_started = GetTime();
             status = game_session_step(&a->session, minutes);
             sim_ms = (GetTime() - sim_started) * 1000;
@@ -1135,7 +1336,8 @@ static int run(int argc, char **argv) {
             status = game_screenshot(o.screenshot) ? 0 : 1;
             break;
         }
-        if (o.gpu_transitions && frame % 24 == 0 && game_gpu_transition_checkpoint(frame == 24)) {
+        if ((o.gpu_transitions || o.test_tools_checks) && frame % 24 == 0 &&
+            game_gpu_transition_checkpoint(frame == 24)) {
             status = 1;
             break;
         }
@@ -1164,13 +1366,13 @@ static int run(int argc, char **argv) {
         (void)game_make_dirs(a->user_dir);
         (void)game_settings_save(&a->settings, a->settings_path);
     }
-    if (o.gpu_transitions)
+    if (o.gpu_transitions || o.test_tools_checks)
         status |= game_gpu_validate();
     game_render_free(a);
-    if (o.gpu_transitions) {
+    if (o.gpu_transitions || o.test_tools_checks) {
         unsigned int remaining = game_gpu_live_resources();
-        printf("GPU TRANSITIONS: cycles=%d frames=%d remaining=%u errors=%d\n", o.gpu_transitions, frame,
-               remaining, status != 0);
+        printf("GPU TRANSITIONS: cycles=%d frames=%d remaining=%u errors=%d\n",
+               o.gpu_transitions + o.test_tools_checks, frame, remaining, status != 0);
         if (remaining)
             status = 1;
     }

@@ -1,5 +1,7 @@
 # 메인 화면
 
+메인 메뉴의 추가 항목 **창작 도구**와 일반/테스트 저장의 분리, 조작법·검증은 [TEST_TOOLS.md](TEST_TOOLS.md)에 기록합니다. 기존 난이도나 튜토리얼 대신 별도 게임 모드를 추가하지 않습니다.
+
 세계 스프라이트 전체의 알베도·법선 확장과 검사 기록은 [SPRITE_MATERIALS.md](SPRITE_MATERIALS.md)에 있습니다. 제목 배경과 새 게임·튜토리얼·불러온 영지는 같은 재료 캐시를 사용합니다.
 
 `docs/PLAN_MAIN_SCREEN_TUTORIAL.md` 5.1의 구현과 검사 기록입니다. Phase 0 병합 커밋 `27054e7`에서 만든 `codex/main-screen` 브랜치에서 작업합니다. PR 대상은 `codex/structure-cleanup`이며 병합은 사용자가 합니다.
