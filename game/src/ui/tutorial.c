@@ -5,6 +5,7 @@
  * 배속으로 돌려 놓습니다. 화면 이동 단계는 플레이어가 화면을 움직이면 코어에 "다음"을 요청합니다.
  */
 #include "app.h"
+#include "render/gpu_bridge.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -128,8 +129,9 @@ static int outline_anchor(const GameTutorialState *t, int anchor) {
 static void map_mark(GameApp *a, int x, int y, int w, int h, Color color) {
     const GameTutorialState *t = &a->tutorial;
     int width = GetScreenWidth() - TUTORIAL_INSPECTOR_WIDTH, height = GetScreenHeight();
-    Vector2 p = GetWorldToScreen2D((Vector2){x * GAME_TILE_SIZE, y * GAME_TILE_SIZE}, a->camera);
-    float size = GAME_TILE_SIZE * a->camera.zoom;
+    Camera2D camera = game_gpu_screen_camera(a);
+    Vector2 p = GetWorldToScreen2D((Vector2){x * GAME_TILE_SIZE, y * GAME_TILE_SIZE}, camera);
+    float size = GAME_TILE_SIZE * camera.zoom;
     Rectangle r = rect(p.x, p.y, w * size, h * size);
     ui_clip_begin(0, 132, width, height - 132 - TUTORIAL_BUILD_BAR_HEIGHT);
     DrawRectangleRec(r, Fade(color, 0.22f * glow(t)));

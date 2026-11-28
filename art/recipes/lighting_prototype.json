@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "purpose": "2D 조명 실험 전용. 기존 게임 그림은 교체하지 않습니다.",
+  "albedo": {
+    "source": "art/sources/lighting_lab/materials.png",
+    "tool": "image_gen",
+    "prompt": "Create a square 3 by 3 material texture atlas for an experimental rustic medieval fantasy pixel-art game. Exactly nine equally sized square cells, edge to edge, no border, no gutters, absolutely no text, labels, numbers, objects, perspective, cast shadows, directional shading, specular highlights, ambient occlusion, gradients, baked lighting, or vignettes. Each cell is a seamless flat material base-color texture viewed straight on under completely uniform neutral diffuse illumination, appropriate as unlit albedo. Read order: top left short green grass flecked with tiny tan blades; top middle warm grey irregular stone paving with dark thin mortar; top right warm oak boards with narrow joins. Middle left small muted terracotta-red roof shingles; middle middle cream lime plaster with tiny age speckles; middle right muted teal woven cloth. Bottom left clumpy dark and medium green broadleaf foliage texture; bottom middle clear calm muted blue water with very subtle flat-color pixel ripples and NO white glare; bottom right warm sandy soil and small gravel. Consistent restrained natural palette and detailed hand-painted pixel-game materials, coherent crisp blocky pixel clusters, no blurry gradients, not photorealistic, not 3D-rendered. These flat materials will be projected onto sprite geometry by a separate renderer so do not draw actual buildings, people or trees. Make all nine cells tileable and exactly match the equal 3x3 grid.",
+    "transparent_background": false
+  },
+  "normal": {
+    "source": "art/sources/lighting_lab/material_normals.png",
+    "tool": "image_gen",
+    "reference": "art/sources/lighting_lab/materials.png",
+    "prompt": "Convert this EXACT material texture atlas into a corresponding tangent-space NORMAL MAP, maintaining the same 3x3 layout, equal cell boundaries, full canvas, and exact positions and shapes of all material detail. No labels, no borders, no new objects, do not rearrange or repaint the shapes. This is technical normal-map data, NOT a colorful albedo and NOT diffuse shading. Use conventional OpenGL tangent-space encoding: flat surface RGB(128,128,255); red increases for normals tilted toward image-right; green increases toward image-up; blue is the positive outward component. Preserve registered details from the input: top row raised grass blades, slightly raised paving stones and recessed mortar, wood grain and shallow plank joins; middle row raised terracotta shingle overlaps, very subtle plaster texture, fine woven cloth; bottom row shallow raised leaf detail, gentle very subtle water ripples, small raised soil pebbles. Most pixels must be predominantly blue-violet with subtle red/green variation; never retain the original brown, yellow, green or grey pigment colors. Treat material pigment differences as flat: only meaningful relief creates normals. No cast shadows, no lighting, no specular highlights, no brightness-based arbitrary hills. Physically coherent slight surface relief, not enormous bumps. Exact same atlas content and registration as the reference.",
+    "transparent_background": false,
+    "convention": "접선 공간 R=텍스처 오른쪽, G=텍스처 위쪽, B=표면 바깥쪽"
+  },
+  "bake": {
+    "implementation": "tools/art/lighting_lab.c",
+    "projection": "screen=(X,Y-Z)",
+    "world_normal": "RGB=월드 +X,+Y,+Z",
+    "surface": "R=높이 정수, G=높이 소수/256, B=발광, A=거칠기",
+    "atlas": {
+      "width": 1536,
+      "height": 1536,
+      "columns": 4,
+      "rows": 4
+    },
+    "kinds": [
+      "grass",
+      "stone",
+      "dirt",
+      "water",
+      "house",
+      "open_house",
+      "npc",
+      "tree",
+      "rock",
+      "crate",
+      "torch",
+      "wall",
+      "npc_step_a",
+      "npc_step_b",
+      "npc_step_c",
+      "reference_ball"
+    ]
+  },
+  "limitations": [
+    "재질의 AI 노멀 추정은 물리 측정 자료가 아닙니다.",
+    "기하 기준 표면으로 노멀·높이·그림자 위치를 일치시키고 재질 세부 노멀을 표면 축으로 변환합니다.",
+    "기존 모든 그림의 무조명화와 노멀 생성 품질을 검증한 것으로 주장하지 않습니다."
+  ]
+}

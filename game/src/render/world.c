@@ -1,6 +1,8 @@
 /* render.c — 픽셀 지도·주민·건물·전투와 카메라·건설 입력 */
 #include "app.h"
 #include "format.h"
+#include "gpu_bridge.h"
+#include "gpu.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -115,6 +117,8 @@ static Color terrain_tint(const GameSession *s) {
     return WHITE;
 }
 static void sprite(Texture2D texture, Rectangle source, Rectangle destination, Color tint) {
+    if (game_gpu_sprite(texture, source, destination, tint))
+        return;
     if (texture.id)
         DrawTexturePro(texture, source, destination, (Vector2){0, 0}, 0, tint);
     else
@@ -130,23 +134,26 @@ static void life_bar(GameApp *a, int category, int id, int hp, int max, Rectangl
     if (max <= 0 || hp <= 0)
         return;
     GameEffect *fx = game_effect(&a->session, category, id);
-    Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), a->camera);
+    Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), game_gpu_screen_camera(a));
     int selected = category == 0   ? a->selected_villager == id
                    : category == 1 ? a->selection_kind == 3 && a->selection_id == id
                                    : a->selection_kind == 4 && a->selection_id == id;
     if (!selected && !CheckCollisionPointRec(mouse, dest) &&
         (!fx || fx->bar_until < a->session.visual_time || fx->hurt_started > a->session.visual_time))
         return;
-    Vector2 screen = GetWorldToScreen2D((Vector2){dest.x + dest.width * .5f, dest.y}, a->camera);
-    float width = fminf(72, fmaxf(32, dest.width * a->camera.zoom * .65f)),
+    Vector2 screen =
+        GetWorldToScreen2D((Vector2){dest.x + dest.width * .5f, dest.y}, game_gpu_screen_camera(a));
+    float zoom = game_gpu_screen_camera(a).zoom;
+    float width = fminf(72, fmaxf(32, dest.width * zoom * .65f)),
           height = selected || hp * 4 <= max ? 8.0f : 6.0f;
     if (screen.x + width / 2 < 0 || screen.x - width / 2 > GetScreenWidth() || screen.y > GetScreenHeight())
         return;
     float top = screen.y - height - 10;
     if (top < 0)
         top = screen.y + 2;
-    Vector2 origin = GetScreenToWorld2D((Vector2){floorf(screen.x - width / 2), floorf(top)}, a->camera);
-    float z = a->camera.zoom;
+    Vector2 origin =
+        GetScreenToWorld2D((Vector2){floorf(screen.x - width / 2), floorf(top)}, game_gpu_screen_camera(a));
+    float z = zoom;
     Rectangle bar = {origin.x, origin.y, width / z, height / z};
     DrawRectangleRec(bar, Fade(BLACK, .75f));
     DrawRectangleLinesEx(bar, 1 / z, Fade(WHITE, .75f));
@@ -158,9 +165,9 @@ static void life_bar(GameApp *a, int category, int id, int hp, int max, Rectangl
 static void terrain(GameApp *a) {
     GameSession *s = &a->session;
     int x, y, w = s->summary.map_width, h = s->summary.map_height;
-    Vector2 top = GetScreenToWorld2D((Vector2){0, 0}, a->camera),
-            bottom =
-                GetScreenToWorld2D((Vector2){(float)GetScreenWidth(), (float)GetScreenHeight()}, a->camera);
+    Vector2 top = GetScreenToWorld2D((Vector2){0, 0}, game_gpu_screen_camera(a)),
+            bottom = GetScreenToWorld2D((Vector2){(float)GetScreenWidth(), (float)GetScreenHeight()},
+                                        game_gpu_screen_camera(a));
     int x0 = (int)floorf(top.x / 16) - 1, y0 = (int)floorf(top.y / 16) - 1,
         x1 = (int)ceilf(bottom.x / 16) + 1, y1 = (int)ceilf(bottom.y / 16) + 1;
     Color tint = terrain_tint(s);
@@ -353,7 +360,7 @@ static int building_attachment(const GameApp *a, const CoreBuildingView *b, Rect
     return 1;
 }
 int game_hover_building(GameApp *a, Vector2 screen) {
-    Vector2 p = GetScreenToWorld2D(screen, a->camera);
+    Vector2 p = GetScreenToWorld2D(screen, game_gpu_screen_camera(a));
     int found = 0;
     float depth = -1;
     for (int i = 0; i < a->session.building_count; i++) {
@@ -648,9 +655,9 @@ static int draw_queue(GameApp *a) {
     int count = 0, i, x, y, w = s->summary.map_width, h = s->summary.map_height;
     int needed = s->cells + s->building_count + s->villager_count + s->enemy_count + s->animal_count + 160 +
                  s->boat_count + s->cells + 1;
-    Vector2 top = GetScreenToWorld2D((Vector2){0, 0}, a->camera),
-            bottom =
-                GetScreenToWorld2D((Vector2){(float)GetScreenWidth(), (float)GetScreenHeight()}, a->camera);
+    Vector2 top = GetScreenToWorld2D((Vector2){0, 0}, game_gpu_screen_camera(a)),
+            bottom = GetScreenToWorld2D((Vector2){(float)GetScreenWidth(), (float)GetScreenHeight()},
+                                        game_gpu_screen_camera(a));
     int x0 = (int)floorf(top.x / 16) - 4, y0 = (int)floorf(top.y / 16) - 2,
         x1 = (int)ceilf(bottom.x / 16) + 4, y1 = (int)ceilf(bottom.y / 16) + 6;
     if (s->cells > a->decor_capacity) {
@@ -666,11 +673,19 @@ static int draw_queue(GameApp *a) {
     /* 칸마다 전체 건물을 탐색하지 않고 한 번 만든 점유 마스크를 재사용합니다. */
     for (i = 0; i < s->building_count; i++) {
         CoreBuildingView *b = &s->buildings[i];
+        game_gpu_building(a, b, building_rect(a, b, building_texture(a, b)));
         for (y = b->y; y < b->y + b->h; y++)
             for (x = b->x; x < b->x + b->w; x++)
                 if (x >= 0 && x < w && y >= 0 && y < h)
                     a->decor_blocked[y * w + x] = 1;
     }
+    if (game_gpu_active())
+        for (y = 0; y < h; y++)
+            for (x = 0; x < w; x++) {
+                int type = prop_type(a, x, y);
+                if (type >= 0)
+                    game_gpu_prop(a, y * w + x, type);
+            }
     if (needed > a->draw_capacity) {
         GameDrawItem *items = (GameDrawItem *)realloc(a->draw_items, (size_t)needed * sizeof(*items));
         if (!items) {
@@ -703,8 +718,9 @@ static int draw_queue(GameApp *a) {
             continue;
         }
         a->draw_items[count++] = (GameDrawItem){(b->y + b->h) * 16.0f, DRAW_BUILDING, i, b->id};
-        DrawEllipse((int)((b->x + b->w * 0.5f) * 16), (b->y + b->h) * 16 - 2, b->w * 8.0f, 3,
-                    (Color){24, 21, 16, 65});
+        if (!game_gpu_active())
+            DrawEllipse((int)((b->x + b->w * 0.5f) * 16), (b->y + b->h) * 16 - 2, b->w * 8.0f, 3,
+                        (Color){24, 21, 16, 65});
     }
     for (i = 0; i < s->villager_count; i++) {
         CoreVillagerView *v = &s->villagers[i];
@@ -720,7 +736,8 @@ static int draw_queue(GameApp *a) {
         if (unit->position.x < x0 || unit->position.x > x1 || unit->position.y < y0 || unit->position.y > y1)
             continue;
         a->draw_items[count++] = (GameDrawItem){p.y, DRAW_VILLAGER, i, v->id};
-        DrawEllipse((int)p.x, (int)p.y, 4, 1.5f, (Color){0, 0, 0, 75});
+        if (!game_gpu_active())
+            DrawEllipse((int)p.x, (int)p.y, 4, 1.5f, (Color){0, 0, 0, 75});
         if (v->id == a->selected_villager)
             DrawEllipseLines((int)p.x, (int)p.y, 7, 3, UI_GOLD);
     }
@@ -730,7 +747,8 @@ static int draw_queue(GameApp *a) {
             if (s->visibility && s->visibility[(int)(p.y / 16) * w + (int)(p.x / 16)] < 2)
                 continue;
             a->draw_items[count++] = (GameDrawItem){p.y, DRAW_ENEMY, i, s->enemies[i].actor.id};
-            DrawEllipse((int)p.x, (int)p.y, 4, 1.5f, (Color){0, 0, 0, 75});
+            if (!game_gpu_active())
+                DrawEllipse((int)p.x, (int)p.y, 4, 1.5f, (Color){0, 0, 0, 75});
         }
     for (i = 0; i < s->animal_count; i++) {
         CoreAnimalView *animal = &s->animals[i];
@@ -840,6 +858,40 @@ static void objects(GameApp *a) {
     int i, count = draw_queue(a);
     for (i = 0; i < count; i++) {
         GameDrawItem *item = &a->draw_items[i];
+        int material = item->kind == DRAW_BUILDING ? GPU_MATERIAL_BUILDING
+                       : item->kind == DRAW_PROP ? (prop_type(a, item->index % a->session.summary.map_width,
+                                                              item->index / a->session.summary.map_width) < 4
+                                                        ? GPU_MATERIAL_TREE
+                                                        : GPU_MATERIAL_ROCK)
+                       : item->kind == DRAW_BRIDGE_RAIL ? GPU_MATERIAL_ROAD
+                       : item->kind == DRAW_HIT_FX      ? GPU_MATERIAL_UNLIT
+                                                        : GPU_MATERIAL_ACTOR;
+        uint32_t owner = (item->kind == DRAW_BUILDING ? 0x10000000u
+                          : item->kind == DRAW_PROP   ? 0x20000000u
+                                                      : 0x30000000u | ((uint32_t)item->kind << 24)) |
+                         (uint32_t)(item->key + 1);
+        if (item->kind == DRAW_BUILDING)
+            owner = 0x10000000u | (uint32_t)item->key;
+        game_gpu_object(material, owner, item->depth);
+        if (item->kind == DRAW_VILLAGER) {
+            GameActor *actor = game_actor(&a->session, a->session.villagers[item->index].id);
+            if (actor && actor->indoor < .5f)
+                game_gpu_actor(owner, actor->position.x * 16, item->depth, GAME_ACTOR_HEIGHT,
+                               GAME_ACTOR_HEIGHT);
+        } else if (item->kind == DRAW_ENEMY) {
+            GameEnemy *enemy = &a->session.enemies[item->index];
+            game_gpu_actor(owner, enemy->actor.position.x * 16, item->depth, 24, 24);
+        } else if (item->kind == DRAW_ANIMAL) {
+            CoreAnimalInfo info;
+            core_expansion_animal_info(a->session.animals[item->index].kind, &info);
+            game_gpu_actor(owner, a->session.animal_actors[item->index].position.x * 16, item->depth,
+                           info.width_milli * .016f, info.height_milli * .016f);
+        } else if (item->kind == DRAW_MERCHANT) {
+            game_gpu_actor(owner, a->session.wandering.x_milli * .016f, item->depth, 24, 24);
+        } else if (item->kind == DRAW_BOAT) {
+            CoreBoatView *boat = &a->session.boats[item->index];
+            game_gpu_actor(owner, boat->x_milli * .016f, item->depth, boat->boat_kind ? 42 : 34, 12);
+        }
         switch (item->kind) {
         case DRAW_MERCHANT:
             merchant_sprite(a);
@@ -902,6 +954,7 @@ static void objects(GameApp *a) {
         }
         }
     }
+    game_gpu_object(GPU_MATERIAL_UNLIT, 0, 0);
     for (i = 0; i < a->session.projectile_count; i++) {
         GameProjectile *p = &a->session.projectiles[i];
         float t = fminf(1, p->elapsed / p->duration);
@@ -1015,6 +1068,9 @@ static void livestock_proxies(GameApp *a) {
                     dest.y = y - dest.height;
                     dest.x = x - dest.width / 2;
                 }
+                uint32_t owner = 0x40000000u | (uint32_t)(id * 2 + n);
+                game_gpu_object(GPU_MATERIAL_ACTOR, owner, y);
+                game_gpu_actor(owner, x, y, dest.width, dest.height);
                 sprite(young ? a->assets.animal_babies : a->assets.animal_walk,
                        (Rectangle){frame * 96.0f, kinds[k] * 96.0f, cosf(phase) > 0 ? 96.0f : -96.0f, 96},
                        dest, effect_tint(a, 1, id));
@@ -1022,6 +1078,7 @@ static void livestock_proxies(GameApp *a) {
             }
         }
     }
+    game_gpu_object(GPU_MATERIAL_UNLIT, 0, 0);
 }
 static void corpses(GameApp *a) {
     GameSession *s = &a->session;
@@ -1057,6 +1114,8 @@ static void corpses(GameApp *a) {
     }
 }
 void game_render_free(GameApp *a) {
+    game_gpu_report();
+    game_gpu_shutdown();
     free(a->draw_items);
     a->draw_items = NULL;
     a->draw_capacity = 0;
@@ -1086,7 +1145,7 @@ void game_render_villager_preview(GameApp *a) {
     }
 }
 static int world_mouse(GameApp *a, int *x, int *y) {
-    Vector2 mouse = GetMousePosition(), world = GetScreenToWorld2D(mouse, a->camera);
+    Vector2 mouse = GetMousePosition(), world = GetScreenToWorld2D(mouse, game_gpu_screen_camera(a));
     *x = (int)floorf(world.x / 16);
     *y = (int)floorf(world.y / 16);
     /* 위치로 이동하는 알림을 누를 때 뒤쪽 건물을 동시에 조작하지 않습니다. */
@@ -1196,7 +1255,7 @@ static void overlay(GameApp *a) {
     }
 }
 static void bubble(GameApp *a, Vector2 anchor, int icon, int warning) {
-    Vector2 p = GetWorldToScreen2D(anchor, a->camera);
+    Vector2 p = GetWorldToScreen2D(anchor, game_gpu_screen_camera(a));
     Rectangle box = {p.x - 17, p.y - 37, 34, 30};
     if (p.x < 0 || p.y < 0 || p.x > GetScreenWidth() || p.y > GetScreenHeight())
         return;
@@ -1265,9 +1324,9 @@ static void status_bubbles(GameApp *a) {
 static void fog(GameApp *a) {
     GameSession *s = &a->session;
     int x, y;
-    Vector2 top = GetScreenToWorld2D((Vector2){0, 0}, a->camera),
-            bottom =
-                GetScreenToWorld2D((Vector2){(float)GetScreenWidth(), (float)GetScreenHeight()}, a->camera);
+    Vector2 top = GetScreenToWorld2D((Vector2){0, 0}, game_gpu_screen_camera(a)),
+            bottom = GetScreenToWorld2D((Vector2){(float)GetScreenWidth(), (float)GetScreenHeight()},
+                                        game_gpu_screen_camera(a));
     int x0 = (int)fmaxf(0, floorf(top.x / 16)), y0 = (int)fmaxf(0, floorf(top.y / 16)),
         x1 = (int)fminf((float)s->summary.map_width, ceilf(bottom.x / 16)),
         y1 = (int)fminf((float)s->summary.map_height, ceilf(bottom.y / 16));
@@ -1289,11 +1348,19 @@ void game_render_world(GameApp *a) {
     /* 제목 배경의 시야 사본만 밝힙니다. 코어의 탐험 상태와 실제 게임은 바꾸지 않습니다. */
     if (!a->in_game && a->session.visibility)
         memset(a->session.visibility, 2, (size_t)a->session.cells);
-    BeginMode2D(a->camera);
+    int gpu = game_gpu_begin(a);
+    game_gpu_object(GPU_MATERIAL_GRASS, 0, 0);
+    BeginMode2D(gpu ? game_gpu_camera(a) : a->camera);
     terrain(a);
     objects(a);
     livestock_proxies(a);
     corpses(a);
+    EndMode2D();
+    if (gpu && !game_gpu_finish())
+        game_app_notice(a, u8"GPU 풍경을 그리지 못했습니다.");
+    if (gpu)
+        game_gpu_overlay_begin();
+    BeginMode2D(gpu ? game_gpu_camera(a) : a->camera);
     if (a->in_game)
         fog(a);
     if (a->session.wandering.state != CORE_MERCHANT_DORMANT) {
@@ -1314,21 +1381,25 @@ void game_render_world(GameApp *a) {
     if (a->in_game)
         overlay(a);
     EndMode2D();
+    Vector2 canvas =
+        gpu ? game_gpu_canvas_size() : (Vector2){(float)GetScreenWidth(), (float)GetScreenHeight()};
     if (!a->in_game) {
         float dusk = .10f + .22f * (.5f - .5f * cosf(a->menu.time * .035f));
-        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade((Color){24, 33, 67, 255}, dusk));
+        DrawRectangle(0, 0, (int)canvas.x, (int)canvas.y, Fade((Color){24, 33, 67, 255}, dusk));
+        if (gpu)
+            game_gpu_overlay_end();
         return;
     }
-    if (a->session.summary.is_night)
-        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){22, 28, 65, 85});
+    if (a->session.summary.is_night && !gpu)
+        DrawRectangle(0, 0, (int)canvas.x, (int)canvas.y, (Color){22, 28, 65, 85});
     if (a->session.summary.weather == CORE_WEATHER_RAIN || a->session.summary.weather == CORE_WEATHER_SNOW ||
         a->session.summary.weather == CORE_WEATHER_STORM) {
         int snow = a->session.summary.weather == CORE_WEATHER_SNOW;
         if (!snow)
             game_sound(&a->assets, SND_RAIN, a->settings.sfx_volume * .12f);
         for (i = 0; i < (a->settings.low_effects ? 25 : 100); i++) {
-            float x = fmodf(i * 131.7f + time * 17, (float)GetScreenWidth());
-            float y = fmodf(i * 83.3f + time * (snow ? 30 : 280), (float)GetScreenHeight());
+            float x = fmodf(i * 131.7f + time * 17, (float)(int)canvas.x);
+            float y = fmodf(i * 83.3f + time * (snow ? 30 : 280), (float)(int)canvas.y);
             if (snow)
                 DrawCircleV((Vector2){x, y}, 1.5f, Fade(WHITE, 0.5f));
             else
@@ -1340,35 +1411,37 @@ void game_render_world(GameApp *a) {
     int effect = a->session.summary.nature_event;
     if (!a->settings.low_effects && effect == CORE_NATURE_STORM && fmodf(time, 7) < .16f) {
         game_sound(&a->assets, SND_THUNDER, a->settings.sfx_volume * .3f);
-        float x = GetScreenWidth() * .68f;
+        float x = (int)canvas.x * .68f;
         Vector2 last = {x, 0};
         for (int k = 1; k < 7; k++) {
-            Vector2 next = {x + sinf(k * 2.7f) * 35, k * GetScreenHeight() / 9.0f};
+            Vector2 next = {x + sinf(k * 2.7f) * 35, k * (int)canvas.y / 9.0f};
             DrawLineEx(last, next, 2, Fade(WHITE, .8f));
             last = next;
         }
     }
     if (layers.plague_days) {
         for (int k = 0; k < (a->settings.low_effects ? 4 : 18); k++) {
-            float x = fmodf(k * 173.0f + time * 9, GetScreenWidth() + 80.0f) - 40,
-                  y = fmodf(k * 97.0f + time * 3, GetScreenHeight() + 80.0f) - 40;
+            float x = fmodf(k * 173.0f + time * 9, (int)canvas.x + 80.0f) - 40,
+                  y = fmodf(k * 97.0f + time * 3, (int)canvas.y + 80.0f) - 40;
             DrawCircleGradient((int)x, (int)y, 25, (Color){100, 155, 80, 22}, BLANK);
         }
     }
     if (effect == CORE_NATURE_COLD_SNAP)
-        DrawRectangleLinesEx((Rectangle){1, 1, GetScreenWidth() - 2.0f, GetScreenHeight() - 2.0f},
+        DrawRectangleLinesEx((Rectangle){1, 1, (int)canvas.x - 2.0f, (int)canvas.y - 2.0f},
                              a->settings.low_effects ? 3.0f : 10.0f, (Color){175, 225, 255, 65});
     if (!a->settings.low_effects &&
         (effect == CORE_NATURE_BUMPER || effect == CORE_NATURE_DROUGHT || layers.economic_days))
         for (int k = 0; k < 20; k++) {
-            float x = fmodf(k * 97.0f + time * 11, (float)GetScreenWidth()),
-                  y = fmodf(k * 61.0f + time * 4, (float)GetScreenHeight());
+            float x = fmodf(k * 97.0f + time * 11, (float)(int)canvas.x),
+                  y = fmodf(k * 61.0f + time * 4, (float)(int)canvas.y);
             DrawCircleV((Vector2){x, y}, 1,
                         Fade(effect == CORE_NATURE_DROUGHT                        ? BROWN
                              : layers.economic_event == CORE_NATURE_MINE_COLLAPSE ? GRAY
                                                                                   : GOLD,
                              .35f));
         }
+    if (gpu)
+        game_gpu_overlay_end();
     status_bubbles(a);
 }
 void game_world_input(GameApp *a, float delta) {
@@ -1423,7 +1496,8 @@ void game_world_input(GameApp *a, float delta) {
     if (a->panel != PANEL_NONE)
         return;
     {
-        float amount = 230 * delta / a->camera.zoom;
+        float zoom = game_gpu_screen_camera(a).zoom;
+        float amount = 230 * delta / zoom;
         if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))
             a->camera.target.x -= amount;
         if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
@@ -1444,15 +1518,15 @@ void game_world_input(GameApp *a, float delta) {
         }
         if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
             Vector2 d = GetMouseDelta();
-            a->camera.target.x -= d.x / a->camera.zoom;
-            a->camera.target.y -= d.y / a->camera.zoom;
+            a->camera.target.x -= d.x / zoom;
+            a->camera.target.y -= d.y / zoom;
         }
         if (inside) {
             float wheel = GetMouseWheelMove();
             if (wheel != 0) {
-                Vector2 before = GetScreenToWorld2D(GetMousePosition(), a->camera), after;
+                Vector2 before = GetScreenToWorld2D(GetMousePosition(), game_gpu_screen_camera(a)), after;
                 a->camera.zoom = fmaxf(1, fminf(6, a->camera.zoom + (wheel > 0 ? 1 : -1)));
-                after = GetScreenToWorld2D(GetMousePosition(), a->camera);
+                after = GetScreenToWorld2D(GetMousePosition(), game_gpu_screen_camera(a));
                 a->camera.target.x += before.x - after.x;
                 a->camera.target.y += before.y - after.y;
             }
@@ -1499,7 +1573,7 @@ void game_world_input(GameApp *a, float delta) {
             (void)game_session_refresh(s);
             game_session_events(s);
         } else {
-            Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), a->camera);
+            Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), game_gpu_screen_camera(a));
             float best = 1000000;
             game_select(a, id ? 1 : 0, id);
             CoreWanderingMerchantView *m = &s->wandering;

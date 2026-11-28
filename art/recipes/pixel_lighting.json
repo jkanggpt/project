@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "purpose": "기존 2D 픽셀 원화의 제한적 명암 완화와 표면 노멀 비교. 원화의 도형을 다시 만들지 않습니다.",
+  "reference": {
+    "source": "art/sources/lighting_pixels/originals.png",
+    "producer": "castle_pixel_lighting --reference",
+    "layout": "320픽셀 정사각 셀 3열 2행",
+    "sources": [
+      {
+        "path": "game/assets/buildings/house_0.png",
+        "rect": [
+          0,
+          0,
+          256,
+          282
+        ],
+        "scale": 1
+      },
+      {
+        "path": "game/assets/terrain/trees.png",
+        "rect": [
+          256,
+          0,
+          128,
+          128
+        ],
+        "scale": 2
+      },
+      {
+        "path": "game/assets/units/villagers.png",
+        "rect": [
+          0,
+          0,
+          96,
+          96
+        ],
+        "scale": 3
+      },
+      {
+        "path": "game/assets/terrain/terrain.png",
+        "rect": [
+          0,
+          0,
+          64,
+          64
+        ],
+        "scale": 4
+      },
+      {
+        "path": "game/assets/roads/base.png",
+        "rect": [
+          0,
+          0,
+          64,
+          64
+        ],
+        "scale": 4
+      },
+      {
+        "path": "game/assets/terrain/rocks.png",
+        "rect": [
+          128,
+          0,
+          128,
+          128
+        ],
+        "scale": 2
+      }
+    ]
+  },
+  "unlit": {
+    "source": "art/sources/lighting_pixels/unlit_guide.png",
+    "tool": "image_gen",
+    "prompt": "Edit the attached EXISTING pixel-art sprite reference sheet into a de-lit UNLIT BASE COLOR / ALBEDO lighting guide. This is restoration of the exact existing game artwork, NOT new art direction. Preserve the exact same six sprites, positions, proportions, camera perspective, pixel clusters, internal detail and colours. Canvas is a 3-column by 2-row atlas, equal 320x320 cells at reference resolution 960x640: top cottage / oak tree / male villager, bottom grass square / paving square / rock cluster. Keep the same entire transparent canvas and grid. Do not move, add, simplify or redesign anything. Remove large baked directional shadows, bright top-left sunlight, shine and lamp/window glow. Give front and side material surfaces neutral even colour under perfectly diffuse illumination. Keep material detail: individual red roof shingles, wood grain, masonry seams, lime plaster flecks, tiny leaves and leaf clusters, bark cracks, clothing fabric/folds, grass blades, stone grain and recessed paving joints. Retain structural outlines and local material contrast; do not wash out detail. Keep the warm palette and existing lovingly drawn 2D pixel-game style. NO smooth 3D rendering, bevelled geometric replacement objects, cartoon redesign, airbrush, blur, cast ground shadows, new background, new camera angle or clean vector art. The result must still recognisably be the original same cottage/tree/NPC/tiles/rocks. Transparent background remains transparent; tile interiors remain opaque. Pixel aligned edits only.",
+    "transparent_background": true,
+    "interpretation": "생성 화소로 원화를 교체하지 않고 같은 색상 계열의 국소 평균 밝기를 비교하는 지침으로 사용합니다."
+  },
+  "normals": {
+    "source": "art/sources/lighting_pixels/normal_guide.png",
+    "tool": "image_gen",
+    "prompt": "Generate a REGISTERED pixel-art WORLD-SPACE normal map for the EXACT attached existing 3x2 sprite sheet. Keep the exact original canvas, equal 3-column 2-row cell placement, all silhouettes, transparency, scale and tiny material detail aligned. Do not draw any albedo colours or illumination. This is technical surface-direction data for unchanged 2D sprites, NOT new 3D artwork. Encoding RGB = world +X to image right, +Y along ground toward screen bottom, +Z vertical UP, map [-1,1] to [0,1]. A level ground surface is RGB(128,128,255), a forward-facing upright wall is approx RGB(128,250,145), its roof slopes have strong positive blue with appropriate red/green direction, and side-facing surfaces shift red. This is deliberately world space, not the usual uniform blue camera-facing sprite normals. The bottom grass and paving squares must be predominantly blue for ground +Z but have clear pixel-aligned relief for the grass blades, rounded stone tops and recessed paving joints. For the existing top-left cottage, faithfully map BOTH roof faces and each individual shingle's raised lip and beveled edge, recessed gaps, wood beams and wood grain, stone blocks, mortar, window frames and leaf planters. For the oak, encode many distinct small leaf clumps and individual leaf facets plus rounded bark surface and ridges, not one smooth ball. For the villager, encode sleeve and fabric folds, face/hair volume and boots at the original pixel locations without changing the drawing. For rocks, respect each planar facet, cracks and chipped edges. Use crisp discrete pixel clusters and enough LOCAL directional variation that moving a low light visibly catches these material details. Do not interpret pigment colour changes alone as depth, do not bake a light direction, do not add a cast shadow, do not move the images, do not blur or paint smooth photorealistic gradients. Preserve transparent background exactly; no labels or text. Keep all six original sprites pixel-registered.",
+    "transparent_background": true,
+    "interpretation": "생성 지침을 원화의 픽셀 격자에 맞춰 표본화하고 지면·지붕·벽·인물의 표면 축으로 변환합니다. 원본 알파를 정확히 복원합니다."
+  },
+  "bake": {
+    "implementation": "tools/art/lighting_pixels.c",
+    "albedo": "원본 RGB × 제한한 국소 밝기 보정. 채널 포화를 제한하고 원본 알파를 유지합니다.",
+    "normal": "RGB=월드 +X,+Y,+Z",
+    "surface": "RG=높이 정수/소수, B=창문·등불 발광 구분, A=재질 번호 1~6",
+    "kinds": [
+      "house",
+      "oak",
+      "villager",
+      "grass",
+      "paving",
+      "rock"
+    ],
+    "atlas": {
+      "width": 960,
+      "height": 640,
+      "columns": 3,
+      "rows": 2
+    }
+  },
+  "render": {
+    "implementation": "tools/lighting_lab/pixel_worker.js",
+    "kind": "원본 스프라이트를 겹치는 2D 소프트웨어 시각 실험",
+    "shadow": "높은 실루엣을 늘리지 않고 작고 짧은 타원형 접지 음영을 단계·디더로 표현합니다.",
+    "limitations": [
+      "회화에 남은 미세한 원래 명암은 수동 검수가 필요합니다.",
+      "AI 세부 법선은 실측값이 아니며 세부 정합은 완벽하지 않습니다.",
+      "접지 그림자는 전역적인 벽·문·실내 차폐 계산을 대신하지 않습니다.",
+      "실시간 게임 통합과 GPU 성능 검증은 이번 비교 화면의 범위에 포함하지 않습니다."
+    ]
+  }
+}

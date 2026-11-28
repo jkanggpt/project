@@ -2636,6 +2636,62 @@
       "license": "game/assets/licenses/kenney-audio-rpg.txt",
       "consumer": "castle_art_pipeline",
       "verification": "전체 재생성 출력 SHA256 일치"
+    },
+    {
+      "path": "art/sources/lighting_lab/materials.png",
+      "sha256": "c089621a0d4373e98efc42e16a6805c368647f56379bb9ada91362d676639b39",
+      "producer": "image_gen 조명 실험 원화",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "castle_art_pipeline / art_lighting_bake",
+      "verification": "기하·법선 정규화·GPU 조명·전체 재생성 SHA256 대조"
+    },
+    {
+      "path": "art/sources/lighting_lab/material_normals.png",
+      "sha256": "87a59e654fc06141aeb86d531c6445881166183f904c89f30f47b34a6b8af7e5",
+      "producer": "image_gen 조명 실험 원화",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "castle_art_pipeline / art_lighting_bake",
+      "verification": "기하·법선 정규화·GPU 조명·전체 재생성 SHA256 대조"
+    },
+    {
+      "path": "art/sources/lighting_pixels/originals.png",
+      "sha256": "9b2beae4db446e43d0a7e61655598f15ba0d719b01b33aa41a20c7b0580de2f1",
+      "producer": "기존 원화의 픽셀 추출",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "castle_art_pipeline / art_pixel_lighting",
+      "verification": "원본 실루엣 동일·법선 정규화·전체 재생성 SHA256 대조"
+    },
+    {
+      "path": "art/sources/lighting_pixels/unlit_guide.png",
+      "sha256": "79ff9e3acab2325c3aca3c280799547ddcf47ffee2761ca0c192438a9d7d7882",
+      "producer": "image_gen 무조명·노멀 지침",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "castle_art_pipeline / art_pixel_lighting",
+      "verification": "원본 실루엣 동일·법선 정규화·전체 재생성 SHA256 대조"
+    },
+    {
+      "path": "art/sources/lighting_pixels/normal_guide.png",
+      "sha256": "6f48420cdec3579ce8b9f3789cd98b307033f36b4d9222d042ec3d6119fe227e",
+      "producer": "image_gen 무조명·노멀 지침",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "castle_art_pipeline / art_pixel_lighting",
+      "verification": "원본 실루엣 동일·법선 정규화·전체 재생성 SHA256 대조"
+    },
+    {
+      "path": "art/sources/gpu_scenery/masks.txt",
+      "sha256": "55f4fc086aa895aed30968b18972f4ca5c23187506ee63001f39d741285ba204",
+      "producer": "Codex 작성 픽셀 기술 마스크·팔레트",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "castle_art_pipeline / art_gpu_scenery",
+      "verification": "여덟 변형·전체 재생성 SHA256 대조"
+    },
+    {
+      "path": "art/sources/gpu_scenery/contacts.txt",
+      "sha256": "a0f7c03f983f24ff375a1323e5f6fb866120d87be98e5e04e6fb97894a457405",
+      "producer": "Codex 작성 알파 접촉 기술 규약",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "castle_art_pipeline / art_gpu_contacts",
+      "verification": "8종 접촉 규약·전체 재생성 SHA256 대조"
     }
   ],
   "resources": [
@@ -5934,6 +5990,70 @@
       "sha256": "5735dfd72cb64cbbceda4ebc00c380c41ca680edb82ff153aa7c9ab97614c539",
       "source_group": "art/sources",
       "generation": "실제 ARTINPUT/ARTOUTPUT 추적 후 순서대로 재생성; 단계 의존성은 recipe 참조"
+    },
+    {
+      "id": "lighting.lab.albedo",
+      "output": "game/assets/lighting_lab/lighting_albedo.png",
+      "stage_file": "settlement/lighting_albedo.png",
+      "sha256": "dfcc04ee2385048eec294d95492e94f37076715c0b7226a699d4f3fdc8cce407",
+      "source_group": "art/sources/lighting_lab",
+      "generation": "같은 기하 표면에서 색·월드 법선·높이/발광을 굽고 재질 접선 노멀을 표면 축으로 합성"
+    },
+    {
+      "id": "lighting.lab.normals",
+      "output": "game/assets/lighting_lab/lighting_normals.png",
+      "stage_file": "settlement/lighting_normals.png",
+      "sha256": "c6244b3ba9113439a2227d72180e8b11ab3a710b024452690d232f036494648c",
+      "source_group": "art/sources/lighting_lab",
+      "generation": "같은 기하 표면에서 색·월드 법선·높이/발광을 굽고 재질 접선 노멀을 표면 축으로 합성"
+    },
+    {
+      "id": "lighting.lab.surface",
+      "output": "game/assets/lighting_lab/lighting_surface.png",
+      "stage_file": "settlement/lighting_surface.png",
+      "sha256": "fd9396ac9d3a3f1b32265fdde220917af83ee2f5746d93fa5fcc8f40ff41a79a",
+      "source_group": "art/sources/lighting_lab",
+      "generation": "같은 기하 표면에서 색·월드 법선·높이/발광을 굽고 재질 접선 노멀을 표면 축으로 합성"
+    },
+    {
+      "id": "lighting.pixel.albedo",
+      "output": "game/assets/lighting_lab/pixel_albedo.png",
+      "stage_file": "settlement/pixel_albedo.png",
+      "sha256": "d8e5aa8650eb77952318cffce5061d2d5417dd10748d18c5750ac4268ec334e4",
+      "source_group": "art/sources/lighting_pixels",
+      "generation": "기존 2D 원화의 RGB·실루엣을 유지하는 제한적 명암 보정과 표면별 법선 변환"
+    },
+    {
+      "id": "lighting.pixel.normals",
+      "output": "game/assets/lighting_lab/pixel_normals.png",
+      "stage_file": "settlement/pixel_normals.png",
+      "sha256": "197ce520c4435722e52ece49df89bf98a7b28e4ba2a04e2ae0c4e36d69fff362",
+      "source_group": "art/sources/lighting_pixels",
+      "generation": "기존 2D 원화의 RGB·실루엣을 유지하는 제한적 명암 보정과 표면별 법선 변환"
+    },
+    {
+      "id": "lighting.pixel.surface",
+      "output": "game/assets/lighting_lab/pixel_surface.png",
+      "stage_file": "settlement/pixel_surface.png",
+      "sha256": "af1ba650862ac70097274294faace024b7c6193207480c6760c7b9d10ea720d3",
+      "source_group": "art/sources/lighting_pixels",
+      "generation": "기존 2D 원화의 RGB·실루엣을 유지하는 제한적 명암 보정과 표면별 법선 변환"
+    },
+    {
+      "id": "lighting.scenery.masks",
+      "output": "game/assets/lighting_lab/scenery_masks.png",
+      "stage_file": "settlement/scenery_masks.png",
+      "sha256": "9eab6f7c9feb8b14731b2e7df103989f0e5f8375ee9815e869c1ae4d9db52122",
+      "source_group": "art/sources/gpu_scenery",
+      "generation": "보관한 16×16 풀·연기 마스크와 팔레트에서 좌우 반전·정수 이동·회전으로 여덟 픽셀 변형을 생성"
+    },
+    {
+      "id": "lighting.scenery.contacts",
+      "output": "game/assets/lighting_lab/contact_policy.png",
+      "stage_file": "settlement/contact_policy.png",
+      "sha256": "e728f4d123e478189390429418e0a42575a12784487b6e2ae7f35b0eb0db62aa",
+      "source_group": "art/sources/gpu_scenery",
+      "generation": "원화 하단의 알파 표본 범위·숨은 발자국 깊이·정확한 하단 높이를 무손실 기술 텍스처로 기록"
     }
   ]
 }

@@ -4,8 +4,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-const Color UI_BG = {25, 24, 34, 255}, UI_PANEL = {39, 35, 48, 245}, UI_EDGE = {85, 72, 97, 255};
-const Color UI_TEXT = {239, 231, 219, 255}, UI_MUTED = {161, 153, 171, 255}, UI_GOLD = {244, 197, 108, 255},
+const Color UI_BG = {40, 42, 51, 255}, UI_PANEL = {56, 61, 67, 250}, UI_EDGE = {119, 120, 107, 255};
+const Color UI_TEXT = {232, 223, 204, 255}, UI_MUTED = {168, 176, 157, 255}, UI_GOLD = {226, 186, 114, 255},
             UI_GOOD = {133, 209, 151, 255}, UI_BAD = {239, 127, 124, 255};
 /* raylib의 scissor는 중첩 스택이 아니므로 부모 영역을 복원합니다. */
 static Rectangle clip_stack[16];
@@ -44,8 +44,8 @@ void ui_begin(GameUi *ui, GameAssets *assets, float size, float volume) {
     ui->input_blocked = ui->transition_out;
     ui->consumed = 0;
     float step = fminf(GetFrameTime(), .1f);
-    ui->transition = ui->transition_out ? fminf(1, ui->transition + step / .16f)
-                                        : fmaxf(0, ui->transition - step / .28f);
+    ui->transition =
+        ui->transition_out ? fminf(1, ui->transition + step / .16f) : fmaxf(0, ui->transition - step / .28f);
 }
 void ui_transition(GameUi *ui) {
     ui->transition = 1;

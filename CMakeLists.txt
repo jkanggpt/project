@@ -8,6 +8,7 @@ option(CASTLE_WERROR "경고를 오류로 처리 (CI에서 켭니다)" OFF)
 option(CASTLE_BUILD_TESTS "단위 테스트 빌드" ON)
 option(CASTLE_BUILD_CLI "콘솔 프런트엔드(castle_cli) 빌드" ON)
 option(CASTLE_BUILD_GAME "raylib 기반 C 그래픽 게임 빌드" ON)
+option(CASTLE_GPU_TESTS "OpenGL 4.3 창·컴퓨트가 있는 환경의 GPU 검사" OFF)
 option(CASTLE_BUILD_TOOLS "C 밸런스 도구 빌드" ON)
 option(CASTLE_BUILD_SHARED "외부 프로그램용 C 공유 라이브러리 빌드" OFF)
 

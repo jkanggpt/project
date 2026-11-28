@@ -1,0 +1,429 @@
+{
+  "schema": 1,
+  "status": "implemented_render_only_scene",
+  "description": "GPU 실험실의 natural-slice 장면으로 구현했습니다. JSON은 검수 정본이며 실행 파일은 같은 좌표를 C 장면 제출 코드에서 사용합니다. 자동 접촉은 후보이고 가려진 면의 수동 검수는 후속 항목입니다.",
+  "recipe": "art/recipes/scenery_direction.json",
+  "world_cells": [
+    64,
+    40
+  ],
+  "world_units_per_cell": 16,
+  "seed": 314159,
+  "native_integer_scale": 3,
+  "cameras": [
+    {
+      "id": "hero",
+      "center": [
+        480,
+        304
+      ]
+    },
+    {
+      "id": "shore",
+      "center": [
+        608,
+        304
+      ]
+    },
+    {
+      "id": "chunk_crossing",
+      "center": [
+        512,
+        320
+      ]
+    }
+  ],
+  "capture_times_seconds": [
+    0,
+    11,
+    47
+  ],
+  "light_cases": [
+    {
+      "id": "day",
+      "sun_azimuth": 225,
+      "sun_elevation": 40,
+      "sun_enabled": true
+    },
+    {
+      "id": "low_sun",
+      "sun_azimuth": 45,
+      "sun_elevation": 12,
+      "sun_enabled": true
+    },
+    {
+      "id": "night",
+      "sun_enabled": false,
+      "ambient": 0.2
+    }
+  ],
+  "local_lights": [
+    {
+      "id": "left_window",
+      "position_world": [
+        428,
+        322,
+        16
+      ],
+      "range_world": 96,
+      "owner": "house",
+      "color_role": "amber"
+    },
+    {
+      "id": "right_window",
+      "position_world": [
+        468,
+        322,
+        16
+      ],
+      "range_world": 96,
+      "owner": "house",
+      "color_role": "amber"
+    },
+    {
+      "id": "path_torch",
+      "position_world": [
+        480,
+        352,
+        24
+      ],
+      "range_world": 112,
+      "color_role": "amber"
+    },
+    {
+      "id": "bank_glow",
+      "position_world": [
+        560,
+        288,
+        20
+      ],
+      "range_world": 80,
+      "color_role": "teal"
+    }
+  ],
+  "entities": [
+    {
+      "id": "house",
+      "asset": "buildings.house.0",
+      "source_rect": [
+        0,
+        0,
+        256,
+        282
+      ],
+      "foot": [
+        448,
+        320
+      ],
+      "world_size": [
+        64,
+        70.5
+      ],
+      "contact_requirement": "reviewed_house_front",
+      "smoke": true
+    },
+    {
+      "id": "rooted_tree",
+      "asset": "terrain.trees",
+      "source_rect": [
+        256,
+        0,
+        128,
+        128
+      ],
+      "foot": [
+        512,
+        256
+      ],
+      "world_size": [
+        43,
+        43
+      ],
+      "contact_requirement": "reviewed_multiple_roots"
+    },
+    {
+      "id": "rock_cluster",
+      "asset": "terrain.rocks",
+      "source_rect": [
+        128,
+        0,
+        128,
+        128
+      ],
+      "foot": [
+        504,
+        368
+      ],
+      "world_size": [
+        28,
+        28
+      ],
+      "contact_requirement": "reviewed_uneven_rock_base"
+    },
+    {
+      "id": "water_rock",
+      "asset": "terrain.rocks",
+      "source_rect": [
+        128,
+        0,
+        128,
+        128
+      ],
+      "foot": [
+        592,
+        320
+      ],
+      "world_size": [
+        26,
+        26
+      ],
+      "contact_requirement": "reviewed_water_contact",
+      "submerged_fraction": 0.15
+    },
+    {
+      "id": "walker",
+      "asset": "units.villagers",
+      "source_rect": [
+        0,
+        0,
+        96,
+        96
+      ],
+      "foot": [
+        464,
+        344
+      ],
+      "world_size": [
+        24,
+        24
+      ],
+      "walk_path": [
+        [
+          448,
+          344
+        ],
+        [
+          480,
+          344
+        ]
+      ],
+      "contact_requirement": "reviewed_separate_feet_per_pose"
+    },
+    {
+      "id": "animal",
+      "asset": "animals.walk",
+      "source_rect": [
+        96,
+        192,
+        96,
+        96
+      ],
+      "foot": [
+        432,
+        384
+      ],
+      "world_size": [
+        18,
+        18
+      ],
+      "contact_requirement": "reviewed_separate_legs_per_pose"
+    }
+  ],
+  "road_cells": [
+    [
+      24,
+      22
+    ],
+    [
+      25,
+      22
+    ],
+    [
+      26,
+      22
+    ],
+    [
+      27,
+      22
+    ],
+    [
+      28,
+      22
+    ],
+    [
+      29,
+      22
+    ],
+    [
+      30,
+      22
+    ],
+    [
+      30,
+      21
+    ],
+    [
+      30,
+      20
+    ],
+    [
+      30,
+      19
+    ],
+    [
+      30,
+      23
+    ],
+    [
+      30,
+      24
+    ]
+  ],
+  "water_definition": {
+    "coarse_mask_rule": "다음 원의 합집합을 지도 칸 중심에서 표본화해 원본 수역 칸을 만듭니다. 렌더러는 그 칸에서 같은 거리장 경로를 사용합니다.",
+    "union_circles": [
+      {
+        "center": [
+          584,
+          320
+        ],
+        "radius": 88
+      },
+      {
+        "center": [
+          648,
+          280
+        ],
+        "radius": 52
+      }
+    ],
+    "shore_profiles": [
+      "sand",
+      "rock",
+      "wet_grass"
+    ],
+    "bridge_test_cells": [
+      [
+        31,
+        20
+      ],
+      [
+        32,
+        20
+      ],
+      [
+        33,
+        20
+      ],
+      [
+        34,
+        20
+      ],
+      [
+        35,
+        20
+      ],
+      [
+        36,
+        20
+      ],
+      [
+        37,
+        20
+      ],
+      [
+        38,
+        20
+      ],
+      [
+        39,
+        20
+      ],
+      [
+        40,
+        20
+      ],
+      [
+        41,
+        20
+      ]
+    ],
+    "bridge_land_anchors": [
+      [
+        30,
+        20
+      ],
+      [
+        42,
+        20
+      ]
+    ],
+    "critical_anchor_rule": "다리 끝의 지면 접속점은 기슭 흔들림에서 제외합니다."
+  },
+  "grass_regions": [
+    {
+      "species": "short_sward",
+      "center": [
+        416,
+        320
+      ],
+      "radius": 32
+    },
+    {
+      "species": "meadow",
+      "center": [
+        408,
+        256
+      ],
+      "radius": 36
+    },
+    {
+      "species": "tall_blades",
+      "center": [
+        520,
+        232
+      ],
+      "radius": 28
+    },
+    {
+      "species": "broadleaf",
+      "center": [
+        416,
+        384
+      ],
+      "radius": 24
+    },
+    {
+      "species": "bank_reeds",
+      "placement": "해안 거리장 바깥쪽의 일부 군집"
+    }
+  ],
+  "exclusions": [
+    "building_supports",
+    "paved_road_interior",
+    "deep_water",
+    "bridge_connections"
+  ],
+  "debug_views_required": [
+    "final",
+    "logical_pixel_grid",
+    "material_weights",
+    "water_distance",
+    "patch_species",
+    "source_contact_overlay",
+    "lower_and_upper_shadow",
+    "caster_list_counts",
+    "smoke_coverage"
+  ],
+  "acceptance": [
+    "same_world_pixel",
+    "contact_error_at_most_one_pixel",
+    "no_seam_at_world_x_512",
+    "stable_species_when_revisiting",
+    "connected_paving_joints",
+    "grass_default_height_twice_reference",
+    "smoke_linear_size_four_times_reference",
+    "world_hover_matches_viewport",
+    "no_collision_or_save_change"
+  ]
+}

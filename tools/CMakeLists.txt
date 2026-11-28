@@ -36,3 +36,9 @@ endif()
 
 add_executable(castle_content_registry content_registry.c)
 target_link_libraries(castle_content_registry PRIVATE castle_core_static castle_warnings)
+
+# 조명 실험실과 아트 굽기는 같은 모양 정의를 사용합니다.
+if(TARGET raylib)
+  target_sources(castle_art_pipeline PRIVATE art/lighting_lab.c art/lighting_pixels.c art/gpu_scenery.c)
+  add_subdirectory(lighting_lab)
+endif()

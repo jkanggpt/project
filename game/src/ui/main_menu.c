@@ -1,6 +1,7 @@
 /* main_menu.c — 제목 배경과 새 게임 창. 규칙과 저장 형식은 공개 API만 읽습니다. */
 #include "app.h"
 #include "format.h"
+#include "render/gpu_bridge.h"
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
@@ -38,6 +39,7 @@ static int background(GameApp *a) {
     int rc = game_session_new(s, u8"바람언덕", 42, CORE_DIFF_PEACEFUL);
     if (rc != CORE_OK)
         return rc;
+    game_gpu_new_world();
     for (size_t i = 0; i < sizeof(types) / sizeof(types[0]); i++) {
         int placed = 0;
         for (int radius = 4; radius <= 13 && !placed; radius += 3)
@@ -157,7 +159,7 @@ void game_main_menu_update(GameApp *a, float delta) {
     }
     a->camera.target = (Vector2){a->session.summary.keep_x * 16.0f + sinf(m->time * .035f) * 40,
                                  a->session.summary.keep_y * 16.0f + cosf(m->time * .028f) * 28};
-    a->camera.zoom = fmaxf(1.7f, fminf(3, GetScreenHeight() / 300.0f));
+    a->camera.zoom = floorf(fmaxf(1.7f, fminf(3, GetScreenHeight() / 300.0f)) + .5f);
 }
 
 static Rectangle menu_modal(GameApp *a, const char *title, float width, float height) {
@@ -165,7 +167,7 @@ static Rectangle menu_modal(GameApp *a, const char *title, float width, float he
     height = fminf(height, GetScreenHeight() - 40.0f);
     Rectangle b = area((GetScreenWidth() - width) / 2, (GetScreenHeight() - height) / 2, width, height);
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){8, 13, 19, 195});
-    ui_box(b, (Color){26, 31, 37, 252});
+    ui_box(b, UI_PANEL);
     DrawRectangle((int)b.x, (int)b.y, (int)b.width, 3, UI_GOLD);
     ui_text(&a->ui, b.x + 26, b.y + 24, UI_GOLD, "%s", title);
     return b;
@@ -331,7 +333,7 @@ void game_main_menu_title(GameApp *a) {
     }
     Rectangle card =
         area(fmaxf(x + width + 38, w - 410), h - 175, fminf(362, w - (x + width + 38) - 32), 118);
-    ui_box(card, (Color){17, 27, 35, 228});
+    ui_box(card, UI_PANEL);
     ui_small(u, card.x + 16, card.y + 12, UI_GOLD, u8"가장 최근의 영지%s",
              m->latest_backup ? u8" · 예비 저장" : "");
     if (m->latest_slot >= 0) {

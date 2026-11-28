@@ -1,0 +1,276 @@
+<div id="lighting-test">
+  <div class="viz-controls">
+    <button class="btn" type="button" data-preset="day">낮</button>
+    <button class="btn" type="button" data-preset="sunset">석양</button>
+    <button class="btn" type="button" data-preset="night" aria-pressed="true">밤</button>
+    <label class="form-label">화면
+      <select class="form-select" data-control="mode">
+        <option value="0">알베도</option>
+        <option value="1">노멀 조명</option>
+        <option value="2" selected>그림자 포함</option>
+        <option value="3">노멀</option>
+        <option value="4">높이</option>
+        <option value="5">차폐</option>
+      </select>
+    </label>
+  </div>
+  <canvas class="cursor-interaction" width="512" height="384" aria-label="2D 노멀 조명 실험 지도. 드래그하면 이동광을 옮깁니다.">2D 조명 실험 지도</canvas>
+  <div class="viz-controls">
+    <label class="form-label">태양 방향 <output class="tabular-nums" data-value="azimuth">135°</output>
+      <input class="form-range" type="range" min="0" max="360" value="135" data-control="azimuth">
+    </label>
+    <label class="form-label">태양 고도 <output class="tabular-nums" data-value="elevation">55°</output>
+      <input class="form-range" type="range" min="5" max="85" value="55" data-control="elevation">
+    </label>
+  </div>
+  <div class="viz-row">
+    <label class="form-check form-switch"><input class="form-check-input" type="checkbox" data-control="sun"><span class="form-check-label">태양</span></label>
+    <label class="form-check form-switch"><input class="form-check-input" type="checkbox" checked data-control="torch"><span class="form-check-label">토치</span></label>
+    <label class="form-check form-switch"><input class="form-check-input" type="checkbox" checked data-control="interior"><span class="form-check-label">실내등</span></label>
+    <label class="form-check form-switch"><input class="form-check-input" type="checkbox" data-control="cursor"><span class="form-check-label">이동광 · 지도 드래그</span></label>
+  </div>
+  <div class="text-small" data-role="status" aria-live="polite">조명 준비 중</div>
+  <div class="text-destructive" data-role="error" role="alert" hidden></div>
+  <script type="application/json" data-role="scene">__LIGHTING_DATA__</script>
+  <script type="x-shader/x-fragment" data-role="shader">__LIGHTING_SHADER__</script>
+  <script type="application/x-worker" data-role="worker">__LIGHTING_WORKER__</script>
+</div>
+<style>
+  #lighting-test { display: grid; gap: calc(var(--font-size-base) * .75); }
+  #lighting-test canvas { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; image-rendering: pixelated; touch-action: none; }
+</style>
+<script>
+(() => {
+  'use strict';
+  const root = document.getElementById('lighting-test');
+  let canvas = root.querySelector('canvas');
+  const status = root.querySelector('[data-role="status"]');
+  const error = root.querySelector('[data-role="error"]');
+  const scene = JSON.parse(root.querySelector('[data-role="scene"]').textContent);
+  const controls = Object.fromEntries([...root.querySelectorAll('[data-control]')].map(el => [el.dataset.control, el]));
+  const presets = [...root.querySelectorAll('[data-preset]')];
+  let state = {preset: 'night', mode: 2, azimuth: 135, elevation: 55, ambient: .025,
+    sun: false, torch: true, interior: true, cursor: false, position: [112, 48, 24]};
+  let ready = false, scheduled = false, dragging = false, renders = 0;
+  let gl = canvas.getContext('webgl', {alpha: false, antialias: false, preserveDrawingBuffer: true});
+  let software = null;
+  function fail(message) {
+    ready = false;
+    root.dataset.ready = 'error';
+    error.textContent = message;
+    error.hidden = false;
+    status.textContent = '';
+  }
+  function compile(kind, source) {
+    const shader = gl.createShader(kind);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const detail = gl.getShaderInfoLog(shader);
+      gl.deleteShader(shader);
+      throw new Error(detail);
+    }
+    return shader;
+  }
+  let program;
+  if (gl) try {
+    const vertex = compile(gl.VERTEX_SHADER, 'attribute vec2 position; varying vec2 fragTexCoord; void main(){fragTexCoord=position*.5+.5;gl_Position=vec4(position,0.,1.);}');
+    const fragment = compile(gl.FRAGMENT_SHADER, root.querySelector('[data-role="shader"]').textContent);
+    program = gl.createProgram();
+    gl.attachShader(program, vertex);
+    gl.attachShader(program, fragment);
+    gl.linkProgram(program);
+    gl.deleteShader(vertex);
+    gl.deleteShader(fragment);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+    gl.useProgram(program);
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+    const position = gl.getAttribLocation(program, 'position');
+    gl.enableVertexAttribArray(position);
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+  } catch (problem) {
+    const replacement = canvas.cloneNode(false);
+    canvas.replaceWith(replacement);
+    canvas = replacement;
+    gl = null;
+  }
+  const locations = new Map();
+  const loc = name => {
+    if (!locations.has(name)) locations.set(name, gl.getUniformLocation(program, name));
+    return locations.get(name);
+  };
+  if (gl) {
+  gl.uniform2fv(loc('worldOrigin'), scene.origin);
+  gl.uniform2fv(loc('worldSize'), scene.size);
+  gl.uniform1i(loc('occluderCount'), scene.count);
+  gl.uniform4fv(loc('occluderCenter[0]'), new Float32Array(scene.centers));
+  gl.uniform4fv(loc('occluderExtent[0]'), new Float32Array(scene.extents));
+  gl.uniform1f(loc('exposure'), 1.1);
+  gl.uniform1f(loc('clockTime'), 0);
+  }
+  function texture(name, index, url) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => {
+        const texture = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE0 + index);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+        gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.uniform1i(loc(name), index);
+        resolve(texture);
+      };
+      image.onerror = () => reject(new Error('조명 자료를 읽지 못했습니다.'));
+      image.src = url;
+    });
+  }
+  function sync() {
+    for (const [name, input] of Object.entries(controls)) {
+      if (input.type === 'checkbox') input.checked = state[name];
+      else input.value = state[name];
+    }
+    root.querySelector('[data-value="azimuth"]').textContent = Math.round(state.azimuth) + '°';
+    root.querySelector('[data-value="elevation"]').textContent = Math.round(state.elevation) + '°';
+    for (const button of presets) button.setAttribute('aria-pressed', String(button.dataset.preset === state.preset));
+  }
+  function draw() {
+    scheduled = false;
+    if (!ready) return;
+    if (software) { software.render(state); return; }
+    const az = state.azimuth * Math.PI / 180, el = state.elevation * Math.PI / 180;
+    gl.useProgram(program);
+    gl.viewport(0, 0, scene.width, scene.height);
+    gl.uniform1i(loc('displayMode'), state.mode);
+    gl.uniform3fv(loc('sunDirection'), [Math.cos(az)*Math.cos(el), Math.sin(az)*Math.cos(el), Math.sin(el)]);
+    gl.uniform3fv(loc('sunColor'), state.sun ? (state.elevation < 25 ? [2.3,1.1,.45] : [1.65,1.55,1.35]) : [0,0,0]);
+    gl.uniform3fv(loc('ambientColor'), [state.ambient*.68, state.ambient*.82, state.ambient]);
+    gl.uniform4fv(loc('lightPosition[0]'), new Float32Array([112,124,24,100, 49.5,73,18,92, 168,72,20,84, ...state.position,90]));
+    gl.uniform4fv(loc('lightColor[0]'), new Float32Array([2.1,.82,.22,state.torch?3.2:0, 2.1,1.05,.40,state.interior?2.4:0,
+      1.8,.85,.25,state.interior?2.2:0, .48,1.1,2,state.cursor?3:0]));
+    gl.uniform1f(loc('torchEnabled'), Number(state.torch));
+    gl.uniform1f(loc('interiorEnabled'), Number(state.interior));
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.finish();
+    if (gl.getError() !== gl.NO_ERROR) { fail('조명 화면을 그리지 못했습니다.'); return; }
+    completeFrame();
+  }
+  function completeFrame() {
+    root.dataset.renders = String(++renders);
+    root.dataset.ready = 'true';
+    status.textContent = '인물 고정 · ' + (state.cursor ? '이동광 X ' + state.position[0].toFixed(0) + ' / Y ' + state.position[1].toFixed(0) + ' / 높이 24' : '지도 드래그로 이동광 배치');
+  }
+  function schedule() { if (!scheduled) { scheduled = true; requestAnimationFrame(draw); } }
+  function save() {
+    const snapshot = JSON.parse(JSON.stringify(state));
+    window.openai?.setWidgetState?.({modelContent: {preset: state.preset, mode: controls.mode.selectedOptions[0].textContent,
+      sun: state.sun, torch: state.torch, interior: state.interior, cursor: state.cursor}, privateContent: {lighting: snapshot}})?.catch(() => {});
+  }
+  function restore(saved) {
+    const value = saved?.privateContent?.lighting;
+    if (!value || typeof value !== 'object') return;
+    const next = {...state};
+    for (const name of ['sun','torch','interior','cursor']) if (typeof value[name] === 'boolean') next[name] = value[name];
+    for (const [name,min,max] of [['mode',0,5],['azimuth',0,360],['elevation',5,85],['ambient',0,1]])
+      if (Number.isFinite(value[name])) next[name] = Math.min(max,Math.max(min,value[name]));
+    next.mode = Math.round(next.mode);
+    if (['day','sunset','night',null].includes(value.preset)) next.preset = value.preset;
+    if (Array.isArray(value.position) && value.position.length === 3 && value.position.every(Number.isFinite))
+      next.position = [Math.min(240,Math.max(-16,value.position[0])),Math.min(208,Math.max(16,value.position[1])),24];
+    state = next;
+    sync();
+    schedule();
+  }
+  for (const button of presets) button.addEventListener('click', () => {
+    const name = button.dataset.preset;
+    Object.assign(state, {preset:name,mode:2,sun:name!=='night',torch:true,interior:true,cursor:false,
+      azimuth:name==='sunset'?215:135,elevation:name==='sunset'?16:55,ambient:name==='night' ? .025 : name==='sunset' ? .08 : .24});
+    sync(); schedule(); save();
+  });
+  for (const [name, input] of Object.entries(controls)) {
+    input.addEventListener('input', () => {
+      state[name] = input.type === 'checkbox' ? input.checked : Number(input.value);
+      if (name !== 'mode') state.preset = null;
+      sync(); schedule();
+    });
+    input.addEventListener('change', save);
+  }
+  function moveLight(event) {
+    const rectangle = canvas.getBoundingClientRect();
+    const u = Math.min(1,Math.max(0,(event.clientX-rectangle.left)/rectangle.width));
+    const v = Math.min(1,Math.max(0,(event.clientY-rectangle.top)/rectangle.height));
+    state.position = [scene.origin[0]+u*scene.size[0],scene.origin[1]+v*scene.size[1]+24,24];
+    state.cursor = true; state.preset = null; sync(); schedule();
+  }
+  canvas.addEventListener('pointerdown', event => { dragging = true; canvas.setPointerCapture(event.pointerId); moveLight(event); });
+  canvas.addEventListener('pointermove', event => { if (dragging) moveLight(event); });
+  canvas.addEventListener('pointerup', event => { if (dragging) { moveLight(event); dragging = false; save(); } });
+  canvas.addEventListener('pointercancel', () => { dragging = false; });
+  canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); fail('그래픽 연결이 끊겼습니다. 조명 실험을 다시 열어 주세요.'); });
+  window.addEventListener('openai:set_globals', event => restore(event.detail?.globals?.widgetState));
+  restore(window.openai?.widgetState);
+  sync();
+  function startSoftware() {
+    const context = canvas.getContext('2d');
+    if (!context) { fail('조명 화면을 준비하지 못했습니다.'); return; }
+    const source = root.querySelector('[data-role="worker"]').textContent;
+    const url = URL.createObjectURL(new Blob([source], {type:'text/javascript'}));
+    const worker = new Worker(url);
+    let serial = 0, busy = false, pending = null;
+    const send = () => {
+      if (!pending) return;
+      busy = true;
+      const job = pending; pending = null;
+      worker.postMessage({type:'render',id:job.id,state:job.state});
+    };
+    software = {render(value) {
+      pending = {id:++serial,state:JSON.parse(JSON.stringify(value))};
+      if (!busy) send();
+    }};
+    worker.onmessage = event => {
+      const data = event.data;
+      if (data.type === 'ready') { URL.revokeObjectURL(url); ready = true; schedule(); }
+      else if (data.type === 'frame') {
+        busy = false;
+        if (data.id === serial) {
+          context.putImageData(new ImageData(new Uint8ClampedArray(data.pixels),scene.width,scene.height),0,0);
+          root.dataset.backend = 'software';
+          root.dataset.frameMs = data.ms.toFixed(1);
+          completeFrame();
+        }
+        if (pending) send();
+      } else if (data.type === 'error') fail('조명 계산을 완료하지 못했습니다: ' + data.message);
+    };
+    worker.onerror = () => fail('조명 계산을 준비하지 못했습니다.');
+    const decode = url => new Promise((resolve,reject) => {
+      const image = new Image();
+      image.onload = () => {
+        const temporary = document.createElement('canvas');
+        temporary.width = scene.width; temporary.height = scene.height;
+        const pixels = temporary.getContext('2d',{willReadFrequently:true});
+        pixels.drawImage(image,0,0);
+        resolve(pixels.getImageData(0,0,scene.width,scene.height).data.buffer);
+      };
+      image.onerror = () => reject(new Error('조명 자료를 읽지 못했습니다.'));
+      image.src = url;
+    });
+    Promise.all(['albedo','normals','surface','roughness'].map(name=>decode(scene.images[name])))
+      .then(maps => worker.postMessage({type:'init',scene:{width:scene.width,height:scene.height,origin:scene.origin,
+        size:scene.size,count:scene.count,centers:scene.centers,extents:scene.extents},maps},maps))
+      .catch(problem => fail(problem.message));
+  }
+  if (gl) {
+    root.dataset.backend = 'webgl';
+    Promise.all([texture('texture0',0,scene.images.albedo),texture('normalBuffer',1,scene.images.normals),
+      texture('surfaceBuffer',2,scene.images.surface),texture('roughnessBuffer',3,scene.images.roughness)])
+      .then(() => { ready = true; schedule(); }).catch(problem => fail(problem.message));
+  } else startSoftware();
+})();
+</script>
