@@ -560,7 +560,26 @@ void game_gpu_building(GameApp *app, const CoreBuildingView *b, Rectangle pictur
                 bridge.terrain[y * w + x] != 128 && !(bridge.terrain[y * w + x] & 4u))
                 bridge.terrain[y * w + x] |= 16u;
     GameSceneProfile p;
-    if (!game_scene_profile(b, picture, bridge.time, &p))
+    int profiled = game_scene_profile(b, picture, bridge.time, &p);
+    /* 받침 흙: 밭은 정돈된 이랑을 그대로 두고 바깥 가장자리만 풀어 주며, 건물은 원화 받침과 문 앞만 닳게 합니다. */
+    CastleGpuFootprint footprint = {{b->x * 16.0f, b->y * 16.0f, b->w * 16.0f, b->h * 16.0f},
+                                    {.55f, (b->door_x + .5f) * 16, b->door_y * 16.0f + 2, 0}};
+    if (b->kind_flags & CORE_EXP_PLOT) {
+        footprint.settings[0] = .70f;
+        footprint.settings[3] = 1;
+    } else if (profiled) {
+        footprint.rect[0] = p.ground.x - 2;
+        footprint.rect[1] = p.ground.y - 1;
+        footprint.rect[2] = p.ground.width + 4;
+        footprint.rect[3] = p.ground.height + 3;
+        footprint.settings[0] = b->state == CORE_BSTATE_ACTIVE ? .85f : .60f;
+    }
+    if (b->kind_flags & (CORE_EXP_WALL | CORE_EXP_GATE))
+        footprint.settings[0] *= .6f;
+    /* 원화를 그리는 조건(기준 칸 탐험)과 같을 때만 흙을 그려 그림 없는 흙 자국이 남지 않게 합니다. */
+    if (!app->session.visibility || app->session.visibility[b->y * w + b->x])
+        (void)castle_gpu_footprint(bridge.gpu, &footprint);
+    if (!profiled)
         return;
     uint32_t owner = 0x10000000u | (uint32_t)b->id;
     for (int i = 0; i < p.volume_count; i++) {

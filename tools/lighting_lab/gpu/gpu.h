@@ -39,6 +39,12 @@ typedef struct CastleGpuLight {
     float color[4];
     uint32_t tags[4];
 } CastleGpuLight;
+/* 건물 받침의 닳은 흙. rect는 세계 좌표 x,y,w,h, settings는 세기·문 x·문 y·종류(0 건물, 1 밭)입니다.
+   점유 칸이 아니라 실제 받침 모양을 따르며 지형·길·물·눈 자료를 바꾸지 않습니다. */
+typedef struct CastleGpuFootprint {
+    float rect[4];
+    float settings[4];
+} CastleGpuFootprint;
 typedef struct CastleGpuEmitter {
     float position[4];
     float settings[4];
@@ -92,6 +98,7 @@ int castle_gpu_sprite(CastleGpu *gpu, Texture2D texture, Texture2D normals, Text
 int castle_gpu_caster(CastleGpu *gpu, const CastleGpuCaster *caster);
 int castle_gpu_light(CastleGpu *gpu, const CastleGpuLight *light);
 int castle_gpu_emitter(CastleGpu *gpu, const CastleGpuEmitter *emitter);
+int castle_gpu_footprint(CastleGpu *gpu, const CastleGpuFootprint *footprint);
 void castle_gpu_terrain(CastleGpu *gpu, const unsigned char *cells, int width, int height);
 int castle_gpu_render(CastleGpu *gpu);
 Texture2D castle_gpu_clouds(CastleGpu *gpu, const unsigned char *visibility, int width, int height);

@@ -5,6 +5,34 @@ uniform int uWater;
 uniform sampler2D uWaves;
 layout(std430,binding=6) readonly buffer GroundCasters { Caster groundCasters[]; };
 uniform int uGroundCasterCount;
+struct Footprint { vec4 rect; vec4 settings; };
+layout(std430,binding=7) readonly buffer Footprints { Footprint footprints[]; };
+uniform int uFootprintCount;
+/* 둥근 사각형까지의 부호 거리(안쪽 음수). */
+float roundedBox(vec2 p,vec4 rect,float radius){
+    vec2 extent=rect.zw*.5,center=rect.xy+extent;
+    vec2 q=abs(p-center)-extent+radius;
+    return length(max(q,vec2(0)))+min(max(q.x,q.y),0.0)-radius;
+}
+/* 실제 받침과 문 앞을 따라 닳은 흙. 잡음으로 테두리를 흩고 화소 디더로 끊어 각진 사각형을 피합니다. */
+float footprintWear(vec2 p){
+    float wear=0.0;
+    float jitter=(noiseValue(p/5.0)-.5)*3.0+(noiseValue(p/13.0+3.7)-.5)*4.5;
+    for(int i=0;i<uFootprintCount;i++){
+        Footprint f=footprints[i];
+        if(p.x<f.rect.x-12.0||p.y<f.rect.y-12.0||p.x>f.rect.x+f.rect.z+12.0||p.y>f.rect.y+f.rect.w+12.0)continue;
+        bool plot=f.settings.w>.5;
+        float d=roundedBox(p,f.rect,plot?2.0:min(5.0,min(f.rect.z,f.rect.w)*.4))+jitter*(plot?.6:1.0);
+        float amount=1.0-smoothstep(plot?-1.0:-2.0,plot?2.5:3.5,d);
+        if(!plot){
+            /* 문 앞의 밟힌 자리는 더 짙고 길쭉합니다. */
+            vec2 door=(p-f.settings.yz)/vec2(5.5,4.0);
+            amount=max(amount,1.0-smoothstep(.55,1.25,length(door)+jitter*.08));
+        }
+        wear=max(wear,amount*f.settings.x);
+    }
+    return wear;
+}
 layout(location=0) out vec4 outAlbedo;
 layout(location=1) out vec4 outNormalHeight;
 layout(location=2) out vec4 outMaterial;
@@ -76,6 +104,20 @@ void main(){
         float pebbles=randomUnit(hashCell(ivec2(p/2.0)));
         if(pebbles>.93&&bank>1.0)sand=paletteStone(.42+pebbles*.15);
         color=mix(sand,color,smoothstep(shoreWidth-2.0,shoreWidth+1.5,bank));
+    }
+    /* 점유 칸 근처에서만 받침 흙을 계산합니다. 길·물·눈 자료는 그대로 두고 그 위에 그립니다. */
+    if(bank>0.0&&uFootprintCount>0){
+        bool near=false;
+        ivec2 at=ivec2(floor(p/16.0));
+        for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++)near=near||(terrainAt(at+ivec2(x,y))&16u)!=0u;
+        if(near){
+            float wear=footprintWear(p);
+            float dither=bayerValue(ivec2(p));
+            wear=floor(wear*4.0+dither*.95)/4.0;
+            vec3 dirt=paletteEarth(.30+cluster*.16+small*.06);
+            if(randomUnit(hashCell(ivec2(p)))>.94)dirt=paletteEarth(.22);
+            color=mix(color,dirt,wear*.92);
+        }
     }
     if(road<4.0&&bank>0.0){
         vec3 stoneNormal;vec3 stone=paving(p,stoneNormal);

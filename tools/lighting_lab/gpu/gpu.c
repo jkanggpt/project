@@ -67,6 +67,9 @@ struct CastleGpu {
     CastleGpuCaster *casters;
     CastleGpuLight *lights;
     CastleGpuEmitter *emitters;
+    CastleGpuFootprint *footprints;
+    int footprint_count, footprint_capacity;
+    GpuBuffer footprint_buffer;
     GpuBatch *batches;
     int sprite_count, caster_count, emitter_count, batch_count, light_count;
     int sprite_capacity, caster_capacity, emitter_capacity, batch_capacity, light_capacity;
@@ -528,7 +531,8 @@ void castle_gpu_destroy(CastleGpu *gpu) {
                             &gpu->command_buffer, &gpu->particle_buffer,     &gpu->tile_buffer,
                             &gpu->page_buffer,    &gpu->grass_counts,        &gpu->grass_offsets,
                             &gpu->grass_sums,     &gpu->grass_group_offsets, &gpu->contact_columns,
-                            &gpu->light_tiles,    &gpu->static_tiles,        &gpu->fog_buffer};
+                            &gpu->light_tiles,    &gpu->static_tiles,        &gpu->fog_buffer,
+                            &gpu->footprint_buffer};
     for (size_t i = 0; i < sizeof(buffers) / sizeof(buffers[0]); i++)
         buffer_free(gpu, buffers[i]);
     GpuProgram *programs[] = {
@@ -546,6 +550,7 @@ void castle_gpu_destroy(CastleGpu *gpu) {
         objects -= GPU_TIMER_COUNT * GPU_TIMER_FRAMES;
     }
     free(gpu->lights);
+    free(gpu->footprints);
     free(gpu->fog_words);
     free(gpu->sprites);
     free(gpu->casters);
@@ -634,6 +639,7 @@ int castle_gpu_begin(CastleGpu *gpu, const CastleGpuFrame *frame) {
     gpu->sprite_count = 0;
     gpu->caster_count = 0;
     gpu->emitter_count = 0;
+    gpu->footprint_count = 0;
     gpu->batch_count = 0;
     gpu->light_count = 0;
     gpu->failed = 0;
@@ -690,6 +696,17 @@ int castle_gpu_light(CastleGpu *gpu, const CastleGpuLight *light) {
         return 0;
     }
     gpu->lights[gpu->light_count++] = *light;
+    return 1;
+}
+int castle_gpu_footprint(CastleGpu *gpu, const CastleGpuFootprint *footprint) {
+    if (!gpu || !footprint ||
+        !reserve((void **)&gpu->footprints, &gpu->footprint_capacity, gpu->footprint_count + 1,
+                 sizeof(*footprint))) {
+        if (gpu)
+            gpu->failed = 1;
+        return 0;
+    }
+    gpu->footprints[gpu->footprint_count++] = *footprint;
     return 1;
 }
 int castle_gpu_emitter(CastleGpu *gpu, const CastleGpuEmitter *emitter) {
@@ -1114,6 +1131,12 @@ int castle_gpu_render(CastleGpu *gpu) {
     if (gpu->light_count)
         rlUpdateShaderBuffer(gpu->light_buffer.id, gpu->lights,
                              (unsigned int)((size_t)gpu->light_count * sizeof(*gpu->lights)), 0);
+    if (gpu->footprint_count && buffer_reserve(gpu, &gpu->footprint_buffer,
+                                               (size_t)gpu->footprint_count * sizeof(*gpu->footprints)))
+        rlUpdateShaderBuffer(gpu->footprint_buffer.id, gpu->footprints,
+                             (unsigned int)((size_t)gpu->footprint_count * sizeof(*gpu->footprints)), 0);
+    else if (gpu->footprint_count)
+        gpu->failed = 1;
     if (gpu->emitter_count)
         rlUpdateShaderBuffer(gpu->emitter_buffer.id, gpu->emitters,
                              (unsigned int)((size_t)gpu->emitter_count * sizeof(*gpu->emitters)), 0);
@@ -1241,6 +1264,9 @@ int castle_gpu_render(CastleGpu *gpu) {
         uniform_i(p, "uWater", gpu->frame.water);
         uniform_i(p, "uGroundCasterCount", gpu->caster_count);
         rlBindShaderBuffer(gpu->caster_buffer.id, 6);
+        uniform_i(p, "uFootprintCount", gpu->footprint_buffer.id ? gpu->footprint_count : 0);
+        if (gpu->footprint_buffer.id)
+            rlBindShaderBuffer(gpu->footprint_buffer.id, 7);
         sampler(p, "uContacts", gpu->contact_atlas.id ? gpu->contact_atlas : gpu->white, 7);
         sampler(p, "uWaves", gpu->waves, 4);
         glBindVertexArray(gpu->vao);
