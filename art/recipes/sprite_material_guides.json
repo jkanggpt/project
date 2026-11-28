@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "source": "art/sources/sprite_materials/guides.txt",
+  "producer": "Codex가 원화와 재료 종류를 보고 작성한 구조 규약; 외부 그림 추가 없음",
+  "columns": [
+    "id",
+    "shape",
+    "roof256",
+    "ridge256",
+    "height256",
+    "roughness",
+    "emission",
+    "glow_top256",
+    "glow_bottom256"
+  ],
+  "coordinate_policy": "위치 값은 각 프레임의 불투명 점유 윤곽 상자 기준 256분율이다. height256은 기존 스프라이트 높이 계수에 대한 상대 배율이다.",
+  "shapes": {
+    "0": "평면",
+    "1": "박공 지붕",
+    "2": "복합·우진각 지붕",
+    "3": "원추 지붕·원통 몸체",
+    "4": "불규칙 유기 표면",
+    "5": "인물·동물 몸체",
+    "6": "벽·수직 부착물",
+    "7": "지면·작물·낮은 복합 구조",
+    "8": "선체",
+    "9": "천막·차양·개방 구조"
+  },
+  "emission_classes": {
+    "0": "없음",
+    "1": "따뜻한 창·등",
+    "2": "마법 광물·보주",
+    "3": "가마·용광로·모닥불"
+  },
+  "coverage": {
+    "baked_sheets": 354,
+    "authored_structure_assignments": 354,
+    "representative_source_images_reviewed": 22
+  },
+  "review_scope": "아래 원화 대표 22장을 직접 확인하여 재료별 구조·지붕선·발광 영역 규약을 작성했다. 모든 시트의 모든 프레임을 수작업으로 승인한 것으로 집계하지 않는다.",
+  "reviewed_sources": [
+    {
+      "id": "buildings.tower.0",
+      "path": "game/assets/buildings/tower_0.png",
+      "finding": "원통 탑과 원추 지붕, 지붕 끝은 점유 높이 약 29%; 아래쪽 횃불"
+    },
+    {
+      "id": "buildings.windmill.0",
+      "path": "game/assets/buildings/windmill_0.png",
+      "finding": "원통 몸체와 원추 지붕, 점유 지붕 약 37%; 아래쪽 창·등"
+    },
+    {
+      "id": "buildings.market.0",
+      "path": "game/assets/buildings/market_0.png",
+      "finding": "줄무늬 천 차양과 열린 진열대; 고체 벽 분할을 적용하지 않음"
+    },
+    {
+      "id": "buildings.well.0",
+      "path": "game/assets/buildings/well_0.png",
+      "finding": "작은 박공 지붕과 둥근 우물 돌, 지붕은 상단 약 34%"
+    },
+    {
+      "id": "buildings.quarry.0",
+      "path": "game/assets/buildings/quarry_0.png",
+      "finding": "돌산과 크레인, 왼쪽 아래 작은 지붕이 함께 있는 복합 구조"
+    },
+    {
+      "id": "buildings.clay_pit.0",
+      "path": "game/assets/buildings/clay_pit_0.png",
+      "finding": "구덩이·울타리·왼쪽 작은 지붕; 낮은 복합 지면 가이드"
+    },
+    {
+      "id": "buildings.warehouse.0",
+      "path": "game/assets/buildings/warehouse_0.png",
+      "finding": "큰 박공 지붕이 점유 상단 약 68%; 아래 창고 문과 등"
+    },
+    {
+      "id": "buildings.hunter_camp.0",
+      "path": "game/assets/buildings/hunter_camp_0.png",
+      "finding": "높은 천막과 열린 입구, 하단 중앙의 모닥불"
+    },
+    {
+      "id": "buildings.kiln.0",
+      "path": "game/assets/buildings/kiln_0.png",
+      "finding": "굴뚝·초록 박공 지붕·둥근 가마, 하단 입구의 불"
+    },
+    {
+      "id": "buildings.smelter.0",
+      "path": "game/assets/buildings/smelter_0.png",
+      "finding": "붉은 박공 지붕·굴뚝, 하단 오른쪽 용광로"
+    },
+    {
+      "id": "buildings.mage_tower.0",
+      "path": "game/assets/buildings/mage_tower_0.png",
+      "finding": "긴 원추 지붕과 상단 보주; 보주 발광을 지붕과 분리"
+    },
+    {
+      "id": "buildings.mana_mine.0",
+      "path": "game/assets/buildings/mana_mine_0.png",
+      "finding": "불규칙 바위·크레인·광산 입구와 청록 광물"
+    },
+    {
+      "id": "buildings.greenhouse.0",
+      "path": "game/assets/buildings/greenhouse_0.png",
+      "finding": "위에서 내려다본 작물·가열 구리 테두리, 집 지붕/벽 분할 제외"
+    },
+    {
+      "id": "buildings.observatory.0",
+      "path": "game/assets/buildings/observatory_0.png",
+      "finding": "복합 박공·돔 지붕, 아래 창·등과 금속 망원경 구분"
+    },
+    {
+      "id": "buildings.port.0",
+      "path": "game/assets/buildings/port_0.png",
+      "finding": "청색 박공 지붕과 부두/배, 따뜻한 등은 건물 앞쪽"
+    },
+    {
+      "id": "buildings.fishing_spot.0",
+      "path": "game/assets/buildings/fishing_spot_0.png",
+      "finding": "박공 덮개와 부두, 물고기 장식·낚시대는 비발광"
+    },
+    {
+      "id": "buildings.cottage.0",
+      "path": "game/assets/buildings/cottage_0.png",
+      "finding": "정면의 높은 초가 박공, 지붕이 점유 높이 약 62%"
+    },
+    {
+      "id": "buildings.cottage.1",
+      "path": "game/assets/buildings/cottage_1.png",
+      "finding": "측면의 넓은 초가 지붕, 정면과 다른 중심선"
+    },
+    {
+      "id": "buildings.keep.0",
+      "path": "game/assets/buildings/keep_0.png",
+      "finding": "양쪽 원통 탑과 중앙 박공이 결합된 성채"
+    },
+    {
+      "id": "buildings.mansion.0",
+      "path": "game/assets/buildings/mansion_0.png",
+      "finding": "넓은 복합 청색 지붕과 전면 창, 정원은 낮은 면"
+    },
+    {
+      "id": "buildings.ranch.0",
+      "path": "game/assets/buildings/ranch_0.png",
+      "finding": "낮은 개방 헛간·울타리·마당, 전체 고체 벽 제외"
+    },
+    {
+      "id": "buildings.logging_site.0",
+      "path": "game/assets/buildings/logging_site_0.png",
+      "finding": "낮은 천 차양·목재·작업 도구, 개방 구조"
+    }
+  ],
+  "frame_exceptions": [
+    {
+      "id": "roads.bridges",
+      "cells": "행 0~2",
+      "shape": 0,
+      "finding": "바닥·접속부, 낮은 높이"
+    },
+    {
+      "id": "roads.bridges",
+      "cells": "행 3",
+      "shape": 6,
+      "finding": "수직 난간; 바닥과 같은 법선/높이를 적용하지 않음"
+    },
+    {
+      "id": "terrain.props",
+      "cells": "인덱스 0~3 / 4~7 / 나머지",
+      "finding": "수관 / 바위 / 낮은 물건의 기존 셀별 구분을 유지"
+    }
+  ],
+  "limitations": "가이드는 원화를 유지하는 명시적 제작 규약이다. 가려진 실제 입체의 실측이나 모든 셀의 수작업 법선 원화를 뜻하지 않는다."
+}

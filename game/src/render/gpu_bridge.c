@@ -2,6 +2,8 @@
 #include "gpu_bridge.h"
 #include "app.h"
 #include "gpu.h"
+#include "carried_lights.h"
+#include "scene_profiles.h"
 #include "rlgl.h"
 #include <math.h>
 #include <stdio.h>
@@ -9,7 +11,7 @@
 #include <string.h>
 
 typedef struct MaterialPair {
-    Texture2D albedo, normal;
+    Texture2D albedo, normal, surface;
 } MaterialPair;
 typedef struct Bridge {
     GameApp *app;
@@ -18,9 +20,7 @@ typedef struct Bridge {
     RenderTexture2D overlay;
     unsigned char *terrain;
     size_t terrain_capacity;
-    CastleGpuLight candidates[4];
-    float candidate_distance[4];
-    int candidate_count, active, material, error, reset_pending;
+    int active, material, error, reset_pending;
     uint32_t owner;
     float foot, time;
     const void *world;
@@ -36,6 +36,30 @@ typedef struct Bridge {
     uint64_t baked_sprites, calibrated_sprites, estimated_sprites;
 } Bridge;
 static Bridge bridge;
+static int review_enabled, review_night = 1, review_view;
+static float review_azimuth = 135, review_elevation = 40;
+void game_gpu_review_enable(int enabled) { review_enabled = enabled; }
+int game_gpu_review_view(void) { return review_view; }
+int game_gpu_visual_minute(GameApp *app) {
+    return review_enabled ? (review_night ? 1320 : 720) : app->session.summary.minute_of_day;
+}
+void game_gpu_review_input(void) {
+    if (!review_enabled)
+        return;
+    if (IsKeyPressed(KEY_F7))
+        review_night = !review_night;
+    if (IsKeyPressed(KEY_F8))
+        review_view = (review_view + 1) % 5;
+    float speed = fminf(.05f, GetFrameTime()) * 45;
+    if (IsKeyDown(KEY_LEFT))
+        review_azimuth -= speed;
+    if (IsKeyDown(KEY_RIGHT))
+        review_azimuth += speed;
+    if (IsKeyDown(KEY_UP))
+        review_elevation = fminf(85, review_elevation + speed);
+    if (IsKeyDown(KEY_DOWN))
+        review_elevation = fmaxf(8, review_elevation - speed);
+}
 
 static Texture2D load_texture(const char *root, const char *relative) {
     char path[GAME_PATH_BYTES];
@@ -101,6 +125,8 @@ void game_gpu_shutdown(void) {
             UnloadTexture(bridge.materials[i].albedo);
         if (bridge.materials[i].normal.id)
             UnloadTexture(bridge.materials[i].normal);
+        if (bridge.materials[i].surface.id)
+            UnloadTexture(bridge.materials[i].surface);
     }
     castle_gpu_destroy(bridge.gpu);
     free(bridge.terrain);
@@ -195,16 +221,31 @@ int game_gpu_begin(GameApp *app) {
             bridge.terrain[i] |= 64u;
         if (s->summary.season == CORE_SEASON_WINTER && !water)
             bridge.terrain[i] = (unsigned char)((bridge.terrain[i] & ~1u) | 32u);
-        if (s->visibility && !s->visibility[i])
-            bridge.terrain[i] = 128;
+        if (s->visibility && s->visibility[i] < 2) {
+            int cx = (int)i % s->summary.map_width, cy = (int)i / s->summary.map_width, fringe = 0;
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++) {
+                    int x = cx + dx, y = cy + dy;
+                    if (x >= 0 && y >= 0 && x < s->summary.map_width && y < s->summary.map_height &&
+                        s->visibility[y * s->summary.map_width + x] >= 2)
+                        fringe = 1;
+                }
+            if (!fringe)
+                bridge.terrain[i] = 128;
+        }
     }
     float delta = app->automated ? 1.0f / 60 : fminf(.05f, GetFrameTime());
     if (app->automated || IsWindowFocused())
         bridge.time += delta;
     else
         delta = 0;
-    float phase = fminf(1, fmaxf(0, (s->summary.minute_of_day - 360) / 840.0f));
+    float phase = fminf(1, fmaxf(0, (game_gpu_visual_minute(app) - 360) / 840.0f));
     float azimuth = floorf(135 + phase * 90), elevation = floorf(18 + 44 * sinf(phase * PI));
+    if (review_enabled) {
+        azimuth = review_azimuth;
+        elevation = review_elevation;
+    }
+    int night = review_enabled ? review_night : s->summary.is_night;
     bridge.config = (CastleGpuFrame){.width = width,
                                      .height = height,
                                      .world_seed = (uint32_t)s->summary.seed,
@@ -221,9 +262,10 @@ int game_gpu_begin(GameApp *app) {
                                      .sun = {cosf(azimuth * DEG2RAD) * cosf(elevation * DEG2RAD),
                                              sinf(azimuth * DEG2RAD) * cosf(elevation * DEG2RAD),
                                              sinf(elevation * DEG2RAD), elevation},
-                                     .ambient = s->summary.is_night ? .20f : .50f,
+                                     .ambient = night ? .20f : .50f,
+                                     .view = review_view,
                                      .detail = 1.25f,
-                                     .sun_enabled = !s->summary.is_night,
+                                     .sun_enabled = !night,
                                      .shadows = 1,
                                      .foliage = !app->settings.low_effects,
                                      .grass = !app->settings.low_effects,
@@ -236,7 +278,6 @@ int game_gpu_begin(GameApp *app) {
     bridge.world = s->world;
     bridge.world_tick = s->summary.tick;
     bridge.reset_pending = 0;
-    bridge.candidate_count = 0;
     bridge.material = 0;
     bridge.owner = 0;
     bridge.foot = 0;
@@ -259,26 +300,30 @@ static const MaterialPair *material_pair(const GameMaterialBinding *m, Texture2D
     if (index >= 512 || m->divisor < 1)
         return NULL;
     MaterialPair *pair = &bridge.materials[index];
-    if (pair->albedo.id && pair->normal.id)
+    if (pair->albedo.id && pair->normal.id && pair->surface.id)
         return pair;
     /* 읽기는 처음 사용할 때만 수행하며 메뉴 왕복 뒤에도 같은 자원을 재사용합니다. */
     pair->albedo = load_texture(bridge.assets_directory, m->albedo);
     pair->normal = load_texture(bridge.assets_directory, m->normal);
-    if (!pair->albedo.id || !pair->normal.id || pair->albedo.width != original.width ||
+    pair->surface = load_texture(bridge.assets_directory, m->surface);
+    if (!pair->albedo.id || !pair->normal.id || !pair->surface.id || pair->albedo.width != original.width ||
         pair->albedo.height != original.height || pair->normal.width != original.width / m->divisor ||
-        pair->normal.height != original.height / m->divisor) {
+        pair->normal.height != original.height / m->divisor || pair->surface.width != pair->normal.width ||
+        pair->surface.height != pair->normal.height) {
         fprintf(stderr, "스프라이트 재료를 읽지 못했습니다: %s\n", m->albedo);
         if (pair->albedo.id)
             UnloadTexture(pair->albedo);
         if (pair->normal.id)
             UnloadTexture(pair->normal);
+        if (pair->surface.id)
+            UnloadTexture(pair->surface);
         *pair = (MaterialPair){0};
         bridge.error = 1;
         return NULL;
     }
     bridge.material_count++;
     bridge.material_bytes += (size_t)pair->albedo.width * pair->albedo.height * 4 +
-                             (size_t)pair->normal.width * pair->normal.height * 3;
+                             (size_t)pair->normal.width * pair->normal.height * 7;
     return pair;
 }
 static int sprite(Texture2D texture, Rectangle source, Rectangle destination, Color tint, int floor_sprite,
@@ -372,6 +417,7 @@ static int sprite(Texture2D texture, Rectangle source, Rectangle destination, Co
             return 1;
         texture = pair->albedo;
         normal = pair->normal;
+        surface = pair->surface;
         s.tags[2] |= 4u;
         bridge.baked_sprites++;
     } else if (!binding) {
@@ -411,29 +457,58 @@ static void add_caster(uint32_t owner, int dynamic, int kind, float x, float y, 
 }
 static void candidate(CastleGpuLight light) {
     CastleGpuViewport v = castle_gpu_viewport(&bridge.config);
-    Vector2 center = {bridge.config.origin[0] + v.width * .5f, bridge.config.origin[1] + v.height * .5f};
-    float dx = light.position[0] - center.x, dy = light.position[1] - light.position[2] * .9f - center.y;
-    if (fabsf(dx) > v.width * .5f + light.position[3] || fabsf(dy) > v.height * .5f + light.position[3])
+    float x = light.position[0], y = light.position[1] - light.position[2] * .9f, r = light.position[3];
+    if (x + r < bridge.config.origin[0] || y + r < bridge.config.origin[1] ||
+        x - r > bridge.config.origin[0] + v.width || y - r > bridge.config.origin[1] + v.height)
         return;
-    float distance = dx * dx + dy * dy;
-    int slot = bridge.candidate_count;
-    if (slot == 4) {
-        slot = 0;
-        for (int i = 1; i < 4; i++)
-            if (bridge.candidate_distance[i] > bridge.candidate_distance[slot])
-                slot = i;
-        if (distance >= bridge.candidate_distance[slot])
-            return;
-    } else
-        bridge.candidate_count++;
-    bridge.candidates[slot] = light;
-    bridge.candidate_distance[slot] = distance;
+    if (!castle_gpu_light(bridge.gpu, &light))
+        bridge.error = 1;
+}
+void game_gpu_local_light(uint32_t owner, uint32_t identity, float x, float y, float z, float radius,
+                          Color color, float strength) {
+    if (!bridge.active || strength <= .001f)
+        return;
+    CastleGpuLight light = {{x, y + z * .9f, z, radius},
+                            {color.r / 255.0f, color.g / 255.0f, color.b / 255.0f, strength},
+                            {owner, 0, 1, identity}};
+    candidate(light);
+}
+int game_gpu_lamp(Texture2D atlas, Rectangle source, Rectangle destination, Color tint, float foot,
+                  float height, uint32_t owner) {
+    if (!bridge.active || !atlas.id)
+        return 0;
+    CastleGpuSprite s = {0};
+    s.destination[0] = destination.x;
+    s.destination[1] = destination.y;
+    s.destination[2] = destination.width;
+    s.destination[3] = destination.height;
+    s.source[0] = source.x / atlas.width;
+    s.source[1] = source.y / atlas.height;
+    s.source[2] = source.width / atlas.width;
+    s.source[3] = source.height / atlas.height;
+    s.tint[0] = tint.r / 255.0f;
+    s.tint[1] = tint.g / 255.0f;
+    s.tint[2] = tint.b / 255.0f;
+    s.tint[3] = tint.a / 255.0f;
+    s.shape[0] = foot;
+    s.shape[1] = height;
+    s.tags[0] = owner;
+    s.tags[1] = GPU_MATERIAL_UNLIT;
+    return castle_gpu_sprite(bridge.gpu, atlas, (Texture2D){0}, (Texture2D){0}, &s);
+}
+Texture2D game_gpu_clouds(GameApp *app) {
+    if (!bridge.gpu || bridge.error || !app->in_game)
+        return (Texture2D){0};
+    Texture2D result = castle_gpu_clouds(bridge.gpu, app->session.visibility, app->session.summary.map_width,
+                                         app->session.summary.map_height);
+    if (!result.id)
+        bridge.error = 1;
+    return result;
 }
 void game_gpu_building(GameApp *app, const CoreBuildingView *b, Rectangle picture) {
     if (!bridge.active)
         return;
-    int w = bridge.config.map_width;
-    int known = 0;
+    int w = bridge.config.map_width, known = 0;
     for (int y = b->y; y < b->y + b->h; y++)
         for (int x = b->x; x < b->x + b->w; x++)
             if (x >= 0 && y >= 0 && x < w && y < bridge.config.map_height &&
@@ -441,50 +516,41 @@ void game_gpu_building(GameApp *app, const CoreBuildingView *b, Rectangle pictur
                 known = 1;
     if (!known)
         return;
+    /* 바닥 재료·길·눈·시야는 보존하고 풀이 건물 안에서 자라는 것만 막습니다. */
     for (int y = b->y; y < b->y + b->h; y++)
         for (int x = b->x; x < b->x + b->w; x++)
-            if (x >= 0 && y >= 0 && x < w && y < bridge.config.map_height)
-                if (bridge.terrain[y * w + x] != 128)
-                    bridge.terrain[y * w + x] = 16;
-    if (b->kind_flags & CORE_EXP_PLOT)
+            if (x >= 0 && y >= 0 && x < w && y < bridge.config.map_height &&
+                bridge.terrain[y * w + x] != 128 && !(bridge.terrain[y * w + x] & 4u))
+                bridge.terrain[y * w + x] |= 16u;
+    GameSceneProfile p;
+    if (!game_scene_profile(b, picture, bridge.time, &p))
         return;
     uint32_t owner = 0x10000000u | (uint32_t)b->id;
-    float front = (b->y + b->h) * 16.0f, cx = (b->x + b->w * .5f) * 16,
-          depth = fminf(b->h * 16.0f, picture.height * .26f);
-    float height = picture.height * .78f, wall = height * .62f, rx = fminf(picture.width * .43f, b->w * 8.0f),
-          cy = front - depth * .5f;
-    if (b->kind_flags & (CORE_EXP_WALL | CORE_EXP_GATE)) {
-        height = picture.height * .65f;
-        wall = height;
+    for (int i = 0; i < p.volume_count; i++) {
+        GameSceneVolume *v = &p.volumes[i];
+        add_caster(owner, 0, v->kind, v->center.x, v->center.y, v->center.z, v->extent.x, v->extent.y,
+                   v->extent.z, .94f, v->contact);
     }
-    add_caster(owner, 0, 0, cx, cy, wall * .5f, rx, depth * .5f, wall * .5f, .94f, 1);
-    if (height > wall + 1)
-        add_caster(owner, 0, 2, cx, cy, wall, rx + 1.5f, depth * .5f + 1.5f, height - wall, .94f, 0);
-    int chimney = b->state == CORE_BSTATE_ACTIVE &&
-                  (b->type == CORE_BLD_HOUSE || b->type == CORE_BLD_COTTAGE || b->type == CORE_BLD_MANSION ||
-                   b->type == CORE_BLD_KILN || b->type == CORE_BLD_SMELTER || b->type == CORE_BLD_TAVERN);
-    if (chimney) {
-        CastleGpuViewport viewport = castle_gpu_viewport(&bridge.config);
-        float ex = picture.x + picture.width * (b->rotation == 2 || b->rotation == 3 ? .26f : .78f),
-              ez = picture.height * .92f;
-        float ey = picture.y + picture.height * .04f + ez * .9f;
-        add_caster(owner, 0, 0, ex, ey, ez - 3.0f, picture.width * .035f, 2.2f, 3.0f, .94f, 0);
-        if (picture.x + picture.width > bridge.config.origin[0] - 24 &&
-            picture.x < bridge.config.origin[0] + viewport.width + 24 &&
-            picture.y + picture.height > bridge.config.origin[1] - 64 &&
-            picture.y < bridge.config.origin[1] + viewport.height + 64) {
-            CastleGpuEmitter emitter = {{ex, ey, ez, 0}, {0}};
-            emitter.settings[0] = (float)b->id;
-            (void)castle_gpu_emitter(bridge.gpu, &emitter);
+    for (int i = 0; i < p.chimney_count; i++) {
+        GameSceneChimney *c = &p.chimneys[i];
+        add_caster(owner, 0, 0, c->position.x, c->position.y, c->position.z, c->extent.x, c->extent.y,
+                   c->extent.z, .94f, 0);
+        if (c->smoke) {
+            CastleGpuEmitter e = {{c->position.x, c->position.y, c->position.z + c->extent.z, 0}, {0}};
+            e.settings[0] = (float)b->id;
+            (void)castle_gpu_emitter(bridge.gpu, &e);
         }
     }
-    if (b->state == CORE_BSTATE_ACTIVE &&
-        (b->resident_slots > 0 || b->worker_slots > 0 || b->type == CORE_BLD_KEEP)) {
-        CastleGpuLight light = {{cx, front + 2, height * .32f, 54}, {1.12f, .67f, .28f, 0}, {owner, 0, 0, 0}};
-        float strength = fminf(1, fmaxf(0, (.55f - bridge.config.ambient) / .4f));
-        light.color[3] = .88f * strength * (.96f + .04f * sinf(bridge.time * 2.3f + b->id * .73f));
-        if (light.color[3] > .01f)
-            candidate(light);
+    for (int i = 0; i < p.light_count; i++) {
+        GameSceneLight *e = &p.lights[i];
+        float night = game_carried_strength(game_gpu_visual_minute(app));
+        float power = e->strength * (e->kind == GAME_SCENE_FURNACE ? 1.0f : night);
+        if (power < .001f)
+            continue;
+        CastleGpuLight light = {{e->position.x, e->position.y, e->position.z, e->radius},
+                                {e->color.r / 255.0f, e->color.g / 255.0f, e->color.b / 255.0f, power},
+                                {0, 0, 0, owner + (uint32_t)i}};
+        candidate(light);
     }
 }
 void game_gpu_prop(GameApp *app, int cell, int type) {
@@ -523,8 +589,11 @@ int game_gpu_finish(void) {
     EndBlendMode();
     EndTextureMode();
     bridge.active = 0;
-    for (int k = 0; k < bridge.candidate_count; k++)
-        (void)castle_gpu_light(bridge.gpu, &bridge.candidates[k]);
+    if (review_enabled && IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+        Vector2 p = GetScreenToWorld2D(GetMousePosition(), game_gpu_screen_camera(bridge.app));
+        CastleGpuLight light = {{p.x, p.y + 18, 20, 72}, {1.1f, .65f, .25f, 1.1f}, {0, 0, 0, 0}};
+        (void)castle_gpu_light(bridge.gpu, &light);
+    }
     castle_gpu_terrain(bridge.gpu, bridge.terrain, bridge.config.map_width, bridge.config.map_height);
     if (!castle_gpu_render(bridge.gpu)) {
         bridge.error = 1;

@@ -2,6 +2,7 @@
 #include "art/image_ops.h"
 #include "art/pipeline.h"
 #include "art/sprite_materials.h"
+#include "art/carried_lights.h"
 #include "assets_index.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -107,6 +108,7 @@ int main(int argc, char **argv) {
                  stage(art_stage_interface, "--manor", settlement) ||
                  stage(art_stage_services, art_input("services"), settlement) ||
                  stage(art_stage_production, art_input("production"), settlement) ||
+                 art_carried_lights(art_input("carried_lights/masks.txt"), settlement) ||
                  art_sprite_materials(sources, work, work, 1);
     for (int i = 0; !failed && i < CASTLE_ASSET_COUNT; i++) {
         const CastleAssetRecord *record = &CASTLE_ASSETS[i];

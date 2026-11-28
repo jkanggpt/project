@@ -52,7 +52,7 @@ void main(){
     float small=noiseValue(p/3.7);
     float level=.51+macro*.25+floor(cluster*4.0)*.035;
     vec3 color=paletteGrass(level),normal=vec3(0,0,1);
-    if((flags&16u)!=0u&&(flags&4u)==0u)color=paletteEarth(.37+cluster*.20);
+    /* 건물의 풀이 없는 영역도 본래 지면의 색·질감을 이어갑니다. */
     int material=4;
     /* 짧은 지피 식물도 칸별 그림 대신 월드 군집을 따릅니다. */
     uint dotSeed=hashCell(ivec2(floor(p/vec2(3,5))));

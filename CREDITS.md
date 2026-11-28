@@ -25,3 +25,7 @@
 자연 풍경의 연속 재료·초지·물결·연기와 알파 접촉 거리장 코드는 Codex가 작성했습니다. `art/sources/gpu_scenery/contacts.txt`의 기술 규약은 같은 아트 파이프라인으로 재생성하며 요청과 제작 범위는 `art/recipes/provenance.json`에 기록합니다. 접촉 거리장은 기존 게임 원화의 실제 알파에서 GPU로 만드는 기술 자료입니다. 참고 그림의 픽셀이나 외부 셰이더 코드는 복제하지 않았으며, 원본 그림의 권리는 그대로 유지합니다.
 
 세계 스프라이트 354개 시트의 알베도·법선 쌍은 기존 생성 원화를 `tools/art/sprite_materials.c`로 자동 처리한 기술 자료입니다. 프레임 목록·표면 규약은 `art/sources/sprite_materials`, 전체 제작 근거는 `art/recipes/sprite_materials.json`과 `provenance.json`에 있습니다. 새 외부 그림이나 생성 요청은 추가하지 않았습니다. 자동 추정 법선과 제한된 원광 명암 완화이며 수작업 법선 원화로 표시하지 않습니다. 이 파생 자료에 대한 프로젝트 보유 권리는 원본과 같은 CC0 1.0 정책을 따릅니다.
+
+## 그래픽 마무리 이미지 원본
+
+`art/sources/graphics_finish_generated`의 휴대 등불·횃불·고정 불 원본과 구름·물·재료 참고 시트는 내장 image_gen으로 생성했습니다. 편집 참조는 기존 프로젝트 그림이며 외부 그림을 복제하지 않았습니다. 프로젝트가 보유하는 권리는 기존 생성 그림과 같은 CC0 1.0 정책을 따릅니다. 요청 전문·참조 해시·실제 크기·선택 및 배제 상태는 `art/recipes/graphics_finish_image_generation.json`에 보존합니다. 원본 이미지 생성만 마쳤으며 정확한 화소 패킹과 런타임 적용은 후속 코딩 단계입니다.

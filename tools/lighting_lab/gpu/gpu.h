@@ -33,6 +33,7 @@ typedef struct CastleGpuCaster {
     uint32_t tags[4];
     float contact_profile[4];
 } CastleGpuCaster;
+/* 광원 tags[2]의 하위 비트는 간략 차폐, tags[3]은 안정된 발광체 번호입니다. */
 typedef struct CastleGpuLight {
     float position[4];
     float color[4];
@@ -91,6 +92,7 @@ int castle_gpu_light(CastleGpu *gpu, const CastleGpuLight *light);
 int castle_gpu_emitter(CastleGpu *gpu, const CastleGpuEmitter *emitter);
 void castle_gpu_terrain(CastleGpu *gpu, const unsigned char *cells, int width, int height);
 int castle_gpu_render(CastleGpu *gpu);
+Texture2D castle_gpu_clouds(CastleGpu *gpu, const unsigned char *visibility, int width, int height);
 void castle_gpu_present(CastleGpu *gpu, Rectangle destination);
 CastleGpuStats castle_gpu_stats(const CastleGpu *gpu);
 Texture2D castle_gpu_output(const CastleGpu *gpu);

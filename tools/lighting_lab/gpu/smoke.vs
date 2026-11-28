@@ -4,6 +4,7 @@ uniform float uScale;
 uniform int uNatural;
 uniform float uPuffScale;
 out vec2 puffUv;
+out vec3 puffWorld;
 flat out vec4 puffData;
 void main(){
     Particle p=particles[gl_InstanceID];
@@ -14,5 +15,6 @@ void main(){
     vec2 world=center+(uv-.5)*size*2.0;
     vec2 pixel=(world-uOrigin)*uScale;
     gl_Position=p.settings.w==0.0?vec4(3,3,0,1):vec4(pixel.x/uViewport.x*2.0-1.0,1.0-pixel.y/uViewport.y*2.0,0,1);
+    puffWorld=vec3(world.x,world.y+p.position.z*.9,p.position.z);
     puffUv=uv;puffData=vec4(age,p.position.z,p.settings.y,size);
 }

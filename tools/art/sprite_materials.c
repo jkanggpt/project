@@ -20,10 +20,19 @@ typedef struct Entry {
 typedef struct Vector {
     int x, y, z;
 } Vector;
+typedef struct Guide {
+    char id[128];
+    int shape, roof, ridge, height, roughness, emission, glow_top, glow_bottom;
+} Guide;
+typedef struct Tone {
+    uint64_t sum[64];
+    unsigned count[64];
+} Tone;
 typedef struct Catalog {
     Profile profiles[16];
     Entry entries[512];
-    int profiles_count, count;
+    Guide guides[512];
+    int profiles_count, count, guides_count;
 } Catalog;
 
 static int clamp(int n, int lo, int hi) { return n < lo ? lo : n > hi ? hi : n; }
@@ -108,7 +117,37 @@ static int catalog(Catalog *c, const char *sources) {
         line += offset;
     }
     free(text);
+    bytes = read(sources, "sprite_materials/guides.txt", &size);
+    if (!bytes)
+        return 0;
+    text = calloc((size_t)size + 1, 1);
+    if (!text) {
+        free(bytes);
+        return 0;
+    }
+    memcpy(text, bytes, (size_t)size);
+    free(bytes);
+    ok = ok && sscanf(text, "CASTLE_MATERIAL_GUIDES %d\nGUIDES %d\n%n", &version, &c->guides_count, &offset) == 2 &&
+         version == 1 && c->guides_count > 0 && c->guides_count <= 512;
+    line = text + offset;
+    for (int i = 0; ok && i < c->guides_count; i++) {
+        Guide *g = &c->guides[i];
+        ok = sscanf(line, "%127s %d %d %d %d %d %d %d %d%n", g->id, &g->shape, &g->roof, &g->ridge,
+                    &g->height, &g->roughness, &g->emission, &g->glow_top, &g->glow_bottom, &offset) == 9 &&
+             g->shape >= 0 && g->shape <= 9 && g->roof >= 0 && g->roof <= 256 &&
+             g->ridge >= 0 && g->ridge <= 256 && g->height >= 0 && g->height <= 256 &&
+             g->roughness >= 0 && g->roughness <= 255 && g->emission >= 0 && g->emission <= 3 &&
+             g->glow_top >= 0 && g->glow_bottom <= 256 && g->glow_top <= g->glow_bottom && record(g->id);
+        line += offset;
+    }
+    free(text);
     return ok;
+}
+static const Guide *guide(const Catalog *c, const Entry *e) {
+    for (int i = 0; i < c->guides_count; i++)
+        if (!strcmp(e->id, c->guides[i].id))
+            return &c->guides[i];
+    return NULL;
 }
 static const Profile *profile(const Catalog *c, const Entry *e) {
     for (int i = 0; i < c->profiles_count; i++)
@@ -147,13 +186,15 @@ static int similar(Color a, Color b) {
     int sa = a.r + a.g + a.b + 1, sb = b.r + b.g + b.b + 1;
     return b.a >= 32 && abs(a.r * 256 / sa - b.r * 256 / sb) + abs(a.g * 256 / sa - b.g * 256 / sb) < 32;
 }
-static Color delight(Color c, Vector n, const Profile *p) {
-    /* 어두운 선과 유리색을 보호하고 RGB에 같은 비율만 적용합니다. */
-    if (luminance(c) < 32 || (c.b > c.r * 3 / 2 && c.b > c.g * 5 / 4))
+static int chroma(Color c) {
+    int total = c.r + c.g + c.b + 1;
+    return clamp(c.r * 8 / total, 0, 7) * 8 + clamp(c.g * 8 / total, 0, 7);
+}
+static Color delight(Color c, int local, int reference, const Profile *p) {
+    /* 색상별 저주파 밝기만 중화하고 선화·작은 질감의 상대 대비를 보존합니다. */
+    if (luminance(c) < 32 || local < 24 || reference < 24)
         return c;
-    int dot = (n.x * p->lx + n.y * p->ly + n.z * p->lz) / 4096;
-    int light = 2048 + clamp(dot, 0, 4096) / 2;
-    int gain = clamp(p->reference * 4096 / light, p->minimum, p->maximum);
+    int gain = clamp(4096 + (reference * 4096 / local - 4096) * 3 / 4, p->minimum, p->maximum);
     int maximum = c.r > c.g ? c.r : c.g;
     maximum = maximum > c.b ? maximum : c.b;
     if (maximum)
@@ -162,6 +203,39 @@ static Color delight(Color c, Vector n, const Profile *p) {
     c.g = (unsigned char)((c.g * gain + 2048) / 4096);
     c.b = (unsigned char)((c.b * gain + 2048) / 4096);
     return c;
+}
+static void tone_add(Tone *tone, Color c) {
+    if (c.a < 128 || luminance(c) < 32)
+        return;
+    int key = chroma(c);
+    tone->sum[key] += (unsigned)luminance(c);
+    tone->count[key]++;
+}
+static int tone_mean(const Tone *tone, int key, int fallback) {
+    return tone->count[key] ? (int)(tone->sum[key] / tone->count[key]) : fallback;
+}
+static int patch_mean(const Tone *patches, int columns, int rows, int x, int y, int key, int reference) {
+    int bx = x >= 8 ? (x - 8) / 16 : 0, by = y >= 8 ? (y - 8) / 16 : 0;
+    int fx = x >= 8 ? (x - 8) % 16 * 16 : 0, fy = y >= 8 ? (y - 8) % 16 * 16 : 0;
+    int sum = 0, weights = 0;
+    for (int yy = 0; yy < 2; yy++)
+        for (int xx = 0; xx < 2; xx++) {
+            const Tone *t = &patches[clamp(by + yy, 0, rows - 1) * columns + clamp(bx + xx, 0, columns - 1)];
+            int weight = (xx ? fx : 256 - fx) * (yy ? fy : 256 - fy) / 256;
+            if (t->count[key] >= 6) {
+                sum += tone_mean(t, key, reference) * weight;
+                weights += weight;
+            }
+        }
+    return weights ? sum / weights : reference;
+}
+static int same_family(const char *a, const char *b) {
+    size_t length = strlen(a), other = strlen(b);
+    int rotation = length > 2 && a[length - 2] == '.' && a[length - 1] >= '0' && a[length - 1] <= '3';
+    if (!rotation)
+        return !strcmp(a, b);
+    return length == other && b[other - 2] == '.' && b[other - 1] >= '0' && b[other - 1] <= '3' &&
+           !strncmp(a, b, length - 1);
 }
 static int plant(Color c) { return c.g * 100 > c.r * 110 && c.g * 100 > c.b * 110 && luminance(c) > 35; }
 static void distance_field(const Color *pixels, int stride, int w, int h, uint16_t *d, int vegetation) {
@@ -197,94 +271,148 @@ static void distance_field(const Color *pixels, int stride, int w, int h, uint16
             d[i] = (uint16_t)best;
         }
 }
+static int roof_pixel(Guide g, Color c, int y) {
+    int colored = (c.r * 100 > c.g * 124 && c.r * 100 > c.b * 130) ||
+                  (c.b * 100 > c.r * 125 && c.b * 100 > c.g * 97) ||
+                  (c.g * 100 > c.r * 120 && c.g * 100 > c.b * 110);
+    return (g.shape == 1 || g.shape == 2 || g.shape == 3 || g.shape == 9) &&
+           ((y < g.roof && (colored || luminance(c) < 45)) ||
+            (colored && y < clamp(g.roof + 32, 0, 210)));
+}
+static unsigned char emission(Color c, Guide g, int y) {
+    if (!g.emission || y < g.glow_top || y > g.glow_bottom)
+        return 0;
+    int light = luminance(c), hot = 0;
+    if (g.emission == 2)
+        hot = (c.b > 140 && c.b * 100 > c.r * 120 && c.b * 100 > c.g * 112) ||
+              (c.g > 145 && c.b > 145 && c.g * 100 > c.r * 130 && c.b * 100 > c.r * 130);
+    else
+        hot = c.r > 190 && c.g > (g.emission == 3 ? 75 : 125) && c.r * 100 > c.g * 108 &&
+              c.g * 100 > c.b * 145 && light > (g.emission == 3 ? 100 : 150);
+    return hot ? (unsigned char)clamp((light - (g.emission == 3 ? 85 : 120)) * 3, 0, 240) : 0;
+}
+static Vector macro_normal(Profile p, Guide g, Color c, int x, int y, int dx, int dy) {
+    Vector n = {0, 0, 4096};
+    if (roof_pixel(g, c, y)) {
+        int direction = x < g.ridge ? -1 : 1;
+        if (g.shape == 3)
+            n = (Vector){(x - g.ridge) * 2800 / 128, 1200 + y * 900 / (g.roof + 1), 3200};
+        else if (g.shape == 2)
+            n = x < g.ridge / 2 || x > g.ridge + (256 - g.ridge) / 2
+                    ? (Vector){direction * 2300, 1100, 3250}
+                    : (Vector){0, 2650, 3050};
+        else
+            n = (Vector){direction * (g.shape == 9 ? 1100 : 1800), 2150, 3250};
+    } else if (g.shape == 1 || g.shape == 2 || g.shape == 3 || g.shape == 6 || g.shape == 9) {
+        if ((g.shape == 6 && y < g.roof) || (g.shape == 9 && plant(c) && y > g.roof))
+            n = (Vector){0, 0, 4096};
+        else
+            n = (Vector){x < 30 ? -1500 : x > 226 ? 1500 : 0, 3900, 850};
+    } else if (g.shape == 4 || g.shape == 5 || g.shape == 8 || (g.shape == 7 && plant(c))) {
+        int curve = p.curve;
+        n = (Vector){0, g.shape == 7 ? 400 : p.y, g.shape == 7 ? 4050 : p.z};
+        if (!strcmp(p.name, "foliage") && y > 180 && abs(x - 128) < 40 && !plant(c)) {
+            n = (Vector){0, 3650, 1550};
+            curve = 200;
+        }
+        n.x -= dx * curve;
+        n.y -= dy * curve / 2;
+        n.z += dy * curve / 2;
+        if (g.shape == 5)
+            n.x += (x - 128) * 800 / 128;
+        if (g.shape == 4 && strcmp(p.name, "foliage")) {
+            n.x = (n.x + (x - 128) * 1100 / 128) / 512 * 512;
+            n.y = n.y / 512 * 512;
+            n.z = n.z / 512 * 512;
+        }
+    }
+    n.z = clamp(n.z, 600, 8192);
+    return unit(n);
+}
 static int bake_frame(const Color *source, int stride, Color *albedo, unsigned char *normal,
-                      int normal_stride, int w, int h, int divisor, Profile p) {
+                      int normal_stride, int w, int h, int divisor, Profile p,
+                      unsigned char *surface, const Guide *shape, const Tone *reference) {
     uint16_t *distance = malloc((size_t)w * h * sizeof(*distance));
     Vector *vectors = malloc((size_t)w * h * sizeof(*vectors));
-    if (!distance || !vectors) {
-        free(distance);
-        free(vectors);
+    Color *surfaces = malloc((size_t)w * h * sizeof(*surfaces));
+    int columns = (w + 15) / 16, rows = (h + 15) / 16;
+    Tone *patches = calloc((size_t)columns * rows, sizeof(*patches));
+    if (!distance || !vectors || !patches || !surfaces) {
+        free(distance); free(vectors); free(patches); free(surfaces);
         return 0;
     }
+    Guide fallback = {"fixture", p.kind == 1 ? 1 : p.kind == 2 ? 4 : !strcmp(p.name, "field") ? 7 : 0,
+                      p.roof, 128, p.kind ? 256 : 32, 235, 0, 0, 0};
+    Guide g = shape ? *shape : fallback;
+    Tone frame_tone = {0};
     int left = w, right = 0, top = h, bottom = 0;
-    int field = !strcmp(p.name, "field");
-    distance_field(source, stride, w, h, distance, field);
-    for (int y = 0; y < h; y++)
-        for (int x = 0; x < w; x++)
-            if (source[y * stride + x].a >= 32) {
-                if (x < left)
-                    left = x;
-                if (x > right)
-                    right = x;
-                if (y < top)
-                    top = y;
-                if (y > bottom)
-                    bottom = y;
-            }
-    for (int y = 0; y < h; y++)
-        for (int x = 0; x < w; x++) {
-            int at = y * stride + x, i = y * w + x;
-            Color c = source[at];
-            vectors[i] = (Vector){0, 0, 4096};
-            albedo[at] = c;
-            if (c.a < 32)
-                continue;
-            int dx = (int)distance[y * w + clamp(x + 2, 0, w - 1)] - distance[y * w + clamp(x - 2, 0, w - 1)];
-            int dy = (int)distance[clamp(y + 2, 0, h - 1) * w + x] - distance[clamp(y - 2, 0, h - 1) * w + x];
-            dx = clamp(dx, -6, 6);
-            dy = clamp(dy, -6, 6);
-            Vector base = {0, p.y, p.z};
-            if (p.kind == 1) {
-                int roof = top + (bottom - top) * p.roof / 256;
-                int colored_roof = !strcmp(p.name, "building") && y < top + (bottom - top) * 3 / 4 &&
-                                   ((c.r * 100 > c.g * 135 && c.r * 100 > c.b * 140) ||
-                                    (c.b * 100 > c.r * 130 && c.b * 100 > c.g * 108));
-                base = (y < roof || colored_roof)
-                           ? (Vector){(x * 2 - left - right) * 1200 / (right - left + 1), 2100, 3450}
-                           : (Vector){(x * 2 - left - right) * 900 / (right - left + 1), p.y, p.z};
-            } else if (p.kind == 2 || (field && plant(c))) {
-                int curve = p.curve;
-                if (!strcmp(p.name, "foliage") && y > top + (bottom - top) * 5 / 8 && c.g * 100 < c.r * 106) {
-                    base = (Vector){0, 3600, 1600};
-                    curve = 220;
-                }
-                base.x = -dx * curve;
-                base.y -= dy * curve / 2;
-                base.z += dy * curve / 2;
-            }
-            base.z = clamp(base.z, 600, 8192);
-            base = unit(base);
-            albedo[at] = delight(c, base, &p);
-            Color l = source[y * stride + clamp(x - 1, 0, w - 1)],
-                  r = source[y * stride + clamp(x + 1, 0, w - 1)],
-                  u = source[clamp(y - 1, 0, h - 1) * stride + x],
-                  d = source[clamp(y + 1, 0, h - 1) * stride + x];
-            int gx = similar(c, l) && similar(c, r) ? clamp(luminance(r) - luminance(l), -12, 12) : 0;
-            int gy = similar(c, u) && similar(c, d) ? clamp(luminance(d) - luminance(u), -12, 12) : 0;
-            base.x -= gx * p.detail;
-            base.y -= gy * p.detail / 2;
-            base.z += gy * p.detail / 2;
-            vectors[i] = unit(base);
+    distance_field(source, stride, w, h, distance, g.shape == 7);
+    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+        Color c = source[y * stride + x];
+        tone_add(&frame_tone, c);
+        tone_add(&patches[(y / 16) * columns + x / 16], c);
+        if (c.a >= 32) {
+            if (x < left) left = x;
+            if (x > right) right = x;
+            if (y < top) top = y;
+            if (y > bottom) bottom = y;
         }
-    for (int y = 0; y < h; y += divisor)
-        for (int x = 0; x < w; x += divisor) {
-            Vector sum = {0};
-            for (int yy = 0; yy < divisor; yy++)
-                for (int xx = 0; xx < divisor; xx++)
-                    if (source[(y + yy) * stride + x + xx].a >= 32) {
-                        Vector v = vectors[(y + yy) * w + x + xx];
-                        sum.x += v.x;
-                        sum.y += v.y;
-                        sum.z += v.z;
-                    }
-            sum = unit(sum);
-            int at = (y / divisor * normal_stride + x / divisor) * 3;
-            normal[at] = encode(sum.x);
-            normal[at + 1] = encode(sum.y);
-            normal[at + 2] = encode(sum.z);
+    }
+    if (!reference) reference = &frame_tone;
+    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+        Color c = source[y * stride + x];
+        int key = chroma(c), mean = tone_mean(reference, key, luminance(c));
+        int local = patch_mean(patches, columns, rows, x, y, key, mean);
+        albedo[y * stride + x] = c.a >= 32 ? delight(c, local, mean, &p) : c;
+    }
+    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+        int at = y * stride + x, i = y * w + x;
+        Color c = source[at];
+        vectors[i] = (Vector){0, 0, 4096}; surfaces[i] = (Color){0, 0, 255, 255};
+        if (c.a < 32) continue;
+        int xx = (x - left) * 256 / (right - left + 1), yy = (y - top) * 256 / (bottom - top + 1);
+        int dx = (int)distance[y * w + clamp(x + 2, 0, w - 1)] - distance[y * w + clamp(x - 2, 0, w - 1)];
+        int dy = (int)distance[clamp(y + 2, 0, h - 1) * w + x] - distance[clamp(y - 2, 0, h - 1) * w + x];
+        Vector base = macro_normal(p, g, c, xx, yy, clamp(dx, -6, 6), clamp(dy, -6, 6));
+        Color l = albedo[y * stride + clamp(x - 1, 0, w - 1)],
+              r = albedo[y * stride + clamp(x + 1, 0, w - 1)],
+              u = albedo[clamp(y - 1, 0, h - 1) * stride + x],
+              d = albedo[clamp(y + 1, 0, h - 1) * stride + x];
+        int gx = similar(albedo[at], l) && similar(albedo[at], r) ? clamp(luminance(r) - luminance(l), -12, 12) : 0;
+        int gy = similar(albedo[at], u) && similar(albedo[at], d) ? clamp(luminance(d) - luminance(u), -12, 12) : 0;
+        base.x -= gx * p.detail; base.y -= gy * p.detail / 2; base.z += gy * p.detail / 2;
+        vectors[i] = unit(base);
+        int height = g.height * clamp(bottom - y, 0, h) / (bottom - top + 1);
+        if (g.shape == 0 || (g.shape == 7 && !plant(c))) height = 0;
+        int roughness = g.roughness;
+        if (g.shape == 7) roughness = plant(c) ? 238 : c.g < c.r ? 247 : g.roughness;
+        if (g.shape <= 3 && !roof_pixel(g, c, yy) && c.b * 100 > c.r * 135 && c.b * 100 > c.g * 108)
+            roughness = 65;
+        int neighbors = (luminance(l) + luminance(r) + luminance(u) + luminance(d)) / 4;
+        int ao = luminance(c) >= 32 ? 255 - clamp((neighbors - luminance(c) - 18) * 2, 0, 40) : 255;
+        surfaces[i] = (Color){(unsigned char)clamp(height, 0, 255), emission(c, g, yy),
+                              (unsigned char)roughness, (unsigned char)ao};
+    }
+    for (int y = 0; y < h; y += divisor) for (int x = 0; x < w; x += divisor) {
+        Vector sum = {0}; int count = 0, height = 0, roughness = 0, glow = 0, ao = 255;
+        for (int yy = 0; yy < divisor; yy++) for (int xx = 0; xx < divisor; xx++)
+            if (source[(y + yy) * stride + x + xx].a >= 32) {
+                int at = (y + yy) * w + x + xx;
+                Vector v = vectors[at]; sum.x += v.x; sum.y += v.y; sum.z += v.z;
+                Color s = surfaces[at]; count++; height += s.r; roughness += s.b;
+                if (s.g > glow) glow = s.g;
+                if (s.a < ao) ao = s.a;
+            }
+        sum = unit(sum);
+        int at = y / divisor * normal_stride + x / divisor;
+        normal[at * 3] = encode(sum.x); normal[at * 3 + 1] = encode(sum.y); normal[at * 3 + 2] = encode(sum.z);
+        if (surface) {
+            Color result = {(unsigned char)(count ? height / count : 0), (unsigned char)glow,
+                            (unsigned char)(count ? roughness / count : 255), (unsigned char)ao};
+            memcpy(surface + at * 4, &result, sizeof(result));
         }
-    free(distance);
-    free(vectors);
+    }
+    free(distance); free(vectors); free(patches); free(surfaces);
     return 1;
 }
 int art_sprite_materials(const char *sources, const char *input, const char *output, int staged) {

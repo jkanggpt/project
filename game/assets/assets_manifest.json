@@ -28285,6 +28285,28 @@
       "sha256": "452b0df99215acceada8d29e1a064dc727201c346f3c22cdf51c90014e1d34a6",
       "stage_file": "materials/normals/buildings/paved_road_3.png",
       "crc32": 1013570746
+    },
+    {
+      "id": "lighting.carried",
+      "path": "lighting_lab/carried_lights.png",
+      "kind": "texture",
+      "required": true,
+      "width": 128,
+      "height": 32,
+      "columns": 8,
+      "rows": 2,
+      "frames": 8,
+      "content_keys": [
+        "lighting.carried"
+      ],
+      "source": "art/art_manifest.json#lighting.carried",
+      "generated_by": "castle_art_pipeline",
+      "license": "licenses/generated-art.txt",
+      "runtime_owner": "GameAssets / game_assets_free",
+      "validation": "point-filter;alpha-cells;animated",
+      "sha256": "e68bed919620f359540224d6b03e943ba354cd01f36516ee603fcd2df5953f57",
+      "stage_file": "settlement/carried_lights.png",
+      "crc32": 1972692770
     }
   ]
 }

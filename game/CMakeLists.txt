@@ -49,7 +49,7 @@ if(CASTLE_BUILD_GAME)
   add_subdirectory("${PROJECT_SOURCE_DIR}/tools/lighting_lab/gpu" "${PROJECT_BINARY_DIR}/graphics_gpu")
   add_executable(castle_game src/main.c src/ui/widgets.c src/ui/panels.c src/render/world.c src/assets/loader.c src/ui/residents.c src/ui/services.c src/ui/facilities.c
     src/ui/main_menu.c src/ui/tutorial.c)
-  target_sources(castle_game PRIVATE src/render/gpu_bridge.c)
+  target_sources(castle_game PRIVATE src/render/gpu_bridge.c src/render/carried_lights.c src/render/scene_profiles.c)
   set(CASTLE_GAME_OUTPUT_DIR "" CACHE PATH "실행 중인 게임과 분리할 선택적 검증 출력 폴더")
   if(CASTLE_GAME_OUTPUT_DIR)
     set_target_properties(castle_game PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CASTLE_GAME_OUTPUT_DIR}")

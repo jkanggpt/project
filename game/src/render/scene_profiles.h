@@ -1,0 +1,41 @@
+/* 원화에 맞춘 건물의 차폐 체적·개구부·굴뚝 기준점입니다. */
+#ifndef CASTLE_SCENE_PROFILES_H
+#define CASTLE_SCENE_PROFILES_H
+#include "raylib.h"
+#include <castle_core.h>
+enum GameSceneLightKind {
+    GAME_SCENE_WINDOW,
+    GAME_SCENE_DOOR,
+    GAME_SCENE_TORCH,
+    GAME_SCENE_FURNACE,
+    GAME_SCENE_MAGIC,
+    GAME_SCENE_BEACON
+};
+typedef struct GameSceneVolume {
+    Vector3 center, extent;
+    int kind, contact;
+} GameSceneVolume;
+typedef struct GameSceneLight {
+    Vector3 position;
+    Vector2 screen;
+    Color color;
+    float radius, strength, direction, cone;
+    int kind;
+} GameSceneLight;
+typedef struct GameSceneChimney {
+    Vector3 position, extent;
+    int smoke;
+} GameSceneChimney;
+typedef struct GameSceneProfile {
+    GameSceneVolume volumes[8];
+    GameSceneLight lights[8];
+    GameSceneChimney chimneys[3];
+    int volume_count, light_count, chimney_count;
+    Rectangle ground;
+    float front, wall_height, roof_height;
+} GameSceneProfile;
+/* time은 등대 방향과 서로 다른 불빛 위상을 위한 시각 시간입니다. */
+int game_scene_profile(const CoreBuildingView *building, Rectangle picture, float time,
+                       GameSceneProfile *profile);
+int game_scene_profile_validate(void);
+#endif

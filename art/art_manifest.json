@@ -2708,6 +2708,111 @@
       "license": "game/assets/licenses/generated-art.txt",
       "consumer": "castle_art_pipeline",
       "verification": "알파·법선·프레임 독립 검사 및 전체 재생성 SHA256 일치"
+    },
+    {
+      "path": "art/sources/carried_lights/masks.txt",
+      "sha256": "cc626b1dc79c41f3044a5472e4a34378297d4c2c770971b0633019b332726324",
+      "producer": "Codex가 기존 픽셀 원화를 기준으로 작성한 기술 마스크·기준점",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "castle_art_pipeline",
+      "verification": "원장 SHA256·정수 재현성·기준점 검사"
+    },
+    {
+      "path": "art/sources/scene_profiles/buildings.inc",
+      "sha256": "4027d40a23a477ba671f8231ba54d89b2d1a86170deddd27f5725233289f2343",
+      "producer": "Codex가 기존 픽셀 원화를 기준으로 작성한 기술 마스크·기준점",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "castle_game / scene_profiles.c",
+      "verification": "원장 SHA256·정수 재현성·기준점 검사"
+    },
+    {
+      "path": "art/sources/sprite_materials/guides.txt",
+      "sha256": "d0fa1780bba3905728e5209abaf58ae28ecbc4a9e179e5e025c764960b731ed5",
+      "producer": "Codex가 기존 픽셀 원화를 기준으로 작성한 기술 마스크·기준점",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "castle_art_pipeline",
+      "verification": "원장 SHA256·정수 재현성·기준점 검사"
+    },
+    {
+      "path": "art/sources/graphics_finish_generated/carried_lights_source.png",
+      "sha256": "fc7c0c70d95a62132f46af1198407acf21b7398eb4fdddc59a92b0f9d0add4e1",
+      "producer": "image_gen; 생성 요청 전문은 art/recipes/graphics_finish_image_generation.json",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "그래픽 마무리 코딩 세션의 아트 처리 / 선택 상태 확인",
+      "verification": "PNG 해독·실제 크기·알파·SHA256 확인; 런타임 패킹·기술 지도 검증은 미수행",
+      "status": "superseded"
+    },
+    {
+      "path": "art/sources/graphics_finish_generated/stationary_fires_source.png",
+      "sha256": "78a599b2e32b0d30869fdf9fc5c808aaead8f9b724e4086781cb750704195dc1",
+      "producer": "image_gen; 생성 요청 전문은 art/recipes/graphics_finish_image_generation.json",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "그래픽 마무리 코딩 세션의 아트 처리 / 선택 상태 확인",
+      "verification": "PNG 해독·실제 크기·알파·SHA256 확인; 런타임 패킹·기술 지도 검증은 미수행",
+      "status": "superseded"
+    },
+    {
+      "path": "art/sources/graphics_finish_generated/cloud_visibility_direction.png",
+      "sha256": "3575c804ee762b547b48ddd59a5cb837c1cc176c344f1a23b9d4f05397d6a42b",
+      "producer": "image_gen; 생성 요청 전문은 art/recipes/graphics_finish_image_generation.json",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "그래픽 마무리 코딩 세션의 아트 처리 / 선택 상태 확인",
+      "verification": "PNG 해독·실제 크기·알파·SHA256 확인; 런타임 패킹·기술 지도 검증은 미수행",
+      "status": "selected_reference_only"
+    },
+    {
+      "path": "art/sources/graphics_finish_generated/water_reflection_direction.png",
+      "sha256": "58c515ae9917dd062b0d3840b3e12bab0a7564b362867507d4bea9ced52d6b10",
+      "producer": "image_gen; 생성 요청 전문은 art/recipes/graphics_finish_image_generation.json",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "그래픽 마무리 코딩 세션의 아트 처리 / 선택 상태 확인",
+      "verification": "PNG 해독·실제 크기·알파·SHA256 확인; 런타임 패킹·기술 지도 검증은 미수행",
+      "status": "selected_reference_only"
+    },
+    {
+      "path": "art/sources/graphics_finish_generated/carried_lights_padded.png",
+      "sha256": "6aa503a42c6653ef79282e32e42b3062e9281247f2755743212864600bc1334b",
+      "producer": "image_gen; 생성 요청 전문은 art/recipes/graphics_finish_image_generation.json",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "그래픽 마무리 코딩 세션의 아트 처리 / 선택 상태 확인",
+      "verification": "PNG 해독·실제 크기·알파·SHA256 확인; 런타임 패킹·기술 지도 검증은 미수행",
+      "status": "selected_source_requires_packing"
+    },
+    {
+      "path": "art/sources/graphics_finish_generated/stationary_fires_padded.png",
+      "sha256": "4da96ef231d09d1149051ef18a83099f3c39eb9933c4f3fd5afd1909ffd9a602",
+      "producer": "image_gen; 생성 요청 전문은 art/recipes/graphics_finish_image_generation.json",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "그래픽 마무리 코딩 세션의 아트 처리 / 선택 상태 확인",
+      "verification": "PNG 해독·실제 크기·알파·SHA256 확인; 런타임 패킹·기술 지도 검증은 미수행",
+      "status": "selected_source_requires_packing"
+    },
+    {
+      "path": "art/sources/graphics_finish_generated/nature_neutral_color_guide.png",
+      "sha256": "c8eae3a912daa52aab4c273f4e7416fb0aa7b045c46f599914a1323525ea1f10",
+      "producer": "image_gen; 생성 요청 전문은 art/recipes/graphics_finish_image_generation.json",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "그래픽 마무리 코딩 세션의 아트 처리 / 선택 상태 확인",
+      "verification": "PNG 해독·실제 크기·알파·SHA256 확인; 런타임 패킹·기술 지도 검증은 미수행",
+      "status": "selected_reference_only"
+    },
+    {
+      "path": "art/sources/graphics_finish_generated/actor_neutral_color_guide.png",
+      "sha256": "53613ce0831fd5d22035bc128e133864bdb4d1fb084bd2e271533b477673e837",
+      "producer": "image_gen; 생성 요청 전문은 art/recipes/graphics_finish_image_generation.json",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "그래픽 마무리 코딩 세션의 아트 처리 / 선택 상태 확인",
+      "verification": "PNG 해독·실제 크기·알파·SHA256 확인; 런타임 패킹·기술 지도 검증은 미수행",
+      "status": "rejected"
+    },
+    {
+      "path": "art/sources/graphics_finish_generated/architecture_material_guides.png",
+      "sha256": "505df8886c23732ae12b81598268f2127e3bdb897ef7fa79920341237791dde6",
+      "producer": "image_gen; 생성 요청 전문은 art/recipes/graphics_finish_image_generation.json",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "그래픽 마무리 코딩 세션의 아트 처리 / 선택 상태 확인",
+      "verification": "PNG 해독·실제 크기·알파·SHA256 확인; 런타임 패킹·기술 지도 검증은 미수행",
+      "status": "selected_reference_only"
     }
   ],
   "resources": [
@@ -13150,6 +13255,14 @@
       "generation": "원화 단계 출력과 프레임별 정수 표면 프로필로 자동 굽기; 수작업 법선 아님",
       "recipe": "art/recipes/sprite_materials.json",
       "original": "buildings.paved_road.3"
+    },
+    {
+      "id": "lighting.carried",
+      "output": "game/assets/lighting_lab/carried_lights.png",
+      "stage_file": "settlement/carried_lights.png",
+      "sha256": "e68bed919620f359540224d6b03e943ba354cd01f36516ee603fcd2df5953f57",
+      "source_group": "art/sources/carried_lights",
+      "generation": "마스크·팔레트에서 정수 불꽃 8프레임 제작"
     }
   ]
 }
