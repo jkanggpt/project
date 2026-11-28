@@ -163,10 +163,11 @@ static Color delight(Color c, Vector n, const Profile *p) {
     c.b = (unsigned char)((c.b * gain + 2048) / 4096);
     return c;
 }
-static void distance_field(const Color *pixels, int stride, int w, int h, uint16_t *d) {
+static int plant(Color c) { return c.g * 100 > c.r * 110 && c.g * 100 > c.b * 110 && luminance(c) > 35; }
+static void distance_field(const Color *pixels, int stride, int w, int h, uint16_t *d, int vegetation) {
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++)
-            d[y * w + x] = pixels[y * stride + x].a < 32
+            d[y * w + x] = (pixels[y * stride + x].a < 32 || (vegetation && !plant(pixels[y * stride + x])))
                                ? 0
                                : (uint16_t)(x == 0 || y == 0 || x == w - 1 || y == h - 1 ? 3 : 30000);
     for (int y = 0; y < h; y++)
@@ -206,7 +207,8 @@ static int bake_frame(const Color *source, int stride, Color *albedo, unsigned c
         return 0;
     }
     int left = w, right = 0, top = h, bottom = 0;
-    distance_field(source, stride, w, h, distance);
+    int field = !strcmp(p.name, "field");
+    distance_field(source, stride, w, h, distance, field);
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++)
             if (source[y * stride + x].a >= 32) {
@@ -240,7 +242,7 @@ static int bake_frame(const Color *source, int stride, Color *albedo, unsigned c
                 base = (y < roof || colored_roof)
                            ? (Vector){(x * 2 - left - right) * 1200 / (right - left + 1), 2100, 3450}
                            : (Vector){(x * 2 - left - right) * 900 / (right - left + 1), p.y, p.z};
-            } else if (p.kind == 2) {
+            } else if (p.kind == 2 || (field && plant(c))) {
                 int curve = p.curve;
                 if (!strcmp(p.name, "foliage") && y > top + (bottom - top) * 5 / 8 && c.g * 100 < c.r * 106) {
                     base = (Vector){0, 3600, 1600};
@@ -452,6 +454,17 @@ int art_sprite_materials_test(void) {
     for (int y = 0; y < 16; y++)
         for (int x = 0; x < 16; x++)
             ok = ok && albedo[y * 32 + x].a == source[y * 32 + x].a;
-    printf("MATERIAL FIXTURES: frame_independence=1 alpha=1 world_axes=1 errors=%d\n", !ok);
+    Color plot[16 * 16], corrected[16 * 16];
+    unsigned char plot_normals[16 * 16 * 3];
+    Profile field = {"field", 0, 0, 400, 4050, 280, 28, 3712, 4864, -1800, 2400, 2800, 3500};
+    for (int i = 0; i < 16 * 16; i++)
+        plot[i] = (Color){100, 70, 40, 255};
+    for (int y = 2; y <= 6; y++)
+        for (int x = 2; x <= 6; x++)
+            plot[y * 16 + x] = (Color){80, 130, 55, 255};
+    ok = ok && bake_frame(plot, 16, corrected, plot_normals, 16, 16, 16, 1, field);
+    ok = ok && plot_normals[(4 * 16 + 2) * 3] < 128 && plot_normals[(4 * 16 + 6) * 3] > 128 &&
+         plot_normals[(12 * 16 + 12) * 3] == 128;
+    printf("MATERIAL FIXTURES: frame_independence=1 alpha=1 world_axes=1 field_plant=1 errors=%d\n", !ok);
     return ok ? 0 : 1;
 }

@@ -72,7 +72,11 @@ int art_sprite_materials_gallery(const char *runtime, const char *output) {
                                     {"buildings.manor.3", 0, 0, 0, 0},
                                     {"buildings.manor.5", 0, 0, 0, 0},
                                     {"buildings.gates", 256, 128, 128, 128},
-                                    {"buildings.wall_links", 512, 128, 128, 128}};
+                                    {"buildings.wall_links", 512, 128, 128, 128},
+                                    {"buildings.farm.0", 0, 0, 0, 0},
+                                    {"buildings.irrigated_farm.0", 0, 0, 0, 0},
+                                    {"buildings.orchard.0", 0, 0, 0, 0},
+                                    {"buildings.stone_road.0", 0, 0, 0, 0}};
     const Vector3 lights[] = {{-.6f, .2f, .77f}, {.6f, .2f, .77f}, {0, -.7f, .71f}, {0, .7f, .71f}};
     const int count = (int)(sizeof(selections) / sizeof(selections[0])), cell = 112, rows = 12;
     if (!game_make_dirs(output))
