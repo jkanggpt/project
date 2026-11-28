@@ -1,5 +1,6 @@
 /* expansion_raids.c — 고정 능력치 28종·계절 편성·고유 보상과 동적 소환 */
 #include "expansion.h"
+#include "castle_test_tools.h"
 #include "mem.h"
 #include <stdlib.h>
 #include <string.h>
@@ -151,6 +152,8 @@ void expansion_raids_tick(World *w) {
         }
         return;
     }
+    if (w->test_flags & CORE_TEST_NO_RAIDS)
+        return;
     if (!e->next_raid_tick) {
         int first = (int[]){28, 18, 14}[w->difficulty];
         e->next_raid_tick = (first - 1) * 144 + rng_range(&w->rng, 0, 3) * 144 + rng_range(&w->rng, 36, 138);

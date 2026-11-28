@@ -4,6 +4,7 @@ set(CASTLE_CORE_SOURCES
   src/common/clock.c
   src/common/definitions.c
   src/common/debug.c
+  src/common/test_tools.c
   src/common/builtin_definitions.c
   src/common/difficulty.c
   src/economy/bank.c

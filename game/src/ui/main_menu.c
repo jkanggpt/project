@@ -131,6 +131,10 @@ void game_main_menu_update(GameApp *a, float delta) {
     GameMenuState *m = &a->menu;
     if (a->in_game)
         return;
+    if (a->test_tools.active)
+        game_test_tools_enter(a, 0);
+    if (a->panel != PANEL_CONFIRM)
+        a->test_tools.loading = 0;
     if (!m->background_ready) {
         int rc = background(a);
         if (rc != CORE_OK) {
@@ -240,6 +244,9 @@ static void menu_action(GameApp *a, int item) {
     case 8:
         (void)game_app_start(a);
         break;
+    case 9:
+        game_test_tools_open(a);
+        break;
     }
 }
 
@@ -270,8 +277,9 @@ static int finish_transition(GameApp *a) {
 void game_main_menu_title(GameApp *a) {
     if (finish_transition(a))
         return;
-    static const char *const labels[] = {u8"이어하기", u8"새 게임", u8"튜토리얼", u8"불러오기",
+    static const char *const labels[] = {u8"이어하기", u8"새 게임", u8"튜토리얼", u8"불러오기", u8"창작 도구",
                                          u8"설정",     u8"도움말",  u8"제작진",   u8"종료"};
+    static const int actions[] = {0, 1, 2, 3, 9, 4, 5, 6, 7};
     GameMenuState *m = &a->menu;
     GameUi *u = &a->ui;
     m->preview_ready = 0;
@@ -303,12 +311,12 @@ void game_main_menu_title(GameApp *a) {
         return;
     }
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN))
-        m->selected = (m->selected + 1) % 8;
+        m->selected = (m->selected + 1) % 9;
     if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP))
-        m->selected = (m->selected + 7) % 8;
+        m->selected = (m->selected + 8) % 9;
     if (!m->selected && m->latest_slot < 0)
-        m->selected = IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP) ? 7 : 1;
-    for (int i = 0; i < 8; i++) {
+        m->selected = IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP) ? 8 : 1;
+    for (int i = 0; i < 9; i++) {
         Rectangle r = area(x, y + i * (row + gap), width, row);
         int enabled = i != 0 || m->latest_slot >= 0;
         int hover = CheckCollisionPointRec(mouse, r);
@@ -329,7 +337,7 @@ void game_main_menu_title(GameApp *a) {
     if (action >= 0 && !m->pending_action) {
         u->consumed = 1;
         game_sound(&a->assets, SND_CLICK, u->volume);
-        request_action(a, action);
+        request_action(a, actions[action]);
     }
     Rectangle card =
         area(fmaxf(x + width + 38, w - 410), h - 175, fminf(362, w - (x + width + 38) - 32), 118);
