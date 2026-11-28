@@ -36,6 +36,12 @@ target_compile_definitions(castle_tests PRIVATE CASTLE_SOURCE_DIR="${PROJECT_SOU
 target_link_libraries(castle_tests PRIVATE castle_core_testing castle_warnings)
 
 add_executable(castle_native_tests test_native.c)
+add_executable(castle_test_tools_tests test_tools.c)
+target_include_directories(castle_test_tools_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
+target_link_libraries(castle_test_tools_tests PRIVATE castle_frontend castle_warnings)
+foreach(case normal economy clock roundtrip)
+  add_test(NAME test_tools_${case} COMMAND castle_test_tools_tests ${case} ${PROJECT_SOURCE_DIR}/game/data)
+endforeach()
 target_include_directories(castle_native_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 target_link_libraries(castle_native_tests PRIVATE castle_frontend castle_cli_support castle_warnings)
 add_test(NAME native_runtime COMMAND castle_native_tests ${PROJECT_SOURCE_DIR}/game/data)

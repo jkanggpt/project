@@ -1,5 +1,6 @@
 /* expansion_commands.c — 회전 배치, 성채 도로망, 폐쇄 성벽과 시야 */
 #include "expansion.h"
+#include "castle_test_tools.h"
 #include "mem.h"
 #include "placement.h"
 #include <stdlib.h>
@@ -265,6 +266,8 @@ void expansion_visibility_cache(World *w, int discover) {
     }
     for (i = 0; i < e->cells; i++)
         e->visible[i] = e->static_visible[i] || e->work_visible[i];
+    if (w->test_flags & CORE_TEST_REVEAL)
+        memset(e->visible, 1, (size_t)e->cells);
     for (i = 0; i < w->villager_count; i++) {
         Villager *v = w->villagers[i];
         if (!v->incoming && v->state != CORE_VS_LEAVING)
@@ -309,15 +312,17 @@ void expansion_place_check(const World *w, int type, int x, int y, int rotation,
                 return;
             }
         }
-    if (core_expansion_build_locked(w)) {
+    if (core_expansion_build_locked(w) && !(w->test_flags & CORE_TEST_FREE_BUILD)) {
         out->result = CORE_PLACE_RAID_BUILD_LOCK;
         return;
     }
     out->w = (rotation & 1) ? s->h : s->w;
     out->h = (rotation & 1) ? s->w : s->h;
     memcpy(out->cost, w->defs.buildings[type].cost, sizeof(out->cost));
+    if (w->test_flags & CORE_TEST_FREE_BUILD)
+        memset(out->cost, 0, sizeof(out->cost));
     out->productivity = 100;
-    if (s->rank > w->rank) {
+    if (s->rank > w->rank && !(w->test_flags & CORE_TEST_UNLOCK_BUILD)) {
         out->result = CORE_PLACE_LOCKED;
         return;
     }
@@ -409,7 +414,8 @@ void expansion_place_check(const World *w, int type, int x, int y, int rotation,
             out->result = CORE_PLACE_NO_DOOR;
             return;
         }
-        if (w->rank >= 1 && s->rank >= 1 && !w->expansion->connected[p]) {
+        if (w->rank >= 1 && s->rank >= 1 && !w->expansion->connected[p] &&
+            !(w->test_flags & CORE_TEST_UNLOCK_BUILD)) {
             out->result = CORE_PLACE_UNREACHABLE;
             return;
         }
@@ -450,6 +456,11 @@ int expansion_place(World *w, int type, int x, int y, int rotation, int *id, int
         b->hp = w->defs.buildings[type].max_hp;
         b->auto_assign = 1;
         b->state = CORE_BSTATE_CONSTRUCTING;
+        if (w->test_flags & CORE_TEST_INSTANT_BUILD) {
+            b->state = CORE_BSTATE_ACTIVE;
+            b->build_progress = w->defs.buildings[type].build_ticks;
+            b->completed_day = exp_day(w);
+        }
         b->mode_day = -1;
         b->crop_year = exp_year(w);
     }
@@ -470,6 +481,11 @@ int expansion_place(World *w, int type, int x, int y, int rotation, int *id, int
     expansion_ensure_building_serials(w);
     expansion_rebuild(w);
     events_push_building(&w->events, CORE_EVT_BUILDING_PLACED, *id, type, x, y);
+    if (w->test_flags & CORE_TEST_INSTANT_BUILD) {
+        expansion_capacity(w);
+        expansion_assign(w);
+        expansion_visibility(w);
+    }
     return CORE_OK;
 }
 static int service_cell(const World *w, const Building *b) {

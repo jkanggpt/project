@@ -8,6 +8,7 @@
 #include "ui.h"
 #include "ui/main_menu.h"
 #include "ui/tutorial.h"
+#include "ui/test_tools.h"
 typedef enum GamePanel {
     PANEL_NONE,
     PANEL_TITLE,
@@ -25,7 +26,8 @@ typedef enum GamePanel {
     PANEL_LEDGER,
     PANEL_ASSIGN,
     PANEL_OUTCOME,
-    PANEL_CONFIRM
+    PANEL_CONFIRM,
+    PANEL_TEST_TOOLS
 } GamePanel;
 typedef struct GameNotice {
     char text[256];
@@ -53,7 +55,7 @@ typedef struct GameApp {
     char user_dir[GAME_PATH_BYTES], save_dir[GAME_PATH_BYTES], settings_path[GAME_PATH_BYTES];
     GameNotice notices[8];
     int notice_count;
-    Rectangle toast_areas[4];
+    Rectangle toast_areas[8];
     int toast_area_count;
     GameDrawItem *draw_items;
     int draw_capacity;
@@ -63,6 +65,7 @@ typedef struct GameApp {
     /* 기능별 상태는 각자의 헤더에서 늘립니다 (이 구조체에 필드를 더하지 않아도 되게) */
     GameMenuState menu;         /* 메인 화면: ui/main_menu.h */
     GameTutorialState tutorial; /* 튜토리얼: ui/tutorial.h */
+    GameTestTools test_tools;   /* 실행 중 검사 도구: ui/test_tools.h */
 } GameApp;
 int game_hover_building(GameApp *app, Vector2 screen);
 float game_ui_facility_details(GameApp *app, const CoreBuildingView *building, float x, float y, float width);
@@ -72,6 +75,9 @@ void game_app_result(GameApp *app, int result, int reason, int placement);
 void game_app_open(GameApp *app, GamePanel panel);
 void game_app_close(GameApp *app);
 int game_app_start(GameApp *app);
+int game_app_start_test(GameApp *app);
+int game_app_load_test(GameApp *app);
+int game_app_copy_test(GameApp *app);
 int game_app_save(GameApp *app, int slot);
 int game_app_load(GameApp *app, int slot, int backup);
 int game_app_latest(GameApp *app);
