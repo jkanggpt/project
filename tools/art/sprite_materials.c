@@ -302,7 +302,7 @@ int art_sprite_materials(const char *sources, const char *input, const char *out
         if (!p || !original.data || original.width != e->width || original.height != e->height) {
             if (original.data)
                 UnloadImage(original);
-            fprintf(stderr, "재료 입력 오류: %s\n", e->id);
+            fprintf(stderr, u8"재료 입력 오류: %s\n", e->id);
             return 1;
         }
         Image albedo = ImageCopy(original);
@@ -358,7 +358,7 @@ int art_sprite_materials_check(const char *sources, const char *runtime) {
             if (!strcmp(c.entries[j].id, a->id))
                 found++;
         if (found != 1) {
-            fprintf(stderr, "세계 재료 목록 누락·중복: %s\n", a->id);
+            fprintf(stderr, u8"세계 재료 목록 누락·중복: %s\n", a->id);
             errors++;
         }
     }
@@ -419,7 +419,7 @@ int art_sprite_materials_check(const char *sources, const char *runtime) {
             }
         if (!ok || invalid) {
             errors++;
-            fprintf(stderr, "재료 계약 오류: %s (%d)\n", e->id, invalid);
+            fprintf(stderr, u8"재료 계약 오류: %s (%d)\n", e->id, invalid);
         }
         if (original.data)
             UnloadImage(original);

@@ -267,7 +267,7 @@ static const MaterialPair *material_pair(const GameMaterialBinding *m, Texture2D
     if (!pair->albedo.id || !pair->normal.id || pair->albedo.width != original.width ||
         pair->albedo.height != original.height || pair->normal.width != original.width / m->divisor ||
         pair->normal.height != original.height / m->divisor) {
-        fprintf(stderr, "스프라이트 재료를 읽지 못했습니다: %s\n", m->albedo);
+        fprintf(stderr, u8"스프라이트 재료를 읽지 못했습니다: %s\n", m->albedo);
         if (pair->albedo.id)
             UnloadTexture(pair->albedo);
         if (pair->normal.id)
