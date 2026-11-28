@@ -8,7 +8,7 @@
 
 static int sprites, lights, errors;
 static float last_strength;
-int game_gpu_visual_minute(const GameApp *app) { return app->session.summary.minute_of_day; }
+int game_gpu_visual_minute(GameApp *app) { return app->session.summary.minute_of_day; }
 int game_gpu_lamp(Texture2D atlas, Rectangle source, Rectangle destination, Color tint, float foot,
                   float height, uint32_t owner) {
     errors += !atlas.id || source.x < 0 || source.x >= 128 || destination.width < 6 || tint.a == 0 ||

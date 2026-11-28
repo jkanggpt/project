@@ -877,7 +877,9 @@ static void boat_sprite(GameApp *a, int index) {
         GameSpriteBox seat = game_boat_seat(kind, row, i);
         float sx = dest.x + dest.width * seat.x, sy = dest.y + dest.height * seat.y;
         Rectangle carried_actor = {sx - 7, sy - 13, 14, 19};
-        uint32_t owner = 0x30000000u | ((uint32_t)DRAW_BOAT << 24) | (uint32_t)b->id;
+        /* 배에는 별도 번호가 없으므로 항구와 정박 칸으로 안정된 소유 번호를 만듭니다. */
+        uint32_t boat_identity = ((uint32_t)b->port_id << 3) | ((uint32_t)b->slot & 7u);
+        uint32_t owner = 0x30000000u | ((uint32_t)DRAW_BOAT << 24) | (boat_identity & 0xffffffu);
         game_carried_light(a, owner, (uint32_t)v->id, 0, facing, 1, carried_actor, y, 0, 1);
         sprite(a->assets.villagers,
                (Rectangle){pose.column * 96.0f, pose.row * 96.0f, pose.flip ? -96.0f : 96.0f, 61},
