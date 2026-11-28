@@ -8,7 +8,7 @@
 - 재료: 354시트를 지침별로 다시 굽고 표면 RGBA(높이·발광·거칠기·틈새 차폐) 추가, 회전 계열 공통 밝기, 벽돌·회벽 발광 오검출 제거, 구운 재료를 모든 프레임에 일관 적용, 빈 건물 발광 끔.
 - 받침 흙·구름 경계·물 반짝임·칸별 다중 광원(넘침 전체 순회, 그림자 예산 정렬, 군중 무릎)·휴대 등불(인계 원화 패킹)·고정 불(드문 야영·검문·모임 자리).
 - `castle_game --lighting-review`·`lighting-review.cmd`, `--review-benchmark`·`benchmark-game.cmd`.
-- 확인: Linux 릴리스 WERROR 빌드·CTest(GPU 포함, llvmpipe), 아트 재생성·재현성, MinGW 코어 WERROR와 바뀐 게임·도구 소스의 MinGW·Clang `-Werror` 구문 검사. MSVC·RTX 4060 측정은 미실행.
+- 확인: Linux 릴리스 WERROR 빌드·CTest 294/294, 최신 codex/main-screen 병합 뒤 299/299(GPU 포함, llvmpipe), ASan·UBSan 메뉴 왕복, 아트 재생성·재현성, MinGW 코어 WERROR와 바뀐 게임·도구 소스의 MinGW·Clang `-Werror` 구문 검사. MSVC·RTX 4060 측정은 미실행.
 
 ## 튜토리얼 (Claude, 2026-11-27)
 
