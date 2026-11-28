@@ -20,7 +20,7 @@ bool rootVisible(vec2 root,uint seed,out vec4 field){
     vec2 end=uOrigin+uViewport/uScale;
     if(root.x<uOrigin.x-10.0||root.y<uOrigin.y-1.0||root.x>end.x+10.0||root.y>end.y+25.0)return false;
     uint flags=terrainAt(ivec2(floor(root/16.0)));
-    if((flags&1u)==0u||(flags&128u)!=0u)return false;
+    if((flags&1u)==0u||(flags&(128u|16u))!=0u)return false;
     field=terrainField(root+.5);
     if(field.x<1.5||field.y<2.5||field.z<1.0)return false;
     float cluster=noiseValue(root/47.0),gap=noiseValue(root/21.0+vec2(13,9));

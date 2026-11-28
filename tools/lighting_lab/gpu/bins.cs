@@ -5,7 +5,7 @@ void main(){
     if(any(greaterThanEqual(tile,uTileSize)))return;
     int offset=(tile.y*uTileSize.x+tile.x)*TILE_STRIDE;
     vec2 lo=uTileOrigin+vec2(tile)*16.0,hi=lo+16.0;
-    uint count=0u,overflow=0u;
+    uint count=0u,overflow=0u,staticCount=0u,staticOverflow=0u;
     for(int i=0;i<uCasterCount;i++){
         Caster c=casters[i];
         float top=c.tags.z==2u?c.center.z+c.extent.z:c.center.z+c.extent.z;
@@ -19,14 +19,21 @@ void main(){
             bounds.xy=min(bounds.xy,c.center.xy-c.extent.xy+push);
             bounds.zw=max(bounds.zw,c.center.xy+c.extent.xy+push);
         }
-        for(int k=0;k<uLightCount;k++){
+        for(int k=0;k<min(uLightCount,16);k++){
             Light light=lights[k];
             if(distance(c.center.xyz,light.position.xyz)>light.position.w+length(c.extent.xyz))continue;
             vec4 lamp=vec4(light.position.xy-light.position.w*vec2(1,1.35)-vec2(0,.9*light.position.z),light.position.xy+light.position.w*vec2(1,1.35));
             bounds.xy=min(bounds.xy,lamp.xy);bounds.zw=max(bounds.zw,lamp.zw);
         }
+        /* 작은 이동 광원은 가까운 고정 벽의 간략 차폐만 계산합니다. */
+        if(c.tags.y==0u){bounds.xy-=vec2(48);bounds.zw+=vec2(48);}
         if(!overlaps(bounds+vec4(-3,-3,3,3),lo,hi))continue;
         if(count<uint(TILE_LIMIT))tileWords[offset+2+int(count++)]=uint(i);else overflow=1u;
+        if(c.tags.y==0u){
+            if(staticCount<uint(TILE_LIMIT))staticWords[offset+2+int(staticCount++)]=uint(i);
+            else staticOverflow=1u;
+        }
     }
     tileWords[offset]=count;tileWords[offset+1]=overflow;
+    staticWords[offset]=staticCount;staticWords[offset+1]=staticOverflow;
 }

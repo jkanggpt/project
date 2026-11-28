@@ -12,7 +12,7 @@ void main(){
     float sun=uSunEnabled!=0?shadowVisibility(vec3(world,0),world,-1,0,0u,dither):1.0;
     vec4 points=vec4(1);
     for(int k=0;k<min(4,uLightCount);k++){
-        if(distance(vec3(world,0),lights[k].position.xyz)<lights[k].position.w)
+        if((lights[k].tags.z&1u)==0u&&distance(vec3(world,0),lights[k].position.xyz)<lights[k].position.w)
             points[k]=shadowVisibility(vec3(world,0),world,k,0,0u,dither);
     }
     imageStore(sunCache,at,vec4(sun));imageStore(pointCache,at,points);

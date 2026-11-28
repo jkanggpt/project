@@ -2,6 +2,10 @@
 #include "app.h"
 #include "format.h"
 #include "gpu_bridge.h"
+#include "carried_lights.h"
+#include "fire_atlas.h"
+#include "scene_profiles.h"
+#include "review.h"
 #include "gpu.h"
 #include <math.h>
 #include <stdio.h>
@@ -162,6 +166,19 @@ static void life_bar(GameApp *a, int category, int id, int hp, int max, Rectangl
                      color);
 }
 
+/* 시뮬레이션 시야는 그대로 두고 구름 밑에 지면 한 칸을 여유로 그립니다. */
+static int terrain_fringe(const GameSession *s, int x, int y) {
+    if (!s->visibility || s->visibility[y * s->summary.map_width + x] >= 2)
+        return 1;
+    for (int dy = -1; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++) {
+            int xx = x + dx, yy = y + dy;
+            if (xx >= 0 && yy >= 0 && xx < s->summary.map_width && yy < s->summary.map_height &&
+                s->visibility[yy * s->summary.map_width + xx] >= 2)
+                return 1;
+        }
+    return 0;
+}
 static void terrain(GameApp *a) {
     GameSession *s = &a->session;
     int x, y, w = s->summary.map_width, h = s->summary.map_height;
@@ -183,7 +200,7 @@ static void terrain(GameApp *a) {
         for (y = y0; y < y1; y++)
             for (x = x0; x < x1; x++) {
                 int i = y * w + x, variant = (int)(tile_noise(x, y) % 4);
-                if ((pass && !s->roads[i]) || (s->visibility && !s->visibility[i]))
+                if ((pass && !s->roads[i]) || !terrain_fringe(s, x, y))
                     continue;
                 Rectangle dest = {(float)x * 16, (float)y * 16, 16, 16};
                 if (pass) {
@@ -453,11 +470,34 @@ static void building(GameApp *a, int index) {
         tint = (Color){105, 95, 103, 255};
     if (b->state == CORE_BSTATE_CONSTRUCTING)
         tint = (Color){185, 168, 126, 170};
+    /* 빈 집·멈춘 일터의 창과 화덕은 원화에 그려져 있어도 밤에 빛나지 않습니다. */
+    game_gpu_emission(game_scene_lit(b) ? 1.0f : 0.0f);
     sprite(t, building_source(a, b, t), dest, tint);
     Texture2D attachment;
     Rectangle attachment_source, attachment_dest;
     if (building_attachment(a, b, dest, &attachment, &attachment_source, &attachment_dest))
         sprite(attachment, attachment_source, attachment_dest, WHITE);
+    GameSceneProfile illumination;
+    if (game_scene_profile(b, dest, a->session.visual_time, &illumination))
+        for (int light = 0; light < illumination.light_count; light++) {
+            GameSceneLight *source = &illumination.lights[light];
+            float night = game_carried_strength(game_gpu_visual_minute(a));
+            uint32_t owner = 0x10000000u | (uint32_t)b->id;
+            float front = (b->y + b->h) * 16.0f;
+            /* 가마·용광로 입구는 작업 중에만, 야영·검문·모임 불은 밤에만 움직이는 불꽃을 그립니다.
+               창·문 등불은 원화에 그려져 있으므로 빛만 더합니다. */
+            if (source->kind == GAME_SCENE_FURNACE)
+                game_stationary_fire(a, owner, GAME_STATIONARY_FURNACE, source->screen, front,
+                                     fminf(1, source->strength + .1f), 0);
+            else if (source->kind == GAME_SCENE_BRAZIER || source->kind == GAME_SCENE_CAMPFIRE)
+                game_stationary_fire(a, owner + (uint32_t)light,
+                                     source->kind == GAME_SCENE_BRAZIER ? GAME_STATIONARY_BRAZIER
+                                                                        : GAME_STATIONARY_CAMPFIRE,
+                                     source->screen, source->position.y, night, 0);
+            else if (source->kind == GAME_SCENE_TORCH && b->type == CORE_BLD_KEEP)
+                game_stationary_fire(a, owner + (uint32_t)light, GAME_STATIONARY_WALL_TORCH, source->screen,
+                                     front, night, source->screen.x > dest.x + dest.width * .5f);
+        }
     if (b->type == CORE_BLD_LIGHTHOUSE && b->state == CORE_BSTATE_ACTIVE && b->operating &&
         a->session.summary.is_night) {
         int frame = (int)(a->session.visual_time * 8) % 8;
@@ -519,6 +559,7 @@ static void villager(GameApp *a, int index) {
     int moving = a->speed > 0 && a->panel == PANEL_NONE && !v->at_target &&
                  !(v->intent_flags & CORE_INTENT_HOLD) && unit->next < unit->path.count;
     GameSpriteFrame frame;
+    int carry_pose = game_walk_frame(unit->walk_distance, moving || unit->chasing);
     if (unit->indoor > 0) {
         CoreBuildingView *b = game_building(&a->session, unit->indoor_building);
         if (b) {
@@ -539,11 +580,26 @@ static void villager(GameApp *a, int index) {
                              : game_walk_frame(unit->walk_distance, moving || unit->chasing);
         if (pose > 3)
             pose = 3;
+        carry_pose = pose;
         frame.column = dir * 8 + attacking * 4 + pose;
         clothes = a->assets.uniforms[unit->outfit - 1];
     }
+    uint32_t carry_owner = 0x30000000u | ((uint32_t)DRAW_VILLAGER << 24) | (uint32_t)v->id;
+    /* 경비(병영·주둔지 복장)는 횃불, 다른 주민은 랜턴입니다. 구름 아래 칸에서는 빛이 새지 않게 끕니다. */
+    int carry_torch = unit->outfit >= 3;
+    int cx = (int)floorf(unit->position.x), cy = (int)floorf(unit->position.y);
+    float carry_hidden = a->session.visibility &&
+                                 (cx < 0 || cy < 0 || cx >= a->session.summary.map_width ||
+                                  cy >= a->session.summary.map_height ||
+                                  a->session.visibility[cy * a->session.summary.map_width + cx] < 2)
+                             ? 1.0f
+                             : unit->indoor;
+    game_carried_light(a, carry_owner, (uint32_t)v->id, carry_torch, unit->facing, carry_pose, dest,
+                       unit->position.y * 16, carry_hidden, 1);
     sprite(clothes, (Rectangle){frame.column * 96.0f, frame.row * 96.0f, frame.flip ? -96.0f : 96.0f, 96},
            dest, Fade(effect_tint(a, 0, v->id), 1 - unit->indoor));
+    game_carried_light(a, carry_owner, (uint32_t)v->id, carry_torch, unit->facing, carry_pose, dest,
+                       unit->position.y * 16, carry_hidden, 0);
     if (unit->indoor < 0.5f)
         life_bar(a, 0, v->id, v->health, 100, dest);
     if (v->flags & CORE_VF_SICK)
@@ -801,8 +857,13 @@ static void merchant_sprite(GameApp *a) {
               : dy < 0          ? 2
                                 : 0,
         frame = moving ? (int)(s->visual_time * 7) % 4 : 4 + (int)(s->visual_time * 2) % 2;
-    sprite(a->assets.merchant, (Rectangle){frame * 96.0f, row * 96.0f, 96, 96},
-           (Rectangle){x * 16 - 12, y * 16 - 24, 24, 24}, WHITE);
+    Rectangle actor = {x * 16 - 12, y * 16 - 24, 24, 24};
+    int facing = (int[]){FACE_DOWN, FACE_LEFT, FACE_UP, FACE_RIGHT}[row];
+    uint32_t owner = 0x30000000u | ((uint32_t)DRAW_MERCHANT << 24);
+    uint32_t identity = 0x70000000u | (uint32_t)m->visit_id;
+    game_carried_light(a, owner, identity, 0, facing, frame, actor, y * 16, 0, 1);
+    sprite(a->assets.merchant, (Rectangle){frame * 96.0f, row * 96.0f, 96, 96}, actor, WHITE);
+    game_carried_light(a, owner, identity, 0, facing, frame, actor, y * 16, 0, 0);
 }
 static void boat_sprite(GameApp *a, int index) {
     GameSession *s = &a->session;
@@ -833,9 +894,15 @@ static void boat_sprite(GameApp *a, int index) {
         GameSpriteFrame pose = game_villager_frame(v->appearance + 1, facing, 0, 0);
         GameSpriteBox seat = game_boat_seat(kind, row, i);
         float sx = dest.x + dest.width * seat.x, sy = dest.y + dest.height * seat.y;
+        Rectangle carried_actor = {sx - 7, sy - 13, 14, 19};
+        /* 배에는 별도 번호가 없으므로 항구와 정박 칸으로 안정된 소유 번호를 만듭니다. */
+        uint32_t boat_identity = ((uint32_t)b->port_id << 3) | ((uint32_t)b->slot & 7u);
+        uint32_t owner = 0x30000000u | ((uint32_t)DRAW_BOAT << 24) | (boat_identity & 0xffffffu);
+        game_carried_light(a, owner, (uint32_t)v->id, 0, facing, 1, carried_actor, y, 0, 1);
         sprite(a->assets.villagers,
                (Rectangle){pose.column * 96.0f, pose.row * 96.0f, pose.flip ? -96.0f : 96.0f, 61},
                (Rectangle){sx - 7, sy - 13, 14, 12}, WHITE);
+        game_carried_light(a, owner, (uint32_t)v->id, 0, facing, 1, carried_actor, y, 0, 0);
     }
     /* 선수 가장자리를 다시 그려 주민의 하체를 선체 안에 가립니다. */
     sprite(hull, (Rectangle){source.x, 88, 128, 40},
@@ -1272,6 +1339,8 @@ static void bubble(GameApp *a, Vector2 anchor, int icon, int warning) {
            (Rectangle){box.x + 4, box.y + 2, 26, 26}, WHITE);
 }
 static void status_bubbles(GameApp *a) {
+    if (a->review && !game_review_interface_visible())
+        return;
     GameSession *s = &a->session;
     int i;
     for (i = 0; i < s->building_count; i++) {
@@ -1279,7 +1348,7 @@ static void status_bubbles(GameApp *a) {
         Rectangle image = building_rect(a, b, building_texture(a, b));
         Vector2 anchor = {image.x + image.width / 2, image.y - 3};
         if (b->state != CORE_BSTATE_ACTIVE ||
-            (s->visibility && !s->visibility[b->y * s->summary.map_width + b->x]))
+            (s->visibility && s->visibility[b->y * s->summary.map_width + b->x] < 2))
             continue;
         if (b->worker_slots && (!b->workers || b->blocked_reason == CORE_DENY_REQUIREMENTS))
             bubble(a, anchor, 20, 1);
@@ -1292,6 +1361,10 @@ static void status_bubbles(GameApp *a) {
         int icon = -1;
         Vector2 p;
         if (!actor)
+            continue;
+        int x = (int)floorf(actor->position.x), y = (int)floorf(actor->position.y);
+        if (x < 0 || y < 0 || x >= s->summary.map_width || y >= s->summary.map_height ||
+            (s->visibility && s->visibility[y * s->summary.map_width + x] < 2))
             continue;
         p = pixel(actor->position);
         p.y -= GAME_ACTOR_HEIGHT;
@@ -1327,23 +1400,22 @@ static void status_bubbles(GameApp *a) {
 }
 static void fog(GameApp *a) {
     GameSession *s = &a->session;
-    int x, y;
-    Vector2 top = GetScreenToWorld2D((Vector2){0, 0}, game_gpu_screen_camera(a)),
-            bottom = GetScreenToWorld2D((Vector2){(float)GetScreenWidth(), (float)GetScreenHeight()},
-                                        game_gpu_screen_camera(a));
-    int x0 = (int)fmaxf(0, floorf(top.x / 16)), y0 = (int)fmaxf(0, floorf(top.y / 16)),
-        x1 = (int)fminf((float)s->summary.map_width, ceilf(bottom.x / 16)),
-        y1 = (int)fminf((float)s->summary.map_height, ceilf(bottom.y / 16));
     if (!s->visibility)
         return;
-    for (y = y0; y < y1; y++)
-        for (x = x0; x < x1; x++) {
-            int vis = s->visibility[y * s->summary.map_width + x];
-            if (vis < 2)
-                DrawRectangle(x * 16, y * 16, 16, 16,
-                              vis ? (Color){12, 20, 24, 140} : (Color){12, 20, 24, 255});
-        }
+    Texture2D clouds = game_gpu_clouds(a);
+    if (clouds.id) {
+        Vector2 canvas = game_gpu_canvas_size();
+        DrawTexturePro(clouds, (Rectangle){0, 0, (float)clouds.width, -(float)clouds.height},
+                       (Rectangle){0, 0, canvas.x, canvas.y}, (Vector2){0, 0}, 0, WHITE);
+        return;
+    }
+    /* 그래픽 오류 중에는 화면 전체를 덮어 숨은 정보를 드러내지 않습니다. */
+    Vector2 canvas = game_gpu_canvas_size();
+    if (canvas.x <= 0 || canvas.y <= 0)
+        canvas = (Vector2){(float)GetScreenWidth(), (float)GetScreenHeight()};
+    DrawRectangleRec((Rectangle){0, 0, canvas.x, canvas.y}, (Color){45, 57, 65, 255});
 }
+
 void game_render_world(GameApp *a) {
     float time = (float)GetTime();
     int i;
@@ -1365,8 +1437,6 @@ void game_render_world(GameApp *a) {
     if (gpu)
         game_gpu_overlay_begin();
     BeginMode2D(gpu ? game_gpu_camera(a) : a->camera);
-    if (a->in_game)
-        fog(a);
     if (a->session.wandering.state != CORE_MERCHANT_DORMANT) {
         CoreWanderingMerchantView *m = &a->session.wandering;
         int cell = m->y_milli / 1000 * a->session.summary.map_width + m->x_milli / 1000;
@@ -1444,6 +1514,8 @@ void game_render_world(GameApp *a) {
                                                                                   : GOLD,
                              .35f));
         }
+    /* 안개는 불꽃·연기·날씨를 포함한 세계 층 뒤에 합성합니다. */
+    fog(a);
     if (gpu)
         game_gpu_overlay_end();
     status_bubbles(a);

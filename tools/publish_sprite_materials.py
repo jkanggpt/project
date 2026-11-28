@@ -20,12 +20,12 @@ def publish(root):
         if original["sha256"] != entry["source_sha256"]:
             raise ValueError(f'원화 해시 변경: {entry["id"]}')
         original["lighting"] = {
-            "mode": entry["mode"], "albedo": "", "normal": "",
+            "mode": entry["mode"], "albedo": "", "normal": "", "surface": "",
             "divisor": entry["normal_divisor"], "recipe": "art/recipes/sprite_materials.json",
         }
         if entry["mode"] != "baked":
             continue
-        for kind in ("albedo", "normals"):
+        for kind in ("albedo", "normals", "surface"):
             asset_id = f'materials.{kind}.{entry["id"]}'
             relative = f'materials/{kind}/{entry["path"]}'
             data = (root / "game/assets" / relative).read_bytes()
@@ -49,8 +49,8 @@ def publish(root):
                 "generation": "원화 단계 출력과 프레임별 정수 표면 프로필로 자동 굽기; 수작업 법선 아님",
                 "recipe": "art/recipes/sprite_materials.json", "original": entry["id"],
             })
-            original["lighting"]["albedo" if kind == "albedo" else "normal"] = relative
-    for relative in ("art/sources/sprite_materials/catalog.txt", "art/sources/sprite_materials/profiles.txt"):
+            original["lighting"]["normal" if kind == "normals" else kind] = relative
+    for relative in ("art/sources/sprite_materials/catalog.txt", "art/sources/sprite_materials/profiles.txt", "art/sources/sprite_materials/guides.txt"):
         art["source_files"] = [s for s in art["source_files"] if s["path"] != relative]
         art["source_files"].append({
             "path": relative, "sha256": hashlib.sha256((root / relative).read_bytes()).hexdigest(),

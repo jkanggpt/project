@@ -246,6 +246,81 @@
       "limitations": "단일 원화에서의 자동 표면 추정과 제한된 명암 완화다. 실제 입체 형상·완전 무조명 색이나 모든 셀의 수작업 검수를 보장하지 않는다. 기존 여섯 보정 표본은 유지한다.",
       "rights": "기존 원본 및 파생 자료에 대한 프로젝트 보유 권리는 generated-art.txt의 CC0 1.0 정책을 따른다. 외부 원화·셰이더를 추가하지 않았다.",
       "plot_semantics": "경작지·과수원의 흙은 수평 표면으로 두고 녹색 식물의 거리장을 별도로 사용한다. 길·다리는 수평, 성벽·문은 벽 프로필로 명시한다."
+    },
+    {
+      "id": "graphics.finish.image_sources",
+      "format": "image_gen",
+      "request": "사용자가 이 세션은 이미지 생성만 수행하고, 추가 AI 그림 생성 없이 별도 코딩 세션을 이어갈 전체 요청을 먼저 달라고 지시함.",
+      "recipe": "art/recipes/graphics_finish_image_generation.json",
+      "outputs": [
+        {
+          "path": "art/sources/graphics_finish_generated/carried_lights_source.png",
+          "sha256": "fc7c0c70d95a62132f46af1198407acf21b7398eb4fdddc59a92b0f9d0add4e1",
+          "status": "superseded"
+        },
+        {
+          "path": "art/sources/graphics_finish_generated/stationary_fires_source.png",
+          "sha256": "78a599b2e32b0d30869fdf9fc5c808aaead8f9b724e4086781cb750704195dc1",
+          "status": "superseded"
+        },
+        {
+          "path": "art/sources/graphics_finish_generated/cloud_visibility_direction.png",
+          "sha256": "3575c804ee762b547b48ddd59a5cb837c1cc176c344f1a23b9d4f05397d6a42b",
+          "status": "selected_reference_only"
+        },
+        {
+          "path": "art/sources/graphics_finish_generated/water_reflection_direction.png",
+          "sha256": "58c515ae9917dd062b0d3840b3e12bab0a7564b362867507d4bea9ced52d6b10",
+          "status": "selected_reference_only"
+        },
+        {
+          "path": "art/sources/graphics_finish_generated/carried_lights_padded.png",
+          "sha256": "6aa503a42c6653ef79282e32e42b3062e9281247f2755743212864600bc1334b",
+          "status": "selected_source_requires_packing"
+        },
+        {
+          "path": "art/sources/graphics_finish_generated/stationary_fires_padded.png",
+          "sha256": "4da96ef231d09d1149051ef18a83099f3c39eb9933c4f3fd5afd1909ffd9a602",
+          "status": "selected_source_requires_packing"
+        },
+        {
+          "path": "art/sources/graphics_finish_generated/nature_neutral_color_guide.png",
+          "sha256": "c8eae3a912daa52aab4c273f4e7416fb0aa7b045c46f599914a1323525ea1f10",
+          "status": "selected_reference_only"
+        },
+        {
+          "path": "art/sources/graphics_finish_generated/actor_neutral_color_guide.png",
+          "sha256": "53613ce0831fd5d22035bc128e133864bdb4d1fb084bd2e271533b477673e837",
+          "status": "rejected"
+        },
+        {
+          "path": "art/sources/graphics_finish_generated/architecture_material_guides.png",
+          "sha256": "505df8886c23732ae12b81598268f2127e3bdb897ef7fa79920341237791dde6",
+          "status": "selected_reference_only"
+        }
+      ],
+      "scope": "이미지 원본 9개 생성, 6개 선택·2개 대체·1개 배제. 프로그램 소스 추가 구현이나 런타임 적용 없음.",
+      "rights": "원본 프로젝트 아트와 새 생성 아트에 대해 프로젝트가 보유하는 권리는 기존 generated-art.txt의 CC0 1.0 정책을 따른다.",
+      "limitations": "생성 요청 크기와 실제 출력 크기는 다를 수 있다. 프레임 정렬과 정확한 원본 알파를 검증하지 않은 참고를 최종 기술 지도로 사용하지 않는다."
+    },
+    {
+      "id": "graphics.finish",
+      "format": "technical_bake",
+      "request": "기존 2D 픽셀 원화를 유지하며 명암 완화·법선·높이·발광·재질, 친선 인물 야간 등불, 구름 시야 경계와 물의 태양 반사를 완성한다.",
+      "sources": [
+        "art/sources/scene_profiles/buildings.inc",
+        "art/sources/sprite_materials/guides.txt",
+        "art/sources/graphics_finish_generated/carried_lights_padded.png",
+        "art/sources/graphics_finish_generated/stationary_fires_padded.png"
+      ],
+      "implementation": [
+        "tools/art/carried_lights.c",
+        "tools/art/sprite_materials.c",
+        "game/src/render/scene_profiles.c"
+      ],
+      "method": "휴대 등불·고정 불은 인계된 padded 원본 시트를 받침 기준으로 정렬해 정수 표본 평균으로 게임 화소에 굽는다. 기존 원화별 표면 지침으로 색·법선·높이·발광·거칠기·틈새 차폐를 굽는다. 개구부와 굴뚝은 원화 기준점을 사용한다. 구름·반사·다중 조명은 GPU에서 계산한다.",
+      "rights": "새 외부 원화·코드를 복제하지 않았다. 파생 아트에 대한 프로젝트 보유 권리는 기존 generated-art.txt의 CC0 1.0 정책을 따른다.",
+      "limitations": "표면·차폐 체적은 2D 원화로부터 작성한 조명용 근사이다. 시각 검수와 자동 검사를 별도 기록한다."
     }
   ]
 }

@@ -1,6 +1,7 @@
 layout(std430,binding=0) readonly buffer Casters {Caster casters[];};
 layout(std430,binding=1) readonly buffer Lights {Light lights[];};
 layout(std430,binding=2) buffer Tiles {uint tileWords[];};
+layout(std430,binding=4) buffer StaticTiles {uint staticWords[];};
 uniform int uCasterCount,uLightCount,uSunEnabled;
 uniform vec3 uSunDirection;
 uniform vec2 uTileOrigin;
@@ -135,6 +136,25 @@ float contactVisibility(vec2 p,float dither){
             coverage=clamp((1.22-distance)/.65,0.0,1.0)*.27;
         }
         covered=max(covered,floor(coverage*20.0+dither*.5)/20.0);
+    }
+    return 1.0-covered;
+}
+
+/* 이동하는 작은 등불은 지면 거리장 대신 가까운 고정 체적을 검사합니다. */
+float localLightVisibility(vec3 p,vec2 screenWorld,int lightIndex,uint receiver,float dither){
+    int offset=tileOffset(screenWorld);
+    bool fallback=offset<0;
+    if(!fallback)fallback=staticWords[offset+1]!=0u;
+    int count=fallback?uCasterCount:int(staticWords[offset]);
+    Light light=lights[lightIndex];
+    vec3 ray=light.position.xyz-p;
+    float covered=0.0;
+    for(int i=0;i<count;i++){
+        Caster c=casters[fallback?uint(i):staticWords[offset+2+i]];
+        if(c.tags.y!=0u||c.tags.x==receiver||c.tags.x==light.tags.x||c.tags.x==light.tags.y)continue;
+        if(distance(c.center.xy,p.xy)>light.position.w+length(c.extent.xy))continue;
+        covered=max(covered,casterCover(c,p,ray,dither));
+        if(covered>.94)break;
     }
     return 1.0-covered;
 }

@@ -1,0 +1,704 @@
+{
+  "schema": 1,
+  "tool": "image_gen",
+  "status": "원본 생성 단계 기록. 통합 결과는 각 기록의 integration 항목을 따른다.",
+  "rights": "원본 프로젝트 아트와 새 생성 아트에 대해 프로젝트가 보유하는 권리는 기존 generated-art.txt의 CC0 1.0 정책을 따른다.",
+  "records": [
+    {
+      "id": "carried_lights_source",
+      "source": "/workspace/generated_images/exec-cb5a3851-4ade-4520-8334-0feb6a8f54c6.png",
+      "target": "art/sources/graphics_finish_generated/carried_lights_source.png",
+      "role": "sprite_source",
+      "prompt": "Create ONE production sprite SOURCE SHEET for a 2D medieval fantasy pixel-art game. Entire image TRANSPARENT BACKGROUND. Exact canvas 1024 by 512 pixels, EXACT EIGHT COLUMNS and FOUR ROWS of equal 128x128 cells, no gutters between cells, no labels, no text, no grid lines. Every sprite fully contained with generous transparent margins and the same fixed anchor. Style: classic detailed warm overhead village RPG pixel art, fixed high 45-degree orthographic view, north-up square map, brown-black outlines, warm honey brass, worn dark iron, brown wood, ivory glass, restrained magical warmth. Crisp pixel clusters; imagine 16x16 logical pixels enlarged eight times with nearest-neighbor; NO smooth gradients, NO antialiasing, NO painterly brushwork, NO photorealism, NO glossy 3D renders. Small lights must read clearly beside 24-logical-pixel humanoids. Neutral shadowless material colors on solid parts, NO cast shadows or ground, NO external halo or bloom. Fire/glowing glass may use intrinsic bright amber/yellow pixels. ROW 1: the SAME simple wooden handheld torch in eight successive small flame animation phases. Wooden handle and anchor stay perfectly unchanged; only the flame shape moves. ROW 2: the SAME small brass and dark-iron portable oil lantern viewed from FRONT in eight successive gentle flame phases; frame/handle stay fixed. ROW 3: exactly that same lantern from the SIDE, eight flame phases. ROW 4: exactly that same lantern from the BACK, eight flame phases. Logical placement per 128x128 cell: sprite center x64, lower handle/base at y104, maximum occupied bounds x40..88 and y32..104. Torch vertical, lantern hanging upright. Each frame uses genuine transparent alpha around the isolated sprite. Do not draw people, hands, scenery, stands, floor tiles, shadows, borders, numbers, captions or decorative background.",
+      "references": [],
+      "transparent_requested": true,
+      "width": 1774,
+      "height": 887,
+      "bytes": 1021472,
+      "sha256": "fc7c0c70d95a62132f46af1198407acf21b7398eb4fdddc59a92b0f9d0add4e1",
+      "png_color_type": 6,
+      "mode": "RGBA",
+      "alpha_zero_pixels": 1092524,
+      "alpha_full_pixels": 519,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "selected": false,
+      "status": "superseded",
+      "reason": "원본 셀 여백 부족; padded 출력 우선",
+      "reference_sources": [],
+      "integration": {
+        "status": "not_used",
+        "reason": "padded 판으로 대체"
+      }
+    },
+    {
+      "id": "stationary_fires_source",
+      "source": "/workspace/generated_images/exec-69aa657e-7b71-4951-913d-29d5635f7c31.png",
+      "target": "art/sources/graphics_finish_generated/stationary_fires_source.png",
+      "role": "sprite_source",
+      "prompt": "Create ONE isolated production sprite SOURCE SHEET for a 2D medieval fantasy village pixel-art game. TRUE TRANSPARENT BACKGROUND. Exact 1024x512 canvas, EXACT EIGHT COLUMNS by FOUR ROWS, each uniform cell128x128, no gutters, labels, numbers, lines or captions. Fixed high 45-degree orthographic overhead camera, square north-up map rather than diamond isometric. Same warm classic detailed RPG pixel art: worn timber, dark forged iron, warm earth, amber fire; dark brown outlines; crisp clustered pixels like 16x16 logical pixels enlarged8x nearest-neighbor. No antialiasing, blur, brushwork, photorealism or modern glossy3D. Neutral shadowless solid material colors, no cast shadow and no light spill/bloom around the objects. Each row is ONE identical object with EIGHT sequential flame animation phases; solid holder/log geometry and base anchor remain unchanged across all8. ROW1 a wall-mounted iron bracket and wooden torch, small practical guard-post sconce, isolated from the wall. ROW2 low round three-legged dark iron BRAZIER with red coals and small amber flames. ROW3 modest low CAMPFIRE with3crossed rough logs, some embers and lively small flame; no stone circle and no surrounding ground. ROW4 FLAME-AND-EMBERS ONLY for insertion inside an existing kiln or smelter mouth, wide low firebed with orange coals, no furnace or architecture. All objects have a fixed center x64 and base y104 in eachcell, occupy no more than x24..104/y24..104, with clear transparent safety margins. Flames have restrained yellow-white cores, orange middle and a few red edges; no smoke, sparks extending outside thecell or huge billowing blaze. Real alpha transparency between holder parts/logs and around every sprite. No people, weapons, landscape, floor, shadow, sign, watermark or grid.",
+      "references": [],
+      "transparent_requested": true,
+      "width": 1774,
+      "height": 887,
+      "bytes": 1115468,
+      "sha256": "78a599b2e32b0d30869fdf9fc5c808aaead8f9b724e4086781cb750704195dc1",
+      "png_color_type": 6,
+      "mode": "RGBA",
+      "alpha_zero_pixels": 1023455,
+      "alpha_full_pixels": 2516,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "selected": false,
+      "status": "superseded",
+      "reason": "원본 셀 여백 부족; padded 출력 우선",
+      "reference_sources": [],
+      "integration": {
+        "status": "not_used",
+        "reason": "padded 판으로 대체"
+      }
+    },
+    {
+      "id": "cloud_visibility_direction",
+      "source": "/workspace/generated_images/exec-8f5f0168-de50-4b25-8ade-d2fce427c545.png",
+      "target": "art/sources/graphics_finish_generated/cloud_visibility_direction.png",
+      "role": "procedural_style_reference",
+      "prompt": "Create a polished ART-DIRECTION REFERENCE SHEET for a 2D overhead medieval fantasy PIXEL-ART game, not a game screenshot with UI and not a tile sheet. Canvas square1024x1024, four equal square panels2x2, no labels or text. Crisp consistent pixel clusters, nearest-neighbor look, warm slightly gritty but LIGHT magical village art. Fixed high45-degree orthographic perspective, small meadow patches, muted yellow-green grass, a few tiny rocks/trees for scale. Subject in every panel: dense rolling fog-of-war CLOUD BANKS covering the unseen land around one irregular opening of visible meadow. There is NO black void, NO straight grid boundary, NO visible square tile cutoff. Large connected soft-lobed cloud masses plus smaller nested clusters, natural varied shapes with NO repeating lines or repeated identical puffs. Pixel-clustered edges, not vector curves, not airbrush blur. Outer parts of each panel are densely fully covered by clouds; the inner cloud fringe softly overlaps the visible meadow, with no holes exposing unknown land outside the opening. Top-left daylight pale warm-gray/ivory clouds; top-right a different asymmetric daylight cloud arrangement; bottom-left nighttime cool slate/lavender blue-gray clouds with the meadow faintly visible only in the opening; bottom-right dusk clouds with restrained peach rims and cool shaded masses. Clouds feel substantial and enveloping, do not resemble chimney smoke or cotton balls pasted in a grid. Vary macroshape and small edge wisps together, keep texture gentle and readable. No buildings, people, lanterns, UI, text, borders, symbols, watermark, perspective horizon, photorealism or glossy volumetric3D. This sheet guides a later procedural shader; make natural continuous fog forms the focus.",
+      "references": [],
+      "transparent_requested": false,
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2015713,
+      "sha256": "3575c804ee762b547b48ddd59a5cb837c1cc176c344f1a23b9d4f05397d6a42b",
+      "png_color_type": 2,
+      "mode": "RGB",
+      "selected": true,
+      "status": "selected_reference_only",
+      "reason": "미술·표면 보정 참고이며 직접 사용하는 런타임 그림이나 검증된 기술 지도가 아님",
+      "reference_sources": [],
+      "integration": {
+        "status": "reference_only",
+        "runtime": "tools/lighting_lab/gpu/fog.cs 절차 구름의 색·덩이·명암 방향 참고. 그림을 맵에 붙이지 않음"
+      }
+    },
+    {
+      "id": "water_reflection_direction",
+      "source": "/workspace/generated_images/exec-dcb21c28-58fd-45ad-a59b-df6bb05ad684.png",
+      "target": "art/sources/graphics_finish_generated/water_reflection_direction.png",
+      "role": "procedural_style_reference",
+      "prompt": "Create one ART-DIRECTION REFERENCE SHEET for a 2D overhead medieval fantasy PIXEL-ART village game, square1024x1024 split into FOUR equal panels2x2, no labels, borders or text. Fixed high45-degree ORTHOGRAPHIC game camera on a square north-up map, no perspective horizon. Crisp pixel clusters and coherent nearest-neighbor game-pixel scale, not a smooth painting or photoreal render. Art feel: natural, restrained magical beauty, slightly gritty but light; muted meadow yellow-greens, warm soil and cool teal/turquoise water, warm-gray shore stones. Eachpanel shows a gently curving shallow lake/river edge with a few partially submerged rocks and continuous natural water; no visible tiles, seams, repeated rows or identical wave motifs. TOPLEFT midday: many small restrained pale-gold/ivory SUN GLINTS formed by animated-wave-like pixel clusters, broken shimmering short streaks aligned coherently with incoming sunlight, rich readable water beneath. TOPRIGHT low sunset sun: longer scattered warm gold/peach reflections over cool teal ripples, subtle rather than a solidwhite stripe. BOTTOMLEFT overcast/shadow: almost no sun glints, gentle depth color and soft water motion, rock shadow suppressing highlights. BOTTOMRIGHT nighttime: no sunlight reflection, dark blue-teal water with a small warm reflection from a lone lantern on a tiny shore post; reflection staysbroken into wave clusters. Preserve shallow-water depth gradients as stepped pixel-color bands, a little broken foam at the shore and around rocks, subtle caustics beneath the surface. Highlightsnever obscure alltexture. No UI, people, characters, ships, roofs, sun disc pasted onto water, grid, words, watermark, blurry gradients, modern PBR sheen, photorealism or tilted diamond-isometric map.",
+      "references": [],
+      "transparent_requested": false,
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2659495,
+      "sha256": "58c515ae9917dd062b0d3840b3e12bab0a7564b362867507d4bea9ced52d6b10",
+      "png_color_type": 2,
+      "mode": "RGB",
+      "selected": true,
+      "status": "selected_reference_only",
+      "reason": "미술·표면 보정 참고이며 직접 사용하는 런타임 그림이나 검증된 기술 지도가 아님",
+      "reference_sources": [],
+      "integration": {
+        "status": "reference_only",
+        "runtime": "tools/lighting_lab/gpu/lighting.cs 물 반짝임의 절제된 화소 강조 참고. 물 타일로 쓰지 않음"
+      }
+    },
+    {
+      "id": "carried_lights_padded",
+      "source": "/workspace/generated_images/exec-123e1193-1dae-4899-8f6c-43250b848523.png",
+      "target": "art/sources/graphics_finish_generated/carried_lights_padded.png",
+      "role": "sprite_source",
+      "prompt": "Edit this exact sprite source sheet. Preserve its pixel-art style, eight columns, four rows, and subject order: torch; front lantern; side lantern; back lantern. Keep the same worn warm medieval brass/iron/wood design and8flame phases perrow. IMPORTANT CORRECTION: every sprite must have LARGE CLEAR TRANSPARENT PADDING on ALL SIDES. Shrink every object within its existingcell to approximately60percent of currentoccupiedwidth/height, keeping it centered at x=.5 ofitscell and with its base at y=.78 ofitscell. ALL flame tips, lanternhandles, backplates, embers and alpha pixels must remain at least20percent of a cell away from everycellboundary and the imageedge. No sprite may touch anyedge. Align identical solid bodies/handles exactly across the8animationframes; only intrinsic flame/glowingglass pixels animate. Use neutral, evenly lit SHADOWLESS solid material colors; preserve dark outlines andsmallmaterialpixelclusters. Remove stray isolated specks around sprites, NO outside glow or cast shadow. True transparent background, NOT black/white/checkerboard. Exact8x4grid, consistentequalcells, fullimageaspect2:1; do notadd labels/lines oranynewsubjects. Do notcreatepeopleorhands.",
+      "references": [
+        "/workspace/project/art/sources/graphics_finish_generated/carried_lights_source.png"
+      ],
+      "transparent_requested": true,
+      "width": 1774,
+      "height": 887,
+      "bytes": 635621,
+      "sha256": "6aa503a42c6653ef79282e32e42b3062e9281247f2755743212864600bc1334b",
+      "png_color_type": 6,
+      "mode": "RGBA",
+      "alpha_zero_pixels": 1316001,
+      "alpha_full_pixels": 1119,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "selected": true,
+      "status": "selected_source_requires_packing",
+      "grid": {
+        "columns": 8,
+        "rows": 4
+      },
+      "reason": "안전 여백을 늘린 원본; 최종 셀 정렬·알파·팔레트·크기는 후속 결정적 패킹에서 검증",
+      "reference_sources": [
+        {
+          "path": "art/sources/graphics_finish_generated/carried_lights_source.png",
+          "sha256": "fc7c0c70d95a62132f46af1198407acf21b7398eb4fdddc59a92b0f9d0add4e1"
+        }
+      ],
+      "observed_cell_alpha128_bounds": [
+        [
+          99,
+          84,
+          154,
+          203
+        ],
+        [
+          318,
+          71,
+          367,
+          203
+        ],
+        [
+          533,
+          70,
+          590,
+          203
+        ],
+        [
+          752,
+          69,
+          810,
+          203
+        ],
+        [
+          973,
+          71,
+          1030,
+          203
+        ],
+        [
+          1192,
+          78,
+          1248,
+          203
+        ],
+        [
+          1412,
+          80,
+          1461,
+          203
+        ],
+        [
+          1634,
+          87,
+          1676,
+          203
+        ],
+        [
+          84,
+          287,
+          155,
+          410
+        ],
+        [
+          303,
+          287,
+          375,
+          410
+        ],
+        [
+          522,
+          287,
+          594,
+          410
+        ],
+        [
+          742,
+          287,
+          813,
+          410
+        ],
+        [
+          961,
+          287,
+          1032,
+          410
+        ],
+        [
+          1180,
+          287,
+          1251,
+          410
+        ],
+        [
+          1400,
+          287,
+          1472,
+          410
+        ],
+        [
+          1619,
+          287,
+          1691,
+          410
+        ],
+        [
+          89,
+          487,
+          151,
+          614
+        ],
+        [
+          309,
+          487,
+          370,
+          614
+        ],
+        [
+          527,
+          487,
+          589,
+          614
+        ],
+        [
+          747,
+          487,
+          809,
+          614
+        ],
+        [
+          966,
+          487,
+          1028,
+          614
+        ],
+        [
+          1185,
+          487,
+          1247,
+          614
+        ],
+        [
+          1405,
+          487,
+          1467,
+          614
+        ],
+        [
+          1625,
+          487,
+          1686,
+          614
+        ],
+        [
+          84,
+          707,
+          155,
+          828
+        ],
+        [
+          303,
+          707,
+          375,
+          828
+        ],
+        [
+          523,
+          707,
+          594,
+          828
+        ],
+        [
+          742,
+          707,
+          813,
+          828
+        ],
+        [
+          961,
+          707,
+          1032,
+          828
+        ],
+        [
+          1180,
+          707,
+          1251,
+          828
+        ],
+        [
+          1400,
+          707,
+          1471,
+          828
+        ],
+        [
+          1619,
+          707,
+          1690,
+          828
+        ]
+      ],
+      "integration": {
+        "status": "integrated",
+        "runtime": "lighting.carried (game/assets/lighting_lab/carried_lights.png, 128×64, 16화소 칸)",
+        "implementation": "tools/art/carried_lights.c",
+        "layout": "game/src/render/fire_atlas.h",
+        "processing": "round(index×폭/열) 셀, 알파≥128, 투명과 맞닿은 붉은 후광 3겹 제거, 작은 연결 조각 제거, 아래 22% 받침 띠 중심 고정, 8×8 정수 표본 평균, 채널 8단계, 몸체 외곽 어둡게"
+      }
+    },
+    {
+      "id": "stationary_fires_padded",
+      "source": "/workspace/generated_images/exec-83658ea9-87dc-4ad2-92cb-5d5140c464ad.png",
+      "target": "art/sources/graphics_finish_generated/stationary_fires_padded.png",
+      "role": "sprite_source",
+      "prompt": "Edit this exact medieval pixel-art fire source sheet. Keep EXACT8columns x4rows andtheexistingroworder:1wallbracket torch,2ironbrazier,3smallcampfire logs,4flame/embers-only furnaceinsert. Preserve pixel-style andsamebaseobjectdesign acrosseachrow8animationframes. Correctallcropping: SHRINK each sprite to60percent ofitscurrentoccupiedsizeinsideitscurrentcell, keep horizontally centered atx.5,baseaty.78. Keep a CLEAR TRANSPARENT BORDER at least20percentofcellsize along all4edges,includingaroundtallflamesandlowestembers. NOalpha pixel must touchacellborderorcanvasborder. Fixedsolidholders/logs/baseanchors identicalacrossframes;onlyflamevariation. Use neutralshadowlesssolidmaterialcolors,darkbrownoutlines, warmamber/yellowintrinsicflamepixels; NOcastshadows,outsidebloom,smoke,groundorblackbackdrop. Removeisolatedstraypixelsoutsidethemainflames. True transparentalpha. Keepall32spritesfullycontained, no labels/grid/words/newobjects. Aspect2:1.",
+      "references": [
+        "/workspace/project/art/sources/graphics_finish_generated/stationary_fires_source.png"
+      ],
+      "transparent_requested": true,
+      "width": 1774,
+      "height": 887,
+      "bytes": 774208,
+      "sha256": "4da96ef231d09d1149051ef18a83099f3c39eb9933c4f3fd5afd1909ffd9a602",
+      "png_color_type": 6,
+      "mode": "RGBA",
+      "alpha_zero_pixels": 1211969,
+      "alpha_full_pixels": 529,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "selected": true,
+      "status": "selected_source_requires_packing",
+      "grid": {
+        "columns": 8,
+        "rows": 4
+      },
+      "reason": "안전 여백을 늘린 원본; 최종 셀 정렬·알파·팔레트·크기는 후속 결정적 패킹에서 검증",
+      "reference_sources": [
+        {
+          "path": "art/sources/graphics_finish_generated/stationary_fires_source.png",
+          "sha256": "78a599b2e32b0d30869fdf9fc5c808aaead8f9b724e4086781cb750704195dc1"
+        }
+      ],
+      "observed_cell_alpha128_bounds": [
+        [
+          104,
+          97,
+          209,
+          218
+        ],
+        [
+          312,
+          92,
+          419,
+          218
+        ],
+        [
+          521,
+          78,
+          627,
+          218
+        ],
+        [
+          731,
+          67,
+          837,
+          218
+        ],
+        [
+          941,
+          81,
+          1046,
+          218
+        ],
+        [
+          1149,
+          91,
+          1255,
+          218
+        ],
+        [
+          1360,
+          96,
+          1466,
+          218
+        ],
+        [
+          1573,
+          98,
+          1678,
+          218
+        ],
+        [
+          97,
+          319,
+          206,
+          415
+        ],
+        [
+          314,
+          318,
+          421,
+          416
+        ],
+        [
+          521,
+          303,
+          632,
+          416
+        ],
+        [
+          733,
+          296,
+          843,
+          416
+        ],
+        [
+          937,
+          296,
+          1049,
+          416
+        ],
+        [
+          1146,
+          309,
+          1256,
+          416
+        ],
+        [
+          1357,
+          318,
+          1468,
+          415
+        ],
+        [
+          1570,
+          320,
+          1682,
+          416
+        ],
+        [
+          97,
+          519,
+          204,
+          603
+        ],
+        [
+          312,
+          512,
+          421,
+          602
+        ],
+        [
+          522,
+          495,
+          630,
+          602
+        ],
+        [
+          732,
+          482,
+          840,
+          602
+        ],
+        [
+          941,
+          491,
+          1049,
+          602
+        ],
+        [
+          1148,
+          509,
+          1256,
+          602
+        ],
+        [
+          1358,
+          520,
+          1467,
+          603
+        ],
+        [
+          1571,
+          523,
+          1678,
+          602
+        ],
+        [
+          96,
+          734,
+          209,
+          779
+        ],
+        [
+          312,
+          725,
+          425,
+          779
+        ],
+        [
+          519,
+          707,
+          633,
+          779
+        ],
+        [
+          732,
+          703,
+          844,
+          779
+        ],
+        [
+          937,
+          711,
+          1052,
+          779
+        ],
+        [
+          1145,
+          717,
+          1260,
+          779
+        ],
+        [
+          1357,
+          726,
+          1473,
+          779
+        ],
+        [
+          1568,
+          736,
+          1683,
+          779
+        ]
+      ],
+      "integration": {
+        "status": "integrated",
+        "runtime": "lighting.stationary (game/assets/lighting_lab/stationary_fires.png, 192×96, 24화소 칸)",
+        "implementation": "tools/art/carried_lights.c",
+        "layout": "game/src/render/fire_atlas.h",
+        "processing": "휴대 등불과 같은 결정적 패킹. 가마·용광로 입구, 문·감시탑·시장 화로, 채집·벌목 야영 모닥불에 사용"
+      }
+    },
+    {
+      "id": "nature_neutral_color_guide",
+      "source": "/workspace/generated_images/exec-8079ad89-fe12-477b-be3c-e2d24de3bc0f.png",
+      "target": "art/sources/graphics_finish_generated/nature_neutral_color_guide.png",
+      "role": "albedo_painting_guide",
+      "prompt": "Edit the supplied ORIGINAL2Dpixel-art TREE ATLAS into a NEUTRAL BASE-COLOR / DELIGHTING PAINTING GUIDE. Preserve EXACT original5columnsby4rows,all20treevariants,alltrunks/branches/leafclusters,seasons,growthsizes,magicalcyanandpurplecolors,andindividualcellpositions. Preserveoriginalsilhouettesandtransparentnegativeareas ascloselyaspossible. Same warm detailedclassic overheadRPGpixelart,fixed45degreeorthographiccamera. Remove thelargeBAKEDdirectionallight: removeleftbright/rightdark shading,paintedrimlight,andbakedshadowstains whilepreservingthematerialcolorramps,pixeltexture,smallleafclusters,barkmarkings,darkstructuraloutlinesandcavities. Imagine diffuse neutral illumination from all directions: leaveskeeptheirspecies/seasoncolorandreadableclusterdetailwithoutasinglefavoredsun direction. Do notturnitintoaflatonecolorblob; retainintrinsictextureandgentleform-independentpixelvaluevariation. Do notaddground,lightspill,castshadows,clouds,frames,labels,backgroundorextratrees. Truealpha transparency, same5x4arrangementand1.25:1canvasaspect. This is apaintingguideforlaternon-generative transferontotheEXACToriginalpixels; preserveexistingart ratherthanredesigningit. No smooth3Drender,noantialiasingorpainterlysmudge.",
+      "references": [
+        "/workspace/project/game/assets/terrain/trees.png"
+      ],
+      "transparent_requested": true,
+      "width": 1402,
+      "height": 1122,
+      "bytes": 2047195,
+      "sha256": "c8eae3a912daa52aab4c273f4e7416fb0aa7b045c46f599914a1323525ea1f10",
+      "png_color_type": 6,
+      "mode": "RGBA",
+      "alpha_zero_pixels": 671751,
+      "alpha_full_pixels": 3,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "selected": true,
+      "status": "selected_reference_only",
+      "reason": "미술·표면 보정 참고이며 직접 사용하는 런타임 그림이나 검증된 기술 지도가 아님",
+      "reference_sources": [
+        {
+          "path": "game/assets/terrain/trees.png",
+          "sha256": "4dd24d88e19467e40889cb28855ad2e221d02468a64f099b0f217d187cda29f5"
+        }
+      ],
+      "integration": {
+        "status": "reference_only",
+        "runtime": "나무 명암 완화 검토 참고. 원래 terrain/trees.png 알파·셀 경계를 유지"
+      }
+    },
+    {
+      "id": "actor_neutral_color_guide",
+      "source": "/workspace/generated_images/exec-69d139ed-7059-4b42-9e1f-5aaa3db66a8e.png",
+      "target": "art/sources/graphics_finish_generated/actor_neutral_color_guide.png",
+      "role": "albedo_painting_guide",
+      "prompt": "Edit the supplied ORIGINAL2Dmerchant sprite atlas into a NEUTRAL BASE-COLOR DELIGHTING PAINTING GUIDE. PreserveEXACT6columnsby4rows/all24posesandfacings: frontrow,sidewalkrow,backrow,othersidewalkrow. Preservecharacteridentity,face,hair,proportions,clothing,hands,boots,bag/roll,staff,alloriginalpose silhouettesandtransparentcellplacement. Do notaddlanterns,torches,newgear,shadows,ground,framesorwords. Keeporiginalwarmdetailedclassicpixelart, crispoutlinedpixelclustersandthehigh45degreeorthographicgameview. RemoveBAKEDdirectionallightingandstrongsidehighlights/shadowsfromcloth,skin,leatherandmetal. Reconstructneutralintrinsiccolors: navycloth,ochreleather,brassdetails,brownhairstaytheiroriginalhues. Preservepatternstitching,facialfeaturesanddarkoutlines; fabricfolds maykeepverygentlenondirectionaldetailbutnolargepersistentdarkside. BrightnessandmaterialcolorsmustMATCHbetweenall24poseswithnotemporalpumping. Uniformneutraldiffuseillumination, truealphatransparency, original6x4layoutand1.5:1aspect. Thisisaguideforlaterdeterministiccorrectionoftheexistingexactsourcepixels,notaredesign. No photorealism,blurrygradients,smooth3D,extraobjectsorcheckerboardbackground.",
+      "references": [
+        "/workspace/project/game/assets/units/merchant.png"
+      ],
+      "transparent_requested": true,
+      "width": 1536,
+      "height": 1024,
+      "bytes": 2299959,
+      "sha256": "53613ce0831fd5d22035bc128e133864bdb4d1fb084bd2e271533b477673e837",
+      "png_color_type": 6,
+      "mode": "RGBA",
+      "alpha_zero_pixels": 815342,
+      "alpha_full_pixels": 0,
+      "alpha_range": [
+        0,
+        254
+      ],
+      "selected": false,
+      "status": "rejected",
+      "reason": "원화의 화풍·비율·경계 위치를 지나치게 바꾼 출력; 원본 상인 그림 유지",
+      "reference_sources": [
+        {
+          "path": "game/assets/units/merchant.png",
+          "sha256": "f0b7d8803fc3741b175759d1fa171cfc14e649c0c62d3abbcb72a42a2f7285db"
+        }
+      ],
+      "integration": {
+        "status": "rejected_not_used",
+        "runtime": "원래 units/merchant.png와 기존 표면 지침에서 재료를 굽고 이 그림은 쓰지 않음"
+      }
+    },
+    {
+      "id": "architecture_material_guides",
+      "source": "/workspace/generated_images/exec-18c32c83-5d86-4ae8-809d-1062bc3252ba.png",
+      "target": "art/sources/graphics_finish_generated/architecture_material_guides.png",
+      "role": "material_painting_and_shape_guide",
+      "prompt": "Create ONE technical ART-PAINTING GUIDE SHEET from the THREE SUPPLIED original pixel-art buildings, preserving their exact architectural designs and fixed45-degreeorthographic gameperspective. Layout EXACT THREE COLUMNS by THREE ROWS, uniformlargecells, transparentpadding, no labels/frames/text. COLUMN1 original redroof timber HOUSE, COLUMN2 original blue-roof stone KEEP, COLUMN3 original green-roof brick KILN. Keep the same scale, silhouette and placement for eachbuilding inallthree rows. ROW1 NEUTRAL ALBEDO GUIDE: original warm pixelcolorsandalltile/brick/wooddetails, butremovebaked sunlight/shadows/strongsidedhighlights. Neutraldiffuse materialcolors,darkoutlines,retaintexture. Furnace/windowscanhaveintrinsicamberemissionbutnooutsideglow. ROW2 OBJECT/WORLD NORMAL PAINTING GUIDE on EXACTsamebuildingsilhouettes: actual surfaceorientationscodedasRGBvectors, NOTartisticrainbowlighting. CoordinateXright,Ytowardcamera/screendown,Zup: flatupfaceRGB128,128,255; frontverticalwallRGB128,255,128; left-facingfacetRGB37,218,128; right-facingfacetRGB218,218,128. Slopingroofsmostlybluewith appropriategreen/redtilt; conicaltowerroofsdifferfromflatfrontwalls; usefacetedpixelclusters, smalltile/bricknormaldetailwithoutcopyingpaintcolorboundaries. ROW3 HEIGHT/EMISSION MASK GUIDE: grayscalephysicalheightaboveground,blackgroundcontactbase, progressivelylightertowardroofridge/chimneytops, openings keptatcorrectfacadeheight; tinyamberpixelscanmarkemissivewindows/furnace assemanticannotations. Thisisatechnicalpainting/shapeGUIDEforlatervalidatedbaking,notclaimofmeasuredgroundtruth. Noextrabuildings,groundplatforms,trees,people,shadows,outsidebloom,legendsorlabels. Crisp original2Dpixelartallrows;notrendered3D. Truealpha transparentbackgroundandgenerouspaddingwithall9objectsfullycontained.",
+      "references": [
+        "/workspace/project/game/assets/buildings/house_0.png",
+        "/workspace/project/game/assets/buildings/keep_0.png",
+        "/workspace/project/game/assets/buildings/kiln_0.png"
+      ],
+      "transparent_requested": true,
+      "width": 1312,
+      "height": 1199,
+      "bytes": 2022538,
+      "sha256": "505df8886c23732ae12b81598268f2127e3bdb897ef7fa79920341237791dde6",
+      "png_color_type": 6,
+      "mode": "RGBA",
+      "alpha_zero_pixels": 630526,
+      "alpha_full_pixels": 391,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "selected": true,
+      "status": "selected_reference_only",
+      "reason": "미술·표면 보정 참고이며 직접 사용하는 런타임 그림이나 검증된 기술 지도가 아님",
+      "reference_sources": [
+        {
+          "path": "game/assets/buildings/house_0.png",
+          "sha256": "8d52f948c560d3a5d09a5fdff688fdfaf7ecf70031c72569a19af8dfa4f1d8f5"
+        },
+        {
+          "path": "game/assets/buildings/keep_0.png",
+          "sha256": "32c6010c07b9ef30f837ed871eb3726db1d05866e5568290c4c851650a5dfe83"
+        },
+        {
+          "path": "game/assets/buildings/kiln_0.png",
+          "sha256": "0469faa2a83645328a874727e71e289bc8df02c99371f835a3e1810282c4837f"
+        }
+      ],
+      "integration": {
+        "status": "reference_only",
+        "runtime": "art/sources/sprite_materials/guides.txt 지붕·벽·발광 규약 검토 참고. 표시된 RGB 법선·회색 높이는 셰이더에 넣지 않음"
+      }
+    }
+  ]
+}

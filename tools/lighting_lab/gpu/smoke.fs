@@ -1,4 +1,11 @@
 in vec2 puffUv;
+in vec3 puffWorld;
+layout(std430,binding=1) readonly buffer Lights {Light lights[];};
+layout(std430,binding=3) readonly buffer LightTiles {uint lightWords[];};
+uniform int uLightCount,uLightTileStride,uSunEnabled;
+uniform ivec2 uTileSize;
+uniform vec2 uTileOrigin;
+uniform vec3 uSunDirection;
 flat in vec4 puffData;
 uniform sampler2D uNormalHeight,uPuffs;
 uniform vec2 uViewport;
@@ -27,6 +34,24 @@ void main(){
     if(puff.a<.5)discard;
     float opacity=(1.0-puffData.x)*smoothstep(0.0,.08,puffData.x)*(uNatural!=0?.125:.20);
     opacity=floor(opacity*16.0+(uNatural!=0?.5:0.0))/16.0;
-    vec3 color=puff.rgb*(.64+clamp(uAmbient,0.0,1.0)*.60);
+    vec3 normal=normalize(vec3((puffUv.x-.5)*.65,.32,1.0));
+    vec3 radiance=vec3(.44+clamp(uAmbient,0.0,1.0)*.60);
+    if(uSunEnabled!=0)radiance+=vec3(.34,.32,.27)*max(0.0,dot(normal,uSunDirection));
+    vec2 projected=vec2(puffWorld.x,puffWorld.y-puffWorld.z*.9);
+    ivec2 tile=ivec2(floor((projected-uTileOrigin)/16.0));
+    if(all(greaterThanEqual(tile,ivec2(0)))&&all(lessThan(tile,uTileSize))){
+        int offset=(tile.y*uTileSize.x+tile.x)*uLightTileStride;
+        bool listed=lightWords[offset+1]==0u;
+        int count=listed?int(lightWords[offset]):uLightCount;
+        for(int i=0;i<count;i++){
+            Light light=lights[listed?lightWords[offset+2+i]:uint(i)];
+            vec3 delta=light.position.xyz-puffWorld;float distance=length(delta);
+            if(distance>=light.position.w)continue;
+            float attenuation=pow(1.0-distance/light.position.w,2.0)*light.color.w;
+            float scatter=.28+.72*max(0.0,dot(normal,delta/max(distance,.01)));
+            radiance+=light.color.rgb*attenuation*scatter*.65;
+        }
+    }
+    vec3 color=puff.rgb*clamp(radiance,vec3(.28),vec3(1.35));
     finalColor=vec4(color*opacity,opacity);
 }

@@ -33,11 +33,18 @@ typedef struct CastleGpuCaster {
     uint32_t tags[4];
     float contact_profile[4];
 } CastleGpuCaster;
+/* 광원 tags[2]의 하위 비트는 간략 차폐, tags[3]은 안정된 발광체 번호입니다. */
 typedef struct CastleGpuLight {
     float position[4];
     float color[4];
     uint32_t tags[4];
 } CastleGpuLight;
+/* 건물 받침의 닳은 흙. rect는 세계 좌표 x,y,w,h, settings는 세기·문 x·문 y·종류(0 건물, 1 밭)입니다.
+   점유 칸이 아니라 실제 받침 모양을 따르며 지형·길·물·눈 자료를 바꾸지 않습니다. */
+typedef struct CastleGpuFootprint {
+    float rect[4];
+    float settings[4];
+} CastleGpuFootprint;
 typedef struct CastleGpuEmitter {
     float position[4];
     float settings[4];
@@ -54,6 +61,8 @@ typedef struct CastleGpuFrame {
     int smoke_probe;
     int grass_limit;
     int reset_motion;
+    /* 0은 맑음, 1은 짙은 구름·비입니다. 물의 햇빛 반짝임을 줄입니다. */
+    float overcast;
 } CastleGpuFrame;
 typedef struct CastleGpuViewport {
     int width, height, scale;
@@ -68,6 +77,8 @@ typedef struct CastleGpuStats {
     size_t texture_bytes, buffer_bytes;
     unsigned int live_objects;
     int software, sprites, casters, lights, emitters, grass_instances, smoke_particles, tile_overflows;
+    /* 검사 전용: 광원 목록 한도를 넘어 전체 순회로 처리한 칸 수입니다. */
+    int light_overflows;
     int logical_width, logical_height, pixel_scale;
     uint64_t frames, timed_frames, timed_frame_id, static_updates;
 } CastleGpuStats;
@@ -89,8 +100,10 @@ int castle_gpu_sprite(CastleGpu *gpu, Texture2D texture, Texture2D normals, Text
 int castle_gpu_caster(CastleGpu *gpu, const CastleGpuCaster *caster);
 int castle_gpu_light(CastleGpu *gpu, const CastleGpuLight *light);
 int castle_gpu_emitter(CastleGpu *gpu, const CastleGpuEmitter *emitter);
+int castle_gpu_footprint(CastleGpu *gpu, const CastleGpuFootprint *footprint);
 void castle_gpu_terrain(CastleGpu *gpu, const unsigned char *cells, int width, int height);
 int castle_gpu_render(CastleGpu *gpu);
+Texture2D castle_gpu_clouds(CastleGpu *gpu, const unsigned char *visibility, int width, int height);
 void castle_gpu_present(CastleGpu *gpu, Rectangle destination);
 CastleGpuStats castle_gpu_stats(const CastleGpu *gpu);
 Texture2D castle_gpu_output(const CastleGpu *gpu);

@@ -24,7 +24,7 @@ typedef struct GameAlphaMask {
 } GameAlphaMask;
 typedef struct GameMaterialBinding {
     unsigned int texture_id;
-    const char *albedo, *normal, *mode;
+    const char *albedo, *normal, *surface, *mode;
     int divisor;
 } GameMaterialBinding;
 typedef struct GameAssets {
@@ -33,6 +33,7 @@ typedef struct GameAssets {
     int alpha_count;
     GameMaterialBinding materials[512];
     int material_count;
+    Texture2D carried_lights, stationary_fires;
     Texture2D terrain, roads, snow, props, villagers, enemies, arrow, construction;
     Texture2D buildings[CORE_BLD_COUNT], resources[CORE_RES_COUNT];
     Texture2D turns[CORE_BLD_COUNT][4], status_icons, animals, biomes, animal_walk, wall_links;

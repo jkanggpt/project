@@ -49,7 +49,8 @@ if(CASTLE_BUILD_GAME)
   add_subdirectory("${PROJECT_SOURCE_DIR}/tools/lighting_lab/gpu" "${PROJECT_BINARY_DIR}/graphics_gpu")
   add_executable(castle_game src/main.c src/ui/widgets.c src/ui/panels.c src/render/world.c src/assets/loader.c src/ui/residents.c src/ui/services.c src/ui/facilities.c
     src/ui/main_menu.c src/ui/tutorial.c)
-  target_sources(castle_game PRIVATE src/render/gpu_bridge.c)
+  target_sources(castle_game PRIVATE src/render/gpu_bridge.c src/render/carried_lights.c src/render/scene_profiles.c
+                                     src/review.c)
   target_sources(castle_game PRIVATE src/ui/test_tools.c)
   set(CASTLE_GAME_OUTPUT_DIR "" CACHE PATH "실행 중인 게임과 분리할 선택적 검증 출력 폴더")
   if(CASTLE_GAME_OUTPUT_DIR)
@@ -78,7 +79,9 @@ if(CASTLE_BUILD_GAME)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/GRAPHICS_INTEGRATION.md DESTINATION . RENAME GRAPHICS.md COMPONENT Runtime)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/art/game_graphics.png ${PROJECT_SOURCE_DIR}/docs/art/game_graphics_tutorial.png DESTINATION art COMPONENT Runtime)
   if(WIN32)
-    install(FILES ${PROJECT_SOURCE_DIR}/tools/graphics/start-game.cmd ${PROJECT_SOURCE_DIR}/tools/graphics/check-graphics.cmd DESTINATION . COMPONENT Runtime)
+    install(FILES ${PROJECT_SOURCE_DIR}/tools/graphics/start-game.cmd ${PROJECT_SOURCE_DIR}/tools/graphics/check-graphics.cmd
+                  ${PROJECT_SOURCE_DIR}/tools/graphics/lighting-review.cmd ${PROJECT_SOURCE_DIR}/tools/graphics/benchmark-game.cmd
+                  ${PROJECT_SOURCE_DIR}/tools/graphics/benchmark-game.ps1 DESTINATION . COMPONENT Runtime)
   endif()
   if(DEFINED raylib_SOURCE_DIR)
     install(FILES "${raylib_SOURCE_DIR}/LICENSE" DESTINATION licenses RENAME raylib.txt COMPONENT Runtime)

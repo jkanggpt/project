@@ -1,5 +1,15 @@
 # PROGRESS
 
+## 그래픽 마무리 구현 (Claude, 2026-11-28)
+
+인계 묶음(코드 체크포인트·인계 원화)을 기준 커밋 위에 적용하고 이어서 완성했습니다. 추가 AI 이미지 생성은 하지 않았습니다. 상세·검사·한계는 docs/GRAPHICS_FINISH.md.
+
+- 체크포인트 복구: 없는 CoreBoatView.id 참조, 미완성 재료 굽기 구동부, 표면 지도가 없어 GPU 경로가 오류로 끝나던 문제를 고침. 인계 파일의 미래 시각 때문에 CMake가 반복 재구성되던 문제는 시각을 고쳐 해결.
+- 재료: 354시트를 지침별로 다시 굽고 표면 RGBA(높이·발광·거칠기·틈새 차폐) 추가, 회전 계열 공통 밝기, 벽돌·회벽 발광 오검출 제거, 구운 재료를 모든 프레임에 일관 적용, 빈 건물 발광 끔.
+- 받침 흙·구름 경계·물 반짝임·칸별 다중 광원(넘침 전체 순회, 그림자 예산 정렬, 군중 무릎)·휴대 등불(인계 원화 패킹)·고정 불(드문 야영·검문·모임 자리).
+- `castle_game --lighting-review`·`lighting-review.cmd`, `--review-benchmark`·`benchmark-game.cmd`.
+- 확인: Linux 릴리스 WERROR 빌드·CTest 294/294, 최신 codex/main-screen 병합 뒤 299/299(GPU 포함, llvmpipe), ASan·UBSan 메뉴 왕복, 아트 재생성·재현성, MinGW 코어 WERROR와 바뀐 게임·도구 소스의 MinGW·Clang `-Werror` 구문 검사. MSVC·RTX 4060 측정은 미실행.
+
 ## 튜토리얼 (Claude, 2026-11-27)
 
 메인 화면의 "튜토리얼" 단추로 시작하는 14단계 안내 게임 (docs/TUTORIAL.md). 메인 화면은 Codex 가 따로 만듭니다.

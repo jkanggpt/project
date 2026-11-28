@@ -44,7 +44,7 @@ typedef struct GameApp {
     GamePanel panel_stack[8];
     int panel_depth;
     int in_game, speed, saved_speed, build_type, category, demolish, selected_building, selected_villager;
-    int drag_x, drag_y, dragging, scroll, sort_column, sort_reverse, difficulty, quit, automated, stress,
+    int drag_x, drag_y, dragging, scroll, sort_column, sort_reverse, difficulty, quit, automated, stress, review,
         rotation;
     int inspector_scroll, build_scroll, profile_home, confirm_entity;
     int assign_shift, raid_scroll, status_height, notice_bottom, notice_top;
