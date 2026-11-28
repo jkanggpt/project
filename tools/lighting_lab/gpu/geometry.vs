@@ -20,6 +20,11 @@ void main(){
     int band=gl_VertexID/6;
     vec2 uv=vec2(corners[gl_VertexID%6].x,(float(band)+corners[gl_VertexID%6].y)/8.0);
     vec2 world=s.destination.xy+uv*s.destination.zw;
+    if((s.tags.z&8u)!=0u){
+        float c=cos(s.shape.z),sn=sin(s.shape.z);
+        vec2 offset=(uv-vec2(.5,1))*s.destination.zw;
+        world=s.destination.xy+vec2(s.destination.z*.5,s.destination.w)+mat2(c,sn,-sn,c)*offset;
+    }
     bendSlope=0.0;
     if((s.tags.y==2u&&uFoliage!=0)||s.tags.y==8u){
         vec4 wind=texture(uWind,vec2(s.destination.x+s.destination.z*.5,s.shape.x)/uMap);
@@ -33,9 +38,10 @@ void main(){
         bendSlope=bend*tip*.16;
     }
     vec2 screen=(world-uOrigin)*uScale;
-    float depth=s.tags.z==2u?.997:s.tags.y==4u||s.tags.y==5u||s.tags.y==7u||s.tags.x==0u?.999:
+    float depth=(s.tags.z&2u)!=0u?.997:s.tags.y==4u||s.tags.y==5u||s.tags.y==7u||s.tags.x==0u?.999:
                 clamp(.90-s.shape.x/(max(1.0,uMap.y)*1.2),.02,.95);
     if(s.tags.y==8u)depth=clamp(.90-s.shape.x/(max(1.0,uMap.y)*1.2),.02,.95);
+    if((s.tags.z&8u)!=0u)depth=.996;
     gl_Position=vec4(screen.x/uViewport.x*2.0-1.0,1.0-screen.y/uViewport.y*2.0,depth*2.0-1.0,1);
     localUv=uv;worldScreen=world;sourceUv=s.source.xy+uv*s.source.zw;normalUv=s.normalSource.xy+uv*s.normalSource.zw;
     spriteTint=s.tint;spriteShape=s.shape;spriteTags=s.tags;spriteSource=s.source;spriteNormalSource=s.normalSource;

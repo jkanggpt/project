@@ -73,6 +73,28 @@ static const CastleAssetRecord *asset_record(const char *name) {
             return &CASTLE_ASSETS[i];
     return NULL;
 }
+const GameMaterialBinding *game_assets_material(const GameAssets *a, Texture2D texture) {
+    for (int i = 0; i < a->material_count; i++)
+        if (a->materials[i].texture_id == texture.id)
+            return &a->materials[i];
+    return NULL;
+}
+static void keep_material(GameAssets *a, const char *id, Texture2D texture) {
+    if (!texture.id)
+        return;
+    for (int i = 0; i < CASTLE_MATERIAL_COUNT; i++) {
+        const CastleMaterialRecord *m = &CASTLE_MATERIALS[i];
+        if (strcmp(m->id, id))
+            continue;
+        if (a->material_count >= 512) {
+            a->missing++;
+            return;
+        }
+        a->materials[a->material_count++] =
+            (GameMaterialBinding){texture.id, m->albedo, m->normal, m->mode, m->divisor};
+        return;
+    }
+}
 static Texture2D atlas_texture(GameAssets *a, const char *dir, const char *id, Rectangle *regions,
                                int columns, int rows) {
     const CastleAssetRecord *record = asset_record(id);
@@ -118,6 +140,7 @@ static Texture2D atlas_texture(GameAssets *a, const char *dir, const char *id, R
             fprintf(stderr, "ASSET\t%s\t%d\t%d\t%d\t%d\n", name, image.width, image.height, columns, rows);
         result = LoadTextureFromImage(image);
         keep_alpha(a, image, result);
+        keep_material(a, id, result);
         UnloadImage(image);
         SetTextureFilter(result, TEXTURE_FILTER_POINT);
     } else

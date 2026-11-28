@@ -32,6 +32,14 @@
     {
       "role": "production",
       "implementation": "tools/art/production.c"
+    },
+    {
+      "role": "sprite_materials",
+      "implementation": "tools/art/sprite_materials.c",
+      "recipe": "art/recipes/sprite_materials.json",
+      "input": "앞선 원화 단계 출력; 실제 프레임 격자와 정수 표면 프로필",
+      "output": "materials/albedo 및 materials/normals",
+      "publish": "원화와 파생 자료를 같은 원장으로 발행"
     }
   ],
   "publish_manifest": "game/assets/assets_manifest.json",

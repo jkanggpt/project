@@ -22,10 +22,17 @@ typedef struct GameAlphaMask {
     int width, height;
     unsigned char *bits;
 } GameAlphaMask;
+typedef struct GameMaterialBinding {
+    unsigned int texture_id;
+    const char *albedo, *normal, *mode;
+    int divisor;
+} GameMaterialBinding;
 typedef struct GameAssets {
     Font font;
     GameAlphaMask alpha[512];
     int alpha_count;
+    GameMaterialBinding materials[512];
+    int material_count;
     Texture2D terrain, roads, snow, props, villagers, enemies, arrow, construction;
     Texture2D buildings[CORE_BLD_COUNT], resources[CORE_RES_COUNT];
     Texture2D turns[CORE_BLD_COUNT][4], status_icons, animals, biomes, animal_walk, wall_links;
@@ -45,6 +52,7 @@ typedef struct GameAssets {
     int audio_ready, missing;
 } GameAssets;
 int game_texture_hit(const GameAssets *assets, Texture2D texture, Rectangle source, float u, float v);
+const GameMaterialBinding *game_assets_material(const GameAssets *assets, Texture2D texture);
 int game_assets_load(GameAssets *a, const char *directory, int audio);
 void game_assets_free(GameAssets *a);
 void game_sound(GameAssets *a, int sound, float volume);

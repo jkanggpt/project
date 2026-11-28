@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct MaterialPair {
+    Texture2D albedo, normal;
+} MaterialPair;
 typedef struct Bridge {
     GameApp *app;
     CastleGpu *gpu;
@@ -26,6 +29,11 @@ typedef struct Bridge {
     CastleGpuFrame config;
     CastleGpuStats checkpoint;
     size_t checkpoint_terrain;
+    MaterialPair materials[512];
+    char assets_directory[GAME_PATH_BYTES];
+    size_t material_bytes, checkpoint_material_bytes;
+    int material_count, checkpoint_material_count;
+    uint64_t baked_sprites, calibrated_sprites, estimated_sprites;
 } Bridge;
 static Bridge bridge;
 
@@ -47,6 +55,7 @@ static Texture2D load_texture(const char *root, const char *relative) {
 int game_gpu_initialize(GameApp *app, const char *assets_directory) {
     memset(&bridge, 0, sizeof(bridge));
     bridge.app = app;
+    snprintf(bridge.assets_directory, sizeof(bridge.assets_directory), "%s", assets_directory);
     bridge.gpu = castle_gpu_create();
     bridge.albedo = load_texture(assets_directory, "lighting_lab/pixel_albedo.png");
     bridge.normal = load_texture(assets_directory, "lighting_lab/pixel_normals.png");
@@ -87,6 +96,12 @@ void game_gpu_shutdown(void) {
         UnloadTexture(bridge.scenery);
     if (bridge.contact_policy.id)
         UnloadTexture(bridge.contact_policy);
+    for (int i = 0; i < 512; i++) {
+        if (bridge.materials[i].albedo.id)
+            UnloadTexture(bridge.materials[i].albedo);
+        if (bridge.materials[i].normal.id)
+            UnloadTexture(bridge.materials[i].normal);
+    }
     castle_gpu_destroy(bridge.gpu);
     free(bridge.terrain);
     memset(&bridge, 0, sizeof(bridge));
@@ -239,10 +254,36 @@ static int same_rect(Rectangle a, Rectangle b) {
     return fabsf(a.x - b.x) < .1f && fabsf(a.y - b.y) < .1f && fabsf(fabsf(a.width) - b.width) < .1f &&
            fabsf(a.height - b.height) < .1f;
 }
-int game_gpu_sprite(Texture2D texture, Rectangle source, Rectangle destination, Color tint) {
+static const MaterialPair *material_pair(const GameMaterialBinding *m, Texture2D original) {
+    size_t index = (size_t)(m - bridge.app->assets.materials);
+    if (index >= 512 || m->divisor < 1)
+        return NULL;
+    MaterialPair *pair = &bridge.materials[index];
+    if (pair->albedo.id && pair->normal.id)
+        return pair;
+    /* 읽기는 처음 사용할 때만 수행하며 메뉴 왕복 뒤에도 같은 자원을 재사용합니다. */
+    pair->albedo = load_texture(bridge.assets_directory, m->albedo);
+    pair->normal = load_texture(bridge.assets_directory, m->normal);
+    if (!pair->albedo.id || !pair->normal.id || pair->albedo.width != original.width ||
+        pair->albedo.height != original.height || pair->normal.width != original.width / m->divisor ||
+        pair->normal.height != original.height / m->divisor) {
+        fprintf(stderr, "스프라이트 재료를 읽지 못했습니다: %s\n", m->albedo);
+        bridge.error = 1;
+        return NULL;
+    }
+    bridge.material_count++;
+    bridge.material_bytes += (size_t)pair->albedo.width * pair->albedo.height * 4 +
+                             (size_t)pair->normal.width * pair->normal.height * 3;
+    return pair;
+}
+static int sprite(Texture2D texture, Rectangle source, Rectangle destination, Color tint, int floor_sprite,
+                  float angle) {
     if (!bridge.active || !texture.id)
         return 0;
     GameAssets *a = &bridge.app->assets;
+    const GameMaterialBinding *binding = game_assets_material(a, texture);
+    if (binding && !strcmp(binding->mode, "unlit"))
+        return 0;
     for (int i = 0; i < 4; i++)
         if (texture.id == a->lighthouse_glow[i].id || texture.id == a->lighthouse_lamp[i].id)
             return 0;
@@ -308,7 +349,7 @@ int game_gpu_sprite(Texture2D texture, Rectangle source, Rectangle destination, 
     s.tags[3] = bridge.owner * 7919u;
     if (texture.id == a->bridge_parts.id || texture.id == a->soil_markers.id)
         s.tags[2] = 2;
-    if (calibrated.width > 0) {
+    if (calibrated.width > 0 && !floor_sprite) {
         texture = bridge.albedo;
         normal = bridge.normal;
         surface = bridge.surface;
@@ -317,6 +358,24 @@ int game_gpu_sprite(Texture2D texture, Rectangle source, Rectangle destination, 
             source.width = -source.width;
         s.tags[2] = 1;
         s.shape[1] = scale;
+        bridge.calibrated_sprites++;
+    } else if (binding && !strcmp(binding->mode, "baked")) {
+        const MaterialPair *pair = material_pair(binding, texture);
+        if (!pair)
+            return 1;
+        texture = pair->albedo;
+        normal = pair->normal;
+        s.tags[2] |= 4u;
+        bridge.baked_sprites++;
+    } else if (!binding) {
+        bridge.estimated_sprites++;
+    }
+    if (floor_sprite) {
+        s.tags[0] = 0;
+        s.tags[2] |= 8u;
+        s.shape[0] = destination.y + destination.height;
+        s.shape[1] = 1;
+        s.shape[2] = angle * DEG2RAD;
     }
     s.source[0] = (source.x + (source.width < 0 ? -source.width : 0)) / texture.width;
     s.source[1] = source.y / texture.height;
@@ -324,6 +383,13 @@ int game_gpu_sprite(Texture2D texture, Rectangle source, Rectangle destination, 
     s.source[3] = source.height / texture.height;
     memcpy(s.normal_source, s.source, sizeof(s.source));
     return castle_gpu_sprite(bridge.gpu, texture, normal, surface, &s);
+}
+int game_gpu_sprite(Texture2D texture, Rectangle source, Rectangle destination, Color tint) {
+    return sprite(texture, source, destination, tint, 0, 0);
+}
+int game_gpu_floor_sprite(Texture2D texture, Rectangle source, Rectangle destination, Color tint,
+                          float angle) {
+    return sprite(texture, source, destination, tint, 1, angle);
 }
 static void add_caster(uint32_t owner, int dynamic, int kind, float x, float y, float z, float rx, float ry,
                        float rz, float opacity, int contact) {
@@ -471,6 +537,9 @@ void game_gpu_report(void) {
            s.software, (unsigned long long)s.frames, s.fields_ms, s.geometry_ms, s.shadows_ms, s.lighting_ms,
            s.smoke_ms, s.texture_bytes, s.buffer_bytes, s.live_objects, (unsigned long long)s.static_updates,
            s.logical_width, s.logical_height, s.pixel_scale);
+    printf("GAME MATERIALS: pairs=%d bytes=%zu baked=%llu calibrated=%llu estimated=%llu\n",
+           bridge.material_count, bridge.material_bytes, (unsigned long long)bridge.baked_sprites,
+           (unsigned long long)bridge.calibrated_sprites, (unsigned long long)bridge.estimated_sprites);
 }
 int game_gpu_validate(void) { return castle_gpu_validate(bridge.gpu); }
 unsigned int game_gpu_live_resources(void) { return castle_gpu_live_objects(); }
@@ -481,10 +550,16 @@ int game_gpu_transition_checkpoint(int first) {
     int error = !first && (current.live_objects != bridge.checkpoint.live_objects ||
                            current.texture_bytes != bridge.checkpoint.texture_bytes ||
                            current.buffer_bytes != bridge.checkpoint.buffer_bytes ||
-                           bridge.terrain_capacity != bridge.checkpoint_terrain);
+                           bridge.terrain_capacity != bridge.checkpoint_terrain ||
+                           bridge.material_count != bridge.checkpoint_material_count ||
+                           bridge.material_bytes != bridge.checkpoint_material_bytes);
     bridge.checkpoint = current;
     bridge.checkpoint_terrain = bridge.terrain_capacity;
-    printf("GPU TRANSITION: objects=%u textures=%zu buffers=%zu terrain=%zu error=%d\n", current.live_objects,
-           current.texture_bytes, current.buffer_bytes, bridge.terrain_capacity, error);
+    bridge.checkpoint_material_count = bridge.material_count;
+    bridge.checkpoint_material_bytes = bridge.material_bytes;
+    printf("GPU TRANSITION: objects=%u textures=%zu buffers=%zu terrain=%zu pairs=%d material_bytes=%zu "
+           "error=%d\n",
+           current.live_objects, current.texture_bytes, current.buffer_bytes, bridge.terrain_capacity,
+           bridge.material_count, bridge.material_bytes, error);
     return error;
 }

@@ -19,6 +19,8 @@ void game_gpu_overlay_end(void);
 Vector2 game_gpu_canvas_size(void);
 void game_gpu_object(int material, uint32_t owner, float foot);
 int game_gpu_sprite(Texture2D texture, Rectangle source, Rectangle destination, Color tint);
+int game_gpu_floor_sprite(Texture2D texture, Rectangle source, Rectangle destination, Color tint,
+                          float angle);
 void game_gpu_building(struct GameApp *app, const struct CoreBuildingView *building, Rectangle picture);
 void game_gpu_prop(struct GameApp *app, int cell, int type);
 void game_gpu_actor(uint32_t owner, float x, float foot, float width, float height);

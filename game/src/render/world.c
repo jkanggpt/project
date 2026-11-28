@@ -1109,8 +1109,12 @@ static void corpses(GameApp *a) {
         Color tint =
             elapsed < 0 ? WHITE
                         : Fade((Color){255, 110, 110, 255}, elapsed < .55f ? 1 : 1 - (elapsed - .55f) / .45f);
-        DrawTexturePro(texture, source, (Rectangle){fx->position.x * 16, fx->position.y * 16, width, height},
-                       (Vector2){width / 2, height}, angle, tint);
+        Rectangle destination = {fx->position.x * 16 - width / 2, fx->position.y * 16 - height, width,
+                                 height};
+        if (!game_gpu_floor_sprite(texture, source, destination, tint, angle))
+            DrawTexturePro(texture, source,
+                           (Rectangle){fx->position.x * 16, fx->position.y * 16, width, height},
+                           (Vector2){width / 2, height}, angle, tint);
     }
 }
 void game_render_free(GameApp *a) {

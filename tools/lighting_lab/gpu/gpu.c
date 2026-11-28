@@ -630,7 +630,7 @@ int castle_gpu_sprite(CastleGpu *gpu, Texture2D texture, Texture2D normal, Textu
                       const CastleGpuSprite *sprite) {
     if (!gpu || !texture.id)
         return 0;
-    if (gpu->frame.natural && sprite->tags[2] != 2 &&
+    if (gpu->frame.natural && (sprite->tags[2] & 2u) == 0 &&
         (sprite->tags[1] == GPU_MATERIAL_GRASS || sprite->tags[1] == GPU_MATERIAL_ROAD ||
          sprite->tags[1] == GPU_MATERIAL_WATER))
         return 1;

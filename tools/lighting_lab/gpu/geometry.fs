@@ -59,16 +59,18 @@ void main(){
     float z=max(0.0,(1.0-localUv.y)*spriteShape.y);
     vec3 n=vec3(0,0,1);
     float emission=0.0;
-    if(spriteTags.z==1u){
+    if((spriteTags.z&5u)!=0u){
         vec2 normalSize=vec2(textureSize(uNormals,0));
         vec2 normalLo=min(spriteNormalSource.xy,spriteNormalSource.xy+spriteNormalSource.zw)+.5/normalSize;
         vec2 normalHi=max(spriteNormalSource.xy,spriteNormalSource.xy+spriteNormalSource.zw)-.5/normalSize;
         vec2 at=clamp(normalUv,normalLo,normalHi);
         n=normalize(texture(uNormals,at).rgb*2.0-1.0);
         if(spriteSource.z<0.0)n.x=-n.x;
-        vec4 surface=texture(uSurface,at);
-        z=(surface.r*255.0+surface.g*255.0/256.0)*spriteShape.y;
-        emission=surface.b;
+        if((spriteTags.z&1u)!=0u){
+            vec4 surface=texture(uSurface,at);
+            z=(surface.r*255.0+surface.g*255.0/256.0)*spriteShape.y;
+            emission=surface.b;
+        }
     }else if(kind!=8u){
         float dx=luminance(texture(uAlbedo,clamp(uv+vec2(1.0/size.x,0),lo,hi)).rgb)-luminance(texture(uAlbedo,clamp(uv-vec2(1.0/size.x,0),lo,hi)).rgb);
         float dy=luminance(texture(uAlbedo,clamp(uv+vec2(0,1.0/size.y),lo,hi)).rgb)-luminance(texture(uAlbedo,clamp(uv-vec2(0,1.0/size.y),lo,hi)).rgb);
@@ -78,7 +80,14 @@ void main(){
                   kind==3u?normalize(vec3((localUv.x-.5)*.9,.7,.7)):
                   kind==6u?normalize(vec3((localUv.x-.5),.35,.9)):vec3(0,0,1);
         n=normalize(base+vec3(-dx,-dy*.65,0)*uDetail*2.8);
-        if(kind==4u||kind==5u||kind==7u)z=0.0;
+    }
+    if(kind==4u||kind==5u||kind==7u)z=0.0;
+    if((spriteTags.z&8u)!=0u){
+        /* 누운 원화의 앞면을 지면 쪽으로 돌린 뒤 화면 회전을 적용합니다. */
+        n=normalize(vec3(n.x,-n.z,n.y));
+        float c=cos(spriteShape.z),sn=sin(spriteShape.z);
+        n.xy=mat2(c,sn,-sn,c)*n.xy;
+        n.z=max(n.z,.15);n=normalize(n);z=1.0;
     }
     if(kind==8u)n=uNatural!=0?tuftNormal:normalize(vec3(-bendSlope,.25,1));
     if(uNatural!=0&&kind!=8u){
