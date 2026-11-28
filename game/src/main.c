@@ -19,6 +19,7 @@ typedef struct Options {
     int seed, difficulty, days, smoke, stress, probe, frames, no_audio, width, height, autoplay, wildlife;
     int gpu_transitions;
     int review, review_phase, review_view, review_azimuth, review_elevation, crowd, review_zoom, review_clean;
+    int review_benchmark;
 } Options;
 static int number(const char *text, int min, int max, int *out) {
     char *end;
@@ -35,7 +36,7 @@ static void help(void) {
          "  --smoke-test [--days 20] [--seed 42]  C runtime test without a window\n"
          "  --stress | --stress-probe              150 villagers + 40 enemies\n"
          "  --lighting-review [--crowd n] [--review-phase 0-3] [--review-view 0-7] [--review-sun az el]\n"
-         "                    [--review-zoom 1-6] [--review-clean]\n"
+         "                    [--review-zoom 1-6] [--review-clean] [--review-benchmark frames]\n"
          "                                         조명 검수 장면 (저장하지 않음)\n"
          "  --screenshot file.png [--screen "
          "title|tutorial|tutorial_build|game|villagers|uniforms|farms|population|rotations|connections|"
@@ -142,6 +143,10 @@ static int options(int argc, char **argv, Options *o) {
         } else if (!strcmp(arg, "--crowd")) {
             if (!number(argv[++i], 0, 300, &o->crowd))
                 return 0;
+        } else if (!strcmp(arg, "--review-benchmark")) {
+            if (!number(argv[++i], 60, 100000, &o->review_benchmark))
+                return 0;
+            o->review = 1;
         } else if (!strcmp(arg, "--review-zoom")) {
             if (!number(argv[++i], 1, 6, &o->review_zoom))
                 return 0;
@@ -948,7 +953,7 @@ static int run(int argc, char **argv) {
     a = (GameApp *)calloc(1, sizeof(*a));
     if (!a)
         return 1;
-    a->automated = o.smoke || o.screenshot || o.frames || o.probe;
+    a->automated = o.smoke || o.screenshot || o.frames || o.probe || o.review_benchmark;
     a->stress = o.stress;
     a->review = o.review;
     a->build_type = -1;
@@ -998,11 +1003,24 @@ static int run(int argc, char **argv) {
     if (!a->automated)
         (void)game_settings_load(&a->settings, a->settings_path);
     SetTraceLogLevel(LOG_WARNING);
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | (o.probe ? 0 : FLAG_VSYNC_HINT));
+    int unlocked = o.probe || o.review_benchmark;
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | (unlocked ? 0 : FLAG_VSYNC_HINT));
     InitWindow(o.width, o.height, u8"마법성채 키우기 — C");
     SetWindowMinSize(800, 576);
     SetExitKey(KEY_NULL);
-    SetTargetFPS(o.probe ? 0 : 60);
+    SetTargetFPS(unlocked ? 0 : 60);
+    /* 실제 게임 조명 검수 장면의 반복 가능한 성능 기록: 준비 120프레임 뒤 CPU 프레임·GPU 단계 시간. */
+    double *bench_frames = o.review_benchmark ? calloc((size_t)o.review_benchmark, sizeof(double)) : NULL;
+    double *bench_gpu = o.review_benchmark ? calloc((size_t)o.review_benchmark, sizeof(double)) : NULL;
+    int bench_count = 0, bench_gpu_count = 0;
+    unsigned long long bench_timed = 0;
+    if (o.review_benchmark && (!bench_frames || !bench_gpu)) {
+        free(bench_frames);
+        free(bench_gpu);
+        bench_frames = bench_gpu = NULL;
+        o.review_benchmark = 0;
+        status = 1;
+    }
     int window_ready = IsWindowReady();
     int assets_ready =
         window_ready && game_assets_load(&a->assets, o.assets ? o.assets : assets, !o.no_audio);
@@ -1190,6 +1208,16 @@ static int run(int argc, char **argv) {
             if (livestock < min_livestock)
                 min_livestock = livestock;
         }
+        if (o.review_benchmark && frame > 120) {
+            GameGpuSample g = game_gpu_sample();
+            bench_frames[bench_count++] = (GetTime() - frame_started) * 1000;
+            if (g.timed_frame != bench_timed && g.gpu_ms > 0) {
+                bench_timed = g.timed_frame;
+                bench_gpu[bench_gpu_count++] = g.gpu_ms;
+            }
+            if (bench_count >= o.review_benchmark)
+                break;
+        }
         if (o.screenshot && frame == (o.review && o.frames ? o.frames : 4)) {
             status = game_screenshot(o.screenshot) ? 0 : 1;
             break;
@@ -1200,6 +1228,32 @@ static int run(int argc, char **argv) {
         }
         if (o.frames && frame >= o.frames)
             break;
+    }
+    if (bench_frames) {
+        GameGpuSample g = game_gpu_sample();
+        qsort(bench_frames, (size_t)bench_count, sizeof(double), compare_double);
+        qsort(bench_gpu, (size_t)bench_gpu_count, sizeof(double), compare_double);
+        double sum = 0, gpu_sum = 0;
+        for (int n = 0; n < bench_count; n++)
+            sum += bench_frames[n];
+        for (int n = 0; n < bench_gpu_count; n++)
+            gpu_sum += bench_gpu[n];
+        GameReviewStatus st = game_gpu_review_status();
+        printf("REVIEW BENCHMARK: {\"renderer\":\"%s\",\"software\":%d,\"width\":%d,\"height\":%d,"
+               "\"phase\":%d,\"frames\":%d,\"frame_avg_ms\":%.3f,\"frame_p95_ms\":%.3f,"
+               "\"frame_p99_ms\":%.3f,\"gpu_samples\":%d,\"gpu_avg_ms\":%.3f,\"gpu_p95_ms\":%.3f,"
+               "\"lights\":%d,\"carried\":%d,\"casters\":%d,\"villagers\":%d,\"texture_bytes\":%zu,"
+               "\"buffer_bytes\":%zu}\n",
+               g.renderer, g.software, GetScreenWidth(), GetScreenHeight(), o.review_phase, bench_count,
+               bench_count ? sum / bench_count : 0, bench_count ? bench_frames[(bench_count - 1) * 95 / 100] : 0,
+               bench_count ? bench_frames[(bench_count - 1) * 99 / 100] : 0, bench_gpu_count,
+               bench_gpu_count ? gpu_sum / bench_gpu_count : 0,
+               bench_gpu_count ? bench_gpu[(bench_gpu_count - 1) * 95 / 100] : 0, st.lights, st.carried, st.casters,
+               a->session.villager_count, g.texture_bytes, g.buffer_bytes);
+        if (bench_count < o.review_benchmark || bench_gpu_count == 0)
+            status = 1;
+        free(bench_frames);
+        free(bench_gpu);
     }
     if (o.probe) {
         qsort(samples, (size_t)measured, sizeof(double), compare_double);

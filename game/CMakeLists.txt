@@ -78,7 +78,9 @@ if(CASTLE_BUILD_GAME)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/GRAPHICS_INTEGRATION.md DESTINATION . RENAME GRAPHICS.md COMPONENT Runtime)
   install(FILES ${PROJECT_SOURCE_DIR}/docs/art/game_graphics.png ${PROJECT_SOURCE_DIR}/docs/art/game_graphics_tutorial.png DESTINATION art COMPONENT Runtime)
   if(WIN32)
-    install(FILES ${PROJECT_SOURCE_DIR}/tools/graphics/start-game.cmd ${PROJECT_SOURCE_DIR}/tools/graphics/check-graphics.cmd DESTINATION . COMPONENT Runtime)
+    install(FILES ${PROJECT_SOURCE_DIR}/tools/graphics/start-game.cmd ${PROJECT_SOURCE_DIR}/tools/graphics/check-graphics.cmd
+                  ${PROJECT_SOURCE_DIR}/tools/graphics/lighting-review.cmd ${PROJECT_SOURCE_DIR}/tools/graphics/benchmark-game.cmd
+                  ${PROJECT_SOURCE_DIR}/tools/graphics/benchmark-game.ps1 DESTINATION . COMPONENT Runtime)
   endif()
   if(DEFINED raylib_SOURCE_DIR)
     install(FILES "${raylib_SOURCE_DIR}/LICENSE" DESTINATION licenses RENAME raylib.txt COMPONENT Runtime)

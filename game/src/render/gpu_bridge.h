@@ -2,6 +2,7 @@
 #ifndef CASTLE_GAME_GPU_BRIDGE_H
 #define CASTLE_GAME_GPU_BRIDGE_H
 #include "raylib.h"
+#include <stddef.h>
 #include <stdint.h>
 struct GameApp;
 struct CoreBuildingView;
@@ -14,6 +15,15 @@ void game_gpu_review_enable(int enabled);
 /* phase: 0 밤, 1 새벽, 2 낮, 3 해질녘. view는 0~7 진단 보기입니다. */
 void game_gpu_review_set(int phase, int view, float azimuth, float elevation);
 GameReviewStatus game_gpu_review_status(void);
+/* 성능 기록용 최신 GPU 단계 시간 합(비동기 질의 결과)과 자원 크기입니다. */
+typedef struct GameGpuSample {
+    double gpu_ms;
+    unsigned long long timed_frame;
+    size_t texture_bytes, buffer_bytes;
+    int lights, casters, software;
+    char renderer[192];
+} GameGpuSample;
+GameGpuSample game_gpu_sample(void);
 void game_gpu_review_input(void);
 int game_gpu_review_view(void);
 int game_gpu_visual_minute(struct GameApp *app);

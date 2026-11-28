@@ -61,6 +61,22 @@ GameReviewStatus game_gpu_review_status(void) {
     return (GameReviewStatus){review_phase_names[review_phase], review_view, s.lights, review_carried, s.casters,
                               review_azimuth, review_elevation};
 }
+GameGpuSample game_gpu_sample(void) {
+    GameGpuSample out = {0};
+    if (!bridge.gpu)
+        return out;
+    CastleGpuStats s = castle_gpu_stats(bridge.gpu);
+    CastleGpuDevice d = castle_gpu_device();
+    out.gpu_ms = s.fields_ms + s.geometry_ms + s.shadows_ms + s.lighting_ms + s.smoke_ms;
+    out.timed_frame = (unsigned long long)s.timed_frame_id;
+    out.texture_bytes = s.texture_bytes;
+    out.buffer_bytes = s.buffer_bytes;
+    out.lights = s.lights;
+    out.casters = s.casters;
+    out.software = d.software;
+    snprintf(out.renderer, sizeof(out.renderer), "%s", d.renderer);
+    return out;
+}
 void game_gpu_review_input(void) {
     if (!review_enabled)
         return;

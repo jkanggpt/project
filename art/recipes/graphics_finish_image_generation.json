@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "tool": "image_gen",
-  "status": "원본 이미지 생성만 수행; 게임 통합·정수 패킹·기술 지도 검증은 후속 작업",
+  "status": "원본 생성 단계 기록. 통합 결과는 각 기록의 integration 항목을 따른다.",
   "rights": "원본 프로젝트 아트와 새 생성 아트에 대해 프로젝트가 보유하는 권리는 기존 generated-art.txt의 CC0 1.0 정책을 따른다.",
   "records": [
     {
@@ -27,7 +27,11 @@
       "selected": false,
       "status": "superseded",
       "reason": "원본 셀 여백 부족; padded 출력 우선",
-      "reference_sources": []
+      "reference_sources": [],
+      "integration": {
+        "status": "not_used",
+        "reason": "padded 판으로 대체"
+      }
     },
     {
       "id": "stationary_fires_source",
@@ -52,7 +56,11 @@
       "selected": false,
       "status": "superseded",
       "reason": "원본 셀 여백 부족; padded 출력 우선",
-      "reference_sources": []
+      "reference_sources": [],
+      "integration": {
+        "status": "not_used",
+        "reason": "padded 판으로 대체"
+      }
     },
     {
       "id": "cloud_visibility_direction",
@@ -71,7 +79,11 @@
       "selected": true,
       "status": "selected_reference_only",
       "reason": "미술·표면 보정 참고이며 직접 사용하는 런타임 그림이나 검증된 기술 지도가 아님",
-      "reference_sources": []
+      "reference_sources": [],
+      "integration": {
+        "status": "reference_only",
+        "runtime": "tools/lighting_lab/gpu/fog.cs 절차 구름의 색·덩이·명암 방향 참고. 그림을 맵에 붙이지 않음"
+      }
     },
     {
       "id": "water_reflection_direction",
@@ -90,7 +102,11 @@
       "selected": true,
       "status": "selected_reference_only",
       "reason": "미술·표면 보정 참고이며 직접 사용하는 런타임 그림이나 검증된 기술 지도가 아님",
-      "reference_sources": []
+      "reference_sources": [],
+      "integration": {
+        "status": "reference_only",
+        "runtime": "tools/lighting_lab/gpu/lighting.cs 물 반짝임의 절제된 화소 강조 참고. 물 타일로 쓰지 않음"
+      }
     },
     {
       "id": "carried_lights_padded",
@@ -320,7 +336,14 @@
           1690,
           828
         ]
-      ]
+      ],
+      "integration": {
+        "status": "integrated",
+        "runtime": "lighting.carried (game/assets/lighting_lab/carried_lights.png, 128×64, 16화소 칸)",
+        "implementation": "tools/art/carried_lights.c",
+        "layout": "game/src/render/fire_atlas.h",
+        "processing": "round(index×폭/열) 셀, 알파≥128, 투명과 맞닿은 붉은 후광 3겹 제거, 작은 연결 조각 제거, 아래 22% 받침 띠 중심 고정, 8×8 정수 표본 평균, 채널 8단계, 몸체 외곽 어둡게"
+      }
     },
     {
       "id": "stationary_fires_padded",
@@ -550,7 +573,14 @@
           1683,
           779
         ]
-      ]
+      ],
+      "integration": {
+        "status": "integrated",
+        "runtime": "lighting.stationary (game/assets/lighting_lab/stationary_fires.png, 192×96, 24화소 칸)",
+        "implementation": "tools/art/carried_lights.c",
+        "layout": "game/src/render/fire_atlas.h",
+        "processing": "휴대 등불과 같은 결정적 패킹. 가마·용광로 입구, 문·감시탑·시장 화로, 채집·벌목 야영 모닥불에 사용"
+      }
     },
     {
       "id": "nature_neutral_color_guide",
@@ -582,7 +612,11 @@
           "path": "game/assets/terrain/trees.png",
           "sha256": "4dd24d88e19467e40889cb28855ad2e221d02468a64f099b0f217d187cda29f5"
         }
-      ]
+      ],
+      "integration": {
+        "status": "reference_only",
+        "runtime": "나무 명암 완화 검토 참고. 원래 terrain/trees.png 알파·셀 경계를 유지"
+      }
     },
     {
       "id": "actor_neutral_color_guide",
@@ -614,7 +648,11 @@
           "path": "game/assets/units/merchant.png",
           "sha256": "f0b7d8803fc3741b175759d1fa171cfc14e649c0c62d3abbcb72a42a2f7285db"
         }
-      ]
+      ],
+      "integration": {
+        "status": "rejected_not_used",
+        "runtime": "원래 units/merchant.png와 기존 표면 지침에서 재료를 굽고 이 그림은 쓰지 않음"
+      }
     },
     {
       "id": "architecture_material_guides",
@@ -656,7 +694,11 @@
           "path": "game/assets/buildings/kiln_0.png",
           "sha256": "0469faa2a83645328a874727e71e289bc8df02c99371f835a3e1810282c4837f"
         }
-      ]
+      ],
+      "integration": {
+        "status": "reference_only",
+        "runtime": "art/sources/sprite_materials/guides.txt 지붕·벽·발광 규약 검토 참고. 표시된 RGB 법선·회색 높이는 셰이더에 넣지 않음"
+      }
     }
   ]
 }

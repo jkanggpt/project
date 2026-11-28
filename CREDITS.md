@@ -28,4 +28,4 @@
 
 ## 그래픽 마무리 이미지 원본
 
-`art/sources/graphics_finish_generated`의 휴대 등불·횃불·고정 불 원본과 구름·물·재료 참고 시트는 내장 image_gen으로 생성했습니다. 편집 참조는 기존 프로젝트 그림이며 외부 그림을 복제하지 않았습니다. 프로젝트가 보유하는 권리는 기존 생성 그림과 같은 CC0 1.0 정책을 따릅니다. 요청 전문·참조 해시·실제 크기·선택 및 배제 상태는 `art/recipes/graphics_finish_image_generation.json`에 보존합니다. 원본 이미지 생성만 마쳤으며 정확한 화소 패킹과 런타임 적용은 후속 코딩 단계입니다.
+`art/sources/graphics_finish_generated`의 휴대 등불·횃불·고정 불 원본과 구름·물·재료 참고 시트는 내장 image_gen으로 생성했습니다. 편집 참조는 기존 프로젝트 그림이며 외부 그림을 복제하지 않았습니다. 프로젝트가 보유하는 권리는 기존 생성 그림과 같은 CC0 1.0 정책을 따릅니다. 요청 전문·참조 해시·실제 크기·선택 및 배제 상태는 `art/recipes/graphics_finish_image_generation.json`에 보존합니다. `carried_lights_padded.png`·`stationary_fires_padded.png`는 `tools/art/carried_lights.c`가 결정적으로 정렬·정리·축소하여 `lighting_lab/carried_lights.png`·`lighting_lab/stationary_fires.png`로 런타임에 사용합니다. 구름·물·건축·자연 시트는 절차 효과와 재료 규약의 미술 참고로만 쓰며 런타임 텍스처로 등록하지 않습니다. 상인 재채색 시트는 배제했고 원래 상인 그림을 유지합니다. 휴대 등불·고정 불의 이전 마스크 원본은 이 원화로 대체했습니다.
