@@ -108,7 +108,8 @@ int main(int argc, char **argv) {
                  stage(art_stage_interface, "--manor", settlement) ||
                  stage(art_stage_services, art_input("services"), settlement) ||
                  stage(art_stage_production, art_input("production"), settlement) ||
-                 art_carried_lights(art_input("carried_lights/masks.txt"), settlement) ||
+                 art_carried_lights(art_input("graphics_finish_generated/carried_lights_padded.png"),
+                                    art_input("graphics_finish_generated/stationary_fires_padded.png"), settlement) ||
                  art_sprite_materials(sources, work, work, 1);
     for (int i = 0; !failed && i < CASTLE_ASSET_COUNT; i++) {
         const CastleAssetRecord *record = &CASTLE_ASSETS[i];

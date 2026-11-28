@@ -120,9 +120,16 @@ int game_review_start(GameApp *a, int seed, int crowd) {
     road(w, kx - 23, kx + 12, ky + 3, 4);
     expansion_water_bodies(w);
     expansion_rebuild(w);
-    for (int i = 0; w->villager_count < crowd && i < crowd; i++)
-        if (!population_create(w, kx - 20 + (i * 7) % 32, ky + 9 + (i % 3) * 6))
+    /* 군중은 지구 전체의 빈 칸에 흩어 세워 등불 수천 겹침과 그림자 예산을 함께 봅니다. */
+    for (int i = 0, tries = 0; w->villager_count < crowd && tries < crowd * 8; tries++) {
+        int sx = kx - 23 + (tries * 37) % 36, sy = ky + 3 + (tries * 13) % 15;
+        if (!grid_in_bounds(&w->grid, sx, sy) || w->grid.occupant[grid_index(&w->grid, sx, sy)] ||
+            w->grid.terrain[grid_index(&w->grid, sx, sy)] == CORE_TERRAIN_WATER)
+            continue;
+        if (!population_create(w, sx, sy))
             break;
+        i++;
+    }
     expansion_assign(w);
     expansion_capacity(w);
     for (int i = 0; i < w->villager_count; i++) {

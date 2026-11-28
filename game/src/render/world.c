@@ -3,6 +3,7 @@
 #include "format.h"
 #include "gpu_bridge.h"
 #include "carried_lights.h"
+#include "fire_atlas.h"
 #include "scene_profiles.h"
 #include "review.h"
 #include "gpu.h"
@@ -480,16 +481,22 @@ static void building(GameApp *a, int index) {
     if (game_scene_profile(b, dest, a->session.visual_time, &illumination))
         for (int light = 0; light < illumination.light_count; light++) {
             GameSceneLight *source = &illumination.lights[light];
-            int fire = source->kind == GAME_SCENE_FURNACE;
-            if (!fire && source->kind != GAME_SCENE_TORCH)
-                continue;
             float night = game_carried_strength(game_gpu_visual_minute(a));
-            float strength = source->strength * (fire ? 1.0f : night);
             uint32_t owner = 0x10000000u | (uint32_t)b->id;
-            float size = fmaxf(6, fminf(fire ? 18.0f : 10.0f, dest.width * (fire ? .30f : .12f)));
-            game_carried_flame_image(a, owner, source->screen, source->position.z, size, strength,
-                                     fire ? GAME_CARRIED_FIRE : GAME_CARRIED_TORCH,
-                                     (b->y + b->h) * 16.0f);
+            float front = (b->y + b->h) * 16.0f;
+            /* 가마·용광로 입구는 작업 중에만, 야영·검문·모임 불은 밤에만 움직이는 불꽃을 그립니다.
+               창·문 등불은 원화에 그려져 있으므로 빛만 더합니다. */
+            if (source->kind == GAME_SCENE_FURNACE)
+                game_stationary_fire(a, owner, GAME_STATIONARY_FURNACE, source->screen, front,
+                                     fminf(1, source->strength + .1f), 0);
+            else if (source->kind == GAME_SCENE_BRAZIER || source->kind == GAME_SCENE_CAMPFIRE)
+                game_stationary_fire(a, owner + (uint32_t)light,
+                                     source->kind == GAME_SCENE_BRAZIER ? GAME_STATIONARY_BRAZIER
+                                                                        : GAME_STATIONARY_CAMPFIRE,
+                                     source->screen, source->position.y, night, 0);
+            else if (source->kind == GAME_SCENE_TORCH && b->type == CORE_BLD_KEEP)
+                game_stationary_fire(a, owner + (uint32_t)light, GAME_STATIONARY_WALL_TORCH, source->screen,
+                                     front, night, source->screen.x > dest.x + dest.width * .5f);
         }
     if (b->type == CORE_BLD_LIGHTHOUSE && b->state == CORE_BSTATE_ACTIVE && b->operating &&
         a->session.summary.is_night) {
@@ -578,13 +585,21 @@ static void villager(GameApp *a, int index) {
         clothes = a->assets.uniforms[unit->outfit - 1];
     }
     uint32_t carry_owner = 0x30000000u | ((uint32_t)DRAW_VILLAGER << 24) | (uint32_t)v->id;
+    /* 경비(병영·주둔지 복장)는 횃불, 다른 주민은 랜턴입니다. 구름 아래 칸에서는 빛이 새지 않게 끕니다. */
     int carry_torch = unit->outfit >= 3;
+    int cx = (int)floorf(unit->position.x), cy = (int)floorf(unit->position.y);
+    float carry_hidden = a->session.visibility &&
+                                 (cx < 0 || cy < 0 || cx >= a->session.summary.map_width ||
+                                  cy >= a->session.summary.map_height ||
+                                  a->session.visibility[cy * a->session.summary.map_width + cx] < 2)
+                             ? 1.0f
+                             : unit->indoor;
     game_carried_light(a, carry_owner, (uint32_t)v->id, carry_torch, unit->facing, carry_pose, dest,
-                       unit->position.y * 16, unit->indoor, 1);
+                       unit->position.y * 16, carry_hidden, 1);
     sprite(clothes, (Rectangle){frame.column * 96.0f, frame.row * 96.0f, frame.flip ? -96.0f : 96.0f, 96},
            dest, Fade(effect_tint(a, 0, v->id), 1 - unit->indoor));
     game_carried_light(a, carry_owner, (uint32_t)v->id, carry_torch, unit->facing, carry_pose, dest,
-                       unit->position.y * 16, unit->indoor, 0);
+                       unit->position.y * 16, carry_hidden, 0);
     if (unit->indoor < 0.5f)
         life_bar(a, 0, v->id, v->health, 100, dest);
     if (v->flags & CORE_VF_SICK)

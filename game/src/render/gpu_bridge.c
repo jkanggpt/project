@@ -516,7 +516,8 @@ int game_gpu_lamp(Texture2D atlas, Rectangle source, Rectangle destination, Colo
     s.destination[1] = destination.y;
     s.destination[2] = destination.width;
     s.destination[3] = destination.height;
-    s.source[0] = source.x / atlas.width;
+    /* 음수 폭은 좌우 반전입니다. 일반 원화와 같은 규약으로 시작 열을 옮깁니다. */
+    s.source[0] = (source.x + (source.width < 0 ? -source.width : 0)) / atlas.width;
     s.source[1] = source.y / atlas.height;
     s.source[2] = source.width / atlas.width;
     s.source[3] = source.height / atlas.height;
@@ -542,12 +543,14 @@ Texture2D game_gpu_clouds(GameApp *app) {
 void game_gpu_building(GameApp *app, const CoreBuildingView *b, Rectangle picture) {
     if (!bridge.active)
         return;
-    int w = bridge.config.map_width, known = 0;
+    int w = bridge.config.map_width, known = 0, seen = 0;
     for (int y = b->y; y < b->y + b->h; y++)
         for (int x = b->x; x < b->x + b->w; x++)
-            if (x >= 0 && y >= 0 && x < w && y < bridge.config.map_height &&
-                (!app->session.visibility || app->session.visibility[y * w + x]))
-                known = 1;
+            if (x >= 0 && y >= 0 && x < w && y < bridge.config.map_height) {
+                int v = app->session.visibility ? app->session.visibility[y * w + x] : 2;
+                known |= v > 0;
+                seen |= v >= 2;
+            }
     if (!known)
         return;
     /* 바닥 재료·길·눈·시야는 보존하고 풀이 건물 안에서 자라는 것만 막습니다. */
@@ -569,13 +572,14 @@ void game_gpu_building(GameApp *app, const CoreBuildingView *b, Rectangle pictur
         GameSceneChimney *c = &p.chimneys[i];
         add_caster(owner, 0, 0, c->position.x, c->position.y, c->position.z, c->extent.x, c->extent.y,
                    c->extent.z, .94f, 0);
-        if (c->smoke) {
+        /* 구름 아래 건물의 연기·불빛이 보이는 땅으로 새어 나와 숨은 정보를 드러내지 않게 합니다. */
+        if (c->smoke && seen) {
             CastleGpuEmitter e = {{c->position.x, c->position.y, c->position.z + c->extent.z, 0}, {0}};
             e.settings[0] = (float)b->id;
             (void)castle_gpu_emitter(bridge.gpu, &e);
         }
     }
-    for (int i = 0; i < p.light_count; i++) {
+    for (int i = 0; i < p.light_count && seen; i++) {
         GameSceneLight *e = &p.lights[i];
         float night = game_carried_strength(game_gpu_visual_minute(app));
         float power = e->strength * (e->kind == GAME_SCENE_FURNACE ? 1.0f : night);

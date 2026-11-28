@@ -189,6 +189,7 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
         return 0;
     SetTextureFilter(a->font.texture, TEXTURE_FILTER_POINT);
     a->carried_lights = texture(a, dir, "lighting.carried");
+    a->stationary_fires = texture(a, dir, "lighting.stationary");
     a->terrain = texture(a, dir, "terrain.terrain");
     a->roads = texture(a, dir, "roads.base");
     a->snow = texture(a, dir, "terrain.snow");
@@ -305,6 +306,8 @@ int game_assets_load(GameAssets *a, const char *dir, int audio) {
 void game_assets_free(GameAssets *a) {
     if (a->carried_lights.id)
         UnloadTexture(a->carried_lights);
+    if (a->stationary_fires.id)
+        UnloadTexture(a->stationary_fires);
     UnloadTexture(a->irrigated_previews);
     for (int m = 0; m < a->alpha_count; m++)
         free(a->alpha[m].bits);

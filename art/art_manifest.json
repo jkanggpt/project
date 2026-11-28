@@ -2694,22 +2694,6 @@
       "verification": "8종 접촉 규약·전체 재생성 SHA256 대조"
     },
     {
-      "path": "art/sources/carried_lights/masks.txt",
-      "sha256": "cc626b1dc79c41f3044a5472e4a34378297d4c2c770971b0633019b332726324",
-      "producer": "Codex가 기존 픽셀 원화를 기준으로 작성한 기술 마스크·기준점",
-      "license": "game/assets/licenses/generated-art.txt",
-      "consumer": "castle_art_pipeline",
-      "verification": "원장 SHA256·정수 재현성·기준점 검사"
-    },
-    {
-      "path": "art/sources/scene_profiles/buildings.inc",
-      "sha256": "4027d40a23a477ba671f8231ba54d89b2d1a86170deddd27f5725233289f2343",
-      "producer": "Codex가 기존 픽셀 원화를 기준으로 작성한 기술 마스크·기준점",
-      "license": "game/assets/licenses/generated-art.txt",
-      "consumer": "castle_game / scene_profiles.c",
-      "verification": "원장 SHA256·정수 재현성·기준점 검사"
-    },
-    {
       "path": "art/sources/graphics_finish_generated/carried_lights_source.png",
       "sha256": "fc7c0c70d95a62132f46af1198407acf21b7398eb4fdddc59a92b0f9d0add4e1",
       "producer": "image_gen; 생성 요청 전문은 art/recipes/graphics_finish_image_generation.json",
@@ -2807,12 +2791,20 @@
       "verification": "알파·법선·프레임 독립 검사 및 전체 재생성 SHA256 일치"
     },
     {
+      "path": "art/sources/scene_profiles/buildings.inc",
+      "sha256": "8454dfa546bb59e00aafcaa54862f345e04645f4f99785ac7fbe9fc6eef1f45b",
+      "producer": "기존 픽셀 원화를 기준으로 작성한 기술 기준점·표면 지침",
+      "license": "game/assets/licenses/generated-art.txt",
+      "consumer": "castle_game / scene_profiles.c",
+      "verification": "원장 SHA256·정수 재현성·기준점 검사"
+    },
+    {
       "path": "art/sources/sprite_materials/guides.txt",
       "sha256": "d0fa1780bba3905728e5209abaf58ae28ecbc4a9e179e5e025c764960b731ed5",
-      "producer": "Codex가 작성한 프레임 목록과 표면 추정 규약; 외부 그림 추가 없음",
+      "producer": "기존 픽셀 원화를 기준으로 작성한 기술 기준점·표면 지침",
       "license": "game/assets/licenses/generated-art.txt",
       "consumer": "castle_art_pipeline",
-      "verification": "알파·법선·프레임 독립 검사 및 전체 재생성 SHA256 일치"
+      "verification": "원장 SHA256·정수 재현성·기준점 검사"
     }
   ],
   "resources": [
@@ -6175,14 +6167,6 @@
       "sha256": "e728f4d123e478189390429418e0a42575a12784487b6e2ae7f35b0eb0db62aa",
       "source_group": "art/sources/gpu_scenery",
       "generation": "원화 하단의 알파 표본 범위·숨은 발자국 깊이·정확한 하단 높이를 무손실 기술 텍스처로 기록"
-    },
-    {
-      "id": "lighting.carried",
-      "output": "game/assets/lighting_lab/carried_lights.png",
-      "stage_file": "settlement/carried_lights.png",
-      "sha256": "e68bed919620f359540224d6b03e943ba354cd01f36516ee603fcd2df5953f57",
-      "source_group": "art/sources/carried_lights",
-      "generation": "마스크·팔레트에서 정수 불꽃 8프레임 제작"
     },
     {
       "id": "materials.albedo.terrain.props",
@@ -16803,6 +16787,28 @@
       "generation": "원화 단계 출력과 프레임별 정수 표면 프로필로 자동 굽기; 수작업 법선 아님",
       "recipe": "art/recipes/sprite_materials.json",
       "original": "buildings.paved_road.3"
+    },
+    {
+      "id": "lighting.carried",
+      "output": "game/assets/lighting_lab/carried_lights.png",
+      "stage_file": "settlement/carried_lights.png",
+      "sha256": "791a004872d19d2a69446dbcde2459dce21d3f6ebc199341ed23121e5be75b01",
+      "source_group": "art/sources/graphics_finish_generated",
+      "source": "art/sources/graphics_finish_generated/carried_lights_padded.png",
+      "implementation": "tools/art/carried_lights.c",
+      "layout": "game/src/render/fire_atlas.h",
+      "generation": "인계 원본 8×4 시트에서 받침 고정·후광/불씨 정리·정수 표본 평균으로 16화소 칸 제작"
+    },
+    {
+      "id": "lighting.stationary",
+      "output": "game/assets/lighting_lab/stationary_fires.png",
+      "stage_file": "settlement/stationary_fires.png",
+      "sha256": "cae608a646e3af2f52e5c61a9104243866d00fcd6536375b36ac16824436ab0c",
+      "source_group": "art/sources/graphics_finish_generated",
+      "source": "art/sources/graphics_finish_generated/stationary_fires_padded.png",
+      "implementation": "tools/art/carried_lights.c",
+      "layout": "game/src/render/fire_atlas.h",
+      "generation": "인계 원본 8×4 시트에서 받침 고정·후광/불씨 정리·정수 표본 평균으로 24화소 칸 제작"
     }
   ]
 }

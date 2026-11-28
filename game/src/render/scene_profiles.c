@@ -1,5 +1,6 @@
 /* 광원은 원화의 창·문·불꽃 위치에 붙이고 체적은 그림자 계산에만 사용합니다. */
 #include "scene_profiles.h"
+#include "fire_atlas.h"
 #include <castle_expansion.h>
 #include <math.h>
 #include <stdio.h>
@@ -135,6 +136,42 @@ static void light(GameSceneProfile *p, Rectangle picture, Anchor a, int kind, fl
                                                    .cone = kind == GAME_SCENE_BEACON ? .30f : 0,
                                                    .kind = kind};
 }
+/* 받침이 땅(ground_y)에 닿는 고정 불. 화면 위치는 아틀라스의 불꽃 중심입니다. */
+static void ground_fire(GameSceneProfile *p, int kind, float x, float ground_y, float time, int id) {
+    if (p->light_count >= 8)
+        return;
+    const GameFireRow *row = &GAME_STATIONARY_ROWS[kind == GAME_SCENE_BRAZIER ? GAME_STATIONARY_BRAZIER
+                                                                              : GAME_STATIONARY_CAMPFIRE];
+    Vector2 screen = {x - (float)row->base_x + row->flame_x, ground_y - (float)(row->base_y + 1) + row->flame_y};
+    float z = fmaxf(1, (ground_y - screen.y) / .9f);
+    float flicker = .93f + .05f * sinf(time * 8.3f + (float)id * .91f) + .02f * sinf(time * 13.7f + (float)id);
+    p->lights[p->light_count++] = (GameSceneLight){.position = {screen.x, ground_y, z},
+                                                   .screen = screen,
+                                                   .color = kind == GAME_SCENE_BRAZIER ? (Color){255, 150, 62, 255}
+                                                                                       : (Color){255, 140, 54, 255},
+                                                   .radius = kind == GAME_SCENE_BRAZIER ? 58.0f : 66.0f,
+                                                   .strength = .92f * flicker,
+                                                   .direction = 0,
+                                                   .cone = 0,
+                                                   .kind = kind};
+}
+/* 모든 건물이 아니라 야영지·검문·모임 장소에만 고정 불을 둡니다. */
+static int fire_site(int type) {
+    switch (type) {
+    case CORE_BLD_GATHERER:
+    case CORE_BLD_LOGGING_SITE:
+        return GAME_SCENE_CAMPFIRE;
+    case CORE_BLD_GATE:
+    case CORE_BLD_PALISADE_GATE:
+    case CORE_BLD_STONE_GATE:
+    case CORE_BLD_IRON_GATE:
+    case CORE_BLD_TOWER:
+    case CORE_BLD_MARKET:
+        return GAME_SCENE_BRAZIER;
+    default:
+        return -1;
+    }
+}
 int game_scene_profile(const CoreBuildingView *b, Rectangle picture, float time, GameSceneProfile *p) {
     if (!p)
         return 0;
@@ -224,6 +261,13 @@ int game_scene_profile(const CoreBuildingView *b, Rectangle picture, float time,
     if (b->type == CORE_BLD_KEEP && r == 0) {
         Anchor second = {1.0f - s->feature[r].u, s->feature[r].v};
         light(p, picture, second, GAME_SCENE_TORCH, 0, .90f, time, b->id + 3);
+    }
+    int site = fire_site(b->type);
+    if (site >= 0) {
+        /* 정문 쪽 오른편 바닥에 둡니다. 그림 사각형 안에 받침이 들어오도록 제한합니다. */
+        float offset = site == GAME_SCENE_CAMPFIRE ? -.30f : .40f;
+        float fx = bounded(x + picture.width * offset, picture.x + 8, picture.x + picture.width - 8);
+        ground_fire(p, site, fx, fminf(front, picture.y + picture.height - 1), time, b->id + 5);
     }
     return 1;
 }

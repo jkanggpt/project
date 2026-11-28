@@ -13084,28 +13084,6 @@
       "crc32": 2729106472
     },
     {
-      "id": "lighting.carried",
-      "path": "lighting_lab/carried_lights.png",
-      "kind": "texture",
-      "required": true,
-      "width": 128,
-      "height": 32,
-      "columns": 8,
-      "rows": 2,
-      "frames": 8,
-      "content_keys": [
-        "lighting.carried"
-      ],
-      "source": "art/art_manifest.json#lighting.carried",
-      "generated_by": "castle_art_pipeline",
-      "license": "licenses/generated-art.txt",
-      "runtime_owner": "GameAssets / game_assets_free",
-      "validation": "point-filter;alpha-cells;animated",
-      "sha256": "e68bed919620f359540224d6b03e943ba354cd01f36516ee603fcd2df5953f57",
-      "stage_file": "settlement/carried_lights.png",
-      "crc32": 1972692770
-    },
-    {
       "id": "materials.albedo.terrain.props",
       "path": "materials/albedo/terrain/props.png",
       "kind": "texture",
@@ -36468,6 +36446,50 @@
       "sha256": "ec90a364eb2081afbd5f8622c95de59e430474666ba89afeacc1f7522e86fbd3",
       "stage_file": "materials/surface/buildings/paved_road_3.png",
       "crc32": 1487010353
+    },
+    {
+      "id": "lighting.carried",
+      "path": "lighting_lab/carried_lights.png",
+      "kind": "texture",
+      "required": true,
+      "width": 128,
+      "height": 64,
+      "columns": 8,
+      "rows": 4,
+      "frames": 8,
+      "content_keys": [
+        "lighting.carried"
+      ],
+      "source": "art/art_manifest.json#lighting.carried",
+      "generated_by": "castle_art_pipeline",
+      "license": "licenses/generated-art.txt",
+      "runtime_owner": "GameAssets / game_assets_free",
+      "validation": "point-filter;binary-alpha;stable-base;flame-center;animated",
+      "sha256": "791a004872d19d2a69446dbcde2459dce21d3f6ebc199341ed23121e5be75b01",
+      "stage_file": "settlement/carried_lights.png",
+      "crc32": 1238959666
+    },
+    {
+      "id": "lighting.stationary",
+      "path": "lighting_lab/stationary_fires.png",
+      "kind": "texture",
+      "required": true,
+      "width": 192,
+      "height": 96,
+      "columns": 8,
+      "rows": 4,
+      "frames": 8,
+      "content_keys": [
+        "lighting.stationary"
+      ],
+      "source": "art/art_manifest.json#lighting.stationary",
+      "generated_by": "castle_art_pipeline",
+      "license": "licenses/generated-art.txt",
+      "runtime_owner": "GameAssets / game_assets_free",
+      "validation": "point-filter;binary-alpha;stable-base;flame-center;animated",
+      "sha256": "cae608a646e3af2f52e5c61a9104243866d00fcd6536375b36ac16824436ab0c",
+      "stage_file": "settlement/stationary_fires.png",
+      "crc32": 1101277628
     }
   ]
 }

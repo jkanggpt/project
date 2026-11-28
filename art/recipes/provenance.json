@@ -248,24 +248,6 @@
       "plot_semantics": "경작지·과수원의 흙은 수평 표면으로 두고 녹색 식물의 거리장을 별도로 사용한다. 길·다리는 수평, 성벽·문은 벽 프로필로 명시한다."
     },
     {
-      "id": "graphics.finish",
-      "format": "technical_bake",
-      "request": "기존 2D 픽셀 원화를 유지하며 명암 완화·법선·높이·발광·재질, 친선 인물 야간 등불, 구름 시야 경계와 물의 태양 반사를 완성한다.",
-      "sources": [
-        "art/sources/carried_lights/masks.txt",
-        "art/sources/scene_profiles/buildings.inc",
-        "art/sources/sprite_materials/guides.txt"
-      ],
-      "implementation": [
-        "tools/art/carried_lights.c",
-        "tools/art/sprite_materials.c",
-        "game/src/render/scene_profiles.c"
-      ],
-      "method": "손등·횃불은 직접 작성한 픽셀 마스크와 팔레트로 정수 재생성한다. 기존 원화별 표면 지침으로 색·법선·높이·발광·거칠기·틈새 차폐를 굽는다. 개구부와 굴뚝은 원화 기준점을 사용한다. 구름·반사·다중 조명은 GPU에서 계산한다.",
-      "rights": "새 외부 원화·코드를 복제하지 않았다. 파생 아트에 대한 프로젝트 보유 권리는 기존 generated-art.txt의 CC0 1.0 정책을 따른다.",
-      "limitations": "표면·차폐 체적은 2D 원화로부터 작성한 조명용 근사이다. 시각 검수와 자동 검사를 별도 기록한다."
-    },
-    {
       "id": "graphics.finish.image_sources",
       "format": "image_gen",
       "request": "사용자가 이 세션은 이미지 생성만 수행하고, 추가 AI 그림 생성 없이 별도 코딩 세션을 이어갈 전체 요청을 먼저 달라고 지시함.",
@@ -320,6 +302,25 @@
       "scope": "이미지 원본 9개 생성, 6개 선택·2개 대체·1개 배제. 프로그램 소스 추가 구현이나 런타임 적용 없음.",
       "rights": "원본 프로젝트 아트와 새 생성 아트에 대해 프로젝트가 보유하는 권리는 기존 generated-art.txt의 CC0 1.0 정책을 따른다.",
       "limitations": "생성 요청 크기와 실제 출력 크기는 다를 수 있다. 프레임 정렬과 정확한 원본 알파를 검증하지 않은 참고를 최종 기술 지도로 사용하지 않는다."
+    },
+    {
+      "id": "graphics.finish",
+      "format": "technical_bake",
+      "request": "기존 2D 픽셀 원화를 유지하며 명암 완화·법선·높이·발광·재질, 친선 인물 야간 등불, 구름 시야 경계와 물의 태양 반사를 완성한다.",
+      "sources": [
+        "art/sources/scene_profiles/buildings.inc",
+        "art/sources/sprite_materials/guides.txt",
+        "art/sources/graphics_finish_generated/carried_lights_padded.png",
+        "art/sources/graphics_finish_generated/stationary_fires_padded.png"
+      ],
+      "implementation": [
+        "tools/art/carried_lights.c",
+        "tools/art/sprite_materials.c",
+        "game/src/render/scene_profiles.c"
+      ],
+      "method": "휴대 등불·고정 불은 인계된 padded 원본 시트를 받침 기준으로 정렬해 정수 표본 평균으로 게임 화소에 굽는다. 기존 원화별 표면 지침으로 색·법선·높이·발광·거칠기·틈새 차폐를 굽는다. 개구부와 굴뚝은 원화 기준점을 사용한다. 구름·반사·다중 조명은 GPU에서 계산한다.",
+      "rights": "새 외부 원화·코드를 복제하지 않았다. 파생 아트에 대한 프로젝트 보유 권리는 기존 generated-art.txt의 CC0 1.0 정책을 따른다.",
+      "limitations": "표면·차폐 체적은 2D 원화로부터 작성한 조명용 근사이다. 시각 검수와 자동 검사를 별도 기록한다."
     }
   ]
 }

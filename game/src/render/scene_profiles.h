@@ -9,7 +9,10 @@ enum GameSceneLightKind {
     GAME_SCENE_TORCH,
     GAME_SCENE_FURNACE,
     GAME_SCENE_MAGIC,
-    GAME_SCENE_BEACON
+    GAME_SCENE_BEACON,
+    /* 인계 고정 불 원화를 땅 위에 세우는 드문 야영·검문·모임 자리입니다. */
+    GAME_SCENE_BRAZIER,
+    GAME_SCENE_CAMPFIRE
 };
 typedef struct GameSceneVolume {
     Vector3 center, extent;
