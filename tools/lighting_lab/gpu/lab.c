@@ -166,7 +166,9 @@ static void shadow_scene(Lab *lab) {
     Rectangle source = lab->probe_kind == GPU_MATERIAL_TREE    ? (Rectangle){352, 56, 256, 256}
                        : lab->probe_kind == GPU_MATERIAL_ACTOR ? (Rectangle){656, 24, 288, 288}
                                                                : (Rectangle){672, 376, 256, 256};
-    float size = lab->probe_kind == GPU_MATERIAL_TREE ? 96 : lab->probe_kind == GPU_MATERIAL_ACTOR ? 48 : 80;
+    float size = lab->probe_kind == GPU_MATERIAL_TREE    ? 96.0f
+                 : lab->probe_kind == GPU_MATERIAL_ACTOR ? 48.0f
+                                                         : 80.0f;
     float normal_scale = size / source.width;
     if (lab->flip_probe) {
         source.x += source.width;
@@ -404,7 +406,7 @@ static int check_shadow_cut(Lab *lab) {
             lab->probe_kind = kinds[object];
             lab->flip_probe = flip;
             for (int light = 0; light < 5; light++) {
-                lab->azimuth = light == 1 ? 270 : light == 3 ? 45 : light == 4 ? 135 : 90;
+                lab->azimuth = light == 1 ? 270.0f : light == 3 ? 45.0f : light == 4 ? 135.0f : 90.0f;
                 lab->frame.sun_enabled = light != 2;
                 lab->frame.view = light == 2 ? 4 : 3;
                 Image shadow = test_frame(lab, 0), owner = data_image(lab, 3);
@@ -415,7 +417,7 @@ static int check_shadow_cut(Lab *lab) {
                     continue;
                 }
                 int leaked = 0, cast = 0, joined = 0, columns = 0;
-                float size = object == 2 ? 96 : object == 1 ? 48 : 80;
+                float size = object == 2 ? 96.0f : object == 1 ? 48.0f : 80.0f;
                 float strip = object == 2 ? .12f : object == 1 ? .20f : .40f;
                 int global_front = -1;
                 for (int y = 0; y < owner.height; y++)

@@ -133,8 +133,8 @@ static int load_lab(Lab *lab) {
     if (!albedo.data)
         return 0;
     for (int i = 0; i < LAB_KIND_COUNT; i++) {
-        Image cell =
-            ImageFromImage(albedo, (Rectangle){(i % 4) * LAB_CELL, (i / 4) * LAB_CELL, LAB_CELL, LAB_CELL});
+        Image cell = ImageFromImage(albedo, (Rectangle){(float)((i % 4) * LAB_CELL),
+                                                        (float)((i / 4) * LAB_CELL), LAB_CELL, LAB_CELL});
         lab->bounds[i] = GetImageAlphaBorder(cell, .5f);
         UnloadImage(cell);
     }
@@ -198,8 +198,8 @@ static void preset(Lab *lab, int which) {
     lab->interior = 1;
     lab->cursor = 0;
     lab->sun = which != 2;
-    lab->azimuth = which == 1 ? 215 : 135;
-    lab->elevation = which == 1 ? 16 : 55;
+    lab->azimuth = which == 1 ? 215.0f : 135.0f;
+    lab->elevation = which == 1 ? 16.0f : 55.0f;
     lab->ambient = which == 2 ? .025f : which == 1 ? .08f : .24f;
     lab->exposure = 1.1f;
 }
@@ -262,7 +262,7 @@ static void geometry_buffers(Lab *lab) {
                     kind = LAB_WATER;
                 if (x < 3 && y > 8)
                     kind = LAB_DIRT;
-                draw_sprite(lab, kind, (Vector2){x * 16 + 8, y * 16 + 8}, 0);
+                draw_sprite(lab, kind, (Vector2){(float)(x * 16 + 8), (float)(y * 16 + 8)}, 0);
             }
         for (int i = 0; i < lab->object_count; i++) {
             LabObject *object = &lab->objects[i];

@@ -890,7 +890,7 @@ static void objects(GameApp *a) {
             game_gpu_actor(owner, a->session.wandering.x_milli * .016f, item->depth, 24, 24);
         } else if (item->kind == DRAW_BOAT) {
             CoreBoatView *boat = &a->session.boats[item->index];
-            game_gpu_actor(owner, boat->x_milli * .016f, item->depth, boat->boat_kind ? 42 : 34, 12);
+            game_gpu_actor(owner, boat->x_milli * .016f, item->depth, boat->boat_kind ? 42.0f : 34.0f, 12.0f);
         }
         switch (item->kind) {
         case DRAW_MERCHANT:

@@ -425,7 +425,10 @@ void game_gpu_prop(GameApp *app, int cell, int type) {
     if (type == 20) {
         CoreExpansionTileView *t = &s->exp_tiles[cell];
         int mature = core_expansion_tree_mature_age(t->tree_kind);
-        size = t->tree_age < mature * 3 / 10 ? 12 : t->tree_age < mature ? 25 : t->tree_kind == 2 ? 43 : 38;
+        size = t->tree_age < mature * 3 / 10 ? 12.0f
+               : t->tree_age < mature        ? 25.0f
+               : t->tree_kind == 2           ? 43.0f
+                                             : 38.0f;
     }
     if (type == 21)
         size = 22;
