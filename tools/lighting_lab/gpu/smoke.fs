@@ -41,8 +41,10 @@ void main(){
     ivec2 tile=ivec2(floor((projected-uTileOrigin)/16.0));
     if(all(greaterThanEqual(tile,ivec2(0)))&&all(lessThan(tile,uTileSize))){
         int offset=(tile.y*uTileSize.x+tile.x)*uLightTileStride;
-        for(int i=0;i<int(lightWords[offset]);i++){
-            Light light=lights[lightWords[offset+1+i]];
+        bool listed=lightWords[offset+1]==0u;
+        int count=listed?int(lightWords[offset]):uLightCount;
+        for(int i=0;i<count;i++){
+            Light light=lights[listed?lightWords[offset+2+i]:uint(i)];
             vec3 delta=light.position.xyz-puffWorld;float distance=length(delta);
             if(distance>=light.position.w)continue;
             float attenuation=pow(1.0-distance/light.position.w,2.0)*light.color.w;

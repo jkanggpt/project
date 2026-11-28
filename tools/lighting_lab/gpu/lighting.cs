@@ -33,6 +33,7 @@ void main(){
     int kind=int(round(material.r*255.0));
     if(uView==1){imageStore(outputImage,pixel,vec4(albedo.rgb,1));return;}
     if(uView==2){imageStore(outputImage,pixel,vec4(normal*.5+.5,1));return;}
+    if(uView==6){imageStore(outputImage,pixel,vec4(clamp(nh.w/48.0,0.0,1.0),material.g,material.z,1));return;}
     if(kind==0){imageStore(outputImage,pixel,vec4(albedo.rgb,1));return;}
     vec2 screen=uOrigin+vec2(float(pixel.x)+.5,uViewport.y-float(pixel.y)-.5)/uScale;
     vec3 world=vec3(screen.x,screen.y+nh.w*.9,nh.w);
@@ -51,9 +52,11 @@ void main(){
     ivec2 tile=ivec2(floor((screen-uTileOrigin)/16.0));
     bool tiled=all(greaterThanEqual(tile,ivec2(0)))&&all(lessThan(tile,uTileSize));
     int lightOffset=tiled?(tile.y*uTileSize.x+tile.x)*uLightTileStride:0;
-    int lightCount=tiled?int(lightWords[lightOffset]):uLightCount;
+    bool listed=tiled&&lightWords[lightOffset+1]==0u;
+    int lightCount=listed?int(lightWords[lightOffset]):uLightCount;
+    vec3 localRadiance=vec3(0);
     for(int item=0;item<lightCount;item++){
-        int k=tiled?int(lightWords[lightOffset+1+item]):item;
+        int k=listed?int(lightWords[lightOffset+2+item]):item;
         Light light=lights[k];vec3 direction=light.position.xyz-world;float range=length(direction);
         if(range>=light.position.w)continue;
         float visibility=visible(world,screen,k,owner,dither);
@@ -61,11 +64,19 @@ void main(){
         direction/=max(.01,range);
         float diffuse=max(0.0,dot(normal,direction));diffuse=floor(diffuse*12.0+dither*.3)/12.0;
         float attenuation=pow(1.0-range/light.position.w,2.0)*light.color.w*visibility;
-        radiance+=light.color.rgb*diffuse*attenuation;
+        localRadiance+=light.color.rgb*diffuse*attenuation;
         vec3 halfway=normalize(direction+vec3(0,.70710678,.70710678));
         float roughness=clamp(material.z,.10,1.0);
         float power=mix(76.0,12.0,roughness);
         specular+=floor(pow(max(0.0,dot(normal,halfway)),power)*4.0)/4.0*(.012+(1.0-roughness)*.065)*attenuation;
+    }
+    /* 군중의 등불이 겹쳐도 하얗게 타지 않도록 지역광 합에 부드러운 무릎을 둡니다. */
+    float peak=max(localRadiance.r,max(localRadiance.g,localRadiance.b));
+    radiance+=localRadiance/(1.0+max(0.0,peak-.45)*.75);
+    if(uView==7){
+        float load=float(lightCount)/24.0;
+        imageStore(outputImage,pixel,vec4(clamp(vec3(load,load*.55,listed?.15:.9),0.0,1.0),1));
+        return;
     }
     float lampStrength=clamp((.55-uAmbient)/.4,0.0,1.0);
     vec3 emissionHue=albedo.rgb/max(.08,max(albedo.r,max(albedo.g,albedo.b)));

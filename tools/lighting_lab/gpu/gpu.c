@@ -31,6 +31,9 @@
 #define GPU_GRASS_LIMIT 16384
 #define GPU_PARTICLES 2048
 #define GPU_TILE_STRIDE 130
+/* 칸별 광원 목록 한도. 넘으면 그 칸만 전체 광원을 순회합니다. */
+#define GPU_LIGHT_TILE_LIMIT 254
+#define GPU_SHADOW_LIGHTS 16
 #define GPU_CHUNK 128
 #define GPU_TIMER_COUNT 5
 #define GPU_TIMER_FRAMES 4
@@ -65,14 +68,16 @@ struct CastleGpu {
     CastleGpuStats stats;
     CastleGpuSprite *sprites;
     CastleGpuCaster *casters;
-    CastleGpuLight *lights;
+    CastleGpuLight *lights, *light_scratch;
+    uint64_t *light_keys;
+    int light_scratch_capacity;
     CastleGpuEmitter *emitters;
     CastleGpuFootprint *footprints;
     int footprint_count, footprint_capacity;
     GpuBuffer footprint_buffer;
     GpuBatch *batches;
     int sprite_count, caster_count, emitter_count, batch_count, light_count;
-    int sprite_capacity, caster_capacity, emitter_capacity, batch_capacity, light_capacity;
+    int sprite_capacity, caster_capacity, emitter_capacity, batch_capacity, light_capacity, light_stride;
     GpuBuffer sprite_buffer, caster_buffer, light_buffer, emitter_buffer, terrain_buffer;
     GpuBuffer grass_buffer, command_buffer, particle_buffer, tile_buffer;
     GpuBuffer page_buffer, light_tiles, static_tiles, fog_buffer;
@@ -550,6 +555,8 @@ void castle_gpu_destroy(CastleGpu *gpu) {
         objects -= GPU_TIMER_COUNT * GPU_TIMER_FRAMES;
     }
     free(gpu->lights);
+    free(gpu->light_scratch);
+    free(gpu->light_keys);
     free(gpu->footprints);
     free(gpu->fog_words);
     free(gpu->sprites);
@@ -689,7 +696,7 @@ int castle_gpu_caster(CastleGpu *gpu, const CastleGpuCaster *caster) {
     return 1;
 }
 int castle_gpu_light(CastleGpu *gpu, const CastleGpuLight *light) {
-    if (!gpu || !light ||
+    if (!gpu || !light || gpu->light_count >= 0xffffff ||
         !reserve((void **)&gpu->lights, &gpu->light_capacity, gpu->light_count + 1, sizeof(*light))) {
         if (gpu)
             gpu->failed = 1;
@@ -959,6 +966,42 @@ static int contacts_update(CastleGpu *gpu) {
     }
     return 1;
 }
+static int compare_key(const void *a, const void *b) {
+    uint64_t x = *(const uint64_t *)a, y = *(const uint64_t *)b;
+    return x < y ? -1 : x > y;
+}
+/* 자세한 동적 그림자 예산(앞 16개)을 화면 가운데에 가까운 고정 광원에 줍니다. 이동 등불은 뒤에 두고
+   간략 차폐를 씁니다. 거리를 48화소 단위로 묶고 안정된 번호로 동률을 풀어 화면 이동 중 순서가 덜 바뀝니다.
+   어떤 광원도 버리지 않으며 순서만 바꿉니다. */
+static int order_lights(CastleGpu *gpu) {
+    if (gpu->light_count <= GPU_SHADOW_LIGHTS)
+        return 1;
+    if (gpu->light_scratch_capacity < gpu->light_count) {
+        CastleGpuLight *scratch = realloc(gpu->light_scratch, (size_t)gpu->light_count * sizeof(*scratch));
+        if (scratch)
+            gpu->light_scratch = scratch;
+        uint64_t *keys = realloc(gpu->light_keys, (size_t)gpu->light_count * sizeof(*keys));
+        if (keys)
+            gpu->light_keys = keys;
+        if (!scratch || !keys)
+            return 0;
+        gpu->light_scratch_capacity = gpu->light_count;
+    }
+    float cx = gpu->frame.origin[0] + gpu->width * .5f / fmaxf(gpu->frame.scale, .001f),
+          cy = gpu->frame.origin[1] + gpu->height * .5f / fmaxf(gpu->frame.scale, .001f);
+    for (int i = 0; i < gpu->light_count; i++) {
+        const CastleGpuLight *l = &gpu->lights[i];
+        float dx = l->position[0] - cx, dy = l->position[1] - l->position[2] * .9f - cy;
+        uint64_t band = (uint64_t)fminf(65535, sqrtf(dx * dx + dy * dy) / 48);
+        uint64_t moving = (l->tags[2] & 1u) != 0;
+        gpu->light_keys[i] = moving << 63 | band << 47 | (uint64_t)(l->tags[3] & 0x7fffffu) << 24 | (uint64_t)i;
+    }
+    qsort(gpu->light_keys, (size_t)gpu->light_count, sizeof(*gpu->light_keys), compare_key);
+    for (int i = 0; i < gpu->light_count; i++)
+        gpu->light_scratch[i] = gpu->lights[gpu->light_keys[i] & 0xffffffu];
+    memcpy(gpu->lights, gpu->light_scratch, (size_t)gpu->light_count * sizeof(*gpu->lights));
+    return 1;
+}
 static void shadow_uniforms(CastleGpu *gpu, GpuProgram program) {
     glUseProgram(program.id);
     rlBindShaderBuffer(gpu->caster_buffer.id, 0);
@@ -1102,9 +1145,10 @@ int castle_gpu_render(CastleGpu *gpu) {
     okay = okay &&
            buffer_reserve(gpu, &gpu->light_buffer,
                           (size_t)(gpu->light_capacity ? gpu->light_capacity : 1) * sizeof(*gpu->lights));
+    gpu->light_stride = (gpu->light_count < GPU_LIGHT_TILE_LIMIT ? gpu->light_count : GPU_LIGHT_TILE_LIMIT) + 2;
     okay = okay && buffer_reserve(gpu, &gpu->light_tiles,
-                                  (size_t)gpu->tile_width * gpu->tile_height *
-                                      (size_t)(gpu->light_capacity + 1) * sizeof(uint32_t));
+                                  (size_t)gpu->tile_width * gpu->tile_height * (size_t)gpu->light_stride *
+                                      sizeof(uint32_t));
     if (!okay) {
         gpu->failed = 1;
         goto restore;
@@ -1128,6 +1172,8 @@ int castle_gpu_render(CastleGpu *gpu) {
                 break;
             }
     }
+    if (!order_lights(gpu))
+        gpu->failed = 1;
     if (gpu->light_count)
         rlUpdateShaderBuffer(gpu->light_buffer.id, gpu->lights,
                              (unsigned int)((size_t)gpu->light_count * sizeof(*gpu->lights)), 0);
@@ -1302,7 +1348,7 @@ int castle_gpu_render(CastleGpu *gpu) {
     rlBindShaderBuffer(gpu->light_buffer.id, 1);
     rlBindShaderBuffer(gpu->light_tiles.id, 3);
     uniform_i(gpu->light_bins, "uLightCount", gpu->light_count);
-    uniform_i(gpu->light_bins, "uLightTileStride", gpu->light_capacity + 1);
+    uniform_i(gpu->light_bins, "uLightTileStride", gpu->light_stride);
     uniform_v2(gpu->light_bins, "uTileOrigin", gpu->tile_origin[0], gpu->tile_origin[1]);
     glUniform2i(glGetUniformLocation(gpu->light_bins.id, "uTileSize"), gpu->tile_width, gpu->tile_height);
     rlComputeShaderDispatch((unsigned int)(gpu->tile_width + 7) / 8, (unsigned int)(gpu->tile_height + 7) / 8,
@@ -1314,7 +1360,7 @@ int castle_gpu_render(CastleGpu *gpu) {
     timer_start(gpu, 3);
     shadow_uniforms(gpu, gpu->lighting);
     rlBindShaderBuffer(gpu->light_tiles.id, 3);
-    uniform_i(gpu->lighting, "uLightTileStride", gpu->light_capacity + 1);
+    uniform_i(gpu->lighting, "uLightTileStride", gpu->light_stride);
     uniform_f(gpu->lighting, "uTime", gpu->frame.time);
     uniform_f(gpu->lighting, "uOvercast", gpu->frame.overcast);
     uniform_i(gpu->lighting, "uWater", gpu->frame.water);
@@ -1354,7 +1400,7 @@ int castle_gpu_render(CastleGpu *gpu) {
         rlBindShaderBuffer(gpu->light_buffer.id, 1);
         rlBindShaderBuffer(gpu->light_tiles.id, 3);
         uniform_i(gpu->smoke, "uLightCount", gpu->light_count);
-        uniform_i(gpu->smoke, "uLightTileStride", gpu->light_capacity + 1);
+        uniform_i(gpu->smoke, "uLightTileStride", gpu->light_stride);
         uniform_i(gpu->smoke, "uSunEnabled", gpu->frame.sun_enabled);
         glUniform3fv(glGetUniformLocation(gpu->smoke.id, "uSunDirection"), 1, gpu->frame.sun);
         uniform_v2(gpu->smoke, "uTileOrigin", gpu->tile_origin[0], gpu->tile_origin[1]);
@@ -1695,6 +1741,15 @@ int castle_gpu_validate(CastleGpu *gpu) {
         overflow += data[i + 1] != 0;
     free(data);
     gpu->stats.tile_overflows = overflow;
+    size_t light_words = (size_t)gpu->tile_width * gpu->tile_height * (size_t)gpu->light_stride;
+    uint32_t *lights = gpu->light_tiles.id && light_words ? malloc(light_words * sizeof(*lights)) : NULL;
+    gpu->stats.light_overflows = 0;
+    if (lights) {
+        rlReadShaderBuffer(gpu->light_tiles.id, lights, (unsigned int)(light_words * sizeof(*lights)), 0);
+        for (size_t i = 0; i < light_words; i += (size_t)gpu->light_stride)
+            gpu->stats.light_overflows += lights[i + 1] != 0;
+        free(lights);
+    }
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
         fprintf(stderr, "GPU OpenGL error: %u\n", error);

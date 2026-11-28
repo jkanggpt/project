@@ -77,6 +77,8 @@ typedef struct CastleGpuStats {
     size_t texture_bytes, buffer_bytes;
     unsigned int live_objects;
     int software, sprites, casters, lights, emitters, grass_instances, smoke_particles, tile_overflows;
+    /* 검사 전용: 광원 목록 한도를 넘어 전체 순회로 처리한 칸 수입니다. */
+    int light_overflows;
     int logical_width, logical_height, pixel_scale;
     uint64_t frames, timed_frames, timed_frame_id, static_updates;
 } CastleGpuStats;

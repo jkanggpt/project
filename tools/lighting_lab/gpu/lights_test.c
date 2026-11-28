@@ -80,6 +80,13 @@ int main(void) {
     if (crowd.data && offscreen.data)
         errors += memcmp(crowd.data, offscreen.data, (size_t)crowd.width * crowd.height * 4) != 0;
     errors += castle_gpu_stats(gpu).lights != 1024;
+    /* 칸 목록 한도(254)를 넘긴 광원도 전체 순회로 모두 더해집니다. */
+    Image limit = render(gpu, color, normal, surface, 254, 0, 0, 0, 0);
+    errors += castle_gpu_validate(gpu) || castle_gpu_stats(gpu).light_overflows != 0;
+    Image beyond = render(gpu, color, normal, surface, 300, 0, 0, 0, 0);
+    errors += castle_gpu_validate(gpu);
+    int overflow_tiles = castle_gpu_stats(gpu).light_overflows;
+    errors += overflow_tiles == 0 || center(beyond) <= center(limit);
     CastleGpuStats before = castle_gpu_stats(gpu);
     Image repeat = render(gpu, color, normal, surface, 512, 512, 0, 0, 0);
     CastleGpuStats after = castle_gpu_stats(gpu);
@@ -91,9 +98,11 @@ int main(void) {
     errors += !day.data || !night.data || !blocked.data || total(day) < 10000 || total(night) != 0 ||
               total(blocked) > total(day) / 100;
     errors += castle_gpu_validate(gpu);
-    printf("GPU LIGHTS: 16=%d 64=%d 512=%d submitted=%d reflection=%d night=%d blocked=%d errors=%d\n",
-           center(few), center(many), center(crowd), 1024, total(day), total(night), total(blocked), errors);
-    Image images[] = {few, many, crowd, offscreen, repeat, day, night, blocked, pixels, map, material};
+    printf("GPU LIGHTS: 16=%d 64=%d 254=%d 300=%d 512=%d overflow_tiles=%d submitted=%d reflection=%d night=%d "
+           "blocked=%d errors=%d\n",
+           center(few), center(many), center(limit), center(beyond), center(crowd), overflow_tiles, 1024,
+           total(day), total(night), total(blocked), errors);
+    Image images[] = {few, many, crowd, offscreen, repeat, day, night, blocked, pixels, map, material, limit, beyond};
     for (size_t i = 0; i < sizeof(images) / sizeof(images[0]); i++)
         if (images[i].data)
             UnloadImage(images[i]);
