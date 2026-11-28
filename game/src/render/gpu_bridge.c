@@ -268,6 +268,11 @@ static const MaterialPair *material_pair(const GameMaterialBinding *m, Texture2D
         pair->albedo.height != original.height || pair->normal.width != original.width / m->divisor ||
         pair->normal.height != original.height / m->divisor) {
         fprintf(stderr, "스프라이트 재료를 읽지 못했습니다: %s\n", m->albedo);
+        if (pair->albedo.id)
+            UnloadTexture(pair->albedo);
+        if (pair->normal.id)
+            UnloadTexture(pair->normal);
+        *pair = (MaterialPair){0};
         bridge.error = 1;
         return NULL;
     }
@@ -280,6 +285,8 @@ static int sprite(Texture2D texture, Rectangle source, Rectangle destination, Co
                   float angle) {
     if (!bridge.active || !texture.id)
         return 0;
+    if (bridge.error)
+        return 1;
     GameAssets *a = &bridge.app->assets;
     const GameMaterialBinding *binding = game_assets_material(a, texture);
     if (binding && !strcmp(binding->mode, "unlit"))
