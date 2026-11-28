@@ -36,3 +36,15 @@ endif()
 
 add_executable(castle_content_registry content_registry.c)
 target_link_libraries(castle_content_registry PRIVATE castle_core_static castle_warnings)
+
+# 조명 실험실과 아트 굽기는 같은 모양 정의를 사용합니다.
+if(TARGET raylib)
+  target_sources(castle_art_pipeline PRIVATE art/lighting_lab.c art/lighting_pixels.c art/gpu_scenery.c art/sprite_materials.c)
+  add_executable(castle_sprite_materials sprite_materials_main.c art/sprite_materials.c art/sprite_material_gallery.c art/trace.c)
+  target_link_libraries(castle_sprite_materials PRIVATE castle_frontend raylib castle_warnings castle_asset_index)
+  if(CASTLE_BUILD_TESTS)
+    add_test(NAME sprite_material_fixtures COMMAND castle_sprite_materials --test)
+    add_test(NAME sprite_material_contracts COMMAND castle_sprite_materials --check "${PROJECT_SOURCE_DIR}/art/sources" "${PROJECT_SOURCE_DIR}/game/assets")
+  endif()
+  add_subdirectory(lighting_lab)
+endif()

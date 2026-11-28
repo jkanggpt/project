@@ -2,6 +2,7 @@
 #include "app.h"
 #include "format.h"
 #include "platform.h"
+#include "render/gpu_bridge.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1321,7 +1322,7 @@ void game_render_interface(GameApp *a) {
                  u8"FPS %d · 주민 %d · 적 %d", GetFPS(), a->session.villager_count, a->session.enemy_count);
     game_ui_building_hover(a);
     if (a->in_game && a->panel == PANEL_NONE && !a->ui.tooltip[0]) {
-        Vector2 screen = GetMousePosition(), point = GetScreenToWorld2D(screen, a->camera);
+        Vector2 screen = GetMousePosition(), point = GetScreenToWorld2D(screen, game_gpu_screen_camera(a));
         int x = (int)floorf(point.x / 16), y = (int)floorf(point.y / 16);
         GameSession *s = &a->session;
         static const char *const biomes[] = {u8"초원", u8"숲",   u8"타이가", u8"산악", u8"습지",

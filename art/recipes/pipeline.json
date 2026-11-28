@@ -32,8 +32,40 @@
     {
       "role": "production",
       "implementation": "tools/art/production.c"
+    },
+    {
+      "role": "sprite_materials",
+      "implementation": "tools/art/sprite_materials.c",
+      "recipe": "art/recipes/sprite_materials.json",
+      "input": "앞선 원화 단계 출력; 실제 프레임 격자와 정수 표면 프로필",
+      "output": "materials/albedo 및 materials/normals",
+      "publish": "원화와 파생 자료를 같은 원장으로 발행"
     }
   ],
   "publish_manifest": "game/assets/assets_manifest.json",
-  "temporary_output": "build/<run>/art-work"
+  "temporary_output": "build/<run>/art-work",
+  "lighting_prototype": {
+    "stage": "interface",
+    "implementation": "tools/art/lighting_lab.c",
+    "recipe": "art/recipes/lighting_prototype.json",
+    "pixel_art": {
+      "implementation": "tools/art/lighting_pixels.c",
+      "recipe": "art/recipes/pixel_lighting.json",
+      "stage": "interface"
+    }
+  },
+  "gpu_scenery": {
+    "stage": "interface",
+    "implementation": "tools/art/gpu_scenery.c",
+    "source": "art/sources/gpu_scenery/masks.txt",
+    "output": "lighting_lab/scenery_masks.png",
+    "sampling": "최근접·정수 픽셀·원본 게임과 같은 녹색/회갈색 팔레트",
+    "contacts": {
+      "source": "art/sources/gpu_scenery/contacts.txt",
+      "implementation": "tools/art/gpu_scenery.c / art_gpu_contacts",
+      "output": "lighting_lab/contact_policy.png",
+      "runtime": "tools/lighting_lab/gpu/contacts.cs",
+      "status": "알파 접촉 후보·아래 윤곽 대조 검사; 숨은 깊이는 재료별 명시값"
+    }
+  }
 }

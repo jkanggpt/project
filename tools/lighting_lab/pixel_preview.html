@@ -1,0 +1,128 @@
+<div id="pixel-lighting-test">
+  <div class="viz-controls">
+    <button class="btn" type="button" data-preset="day" aria-pressed="true">낮</button>
+    <button class="btn" type="button" data-preset="evening">저녁</button>
+    <button class="btn" type="button" data-preset="texture">질감 조명</button>
+    <label class="form-label">비교
+      <select class="form-select" data-control="mode">
+        <option value="0">기존 원화</option><option value="1">명암 완화</option><option value="2" selected>재조명</option><option value="3">표면 노멀</option>
+      </select>
+    </label>
+    <label class="form-label">확대
+      <select class="form-select" data-control="zoom"><option value="1">지도</option><option value="2">기와 2배</option></select>
+    </label>
+  </div>
+  <canvas class="cursor-interaction" width="512" height="320" aria-label="기존 픽셀 원화를 사용한 2D 조명 지도. 드래그하면 이동광이 움직입니다.">기존 원화 조명 비교</canvas>
+  <div class="viz-controls">
+    <label class="form-label">미세 표면 <output class="tabular-nums" data-value="detail">125%</output><input class="form-range" type="range" min="0" max="200" value="125" data-control="detail"></label>
+  </div>
+  <div class="viz-controls">
+    <label class="form-label">태양 방향 <output class="tabular-nums" data-value="azimuth">225°</output><input class="form-range" type="range" min="0" max="360" value="225" data-control="azimuth"></label>
+    <label class="form-label">태양 고도 <output class="tabular-nums" data-value="elevation">40°</output><input class="form-range" type="range" min="12" max="80" value="40" data-control="elevation"></label>
+  </div>
+  <div class="viz-row">
+    <label class="form-check form-switch"><input class="form-check-input" type="checkbox" checked data-control="sun"><span class="form-check-label">태양</span></label>
+    <label class="form-check form-switch"><input class="form-check-input" type="checkbox" checked data-control="lamps"><span class="form-check-label">등불</span></label>
+    <label class="form-check form-switch"><input class="form-check-input" type="checkbox" checked data-control="windows"><span class="form-check-label">창문</span></label>
+    <label class="form-check form-switch"><input class="form-check-input" type="checkbox" data-control="cursor"><span class="form-check-label">이동광 · 드래그</span></label>
+    <label class="form-check form-switch"><input class="form-check-input" type="checkbox" checked data-control="shadows"><span class="form-check-label">그림자</span></label>
+  </div>
+  <div class="text-small" aria-live="polite" data-role="status">원화 조명 준비 중</div>
+  <div class="text-destructive" role="alert" data-role="error" hidden></div>
+  <script type="application/json" data-role="scene">__PIXEL_DATA__</script>
+  <script type="application/x-worker" data-role="worker">__PIXEL_WORKER__</script>
+</div>
+<style>
+  #pixel-lighting-test { display: grid; gap: calc(var(--font-size-base) * .75); }
+  #pixel-lighting-test canvas { display: block; width: 100%; height: auto; aspect-ratio: 8 / 5; image-rendering: pixelated; touch-action: none; }
+</style>
+<script>
+(()=>{
+  'use strict';
+  const root=document.getElementById('pixel-lighting-test'),canvas=root.querySelector('canvas'),context=canvas.getContext('2d');
+  const scene=JSON.parse(root.querySelector('[data-role="scene"]').textContent);
+  const controls=Object.fromEntries([...root.querySelectorAll('[data-control]')].map(el=>[el.dataset.control,el]));
+  const status=root.querySelector('[data-role="status"]'),error=root.querySelector('[data-role="error"]');
+  const buffer=document.createElement('canvas');buffer.width=scene.width;buffer.height=scene.height;
+  const bufferContext=buffer.getContext('2d');
+  let state={preset:'day',mode:2,zoom:1,detail:1.25,azimuth:225,elevation:40,ambient:.50,sun:true,lamps:true,windows:true,cursor:false,shadows:true,position:[95,210,95]};
+  let ready=false,busy=false,pending=null,serial=0,dragging=false,scheduled=false,renders=0;
+  function fail(message){error.textContent=message;error.hidden=false;root.dataset.ready='error';}
+  const url=URL.createObjectURL(new Blob([root.querySelector('[data-role="worker"]').textContent],{type:'text/javascript'}));
+  const worker=new Worker(url);
+  function sync(){
+    for(const [name,el]of Object.entries(controls)){
+      if(el.type==='checkbox')el.checked=state[name];else el.value=name==='detail'?state.detail*100:state[name];
+    }
+    for(const name of ['detail','azimuth','elevation'])root.querySelector('[data-value="'+name+'"]').textContent=Math.round(name==='detail'?state.detail*100:state[name])+(name==='detail'?'%':'°');
+    for(const el of root.querySelectorAll('[data-preset]'))el.setAttribute('aria-pressed',String(el.dataset.preset===state.preset));
+  }
+  function paint(){
+    context.imageSmoothingEnabled=false;
+    if(state.zoom===2)context.drawImage(buffer,40,48,256,160,0,0,512,320);
+    else context.drawImage(buffer,0,0);
+  }
+  function send(){if(!ready||!pending)return;busy=true;const job=pending;pending=null;worker.postMessage({type:'render',id:job.id,state:job.state});}
+  function request(){
+    pending={id:++serial,state:JSON.parse(JSON.stringify(state))};
+    if(!scheduled){scheduled=true;requestAnimationFrame(()=>{scheduled=false;if(!busy)send();});}
+  }
+  function save(){window.openai?.setWidgetState?.({modelContent:{preset:state.preset,view:controls.mode.selectedOptions[0].textContent,detail:state.detail,sun:state.sun,lamps:state.lamps,windows:state.windows,cursor:state.cursor,shadows:state.shadows,azimuth:state.azimuth,elevation:state.elevation,houseShadows:'벽·지붕·굴뚝'},privateContent:{pixelHouseShadows:{...state,position:[...state.position]}}})?.catch(()=>{});}
+  function restore(widget){
+    const value=widget?.privateContent?.pixelHouseShadows;if(!value)return;
+    for(const name of ['sun','lamps','windows','cursor','shadows'])if(typeof value[name]==='boolean')state[name]=value[name];
+    for(const [name,min,max]of [['mode',0,3],['zoom',1,2],['detail',0,2],['azimuth',0,360],['elevation',12,80],['ambient',.05,1]])if(Number.isFinite(value[name]))state[name]=Math.min(max,Math.max(min,value[name]));
+    state.mode=Math.round(state.mode);state.zoom=Math.round(state.zoom);
+    if(['day','evening','texture',null].includes(value.preset))state.preset=value.preset;
+    if(Array.isArray(value.position)&&value.position.length===3&&value.position.every(Number.isFinite))state.position=[Math.min(512,Math.max(0,value.position[0])),Math.min(430,Math.max(0,value.position[1])),95];
+    sync();request();
+  }
+  worker.onmessage=event=>{
+    const data=event.data;
+    if(data.type==='ready'){ready=true;URL.revokeObjectURL(url);request();}
+    else if(data.type==='frame'){
+      busy=false;
+      if(data.id===serial){
+        bufferContext.putImageData(new ImageData(new Uint8ClampedArray(data.pixels),scene.width,scene.height),0,0);paint();
+        root.dataset.ready='true';root.dataset.renders=String(++renders);root.dataset.frameMs=data.ms.toFixed(1);
+        status.textContent='원화 선화·윤곽 유지 · '+(state.cursor?'이동광 X '+state.position[0].toFixed(0)+' / Y '+state.position[1].toFixed(0):'건물 벽·지붕·굴뚝 그림자');
+      }
+      if(pending)send();
+    }else if(data.type==='error')fail(data.message);
+  };
+  worker.onerror=()=>fail('조명 계산을 준비하지 못했습니다.');
+  for(const button of root.querySelectorAll('[data-preset]'))button.addEventListener('click',()=>{
+    const name=button.dataset.preset;
+    Object.assign(state,{preset:name,mode:2,zoom:1,sun:name!=='texture',lamps:true,windows:true,cursor:name==='texture',shadows:true,ambient:name==='evening' ? .17 : name==='texture' ? .42 : .50,azimuth:225,elevation:name==='evening'?20:40,position:[95,210,95]});
+    sync();request();save();
+  });
+  for(const [name,el]of Object.entries(controls)){
+    el.addEventListener('input',()=>{
+      state[name]=el.type==='checkbox'?el.checked:Number(el.value)/(name==='detail'?100:1);
+      if(!['mode','zoom','detail'].includes(name))state.preset=null;
+      sync();request();
+    });el.addEventListener('change',save);
+  }
+  function move(event){
+    const rectangle=canvas.getBoundingClientRect();
+    let x=Math.min(1,Math.max(0,(event.clientX-rectangle.left)/rectangle.width))*512;
+    let y=Math.min(1,Math.max(0,(event.clientY-rectangle.top)/rectangle.height))*320;
+    if(state.zoom===2){x=40+x/2;y=48+y/2;}
+    state.position=[x,y+95*.9,95];state.cursor=true;state.preset=null;sync();request();
+  }
+  canvas.addEventListener('pointerdown',event=>{dragging=true;canvas.setPointerCapture(event.pointerId);move(event);});
+  canvas.addEventListener('pointermove',event=>{if(dragging)move(event);});
+  canvas.addEventListener('pointerup',event=>{if(dragging){move(event);dragging=false;save();}});
+  canvas.addEventListener('pointercancel',()=>{dragging=false;});
+  window.addEventListener('openai:set_globals',event=>restore(event.detail?.globals?.widgetState));
+  restore(window.openai?.widgetState);sync();
+  const decode=name=>new Promise((resolve,reject)=>{
+    const image=new Image();image.onload=()=>{
+      const temporary=document.createElement('canvas');temporary.width=scene.width;temporary.height=scene.height;
+      const pixels=temporary.getContext('2d',{willReadFrequently:true});pixels.drawImage(image,0,0);
+      resolve(pixels.getImageData(0,0,scene.width,scene.height).data.buffer);
+    };image.onerror=()=>reject(new Error('원화 자료를 읽지 못했습니다.'));image.src=scene.images[name];
+  });
+  Promise.all(['original','albedo','normals','surface','material','owners'].map(decode)).then(maps=>worker.postMessage({type:'init',scene:{width:scene.width,height:scene.height,contacts:scene.contacts,lamps:scene.lamps,lampOwners:scene.lampOwners,casters:scene.casters,buildings:scene.buildings},maps},maps)).catch(problem=>fail(problem.message));
+})();
+</script>

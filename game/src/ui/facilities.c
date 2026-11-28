@@ -1,6 +1,7 @@
 /* content_ui.c — 실제 의료·수확·어업 조회와 건물 툴팁 */
 #include "app.h"
 #include "format.h"
+#include "render/gpu_bridge.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -67,7 +68,7 @@ float game_ui_facility_details(GameApp *a, const CoreBuildingView *b, float x, f
 void game_ui_building_hover(GameApp *a) {
     if (a->ui.tooltip[0] || a->panel != PANEL_NONE || !a->in_game)
         return;
-    Vector2 mouse = GetMousePosition(), world = GetScreenToWorld2D(mouse, a->camera);
+    Vector2 mouse = GetMousePosition(), world = GetScreenToWorld2D(mouse, game_gpu_screen_camera(a));
     if (mouse.y < 132 || mouse.y >= GetScreenHeight() - 248 || mouse.x >= GetScreenWidth() - 350)
         return;
     for (int i = a->session.villager_count - 1; i >= 0; i--) {

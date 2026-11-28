@@ -1,4 +1,7 @@
 #include "pipeline.h"
+#include "lighting_lab.h"
+#include "lighting_pixels.h"
+#include "gpu_scenery.h"
 /* interface — 현재 아트 파이프라인 단계 */
 #include "raylib.h"
 #include "storage.h"
@@ -173,6 +176,10 @@ int art_stage_interface(int argc, char **argv) {
         portraits(out);
         sheet(art_input("effects"), out, "combat_fx.png", 6, 8, 128, 0);
         sheet(art_input("effects"), out, "factions.png", 3, 2, 128, 1);
+        errors += art_lighting_bake(art_input("lighting_lab/materials.png"), out);
+        errors += art_pixel_lighting(art_input("lighting_pixels"), out);
+        errors += art_gpu_scenery(art_input("gpu_scenery/masks.txt"), out);
+        errors += art_gpu_contacts(art_input("gpu_scenery/contacts.txt"), out);
     }
     return errors ? 1 : 0;
 }

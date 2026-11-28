@@ -14,3 +14,7 @@ CMakeLists.txt text eol=lf
 # 외부 권리 원문의 탭·줄끝도 그대로 유지합니다.
 art/sources/licenses/** -whitespace
 game/assets/licenses/** -whitespace
+
+# Windows 측정 원문과 도표 생성기의 벡터 출력은 줄끝·공백까지 보존합니다.
+docs/benchmarks/rtx4060_summary.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+docs/art/scenery_palette.svg -text -whitespace

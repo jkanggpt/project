@@ -1,5 +1,7 @@
 # 메인 화면
 
+세계 스프라이트 전체의 알베도·법선 확장과 검사 기록은 [SPRITE_MATERIALS.md](SPRITE_MATERIALS.md)에 있습니다. 제목 배경과 새 게임·튜토리얼·불러온 영지는 같은 재료 캐시를 사용합니다.
+
 `docs/PLAN_MAIN_SCREEN_TUTORIAL.md` 5.1의 구현과 검사 기록입니다. Phase 0 병합 커밋 `27054e7`에서 만든 `codex/main-screen` 브랜치에서 작업합니다. PR 대상은 `codex/structure-cleanup`이며 병합은 사용자가 합니다.
 
 ## 구현

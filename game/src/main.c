@@ -4,6 +4,7 @@
 #include "format.h"
 #include "platform.h"
 #include "sim.h"
+#include "render/gpu_bridge.h"
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
@@ -15,6 +16,7 @@
 typedef struct Options {
     const char *data, *assets, *save_dir, *screenshot, *screen;
     int seed, difficulty, days, smoke, stress, probe, frames, no_audio, width, height, autoplay, wildlife;
+    int gpu_transitions;
 } Options;
 static int number(const char *text, int min, int max, int *out) {
     char *end;
@@ -31,8 +33,10 @@ static void help(void) {
          "  --smoke-test [--days 20] [--seed 42]  C runtime test without a window\n"
          "  --stress | --stress-probe              150 villagers + 40 enemies\n"
          "  --screenshot file.png [--screen "
-         "title|tutorial|tutorial_build|game|villagers|uniforms|farms|population|rotations|connections|research|rank|market|load]\n"
+         "title|tutorial|tutorial_build|game|villagers|uniforms|farms|population|rotations|connections|"
+         "research|rank|market|load]\n"
          "  --frames N --autoplay --no-audio --width 1440 --height 900\n"
+         u8"  --gpu-transitions N                  GPU 화면·자원 반복 검사\n"
          "  --difficulty peaceful|normal|harsh (or 0|1|2)");
 }
 static int capture_scene_needs_town(const char *name) {
@@ -109,6 +113,9 @@ static int options(int argc, char **argv, Options *o) {
         } else if (!strcmp(arg, "--frames")) {
             if (!number(argv[++i], 1, 1000000, &o->frames))
                 return 0;
+        } else if (!strcmp(arg, "--gpu-transitions")) {
+            if (!number(argv[++i], 1, 1000, &o->gpu_transitions))
+                return 0;
         } else if (!strcmp(arg, "--stress-animals")) {
             if (!number(argv[++i], 360, 420, &o->wildlife) || (o->wildlife != 360 && o->wildlife != 420))
                 return 0;
@@ -131,10 +138,14 @@ static int options(int argc, char **argv, Options *o) {
         } else
             return 0;
     }
+    if (o->gpu_transitions) {
+        if (o->smoke || o->stress || o->screenshot || o->frames)
+            return 0;
+        o->frames = o->gpu_transitions * 24;
+    }
     if (!capture_scene_known(o->screen) && strcmp(o->screen, "title") && strcmp(o->screen, "tutorial") &&
-        strcmp(o->screen, "tutorial_build") &&
-        strcmp(o->screen, "game") && strcmp(o->screen, "villagers") && strcmp(o->screen, "population") &&
-        strcmp(o->screen, "rotations") &&
+        strcmp(o->screen, "tutorial_build") && strcmp(o->screen, "game") && strcmp(o->screen, "villagers") &&
+        strcmp(o->screen, "population") && strcmp(o->screen, "rotations") &&
         strcmp(o->screen, "connections") && strcmp(o->screen, "research") && strcmp(o->screen, "rank") &&
         strcmp(o->screen, "market") && strcmp(o->screen, "load") && strcmp(o->screen, "uniforms") &&
         strcmp(o->screen, "farms") && strcmp(o->screen, "raid") && strcmp(o->screen, "alerts") &&
@@ -194,6 +205,7 @@ void game_app_close(GameApp *a) {
     a->ui.focus = 0;
 }
 static void enter_game(GameApp *a) {
+    game_gpu_new_world();
     game_main_menu_enter(a);
     a->in_game = 1;
     a->panel = PANEL_NONE;
@@ -213,6 +225,35 @@ static void enter_game(GameApp *a) {
     a->autosave_day = a->session.summary.day;
     a->autosave_pending = 0;
     a->notice_count = 0;
+}
+/* 창과 같은 진입점을 반복해 통과하되 검사 저장은 별도 폴더에만 기록합니다. */
+static int gpu_transition(GameApp *a, int stage) {
+    int okay = 1;
+    switch (stage) {
+    case 0:
+        okay = game_app_start(a);
+        if (okay)
+            okay = game_app_save(a, 0) == CORE_OK && game_app_save(a, 1) == CORE_OK;
+        break;
+    case 2:
+        okay = game_tutorial_start(a);
+        break;
+    case 4: {
+        int slot = game_app_latest(a);
+        okay = slot >= 0 && game_app_load(a, slot, 0);
+        break;
+    }
+    case 6:
+        okay = game_app_load(a, 1, 0);
+        break;
+    default:
+        a->in_game = 0;
+        a->panel = PANEL_TITLE;
+        a->speed = 0;
+        break;
+    }
+    a->speed = 0;
+    return okay;
 }
 int game_app_start(GameApp *a) {
     int seed = (int)((unsigned long)time(NULL) & 0x7FFFFFFFul), rc;
@@ -888,7 +929,9 @@ static int run(int argc, char **argv) {
         }
         strcpy(a->save_dir, o.save_dir);
     } else if (!game_join_path(a->save_dir, sizeof(a->save_dir), a->automated ? exe : a->user_dir,
-                               a->automated ? "saves_automated" : "saves")) {
+                               o.gpu_transitions ? "gpu_transition_saves"
+                               : a->automated    ? "saves_automated"
+                                                 : "saves")) {
         free(a);
         return 1;
     }
@@ -920,8 +963,20 @@ static int run(int argc, char **argv) {
     SetWindowMinSize(800, 576);
     SetExitKey(KEY_NULL);
     SetTargetFPS(o.probe ? 0 : 60);
-    if (!IsWindowReady() || !game_assets_load(&a->assets, o.assets ? o.assets : assets, !o.no_audio)) {
-        fprintf(stderr, u8"게임 리소스를 읽지 못했습니다. --assets로 assets 폴더를 지정하세요.\n");
+    int window_ready = IsWindowReady();
+    int assets_ready =
+        window_ready && game_assets_load(&a->assets, o.assets ? o.assets : assets, !o.no_audio);
+    int graphics_ready = assets_ready && game_gpu_initialize(a, o.assets ? o.assets : assets);
+    if (!graphics_ready) {
+        if (!window_ready)
+            fprintf(stderr, u8"게임 창을 열지 못했습니다. OpenGL 4.3 이상 그래픽 드라이버를 확인하세요.\n");
+        else if (!assets_ready)
+            fprintf(stderr, u8"게임 리소스를 읽지 못했습니다. --assets로 assets 폴더를 지정하세요.\n");
+        else
+            fprintf(
+                stderr,
+                u8"GPU 풍경을 초기화하지 못했습니다. OpenGL 4.3 이상 드라이버와 조명 자료를 확인하세요.\n");
+        game_gpu_shutdown();
         game_assets_free(&a->assets);
         if (IsWindowReady())
             CloseWindow();
@@ -936,7 +991,7 @@ static int run(int argc, char **argv) {
     a->camera = (Camera2D){{o.width * 0.5f - 160, o.height * 0.5f}, {48 * 16, 48 * 16}, 0, 3};
     a->panel = PANEL_TITLE;
     game_main_menu_update(a, 0);
-    if (o.stress || (o.frames && !o.screenshot)) {
+    if (o.stress || (o.frames && !o.screenshot && !o.gpu_transitions)) {
         (void)game_app_start(a);
         if (o.stress) {
             (void)core_debug_stress(a->session.world, 150, 40);
@@ -967,6 +1022,10 @@ static int run(int argc, char **argv) {
             break;
         }
         frame++;
+        if (o.gpu_transitions && (frame - 1) % 3 == 0 && !gpu_transition(a, ((frame - 1) / 3) % 8)) {
+            status = 1;
+            break;
+        }
         a->camera.offset = (Vector2){(GetScreenWidth() - 350) * 0.5f, GetScreenHeight() * 0.5f};
         for (i = 0; i < a->notice_count; i++)
             a->notices[i].age += delta;
@@ -1037,6 +1096,11 @@ static int run(int argc, char **argv) {
             game_render_interface(a);
         }
         EndDrawing();
+        if (game_gpu_failed()) {
+            fprintf(stderr, u8"GPU 풍경 그리기에 실패하여 게임을 종료합니다.\n");
+            status = 1;
+            break;
+        }
         render_ms = (GetTime() - render_started) * 1000;
         /* 일시정지 중의 명령도 다음 프레임 전에 스냅숏에 반영합니다. */
         if (game_session_refresh(&a->session) != CORE_OK) {
@@ -1071,6 +1135,10 @@ static int run(int argc, char **argv) {
             status = game_screenshot(o.screenshot) ? 0 : 1;
             break;
         }
+        if (o.gpu_transitions && frame % 24 == 0 && game_gpu_transition_checkpoint(frame == 24)) {
+            status = 1;
+            break;
+        }
         if (o.frames && frame >= o.frames)
             break;
     }
@@ -1096,7 +1164,16 @@ static int run(int argc, char **argv) {
         (void)game_make_dirs(a->user_dir);
         (void)game_settings_save(&a->settings, a->settings_path);
     }
+    if (o.gpu_transitions)
+        status |= game_gpu_validate();
     game_render_free(a);
+    if (o.gpu_transitions) {
+        unsigned int remaining = game_gpu_live_resources();
+        printf("GPU TRANSITIONS: cycles=%d frames=%d remaining=%u errors=%d\n", o.gpu_transitions, frame,
+               remaining, status != 0);
+        if (remaining)
+            status = 1;
+    }
     game_assets_free(&a->assets);
     CloseWindow();
     game_session_free(&a->session);
